@@ -9,19 +9,28 @@ import java.util.Collection;
 import java.util.Map;
 
 public class ElectrumJson extends Json {
+    protected void _defineJsonRpc() {
+        this.put("jsonrpc", "2.0");
+    }
+
     public ElectrumJson(final JSONObject jsonObject) {
         super(jsonObject);
+
+        _defineJsonRpc();
     }
 
     public ElectrumJson(final JSONArray jsonArray) {
         super(jsonArray);
     }
 
-    public ElectrumJson() {
-    }
+    public ElectrumJson() { }
 
     public ElectrumJson(final Boolean isArray) {
         super(isArray);
+
+        if (! isArray) {
+            _defineJsonRpc();
+        }
     }
 
     public <T> ElectrumJson(final Collection<T> c) {
@@ -30,6 +39,8 @@ public class ElectrumJson extends Json {
 
     public <T> ElectrumJson(final Map<String, T> keyValueMap) {
         super(keyValueMap);
+
+        _defineJsonRpc();
     }
 
     @Override

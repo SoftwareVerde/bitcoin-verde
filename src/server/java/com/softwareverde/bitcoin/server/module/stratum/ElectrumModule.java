@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module.stratum;
 
 import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.merkleroot.MerkleTree;
 import com.softwareverde.bitcoin.block.merkleroot.MerkleTreeNode;
@@ -13,7 +14,6 @@ import com.softwareverde.bitcoin.server.message.type.query.header.RequestBlockHe
 import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.HeadersBootstrapper;
 import com.softwareverde.bitcoin.server.module.stratum.json.ElectrumJson;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
@@ -42,11 +42,50 @@ public class ElectrumModule {
     protected final MutableList<BlockHeader> _cachedBlockHeaders = new MutableList<>(0);
     protected Long _chainHeight = 0L;
 
-    protected final NodeJsonRpcConnection _getNodeConnection() {
+    protected final Thread _nodeNotificationConnectionThread;
+    protected NodeJsonRpcConnection _nodeNotificationConnection;
+
+    protected NodeJsonRpcConnection _getNodeConnection() {
         final String nodeHost = _electrumProperties.getBitcoinRpcUrl();
         final Integer nodePort = _electrumProperties.getBitcoinRpcPort();
-        System.out.println("Connect: " + nodeHost + ":" + nodePort);
+        Logger.trace("Connect: " + nodeHost + ":" + nodePort);
         return new NodeJsonRpcConnection(nodeHost, nodePort, _threadPool);
+    }
+
+    protected void _createNodeNotificationConnection() {
+        if (_nodeNotificationConnection != null) {
+            _nodeNotificationConnection.close();
+            _nodeNotificationConnection = null;
+        }
+
+        final NodeJsonRpcConnection nodeJsonRpcConnection = _getNodeConnection();
+        _nodeNotificationConnection = nodeJsonRpcConnection;
+
+        nodeJsonRpcConnection.upgradeToAnnouncementHook(new NodeJsonRpcConnection.RawAnnouncementHookCallback() {
+            @Override
+            public void onNewBlockHeader(final BlockHeader blockHeader) {
+                final Sha256Hash blockHash = blockHeader.getHash();
+
+                final Long blockHeight;
+                try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
+                    final Json blockHeightJson = nodeConnection.getBlockHeaderHeight(blockHash);
+                    blockHeight = blockHeightJson.getLong("blockHeaderHeight");
+                }
+
+                Logger.debug("New Header: " + blockHash + " " + blockHeight);
+
+                synchronized (_connections) {
+                    for (final JsonSocket socket : _connections) {
+                        _notifyBlockHeader(socket, blockHeader, blockHeight);
+                    }
+                }
+            }
+
+            @Override
+            public void onNewTransaction(final Transaction transaction, final Long fee) {
+
+            }
+        });
     }
 
     protected Long _loadBootstrappedHeaders() {
@@ -100,7 +139,7 @@ public class ElectrumModule {
                 final Json blockHeadersJson = nodeConnection.getBlockHeadersAfter(blockHeight, RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT, true);
                 final Json blockHeadersArray = blockHeadersJson.get("blockHeaders");
                 final int blockHeaderCount = blockHeadersArray.length();
-                System.out.println("Received " + blockHeaderCount + " headers, starting at: " + blockHeight + " max=" + maxBlockHeight);
+                Logger.debug("Received " + blockHeaderCount + " headers, starting at: " + blockHeight + " max=" + maxBlockHeight);
                 for (int i = 0; i < blockHeaderCount; ++i) {
                     final String blockHeaderString = blockHeadersArray.getString(i);
                     final BlockHeader blockHeader = blockHeaderInflater.fromBytes(ByteArray.fromHexString(blockHeaderString));
@@ -136,7 +175,7 @@ public class ElectrumModule {
                 final Json blockHeadersJson = nodeConnection.getBlockHeadersAfter(blockHeight, RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT, true);
                 final Json blockHeadersArray = blockHeadersJson.get("blockHeaders");
                 final int blockHeaderCount = blockHeadersArray.length();
-                System.out.println("Received " + blockHeaderCount + " headers, starting at: " + blockHeight + " max=" + maxBlockHeight);
+                Logger.debug("Received " + blockHeaderCount + " headers, starting at: " + blockHeight + " max=" + maxBlockHeight);
                 for (int i = 0; i < blockHeaderCount; ++i) {
                     final String blockHeaderString = blockHeadersArray.getString(i);
                     final BlockHeader blockHeader = blockHeaderInflater.fromBytes(ByteArray.fromHexString(blockHeaderString));
@@ -148,7 +187,7 @@ public class ElectrumModule {
             }
         }
 
-        System.out.println("Calculated: " + blockHeaderMerkleTree.getMerkleRoot());
+        Logger.trace("Calculated: " + blockHeaderMerkleTree.getMerkleRoot());
         return blockHeaderMerkleTree;
     }
 
@@ -179,6 +218,7 @@ public class ElectrumModule {
         json.put("id", id);
         json.put("result", resultJson);
         jsonSocket.write(new JsonProtocolMessage(json));
+        Logger.debug("Wrote: " + json);
         jsonSocket.flush();
     }
 
@@ -190,6 +230,7 @@ public class ElectrumModule {
         json.put("id", id);
         json.put("result", "ElectrumVerde 1.0.0");
         jsonSocket.write(new JsonProtocolMessage(json));
+        Logger.debug("Wrote: " + json);
         jsonSocket.flush();
     }
 
@@ -201,6 +242,19 @@ public class ElectrumModule {
         json.put("id", id);
         json.put("result", "qqverdefl9xtryyx8y52m6va5j8s2s4eq59fjdn97e");
         jsonSocket.write(new JsonProtocolMessage(json));
+        Logger.debug("Wrote: " + json);
+        jsonSocket.flush();
+    }
+
+    protected void _handlePingMessage(final JsonSocket jsonSocket, final Json message) {
+        final Integer id = message.getInteger("id");
+
+        final Json json = new ElectrumJson(false);
+
+        json.put("id", id);
+        json.put("result", null);
+        jsonSocket.write(new JsonProtocolMessage(json));
+        Logger.debug("Wrote: " + json);
         jsonSocket.flush();
     }
 
@@ -212,6 +266,26 @@ public class ElectrumModule {
         json.put("id", id);
         json.put("result", 1000D / Transaction.SATOSHIS_PER_BITCOIN); // Float; in Bitcoins, not Satoshis...
         jsonSocket.write(new JsonProtocolMessage(json));
+        Logger.debug("Wrote: " + json);
+        jsonSocket.flush();
+    }
+
+    protected void _notifyBlockHeader(final JsonSocket jsonSocket, final BlockHeader blockHeader, final Long blockHeight) {
+        final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
+        final ByteArray blockHeaderBytes = blockHeaderDeflater.toBytes(blockHeader);
+
+        final Json blockHeaderJson = new ElectrumJson(false);
+        blockHeaderJson.put("height", blockHeight);
+        blockHeaderJson.put("hex", blockHeaderBytes);
+
+        final Json paramsJson = new ElectrumJson(true);
+        paramsJson.add(blockHeaderJson);
+
+        final Json json = new ElectrumJson(false);
+        json.put("method", "blockchain.headers.subscribe");
+        json.put("params", paramsJson);
+        jsonSocket.write(new JsonProtocolMessage(json));
+        Logger.debug("Wrote: " + json);
         jsonSocket.flush();
     }
 
@@ -239,27 +313,12 @@ public class ElectrumModule {
         blockHeaderJson.put("height", blockHeight);
         blockHeaderJson.put("hex", blockHeaderBytes);
 
-        {
-            final Json json = new ElectrumJson(false);
-            json.put("id", id);
-            json.put("result", blockHeaderJson);
-            jsonSocket.write(new JsonProtocolMessage(json));
-            Logger.debug("Wrote: " + json);
-            jsonSocket.flush();
-        }
-
-//        {
-//            final Json paramsJson = new ElectrumJson(true);
-//            paramsJson.add(blockHeaderJson);
-//
-//            final Json json = new ElectrumJson(false);
-//            // json.put("jsonrpc", "2.0");
-//            json.put("method", "blockchain.headers.subscribe");
-//            json.put("params", paramsJson);
-//            jsonSocket.write(new JsonProtocolMessage(json));
-//            Logger.debug("Wrote: " + json);
-//            jsonSocket.flush();
-//        }
+        final Json json = new ElectrumJson(false);
+        json.put("id", id);
+        json.put("result", blockHeaderJson);
+        jsonSocket.write(new JsonProtocolMessage(json));
+        Logger.debug("Wrote: " + json);
+        jsonSocket.flush();
     }
 
     protected static class GetBlockHeadersResult {
@@ -427,6 +486,7 @@ public class ElectrumModule {
         json.put("id", id);
         json.put("result", new ElectrumJson(true));
         jsonSocket.write(new JsonProtocolMessage(json));
+        Logger.debug("Wrote: " + json);
         jsonSocket.flush();
     }
 
@@ -452,6 +512,9 @@ public class ElectrumModule {
                     } break;
                     case "server.donation_address": {
                         _handleDonationAddressMessage(jsonSocket, jsonMessage);
+                    } break;
+                    case "server.ping": {
+                        _handlePingMessage(jsonSocket, jsonMessage);
                     } break;
                     case "blockchain.relayfee": {
                         _handleMinimumRelayFeeMessage(jsonSocket, jsonMessage);
@@ -527,19 +590,36 @@ public class ElectrumModule {
             }
         });
 
-        // final Long cachedBlockHeaderMerkleTreeBlockHeight = 700000L; // 600000L;
-        // _cachedBlockHeaderMerkleTree = _calculateCheckpointMerkle(cachedBlockHeaderMerkleTreeBlockHeight);
-        // _cachedBlockHeaderMerkleTreeBlockHeight = cachedBlockHeaderMerkleTreeBlockHeight;
-        // _cachedBlockHeaderMerkleTree = _calculateCheckpointMerkle(cachedBlockHeaderMerkleTreeBlockHeight);
-        // _cachedBlockHeaderMerkleTreeBlockHeight = cachedBlockHeaderMerkleTreeBlockHeight;
+        _nodeNotificationConnectionThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                final Thread thread = Thread.currentThread();
+                while (! thread.isInterrupted()) {
+                    try {
+                        Thread.sleep(15000L);
+                    }
+                    catch (final InterruptedException exception) {
+                        return;
+                    }
 
-        _cacheBlockHeaders();
+                    if ( (_nodeNotificationConnection == null) || (! _nodeNotificationConnection.isConnected()) ) {
+                        _createNodeNotificationConnection();
+                    }
+                }
+            }
+        });
+        _nodeNotificationConnectionThread.setName("Node Notification Connection Maintenance Thread");
+        _nodeNotificationConnectionThread.setDaemon(true);
     }
 
     public void loop() {
         final Thread mainThread = Thread.currentThread();
 
         _threadPool.start();
+
+        _cacheBlockHeaders();
+        _createNodeNotificationConnection();
+
         _electrumServerSocket.start();
 
         final Integer port = _electrumProperties.getHttpPort();
@@ -551,6 +631,26 @@ public class ElectrumModule {
 
         while (! mainThread.isInterrupted()) {
             try { Thread.sleep(10000L); } catch (final Exception exception) { }
+        }
+
+        _electrumServerSocket.stop();
+
+        synchronized (_connections) {
+            for (final JsonSocket socket : _connections) {
+                socket.close();
+            }
+            _connections.clear();
+        }
+
+        _nodeNotificationConnectionThread.interrupt();
+        try {
+            _nodeNotificationConnectionThread.join(30000L);
+        }
+        catch (final Exception exception) { }
+
+        if (_nodeNotificationConnection != null) {
+            _nodeNotificationConnection.close();
+            _nodeNotificationConnection = null;
         }
 
         _threadPool.stop();

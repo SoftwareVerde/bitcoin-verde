@@ -182,7 +182,7 @@ public class ChainValidationModule {
                     }
                 }
                 blockInflaterTimer.stop();
-                System.out.println("Block Inflation: " +  block.getHash() + " " + blockInflaterTimer.getMillisecondsElapsed() + "ms");
+                Logger.debug("Block Inflation: " +  block.getHash() + " " + blockInflaterTimer.getMillisecondsElapsed() + "ms");
 
                 validatedTransactionCount += blockDatabaseManager.getTransactionCount(blockId);
 
