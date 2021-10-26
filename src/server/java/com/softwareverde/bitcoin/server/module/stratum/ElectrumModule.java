@@ -240,17 +240,26 @@ public class ElectrumModule {
         blockHeaderJson.put("hex", blockHeaderBytes);
 
         {
-            final Json paramsJson = new ElectrumJson(true);
-            paramsJson.add(blockHeaderJson);
-
             final Json json = new ElectrumJson(false);
-            // json.put("jsonrpc", "2.0");
-            json.put("method", "blockchain.headers.subscribe");
-            json.put("params", paramsJson);
+            json.put("id", id);
+            json.put("result", blockHeaderJson);
             jsonSocket.write(new JsonProtocolMessage(json));
             Logger.debug("Wrote: " + json);
             jsonSocket.flush();
         }
+
+//        {
+//            final Json paramsJson = new ElectrumJson(true);
+//            paramsJson.add(blockHeaderJson);
+//
+//            final Json json = new ElectrumJson(false);
+//            // json.put("jsonrpc", "2.0");
+//            json.put("method", "blockchain.headers.subscribe");
+//            json.put("params", paramsJson);
+//            jsonSocket.write(new JsonProtocolMessage(json));
+//            Logger.debug("Wrote: " + json);
+//            jsonSocket.flush();
+//        }
     }
 
     protected static class GetBlockHeadersResult {
@@ -384,19 +393,28 @@ public class ElectrumModule {
         for (int i = 0; i < paramsJson.length(); ++i) {
             final String addressString = paramsJson.getString(i);
 
-            final Json notificationJson = new ElectrumJson(false);
+            {
+                final Json json = new ElectrumJson(false);
+                json.put("id", id);
+                json.put("result", null);
 
-            final Json responseJson = new ElectrumJson(true);
-            responseJson.add(addressString);
-            responseJson.add(null);
+                jsonSocket.write(new JsonProtocolMessage(json));
+                Logger.debug("Wrote: " + json);
+                jsonSocket.flush();
+            }
 
-            // notificationJson.put("id", id);
-            // notificationJson.put("result", responseJson);
-
-            notificationJson.put("method", "blockchain.scripthash.subscribe");
-            notificationJson.put("params", responseJson);
-            jsonSocket.write(new JsonProtocolMessage(notificationJson));
-            Logger.debug("Wrote: " + notificationJson);
+//            {
+//                final Json responseJson = new ElectrumJson(true);
+//                responseJson.add(addressString);
+//                responseJson.add(null);
+//
+//                final Json notificationJson = new ElectrumJson(false);
+//                notificationJson.put("method", "blockchain.scripthash.subscribe");
+//                notificationJson.put("params", responseJson);
+//                jsonSocket.write(new JsonProtocolMessage(notificationJson));
+//                Logger.debug("Wrote: " + notificationJson);
+//                jsonSocket.flush();
+//            }
         }
         jsonSocket.flush();
     }
