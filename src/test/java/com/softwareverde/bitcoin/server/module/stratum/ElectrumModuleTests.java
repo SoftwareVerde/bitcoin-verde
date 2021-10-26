@@ -10,7 +10,6 @@ import com.softwareverde.logging.Logger;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Test;
 
 public class ElectrumModuleTests extends UnitTest {
     @Before
@@ -25,7 +24,7 @@ public class ElectrumModuleTests extends UnitTest {
         super.after();
     }
 
-    @Test
+    // @Test
     public void should_create_electrum_block_header_merkle_root() {
         // Setup
         final ElectrumProperties electrumProperties = new ElectrumProperties() {{

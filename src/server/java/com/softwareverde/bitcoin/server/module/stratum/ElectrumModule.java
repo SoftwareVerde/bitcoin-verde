@@ -10,9 +10,13 @@ import com.softwareverde.bitcoin.rpc.NodeJsonRpcConnection;
 import com.softwareverde.bitcoin.server.configuration.ElectrumProperties;
 import com.softwareverde.bitcoin.server.electrum.socket.ElectrumServerSocket;
 import com.softwareverde.bitcoin.server.message.type.query.header.RequestBlockHeadersMessage;
+import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.HeadersBootstrapper;
 import com.softwareverde.bitcoin.server.module.stratum.json.ElectrumJson;
+import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -26,6 +30,8 @@ import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
 
+import java.io.InputStream;
+
 public class ElectrumModule {
     protected final ElectrumProperties _electrumProperties;
     protected final Boolean _tlsIsEnabled;
@@ -33,8 +39,8 @@ public class ElectrumModule {
     protected final ElectrumServerSocket _electrumServerSocket;
     protected final MutableList<JsonSocket> _connections = new MutableList<>();
 
-    protected final MerkleTree<BlockHeader> _cachedBlockHeaderMerkleTree;
-    protected final Long _cachedBlockHeaderMerkleTreeBlockHeight;
+    protected final MutableList<BlockHeader> _cachedBlockHeaders = new MutableList<>(0);
+    protected Long _chainHeight = 0L;
 
     protected final NodeJsonRpcConnection _getNodeConnection() {
         final String nodeHost = _electrumProperties.getBitcoinRpcUrl();
@@ -43,19 +49,83 @@ public class ElectrumModule {
         return new NodeJsonRpcConnection(nodeHost, nodePort, _threadPool);
     }
 
+    protected Long _loadBootstrappedHeaders() {
+        long blockHeight = -1L;
+
+        final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
+        try (final InputStream inputStream = HeadersBootstrapper.class.getResourceAsStream("/bootstrap/headers.dat")) {
+            if (inputStream == null) {
+                Logger.warn("Unable to open headers bootstrap file.");
+                return blockHeight;
+            }
+
+            final MutableByteArray buffer = new MutableByteArray(BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT);
+            while (true) {
+                int readByteCount = inputStream.read(buffer.unwrap());
+                while ((readByteCount >= 0) && (readByteCount < BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT)) {
+                    final int nextByte = inputStream.read();
+                    if (nextByte < 0) { break; }
+
+                    buffer.setByte(readByteCount, (byte) nextByte);
+                    readByteCount += 1;
+                }
+                if (readByteCount != BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT) { return blockHeight; }
+
+                final BlockHeader blockHeader = blockHeaderInflater.fromBytes(buffer);
+                if (blockHeader == null) { return blockHeight; }
+
+                _cachedBlockHeaders.add(blockHeader);
+                blockHeight += 1L;
+            }
+        }
+        catch (final Exception exception) {
+            Logger.warn(exception);
+        }
+
+        return blockHeight;
+    }
+
+    protected void _cacheBlockHeaders() {
+        final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
+        try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
+            nodeConnection.enableKeepAlive(true);
+
+            final Json blockHeightJson = nodeConnection.getBlockHeight();
+            _chainHeight = blockHeightJson.getLong("blockHeight");
+            _cachedBlockHeaders.clear();
+
+            final long maxBlockHeight = Math.max(0L, _chainHeight - RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT);
+            long blockHeight = (_loadBootstrappedHeaders() + 1L);
+            while (blockHeight <= maxBlockHeight) {
+                final Json blockHeadersJson = nodeConnection.getBlockHeadersAfter(blockHeight, RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT, true);
+                final Json blockHeadersArray = blockHeadersJson.get("blockHeaders");
+                final int blockHeaderCount = blockHeadersArray.length();
+                System.out.println("Received " + blockHeaderCount + " headers, starting at: " + blockHeight + " max=" + maxBlockHeight);
+                for (int i = 0; i < blockHeaderCount; ++i) {
+                    final String blockHeaderString = blockHeadersArray.getString(i);
+                    final BlockHeader blockHeader = blockHeaderInflater.fromBytes(ByteArray.fromHexString(blockHeaderString));
+                    _cachedBlockHeaders.add(blockHeader);
+                    blockHeight += 1L;
+
+                    if (blockHeight > maxBlockHeight) { break; } // Include the maxBlockHeight block...
+                }
+            }
+        }
+    }
+
     protected MerkleTree<BlockHeader> _calculateCheckpointMerkle(final Long maxBlockHeight) {
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
-        final MutableMerkleTree<BlockHeader> blockHeaderMerkleTree;
+        final MutableMerkleTree<BlockHeader> blockHeaderMerkleTree = new MerkleTreeNode<>();
         long blockHeight;
         {
             blockHeight = 0L;
-            blockHeaderMerkleTree = new MerkleTreeNode<>();
-            if (_cachedBlockHeaderMerkleTree != null) {
-                for (final BlockHeader blockHeader : _cachedBlockHeaderMerkleTree.getItems()) {
-                    blockHeaderMerkleTree.addItem(blockHeader);
-                }
-                blockHeight = (_cachedBlockHeaderMerkleTreeBlockHeight + 1L);
+            while (blockHeight < maxBlockHeight) {
+                if (blockHeight >= _cachedBlockHeaders.getCount()) { break; }
+
+                final BlockHeader blockHeader = _cachedBlockHeaders.get((int) blockHeight);
+                blockHeaderMerkleTree.addItem(blockHeader);
+                blockHeight += 1L;
             }
         }
 
@@ -140,7 +210,7 @@ public class ElectrumModule {
         final Json json = new ElectrumJson(false);
 
         json.put("id", id);
-        json.put("result", "0.0"); // Float; in Bitcoins, not Satoshis...
+        json.put("result", 1000D / Transaction.SATOSHIS_PER_BITCOIN); // Float; in Bitcoins, not Satoshis...
         jsonSocket.write(new JsonProtocolMessage(json));
         jsonSocket.flush();
     }
@@ -167,8 +237,7 @@ public class ElectrumModule {
 
         final Json blockHeaderJson = new ElectrumJson(false);
         blockHeaderJson.put("height", blockHeight);
-        // BlockHeader MUST be LE...
-        blockHeaderJson.put("hex", blockHeaderBytes.toReverseEndian());
+        blockHeaderJson.put("hex", blockHeaderBytes);
 
         {
             final Json paramsJson = new ElectrumJson(true);
@@ -184,6 +253,55 @@ public class ElectrumModule {
         }
     }
 
+    protected static class GetBlockHeadersResult {
+        public final int blockHeaderCount;
+        public final String blockHeadersHex;
+        public final MerkleRoot blockHeadersMerkleRoot;
+        public final List<Sha256Hash> blockHeadersPartialMerkleTree;
+
+        public GetBlockHeadersResult(final int blockHeaderCount, final String blockHeadersHex, final MerkleRoot blockHeadersMerkleRoot, final List<Sha256Hash> blockHeadersPartialMerkleTree) {
+            this.blockHeaderCount = blockHeaderCount;
+            this.blockHeadersHex = blockHeadersHex;
+            this.blockHeadersMerkleRoot = blockHeadersMerkleRoot;
+            this.blockHeadersPartialMerkleTree = blockHeadersPartialMerkleTree;
+        }
+    }
+
+    protected GetBlockHeadersResult _getBlockHeaders(final Long requestedBlockHeight, final Integer requestedBlockCount, final Long checkpointBlockHeight) {
+        final int blockHeaderCount;
+        final String concatenatedHeadersHexString;
+        try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
+            final Json blockHeadersJson = nodeConnection.getBlockHeadersAfter(requestedBlockHeight, requestedBlockCount, true);
+
+            final Json blockHeadersArray = blockHeadersJson.get("blockHeaders");
+            blockHeaderCount = blockHeadersArray.length();
+            final StringBuilder headerStringBuilder = new StringBuilder();
+            for (int i = 0; i < blockHeaderCount; ++i) {
+                final String blockHeaderHexString = blockHeadersArray.getString(i);
+                headerStringBuilder.append(blockHeaderHexString.toLowerCase());
+            }
+
+            concatenatedHeadersHexString = headerStringBuilder.toString();
+        }
+
+        final MerkleRoot merkleRoot;
+        final List<Sha256Hash> partialMerkleTree;
+        if (checkpointBlockHeight > 0L) {
+            final MerkleTree<BlockHeader> blockHeaderMerkleTree = _calculateCheckpointMerkle(checkpointBlockHeight);
+            final int headerIndex = (blockHeaderMerkleTree.getItemCount() - 1);
+
+            merkleRoot = blockHeaderMerkleTree.getMerkleRoot();
+            partialMerkleTree = blockHeaderMerkleTree.getPartialTree(headerIndex);
+
+        }
+        else {
+            merkleRoot = null;
+            partialMerkleTree = null;
+        }
+
+        return new GetBlockHeadersResult(blockHeaderCount, concatenatedHeadersHexString, merkleRoot, partialMerkleTree);
+    }
+
     protected void _handleBlockHeadersMessage(final JsonSocket jsonSocket, final Json message) {
         final Integer id = message.getInteger("id");
 
@@ -197,37 +315,19 @@ public class ElectrumModule {
             checkpointBlockHeight = parameters.getLong(2);
         }
 
-        final int blockHeaderCount;
-        final String concatenatedHeadersHexString;
-        try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
-            final Json blockHeadersJson = nodeConnection.getBlockHeadersAfter(requestedBlockHeight, requestedBlockCount, true);
-
-            final Json blockHeadersArray = blockHeadersJson.get("blockHeaders");
-            blockHeaderCount = blockHeadersArray.length();
-            final StringBuilder headerStringBuilder = new StringBuilder();
-            for (int i = 0; i < blockHeaderCount; ++i) {
-                final String blockHeaderHexString = blockHeadersArray.getString(i);
-                headerStringBuilder.append(blockHeaderHexString);
-            }
-
-            concatenatedHeadersHexString = headerStringBuilder.toString();
-        }
+        final GetBlockHeadersResult blockHeadersResult = _getBlockHeaders(requestedBlockHeight, requestedBlockCount, checkpointBlockHeight);
 
         final Json resultJson = new ElectrumJson(false);
-        resultJson.put("count", blockHeaderCount);
-        resultJson.put("hex", concatenatedHeadersHexString);
+        resultJson.put("count", blockHeadersResult.blockHeaderCount);
+        resultJson.put("hex", blockHeadersResult.blockHeadersHex); // Confirmed correct endianness.
         resultJson.put("max", RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT);
 
         if (checkpointBlockHeight > 0L) {
-            final MerkleTree<BlockHeader> blockHeaderMerkleTree = _calculateCheckpointMerkle(checkpointBlockHeight);
+            resultJson.put("root", blockHeadersResult.blockHeadersMerkleRoot); // Confirmed correct and correct endianness.
 
-            final MerkleRoot merkleRoot = blockHeaderMerkleTree.getMerkleRoot();
-            resultJson.put("root", merkleRoot);
-
-            final List<Sha256Hash> partialMerkleTree = blockHeaderMerkleTree.getPartialTree(blockHeaderMerkleTree.getItemCount() - 1);
             final Json merkleHashesJson = new ElectrumJson(true);
-            for (final Sha256Hash merkleHash : partialMerkleTree) {
-                merkleHashesJson.add(merkleHash);
+            for (final Sha256Hash merkleHash : blockHeadersResult.blockHeadersPartialMerkleTree) {
+                merkleHashesJson.add(merkleHash); // Confirmed correct and correct endianness.
             }
             resultJson.put("branch", merkleHashesJson);
         }
@@ -235,6 +335,43 @@ public class ElectrumModule {
         final Json json = new ElectrumJson(false);
         json.put("id", id);
         json.put("result", resultJson);
+        jsonSocket.write(new JsonProtocolMessage(json));
+        Logger.debug("Wrote: " + json);
+        jsonSocket.flush();
+    }
+
+    protected void _handleBlockHeaderMessage(final JsonSocket jsonSocket, final Json message) {
+        final Integer id = message.getInteger("id");
+
+        final Long requestedBlockHeight;
+        final Long checkpointBlockHeight;
+        {
+            final Json parameters = message.get("params");
+            requestedBlockHeight = parameters.getLong(0);
+            checkpointBlockHeight = parameters.getLong(1);
+        }
+
+        final GetBlockHeadersResult blockHeadersResult = _getBlockHeaders(requestedBlockHeight, 1, checkpointBlockHeight);
+
+        final Json json = new ElectrumJson(false);
+        json.put("id", id);
+
+        if (checkpointBlockHeight > 0L) {
+            final Json resultJson = new ElectrumJson(false);
+            resultJson.put("header", blockHeadersResult.blockHeadersHex);
+            resultJson.put("root", blockHeadersResult.blockHeadersMerkleRoot);
+
+            final Json merkleHashesJson = new ElectrumJson(true);
+            for (final Sha256Hash merkleHash : blockHeadersResult.blockHeadersPartialMerkleTree) {
+                merkleHashesJson.add(merkleHash);
+            }
+            resultJson.put("branch", merkleHashesJson);
+            json.put("result", resultJson);
+        }
+        else {
+            json.put("result", blockHeadersResult.blockHeadersHex); // Confirmed correct endian.
+        }
+
         jsonSocket.write(new JsonProtocolMessage(json));
         Logger.debug("Wrote: " + json);
         jsonSocket.flush();
@@ -280,7 +417,7 @@ public class ElectrumModule {
 
         jsonSocket.setMessageReceivedCallback(new Runnable() {
             @Override
-            public void run() {
+            public synchronized void run() { // Intentionally allow only one-message at a time to force message FIFO processing.
                 final JsonProtocolMessage jsonProtocolMessage = jsonSocket.popMessage();
                 if (jsonProtocolMessage == null) { return; }
 
@@ -312,6 +449,9 @@ public class ElectrumModule {
                     } break;
                     case "blockchain.block.headers": {
                         _handleBlockHeadersMessage(jsonSocket, jsonMessage);
+                    } break;
+                    case "blockchain.block.header": {
+                        _handleBlockHeaderMessage(jsonSocket, jsonMessage);
                     } break;
                     default: {
                         Logger.debug("Received unsupported message: " + jsonMessage);
@@ -369,11 +509,13 @@ public class ElectrumModule {
             }
         });
 
-        final Long cachedBlockHeaderMerkleTreeBlockHeight = 700000L; // 600000L;
+        // final Long cachedBlockHeaderMerkleTreeBlockHeight = 700000L; // 600000L;
         // _cachedBlockHeaderMerkleTree = _calculateCheckpointMerkle(cachedBlockHeaderMerkleTreeBlockHeight);
         // _cachedBlockHeaderMerkleTreeBlockHeight = cachedBlockHeaderMerkleTreeBlockHeight;
-        _cachedBlockHeaderMerkleTree = _calculateCheckpointMerkle(cachedBlockHeaderMerkleTreeBlockHeight);
-        _cachedBlockHeaderMerkleTreeBlockHeight = cachedBlockHeaderMerkleTreeBlockHeight;
+        // _cachedBlockHeaderMerkleTree = _calculateCheckpointMerkle(cachedBlockHeaderMerkleTreeBlockHeight);
+        // _cachedBlockHeaderMerkleTreeBlockHeight = cachedBlockHeaderMerkleTreeBlockHeight;
+
+        _cacheBlockHeaders();
     }
 
     public void loop() {

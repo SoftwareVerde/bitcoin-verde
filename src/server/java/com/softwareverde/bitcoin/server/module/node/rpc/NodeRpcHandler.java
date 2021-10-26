@@ -236,7 +236,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     }
 
     protected static class JsonConnectionProperties {
-        boolean keepAliveIsEnabled = false;
+        public volatile boolean keepAliveIsEnabled = false;
     }
 
     protected final MasterInflater _masterInflater;
@@ -1998,10 +1998,9 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
     @Override
     public void run(final JsonSocket socketConnection) {
-        // _jsonConnectionProperties.put(socketConnection, new JsonConnectionProperties());
-        final JsonConnectionProperties jsonConnectionProperties = new JsonConnectionProperties();
-
         socketConnection.setMessageReceivedCallback(new Runnable() {
+            protected final JsonConnectionProperties _jsonConnectionProperties = new JsonConnectionProperties();
+
             @Override
             public void run() {
                 final JsonProtocolMessage protocolMessage = socketConnection.popMessage();
@@ -2015,7 +2014,6 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                 response.put(ERROR_MESSAGE_KEY, null);
 
                 final Json parameters = message.get("parameters");
-                boolean closeConnection = jsonConnectionProperties.keepAliveIsEnabled;
 
                 switch (method.toUpperCase()) {
                     case "GET": {
@@ -2109,11 +2107,6 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                                 _querySlpTokenId(parameters, response);
                             } break;
 
-                            case "KEEP_ALIVE": {
-                                jsonConnectionProperties.keepAliveIsEnabled = parameters.getBoolean("enableKeepAlive");
-                                closeConnection = jsonConnectionProperties.keepAliveIsEnabled;
-                            } break;
-
                             default: {
                                 response.put(ERROR_MESSAGE_KEY, "Invalid " + method + " query: " + query);
                             } break;
@@ -2151,13 +2144,11 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                             } break;
 
                             case "ADD_HOOK": {
-                                final Boolean keepSocketOpen = _addHook(parameters, response, socketConnection);
-                                closeConnection = (! keepSocketOpen);
+                                _jsonConnectionProperties.keepAliveIsEnabled = _addHook(parameters, response, socketConnection);;
                             } break;
 
                             case "UPDATE_HOOK": {
-                                final Boolean keepSocketOpen = _updateHook(parameters, response, socketConnection);
-                                closeConnection = (! keepSocketOpen);
+                                _jsonConnectionProperties.keepAliveIsEnabled = _updateHook(parameters, response, socketConnection);
                             } break;
 
                             case "TRANSACTION": {
@@ -2192,6 +2183,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                                 _clearSlpValidation(parameters, response);
                             } break;
 
+                            case "KEEP_ALIVE": {
+                                _jsonConnectionProperties.keepAliveIsEnabled = parameters.getBoolean("enableKeepAlive");
+                            } break;
+
                             // TODO: Add invalidate-block command (see: feature/invalidate-block/master).
                             // TODO: Add rebuild-UTXO set from block-height command.
 
@@ -2207,9 +2202,9 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                 }
 
                 socketConnection.write(new JsonProtocolMessage(response));
+                socketConnection.flush();
 
-                if (closeConnection) { // TODO: Allow for keeping the connection alive...
-                    socketConnection.flush();
+                if (! _jsonConnectionProperties.keepAliveIsEnabled) {
                     socketConnection.close();
                 }
             }
