@@ -579,7 +579,7 @@ public class Wallet {
 
                         // Subtract the fee for spending this output...
                         final Address addressBeingRemoved = selectedTransactionOutput.getAddress();
-                        final Long feeToSpendRemovedOutput = (addressBeingRemoved.isCompressed() ? feeToSpendOneOutput : feeToSpendOneUncompressedOutput);
+                        final long feeToSpendRemovedOutput = (addressBeingRemoved.isCompressed() ? feeToSpendOneOutput : feeToSpendOneUncompressedOutput);
                         feesToSpendOutputs.value -= feeToSpendRemovedOutput;
                     }
                 }

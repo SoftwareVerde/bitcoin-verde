@@ -67,18 +67,18 @@ public class ScriptBuilder {
     }
 
     protected void _pushBytes(final ByteArray bytes) {
-        final Integer dataByteCount = bytes.getByteCount();
+        final int dataByteCount = bytes.getByteCount();
 
         if (dataByteCount == 0) {
             // Nothing.
         }
         else if (dataByteCount <= Opcode.PUSH_DATA.getMaxValue()) {
-            _byteArrayBuilder.appendByte((byte) (dataByteCount.intValue()));
+            _byteArrayBuilder.appendByte((byte) ((int) dataByteCount));
             _byteArrayBuilder.appendBytes(bytes, Endian.BIG);
         }
         else if (dataByteCount <= 0xFFL) {
             _byteArrayBuilder.appendByte(Opcode.PUSH_DATA_BYTE.getValue());
-            _byteArrayBuilder.appendByte((byte) (dataByteCount.intValue()));
+            _byteArrayBuilder.appendByte((byte) ((int) dataByteCount));
             _byteArrayBuilder.appendBytes(bytes, Endian.BIG);
         }
         else if (dataByteCount <= 0xFFFFL) {
@@ -97,18 +97,18 @@ public class ScriptBuilder {
     protected final ByteArrayBuilder _byteArrayBuilder = new ByteArrayBuilder();
 
     public ScriptBuilder pushString(final String stringData) {
-        final Integer stringDataByteCount = stringData.length();
+        final int stringDataByteCount = stringData.length();
 
         if (stringDataByteCount == 0) {
             // Nothing.
         }
         else if (stringDataByteCount <= Opcode.PUSH_DATA.getMaxValue()) {
-            _byteArrayBuilder.appendByte((byte) (stringDataByteCount.intValue()));
+            _byteArrayBuilder.appendByte((byte) ((int) stringDataByteCount));
             _byteArrayBuilder.appendBytes(StringUtil.stringToBytes(stringData), Endian.BIG);
         }
         else if (stringDataByteCount <= 0xFFL) {
             _byteArrayBuilder.appendByte(Opcode.PUSH_DATA_BYTE.getValue());
-            _byteArrayBuilder.appendByte((byte) (stringDataByteCount.intValue()));
+            _byteArrayBuilder.appendByte((byte) ((int) stringDataByteCount));
             _byteArrayBuilder.appendBytes(StringUtil.stringToBytes(stringData), Endian.BIG);
         }
         else if (stringDataByteCount <= 0xFFFFL) {

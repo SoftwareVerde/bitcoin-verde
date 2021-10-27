@@ -31,7 +31,7 @@ public class ThinTransactionsMessageInflater extends BitcoinProtocolMessageInfla
         final Sha256Hash blockHash = MutableSha256Hash.wrap(byteArrayReader.readBytes(32, Endian.LITTLE));
         thinTransactionsMessage.setBlockHash(blockHash);
 
-        final Integer transactionCount = byteArrayReader.readVariableLengthInteger().intValue();
+        final int transactionCount = byteArrayReader.readVariableLengthInteger().intValue();
         if (transactionCount > BitcoinConstants.getMaxTransactionCountPerBlock()) { return null; }
 
         final TransactionInflater transactionInflater = _transactionInflaters.getTransactionInflater();

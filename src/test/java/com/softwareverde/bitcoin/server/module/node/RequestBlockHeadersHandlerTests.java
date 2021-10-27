@@ -202,7 +202,7 @@ public class RequestBlockHeadersHandlerTests extends IntegrationTest {
 
         final FakeBitcoinNode bitcoinNode = new FakeBitcoinNode(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool, _localNodeFeatures);
 
-        final Integer blockOffset = 0; // The block header/offset that is provided as the last known header...
+        final int blockOffset = 0; // The block header/offset that is provided as the last known header...
 
         final MutableList<Sha256Hash> blockHashes = new MutableList<>();
         blockHashes.add(allBlocks[blockOffset].getHash());
@@ -245,7 +245,7 @@ public class RequestBlockHeadersHandlerTests extends IntegrationTest {
 
         final FakeBitcoinNode bitcoinNode = new FakeBitcoinNode(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool, _localNodeFeatures);
 
-        final Integer blockOffset = 1; // The block header/offset that is provided as the last known header...
+        final int blockOffset = 1; // The block header/offset that is provided as the last known header...
 
         final MutableList<Sha256Hash> blockHashes = new MutableList<>();
         blockHashes.add(allBlocks[blockOffset].getHash());
@@ -288,7 +288,7 @@ public class RequestBlockHeadersHandlerTests extends IntegrationTest {
 
         final FakeBitcoinNode bitcoinNode = new FakeBitcoinNode(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool, _localNodeFeatures);
 
-        final Integer blockOffset = 2; // The block header/offset that is provided as the last known header...
+        final int blockOffset = 2; // The block header/offset that is provided as the last known header...
 
         final MutableList<Sha256Hash> blockHashes = new MutableList<>();
         blockHashes.add(allBlocks[blockOffset].getHash());
@@ -338,7 +338,7 @@ public class RequestBlockHeadersHandlerTests extends IntegrationTest {
             fPrimeBlock = mutableBlock;
         }
 
-        final Integer bestChainHeight = scenarioBlocks.length + 1;
+        final int bestChainHeight = scenarioBlocks.length + 1;
         final Block[] mainChainBlocks = new Block[bestChainHeight];
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 

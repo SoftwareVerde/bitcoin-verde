@@ -29,7 +29,7 @@ public class MutableBlockHeaderWithTransactionCount extends MutableBlockHeader i
 
     @Override
     public boolean equals(final Object object) {
-        final Boolean transactionCountIsEqual = BlockHeaderWithTransactionCountCore.equals(this, object);
+        final boolean transactionCountIsEqual = BlockHeaderWithTransactionCountCore.equals(this, object);
         if (! transactionCountIsEqual) { return false; }
 
         return super.equals(object);

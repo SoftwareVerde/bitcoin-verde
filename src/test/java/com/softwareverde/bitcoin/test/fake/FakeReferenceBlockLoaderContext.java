@@ -19,10 +19,10 @@ public class FakeReferenceBlockLoaderContext implements AsertReferenceBlockLoade
     protected final HashMap<BlockId, Long> _blockTimestamps = new HashMap<>();
     protected final HashMap<BlockId, Long> _blockHeights = new HashMap<>();
     protected final HashMap<BlockId, Difficulty> _difficulties = new HashMap<>();
+    protected final UpgradeSchedule _upgradeSchedule;
 
     protected Integer _lookupCount = 0;
     protected Integer _medianTimePastCalculationCount = 0;
-    private UpgradeSchedule _upgradeSchedule;
 
     public FakeReferenceBlockLoaderContext(final UpgradeSchedule upgradeSchedule) {
         _upgradeSchedule = upgradeSchedule;

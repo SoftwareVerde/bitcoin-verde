@@ -121,9 +121,9 @@ public class StratumModule {
                 final Long shareCount = _stratumServer.getShareCount();
 
                 final Long now = _systemTime.getCurrentTimeInSeconds();
-                final Long duration = (now - startTimeInSeconds);
+                final long duration = (now - startTimeInSeconds);
 
-                return (long) (shareDifficulty * hashesPerSecondMultiplier * (shareCount / duration.doubleValue()));
+                return (long) (shareDifficulty * hashesPerSecondMultiplier * (shareCount / (double) duration));
             }
         };
 

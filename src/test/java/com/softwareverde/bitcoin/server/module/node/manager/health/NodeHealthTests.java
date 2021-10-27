@@ -26,7 +26,7 @@ public class NodeHealthTests {
         final MutableNodeHealth nodeHealth = new MutableNodeHealth(NodeId.wrap(1L), fakeTime);
 
         final Long execTime = 250L;
-        final Long restTime = 0L;
+        final long restTime = 0L;
         final Long damage = (long) (execTime / MutableNodeHealth.REGEN_TO_REQUEST_TIME_RATIO);
         final Long expectedHealth = (MutableNodeHealth.FULL_HEALTH - damage + restTime);
 
@@ -71,7 +71,7 @@ public class NodeHealthTests {
         final MutableNodeHealth nodeHealth = new MutableNodeHealth(NodeId.wrap(1L), fakeTime);
 
         final Long execTime = 250L;
-        final Long restTime = 200L;
+        final long restTime = 200L;
         final Long damage = (long) (execTime / MutableNodeHealth.REGEN_TO_REQUEST_TIME_RATIO);
         final Long expectedHealth = (MutableNodeHealth.FULL_HEALTH - damage + restTime);
 
@@ -95,7 +95,7 @@ public class NodeHealthTests {
 
         final Long execCount = 2L;
         final Long execTime = 250L;
-        final Long restTime = 200L;
+        final long restTime = 200L;
         final Long damage = (long) (execTime / MutableNodeHealth.REGEN_TO_REQUEST_TIME_RATIO);
         final Long expectedHealth = (MutableNodeHealth.FULL_HEALTH - (damage * execCount) + restTime);
 

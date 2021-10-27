@@ -73,7 +73,7 @@ public class MutableTransactionInput implements TransactionInput {
         if (cachedHashCode != null) { return cachedHashCode; }
 
         final TransactionInputDeflater transactionInputDeflater = new TransactionInputDeflater();
-        final Integer hashCode = transactionInputDeflater.toBytes(this).hashCode();
+        final int hashCode = transactionInputDeflater.toBytes(this).hashCode();
         _cachedHashCode = hashCode;
         return hashCode;
     }

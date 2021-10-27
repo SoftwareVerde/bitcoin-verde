@@ -15,7 +15,7 @@ public class Ipv4 implements Ip {
     protected static byte[] _parse(final String string) {
         final String trimmedString = string.trim();
         final String strippedIp = trimmedString.replaceAll("[^0-9\\.]", "");
-        final Boolean stringContainedInvalidCharacters = (strippedIp.length() != trimmedString.length());
+        final boolean stringContainedInvalidCharacters = (strippedIp.length() != trimmedString.length());
         if (stringContainedInvalidCharacters) { return null; }
 
         final List<String> ipSegments = StringUtil.pregMatch("^([0-9]+)\\.([0-9]+)\\.([0-9]+)\\.([0-9]+)$", strippedIp);

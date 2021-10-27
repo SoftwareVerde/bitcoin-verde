@@ -371,7 +371,7 @@ public class SpvTransactionValidator {
                     if (slpScriptType == SlpScriptType.GENESIS) { // If a valid genesis is found, then the mint is successful.
                         final SlpGenesisScript slpGenesisScript = slpScriptInflater.genesisScriptFromScript(previousSlpTransactionScript);
                         final BigInteger genesisTokenAmount = slpGenesisScript.getTokenCount();
-                        final Boolean isValid = (totalSlpAmountSent.compareTo(genesisTokenAmount) <= 0);
+                        final boolean isValid = (totalSlpAmountSent.compareTo(genesisTokenAmount) <= 0);
                         if (isValid) {
                             validationMetaData.onSuccess();
                         }

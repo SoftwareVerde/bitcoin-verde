@@ -140,7 +140,7 @@ public class Value extends ImmutableByteArray implements Const {
             bigEndianBytes[0] &= (byte) 0x7F;
         }
 
-        final Integer value = ByteUtil.bytesToInteger(bigEndianBytes);
+        final int value = ByteUtil.bytesToInteger(bigEndianBytes);
         return (isNegative ? -value : value);
     }
 
@@ -155,7 +155,7 @@ public class Value extends ImmutableByteArray implements Const {
             bigEndianBytes[0] &= (byte) 0x7F;
         }
 
-        final Long value = ByteUtil.bytesToLong(bigEndianBytes);
+        final long value = ByteUtil.bytesToLong(bigEndianBytes);
         return (isNegative ? -value : value);
     }
 

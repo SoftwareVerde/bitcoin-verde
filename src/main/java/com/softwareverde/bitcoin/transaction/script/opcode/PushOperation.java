@@ -300,7 +300,7 @@ public class PushOperation extends SubTypedOperation {
 
     @Override
     public boolean equals(final Object object) {
-        final Boolean superEquals = super.equals(object);
+        final boolean superEquals = super.equals(object);
         if (! superEquals) { return false; }
 
         if (! (object instanceof PushOperation)) { return false ;}

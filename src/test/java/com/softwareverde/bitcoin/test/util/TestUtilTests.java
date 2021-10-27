@@ -39,7 +39,7 @@ public class TestUtilTests {
         // Setup
         final String maskString = "0000 0X0X 0000";
         final String string = "000011110000";
-        Boolean exceptionThrown = false;
+        boolean exceptionThrown = false;
 
         // Action
         try {
@@ -58,7 +58,7 @@ public class TestUtilTests {
         // Setup
         final String maskString = "0000 1111 0000";
         final String string = "00001111";
-        Boolean exceptionThrown = false;
+        boolean exceptionThrown = false;
 
         // Action
         try {

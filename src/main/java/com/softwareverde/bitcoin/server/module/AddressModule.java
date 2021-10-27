@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class AddressModule {
 
     public static void execute(final String desiredAddressPrefix, final Boolean ignoreCase) {
-        final Boolean useBase32 = true;
+        final boolean useBase32 = true;
 
         final AddressInflater addressInflater = new AddressInflater();
 
