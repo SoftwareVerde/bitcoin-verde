@@ -2,7 +2,6 @@ package com.softwareverde.bitcoin.server.module.node.database.indexer;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
-import com.softwareverde.bitcoin.address.PayToScriptHashAddress;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -21,15 +20,12 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.ScriptTypeId;
-import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.cryptography.hash.ripemd160.Ripemd160Hash;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
-import com.softwareverde.cryptography.util.HashUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.query.parameter.InClauseParameter;
 import com.softwareverde.database.query.parameter.TypedParameter;
@@ -118,20 +114,15 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         return transactionIds;
     }
 
-    protected AddressTransactions _getAddressTransactions(final BlockchainSegmentId blockchainSegmentId, final Address address) throws DatabaseException {
+    protected AddressTransactions _getAddressTransactions(final BlockchainSegmentId blockchainSegmentId, final Address address, final Sha256Hash nullableScriptHash) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final Sha256Hash scriptHash;
-        { // Reverse engineer the Address to a scriptHash for lookup...
-            final LockingScript lockingScript;
-            if (address instanceof PayToScriptHashAddress) {
-                final Ripemd160Hash payToScriptHash = Ripemd160Hash.wrap(address.getBytes());
-                lockingScript = ScriptBuilder.payToScriptHash(payToScriptHash);
-            }
-            else {
-                lockingScript = ScriptBuilder.payToAddress(address);
-            }
-            scriptHash = HashUtil.sha256(lockingScript.getBytes());
+        if (nullableScriptHash == null) { // Reverse engineer the Address to a scriptHash for lookup...
+            scriptHash = ScriptBuilder.computeScriptHash(address);
+        }
+        else {
+            scriptHash = nullableScriptHash;
         }
 
         final java.util.List<Row> rows;
@@ -223,6 +214,38 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         return new AddressTransactions(blockchainSegmentId, new ImmutableList<>(connectedTransactionIds), previousOutputs, spentOutputs);
     }
 
+    protected Long _getAddressBalance(final BlockchainSegmentId blockchainSegmentId, final Address address, final Sha256Hash scriptHash) throws DatabaseException {
+        final AddressTransactions addressTransactions = _getAddressTransactions(blockchainSegmentId, address, scriptHash);
+
+        final List<Integer> emptyList = new MutableList<>(0);
+
+        long balance = 0L;
+        final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+        for (final TransactionId transactionId : addressTransactions.transactionIds) {
+            final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+
+            // Collect the previousTransactions, and add the remembered outputs that credit into this account...
+            final List<TransactionOutput> previousTransactionOutputs = transaction.getTransactionOutputs();
+            for (final Integer outputIndex : Util.coalesce(addressTransactions.previousOutputs.get(transactionId), emptyList)) {
+                final TransactionOutput previousTransactionOutput = previousTransactionOutputs.get(outputIndex);
+                balance += previousTransactionOutput.getAmount();
+            }
+        }
+
+        for (final TransactionId transactionId : addressTransactions.spentOutputs.keySet()) {
+            final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+
+            // Deduct all debits from the account for this transaction's outputs...
+            final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+            for (final Integer outputIndex : Util.coalesce(addressTransactions.spentOutputs.get(transactionId), emptyList)) {
+                final TransactionOutput transactionOutput = transactionOutputs.get(outputIndex);
+                balance -= transactionOutput.getAmount();
+            }
+        }
+
+        return balance;
+    }
+
     protected Long _getLastIndexedTransactionId() throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -259,41 +282,24 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
 
     @Override
     public List<TransactionId> getTransactionIds(final BlockchainSegmentId blockchainSegmentId, final Address address, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
-        final AddressTransactions addressTransactions = _getAddressTransactions(blockchainSegmentId, address);
+        final AddressTransactions addressTransactions = _getAddressTransactions(blockchainSegmentId, address, null);
+        return addressTransactions.transactionIds;
+    }
+
+    @Override
+    public List<TransactionId> getTransactionIds(final BlockchainSegmentId blockchainSegmentId, final Sha256Hash scriptHash, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
+        final AddressTransactions addressTransactions = _getAddressTransactions(blockchainSegmentId, null, scriptHash);
         return addressTransactions.transactionIds;
     }
 
     @Override
     public Long getAddressBalance(final BlockchainSegmentId blockchainSegmentId, final Address address) throws DatabaseException {
-        final AddressTransactions addressTransactions = _getAddressTransactions(blockchainSegmentId, address);
+        return _getAddressBalance(blockchainSegmentId, address, null);
+    }
 
-        final List<Integer> emptyList = new MutableList<>(0);
-
-        long balance = 0L;
-        final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
-        for (final TransactionId transactionId : addressTransactions.transactionIds) {
-            final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
-
-            // Collect the previousTransactions, and add the remembered outputs that credit into this account...
-            final List<TransactionOutput> previousTransactionOutputs = transaction.getTransactionOutputs();
-            for (final Integer outputIndex : Util.coalesce(addressTransactions.previousOutputs.get(transactionId), emptyList)) {
-                final TransactionOutput previousTransactionOutput = previousTransactionOutputs.get(outputIndex);
-                balance += previousTransactionOutput.getAmount();
-            }
-        }
-
-        for (final TransactionId transactionId : addressTransactions.spentOutputs.keySet()) {
-            final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
-
-            // Deduct all debits from the account for this transaction's outputs...
-            final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
-            for (final Integer outputIndex : Util.coalesce(addressTransactions.spentOutputs.get(transactionId), emptyList)) {
-                final TransactionOutput transactionOutput = transactionOutputs.get(outputIndex);
-                balance -= transactionOutput.getAmount();
-            }
-        }
-
-        return balance;
+    @Override
+    public Long getAddressBalance(final BlockchainSegmentId blockchainSegmentId, final Sha256Hash scriptHash) throws DatabaseException {
+        return _getAddressBalance(blockchainSegmentId, null, scriptHash);
     }
 
     @Override

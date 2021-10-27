@@ -349,6 +349,19 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         return _getTransactionIds(blockId);
     }
 
+    public Integer getTransactionIndex(final BlockId blockId, final TransactionId transactionId) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT `index` FROM block_transactions WHERE block_id = ? AND transaction_id = ?")
+                .setParameter(blockId)
+                .setParameter(transactionId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return row.getInteger("index");
+    }
+
     /**
      * Initializes a Mutable MedianBlockTime using most recent fully-validated Blocks.
      *  The MedianBlockTime returned includes the head Block's timestamp, and is therefore the MedianTimePast value for the next mined Block.

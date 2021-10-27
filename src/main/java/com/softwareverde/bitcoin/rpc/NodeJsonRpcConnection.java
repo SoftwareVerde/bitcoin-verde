@@ -243,6 +243,47 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return _executeJsonRequest(rpcRequestJson);
     }
 
+    protected Json _getAddressTransactions(final Address address, final Sha256Hash scriptHash, final Boolean hexFormat) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
+        final Json rpcParametersJson = new Json();
+        if (address != null) {
+            rpcParametersJson.put("address", address.toBase58CheckEncoded());
+        }
+        else {
+            rpcParametersJson.put("scriptHash", scriptHash);
+        }
+        if (hexFormat != null) {
+            rpcParametersJson.put("rawFormat", (hexFormat ? 1 : 0));
+        }
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "ADDRESS");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
+    protected Json _getAddressBalance(final Address address, final Sha256Hash scriptHash) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
+        final Json rpcParametersJson = new Json();
+        if (address != null) {
+            rpcParametersJson.put("address", address.toBase58CheckEncoded());
+        }
+        else {
+            rpcParametersJson.put("scriptHash", scriptHash);
+        }
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "BALANCE");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
     public NodeJsonRpcConnection(final String hostname, final Integer port, final ThreadPool threadPool) {
         this(
             hostname,
@@ -352,11 +393,24 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return _executeJsonRequest(rpcRequestJson);
     }
 
+    public Json getTransactionBlockHeight(final Sha256Hash transactionHash) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
+        final Json rpcParametersJson = new Json();
+        rpcParametersJson.put("transactionHash", transactionHash);
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "BLOCK_HEIGHT");
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
     public Json getBlockHeaderHeight(final Sha256Hash blockHash) {
         if (_jsonSocket == null) { return null; } // Socket was unable to connect.
 
         final Json rpcParametersJson = new Json();
-        rpcParametersJson.put("hash", blockHash.toString());
+        rpcParametersJson.put("hash", blockHash);
 
         final Json rpcRequestJson = new Json();
         rpcRequestJson.put("method", "GET");
@@ -394,34 +448,19 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json getAddressTransactions(final Address address, final Boolean hexFormat) {
-        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+        return _getAddressTransactions(address, null, hexFormat);
+    }
 
-        final Json rpcParametersJson = new Json();
-        rpcParametersJson.put("address", address.toBase58CheckEncoded());
-        if (hexFormat != null) {
-            rpcParametersJson.put("rawFormat", (hexFormat ? 1 : 0));
-        }
-
-        final Json rpcRequestJson = new Json();
-        rpcRequestJson.put("method", "GET");
-        rpcRequestJson.put("query", "ADDRESS");
-        rpcRequestJson.put("parameters", rpcParametersJson);
-
-        return _executeJsonRequest(rpcRequestJson);
+    public Json getAddressTransactions(final Sha256Hash scriptHash, final Boolean hexFormat) {
+        return _getAddressTransactions(null, scriptHash, hexFormat);
     }
 
     public Json getAddressBalance(final Address address) {
-        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+        return _getAddressBalance(address, null);
+    }
 
-        final Json rpcParametersJson = new Json();
-        rpcParametersJson.put("address", address.toBase58CheckEncoded());
-
-        final Json rpcRequestJson = new Json();
-        rpcRequestJson.put("method", "GET");
-        rpcRequestJson.put("query", "BALANCE");
-        rpcRequestJson.put("parameters", rpcParametersJson);
-
-        return _executeJsonRequest(rpcRequestJson);
+    public Json getAddressBalance(final Sha256Hash scriptHash) {
+        return _getAddressBalance(null, scriptHash);
     }
 
     public Json getBlock(final Sha256Hash blockHash) {

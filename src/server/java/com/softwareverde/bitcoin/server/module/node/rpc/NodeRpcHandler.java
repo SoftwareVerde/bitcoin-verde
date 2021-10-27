@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
+import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
@@ -86,7 +87,9 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
     public interface QueryAddressHandler {
         Long getBalance(Address address);
+        Long getBalance(Sha256Hash scriptHash);
         List<Transaction> getAddressTransactions(Address address);
+        List<Transaction> getAddressTransactions(Sha256Hash scriptHash);
     }
 
     public interface ThreadPoolInquisitor {
@@ -127,7 +130,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         BlockHeader getBlockHeader(Long blockHeight);
         BlockHeader getBlockHeader(Sha256Hash blockHash);
 
-        Long getBlockHeaderHeight(final Sha256Hash blockHash);
+        Long getBlockHeaderHeight(Sha256Hash blockHash);
 
         Block getBlock(Long blockHeight);
         Block getBlock(Sha256Hash blockHash);
@@ -138,6 +141,9 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         List<BlockHeader> getBlockHeaders(Long nullableBlockHeight, Integer maxBlockCount, Direction blockHeaderDirection);
 
         Transaction getTransaction(Sha256Hash transactionHash);
+        Sha256Hash getTransactionBlockHash(Sha256Hash transactionHash);
+        Integer getTransactionBlockIndex(Sha256Hash transactionHash);
+        Boolean hasUnconfirmedInputs(Sha256Hash transactionHash);
 
         Difficulty getDifficulty();
         List<Transaction> getUnconfirmedTransactions();
@@ -732,7 +738,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         response.put(ERROR_MESSAGE_KEY, "Missing parameter. Required: hash | transactionOutputIdentifier | transactionHash");
     }
 
-    // Requires GET:
+    // Requires GET: [hash|transactionHash]
     protected void _queryBlockHeight(final Json parameters, final Json response) {
         final DataHandler dataHandler = _dataHandler;
         if (dataHandler == null) {
@@ -746,6 +752,20 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             final Long blockHeaderHeight = dataHandler.getBlockHeaderHeight(blockHash);
 
             response.put("blockHeaderHeight", blockHeaderHeight);
+            response.put(WAS_SUCCESS_KEY, 1);
+        }
+        else if (parameters.hasKey("transactionHash")) {
+            final String transactionHashString = parameters.getString("transactionHash");
+            final Sha256Hash transactionHash = Sha256Hash.fromHexString(transactionHashString);
+            final Sha256Hash blockHash = dataHandler.getTransactionBlockHash(transactionHash);
+            final Long blockHeight = dataHandler.getBlockHeaderHeight(blockHash);
+            final Integer transactionIndex = dataHandler.getTransactionBlockIndex(transactionHash);
+            final Boolean hasUnconfirmedInputs = dataHandler.hasUnconfirmedInputs(transactionHash);
+
+            response.put("blockHash", blockHash);
+            response.put("blockHeight", blockHeight);
+            response.put("transactionIndex", transactionIndex);
+            response.put("hasUnconfirmedInputs", hasUnconfirmedInputs);
             response.put(WAS_SUCCESS_KEY, 1);
         }
         else {
@@ -1041,7 +1061,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
-    // Requires GET: <address>
+    // Requires GET: <address|scriptHash>
     protected void _queryAddressTransactions(final Json parameters, final Json response) {
         final QueryAddressHandler queryAddressHandler = _queryAddressHandler;
         if (queryAddressHandler == null) {
@@ -1049,39 +1069,54 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             return;
         }
 
-        if (! parameters.hasKey("address")) {
-            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: address");
+        if ( (! parameters.hasKey("address")) && (! parameters.hasKey("scriptHash")) ) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: address or scriptHash");
             return;
         }
 
         final boolean rawFormat = (parameters.hasKey("rawFormat") ? parameters.getBoolean("rawFormat") : false);
 
-        final String addressString = parameters.getString("address");
-        final AddressInflater addressInflater = _masterInflater.getAddressInflater();
-        final Address address;
-        {
-            final Address base58Address = addressInflater.fromBase58Check(addressString);
-            final Address base32Address = addressInflater.fromBase32Check(addressString);
-            address = Util.coalesce(base58Address, base32Address);
-        }
+        final Json addressJson = new Json(false);
+        final List<Transaction> addressTransactions;
+        final Long balance;
+        if (parameters.hasKey("address")) {
+            final String addressString = parameters.getString("address");
+            final Address address;
+            {
+                final AddressInflater addressInflater = _masterInflater.getAddressInflater();
+                final Address base58Address = addressInflater.fromBase58Check(addressString);
+                final Address base32Address = addressInflater.fromBase32Check(addressString);
+                address = Util.coalesce(base58Address, base32Address);
+            }
 
-        if (address == null) {
-            response.put(ERROR_MESSAGE_KEY, "Invalid address: " + addressString);
-            return;
-        }
+            if (address == null) {
+                response.put(ERROR_MESSAGE_KEY, "Invalid address: " + addressString);
+                return;
+            }
 
-        final List<Transaction> addressTransactions = queryAddressHandler.getAddressTransactions(address);
+            addressTransactions = queryAddressHandler.getAddressTransactions(address);
+            balance = queryAddressHandler.getBalance(address);
+            addressJson.put("base32CheckEncoded", address.toBase32CheckEncoded(true));
+            addressJson.put("base58CheckEncoded", address.toBase58CheckEncoded());
+        }
+        else {
+            final String scriptHashString = parameters.getString("scriptHash");
+            final Sha256Hash scriptHash = Sha256Hash.fromHexString(scriptHashString);
+
+            if (scriptHash == null) {
+                response.put(ERROR_MESSAGE_KEY, "Invalid scriptHash: " + scriptHashString);
+                return;
+            }
+
+            addressTransactions = queryAddressHandler.getAddressTransactions(scriptHash);
+            balance = queryAddressHandler.getBalance(scriptHash);
+            addressJson.put("scriptHash", scriptHash);
+        }
 
         if (addressTransactions == null) {
             response.put(ERROR_MESSAGE_KEY, "Unable to determine address transactions.");
             return;
         }
-
-        final Json addressJson = new Json();
-        addressJson.put("base32CheckEncoded", address.toBase32CheckEncoded(true));
-        addressJson.put("base58CheckEncoded", address.toBase58CheckEncoded());
-
-        final Long balance = queryAddressHandler.getBalance(address);
 
         final Json transactionsJson = new Json(true);
         if (rawFormat) {

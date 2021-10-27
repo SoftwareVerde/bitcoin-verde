@@ -375,6 +375,15 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         return transactionIds.build();
     }
 
+    protected Boolean _isUnconfirmedTransaction(final TransactionId transactionId) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT 1 FROM unconfirmed_transactions WHERE transaction_id = ? LIMIT 1")
+                .setParameter(transactionId)
+        );
+        return (! rows.isEmpty());
+    }
+
     public FullNodeTransactionDatabaseManagerCore(final FullNodeDatabaseManager databaseManager, final BlockStore blockStore, final MasterInflater masterInflater) {
         _databaseManager = databaseManager;
         _masterInflater = masterInflater;
@@ -717,16 +726,9 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
     @Override
     public Boolean isUnconfirmedTransaction(final TransactionId transactionId) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
         TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_READ_LOCK.lock();
-        final java.util.List<Row> rows;
         try {
-            rows = databaseConnection.query(
-                new Query("SELECT 1 FROM unconfirmed_transactions WHERE transaction_id = ? LIMIT 1")
-                    .setParameter(transactionId)
-            );
-            return (!rows.isEmpty());
+            return _isUnconfirmedTransaction(transactionId);
         }
         finally {
             TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_READ_LOCK.unlock();
@@ -802,6 +804,25 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_READ_LOCK.lock();
         try {
             return _getUnconfirmedTransactionsDependingOn(transactionIds);
+        }
+        finally {
+            TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_READ_LOCK.unlock();
+        }
+    }
+
+    @Override
+    public Boolean hasUnconfirmedInputs(final TransactionId transactionId) throws DatabaseException {
+        TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_READ_LOCK.lock();
+        try {
+            final UnconfirmedTransactionInputDatabaseManager transactionInputDatabaseManager = _databaseManager.getUnconfirmedTransactionInputDatabaseManager();
+            final List<UnconfirmedTransactionInputId> transactionInputIds = transactionInputDatabaseManager.getUnconfirmedTransactionInputIds(transactionId);
+            for (final UnconfirmedTransactionInputId unconfirmedTransactionInputId : transactionInputIds) {
+                final TransactionId previousTransactionId = transactionInputDatabaseManager.getUnconfirmedPreviousTransactionId(unconfirmedTransactionInputId);
+                final Boolean previousTransactionIsUnconfirmed = _isUnconfirmedTransaction(previousTransactionId);
+
+                if (previousTransactionIsUnconfirmed) { return true; }
+            }
+            return false;
         }
         finally {
             TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_READ_LOCK.unlock();

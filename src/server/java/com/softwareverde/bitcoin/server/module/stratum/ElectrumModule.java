@@ -16,6 +16,7 @@ import com.softwareverde.bitcoin.server.message.type.query.header.RequestBlockHe
 import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.HeadersBootstrapper;
 import com.softwareverde.bitcoin.server.module.stratum.json.ElectrumJson;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
@@ -25,7 +26,6 @@ import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
-import com.softwareverde.cryptography.util.HashUtil;
 import com.softwareverde.http.tls.TlsCertificate;
 import com.softwareverde.http.tls.TlsFactory;
 import com.softwareverde.json.Json;
@@ -38,6 +38,8 @@ import com.softwareverde.util.Util;
 
 import java.io.InputStream;
 import java.lang.ref.WeakReference;
+import java.security.MessageDigest;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -51,8 +53,7 @@ public class ElectrumModule {
         public final String subscriptionString;
 
         public AddressSubscriptionKey(final Address address, final String subscriptionString) {
-            final LockingScript lockingScript = ScriptBuilder.payToAddress(address);
-            this.scriptHash = HashUtil.sha256(lockingScript.getBytes());
+            this.scriptHash = ScriptBuilder.computeScriptHash(address);
             this.subscriptionString = subscriptionString;
         }
 
@@ -492,21 +493,154 @@ public class ElectrumModule {
         jsonSocket.flush();
     }
 
-    protected Json _getAddressStatus(final AddressSubscriptionKey addressKey) {
-        return null; // TODO
+    protected static class TransactionPosition implements Comparable<TransactionPosition> {
+        public static final Comparator<TransactionPosition> COMPARATOR = new Comparator<TransactionPosition>() {
+            @Override
+            public int compare(final TransactionPosition transactionPosition0, final TransactionPosition transactionPosition1) {
+                if (transactionPosition0.isUnconfirmedTransaction()) {
+                    return (transactionPosition1.isUnconfirmedTransaction() ? 0 : 1);
+                }
+                else if (transactionPosition1.isUnconfirmedTransaction()) {
+                    return -1;
+                }
+
+                final int blockHeightCompare = transactionPosition0.blockHeight.compareTo(transactionPosition1.blockHeight);
+                if (blockHeightCompare != 0) { return blockHeightCompare; }
+                return transactionPosition0.transactionIndex.compareTo(transactionPosition1.transactionIndex);
+            }
+        };
+
+        public final Long blockHeight;
+        public final Integer transactionIndex;
+        public final Sha256Hash transactionHash;
+        public final Boolean hasUnconfirmedInputs;
+
+        public TransactionPosition(final Long blockHeight, final Integer transactionIndex, final Boolean hasUnconfirmedInputs, final Sha256Hash transactionHash) {
+            this.blockHeight = blockHeight;
+            this.transactionIndex = transactionIndex;
+            this.transactionHash = transactionHash;
+            this.hasUnconfirmedInputs = hasUnconfirmedInputs;
+        }
+
+        public Boolean isUnconfirmedTransaction() {
+            return (this.blockHeight == null);
+        }
+
+        @Override
+        public boolean equals(final Object object) {
+            if (! (object instanceof TransactionPosition)) { return false; }
+            final TransactionPosition transactionPosition = (TransactionPosition) object;
+
+            if (! Util.areEqual(this.blockHeight, transactionPosition.blockHeight)) { return false; }
+            if (! Util.areEqual(this.transactionIndex, transactionPosition.transactionIndex)) { return false; }
+            return true;
+        }
+
+        @Override
+        public int compareTo(final TransactionPosition transactionPosition) {
+            return TransactionPosition.COMPARATOR.compare(this, transactionPosition);
+        }
+
+        @Override
+        public int hashCode() {
+            return Long.hashCode(this.blockHeight);
+        }
+
+        @Override
+        public String toString() {
+            final StringBuilder stringBuilder = new StringBuilder();
+            final String transactionHashString = this.transactionHash.toString();
+            stringBuilder.append(transactionHashString.toLowerCase());
+            stringBuilder.append(":");
+            if (this.isUnconfirmedTransaction()) {
+                if (this.hasUnconfirmedInputs) {
+                    stringBuilder.append(-1);
+                }
+                else {
+                    stringBuilder.append(0);
+                }
+            }
+            else {
+                stringBuilder.append(this.blockHeight);
+            }
+            stringBuilder.append(":");
+            return stringBuilder.toString();
+        }
+    }
+
+    protected Sha256Hash _getAddressStatus(final AddressSubscriptionKey addressKey) {
+        try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
+            nodeConnection.enableKeepAlive(true);
+
+            final MutableList<TransactionPosition> transactionPositions;
+            {
+                final TransactionInflater transactionInflater = new TransactionInflater();
+                final Json addressTransaction = nodeConnection.getAddressTransactions(addressKey.scriptHash, true);
+                final Json transactionsArray = addressTransaction.get("transactions");
+                final Integer transactionCount = transactionsArray.length();
+                transactionPositions = new MutableList<>(transactionCount);
+                for (int i = 0; i < transactionCount; ++i) {
+                    final Sha256Hash transactionHash;
+                    final Transaction transaction;
+                    {
+                        final String transactionHex = transactionsArray.getString(i);
+                        transaction = transactionInflater.fromBytes(ByteArray.fromHexString((transactionHex)));
+                        transactionHash = transaction.getHash();
+                    }
+
+                    final Json transactionBlockHeightJson = nodeConnection.getTransactionBlockHeight(transactionHash);
+                    final Long blockHeight = transactionBlockHeightJson.getOrNull("blockHeight", Json.Types.LONG);
+                    final Integer transactionIndex = transactionBlockHeightJson.getOrNull("transactionIndex", Json.Types.INTEGER);
+                    final Boolean hasUnconfirmedInputs = transactionBlockHeightJson.getBoolean("hasUnconfirmedInputs");
+
+                    final TransactionPosition transactionPosition = new TransactionPosition(blockHeight, transactionIndex, hasUnconfirmedInputs, transactionHash);
+                    transactionPositions.add(transactionPosition);
+                }
+            }
+            transactionPositions.sort(TransactionPosition.COMPARATOR);
+
+            try {
+                final MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
+                for (final TransactionPosition transactionPosition : transactionPositions) {
+                    final String statusString = transactionPosition.toString();
+                    messageDigest.update(StringUtil.stringToBytes(statusString));
+                }
+                return Sha256Hash.wrap(messageDigest.digest());
+            }
+            catch (final Exception exception) {
+                return null;
+            }
+        }
     }
 
     protected void _notifyScriptHashStatus(final JsonSocket jsonSocket, final AddressSubscriptionKey addressKey) {
-        final Json addressStatusJson = _getAddressStatus(addressKey);
+        final Sha256Hash addressStatus = _getAddressStatus(addressKey);
 
         final String addressString = addressKey.subscriptionString;
 
         final Json responseJson = new ElectrumJson(true);
         responseJson.add(addressString);
-        responseJson.add(addressStatusJson);
+        responseJson.add(addressStatus);
 
         final Json notificationJson = new ElectrumJson(false);
         notificationJson.put("method", "blockchain.scripthash.subscribe");
+        notificationJson.put("params", responseJson);
+        jsonSocket.write(new JsonProtocolMessage(notificationJson));
+        Logger.debug("Wrote: " + notificationJson);
+        jsonSocket.flush();
+    }
+
+    protected void _notifyAddressStatus(final JsonSocket jsonSocket, final AddressSubscriptionKey addressKey) {
+        final Sha256Hash addressStatus = _getAddressStatus(addressKey);
+
+        final String addressString = addressKey.subscriptionString;
+
+        final Json responseJson = new ElectrumJson(true);
+        responseJson.add(addressString);
+        responseJson.add(addressStatus);
+
+        final Json notificationJson = new ElectrumJson(false);
+        notificationJson.put("method", "blockchain.address.subscribe");
         notificationJson.put("params", responseJson);
         jsonSocket.write(new JsonProtocolMessage(notificationJson));
         Logger.debug("Wrote: " + notificationJson);
@@ -539,25 +673,73 @@ public class ElectrumModule {
         }
     }
 
+    protected Boolean _removeAddressSubscription(final AddressSubscriptionKey addressKey, final JsonSocket jsonSocket) {
+        synchronized (_connectionAddresses) {
+            final LinkedList<WeakReference<JsonSocket>> jsonSockets = _connectionAddresses.get(addressKey);
+            if (jsonSockets == null) { return false; }
+
+            final Iterator<WeakReference<JsonSocket>> iterator = jsonSockets.iterator();
+            while (iterator.hasNext()) {
+                final WeakReference<JsonSocket> jsonSocketReference = iterator.next();
+                if (Util.areEqual(jsonSocket, jsonSocketReference.get())) {
+                    iterator.remove();
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
     protected void _handleSubscribeScriptHashMessage(final JsonSocket jsonSocket, final Json message) {
         final Integer id = message.getInteger("id");
         final Json paramsJson = message.get("params");
 
         for (int i = 0; i < paramsJson.length(); ++i) {
             final String addressHashString = paramsJson.getString(i);
-            final Sha256Hash addressHash = Sha256Hash.fromHexString(addressHashString);
-            if (addressHash == null) {
+            final Sha256Hash scriptHash = Sha256Hash.fromHexString(addressHashString);
+            if (scriptHash == null) {
                 Logger.debug("Invalid Address hash: " + addressHashString);
                 continue;
             }
 
-            final AddressSubscriptionKey addressKey = new AddressSubscriptionKey(addressHash, addressHashString);
+            final AddressSubscriptionKey addressKey = new AddressSubscriptionKey(scriptHash, addressHashString);
             _addAddressSubscription(addressKey, jsonSocket);
+
+            {
+                final Sha256Hash addressStatus = _getAddressStatus(addressKey);
+
+                final Json json = new ElectrumJson(false);
+                json.put("id", id);
+                json.put("result", addressStatus);
+
+                jsonSocket.write(new JsonProtocolMessage(json));
+                Logger.debug("Wrote: " + json);
+                jsonSocket.flush();
+            }
+        }
+        jsonSocket.flush();
+    }
+
+    protected void _handleUnsubscribeScriptHashMessage(final JsonSocket jsonSocket, final Json message) {
+        final Integer id = message.getInteger("id");
+        final Json paramsJson = message.get("params");
+
+        for (int i = 0; i < paramsJson.length(); ++i) {
+            final String addressHashString = paramsJson.getString(i);
+            final Sha256Hash scriptHash = Sha256Hash.fromHexString(addressHashString);
+            if (scriptHash == null) {
+                Logger.debug("Invalid Address hash: " + addressHashString);
+                continue;
+            }
+
+            final AddressSubscriptionKey addressKey = new AddressSubscriptionKey(scriptHash, addressHashString);
+            final Boolean addressExisted = _removeAddressSubscription(addressKey, jsonSocket);
 
             {
                 final Json json = new ElectrumJson(false);
                 json.put("id", id);
-                json.put("result", null);
+                json.put("result", addressExisted);
 
                 jsonSocket.write(new JsonProtocolMessage(json));
                 Logger.debug("Wrote: " + json);
@@ -585,11 +767,41 @@ public class ElectrumModule {
             _addAddressSubscription(addressKey, jsonSocket);
 
             {
-                final Json addressStatusJson = _getAddressStatus(addressKey);
+                final Sha256Hash addressStatus = _getAddressStatus(addressKey);
 
                 final Json json = new ElectrumJson(false);
                 json.put("id", id);
-                json.put("result", addressStatusJson);
+                json.put("result", addressStatus);
+
+                jsonSocket.write(new JsonProtocolMessage(json));
+                Logger.debug("Wrote: " + json);
+                jsonSocket.flush();
+            }
+        }
+        jsonSocket.flush();
+    }
+
+    protected void _handleUnsubscribeAddressMessage(final JsonSocket jsonSocket, final Json message) {
+        final AddressInflater addressInflater = new AddressInflater();
+
+        final Integer id = message.getInteger("id");
+        final Json paramsJson = message.get("params");
+
+        for (int i = 0; i < paramsJson.length(); ++i) {
+            final String addressString = paramsJson.getString(i);
+            final Address address = Util.coalesce(addressInflater.fromBase32Check(addressString), addressInflater.fromBase58Check(addressString));
+            if (address == null) {
+                Logger.debug("Invalid address: " + addressString);
+                continue;
+            }
+
+            final AddressSubscriptionKey addressKey = new AddressSubscriptionKey(address, addressString);
+            final Boolean addressExisted = _removeAddressSubscription(addressKey, jsonSocket);
+
+            {
+                final Json json = new ElectrumJson(false);
+                json.put("id", id);
+                json.put("result", addressExisted);
 
                 jsonSocket.write(new JsonProtocolMessage(json));
                 Logger.debug("Wrote: " + json);
@@ -648,6 +860,15 @@ public class ElectrumModule {
                     } break;
                     case "blockchain.scripthash.subscribe": {
                         _handleSubscribeScriptHashMessage(jsonSocket, jsonMessage);
+                    } break;
+                    case "blockchain.address.subscribe": {
+                        _handleSubscribeAddressMessage(jsonSocket, jsonMessage);
+                    } break;
+                    case "blockchain.scripthash.unsubscribe": {
+                        _handleUnsubscribeScriptHashMessage(jsonSocket, jsonMessage);
+                    } break;
+                    case "blockchain.address.unsubscribe": {
+                        _handleUnsubscribeAddressMessage(jsonSocket, jsonMessage);
                     } break;
                     case "blockchain.block.headers": {
                         _handleBlockHeadersMessage(jsonSocket, jsonMessage);

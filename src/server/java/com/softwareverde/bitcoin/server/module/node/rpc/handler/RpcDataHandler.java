@@ -428,6 +428,68 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     }
 
     @Override
+    public Sha256Hash getTransactionBlockHash(final Sha256Hash transactionHash) {
+        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+
+            final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+
+            final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
+            if (transactionId == null) { return null; }
+
+            final BlockId blockId = transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId);
+            return blockHeaderDatabaseManager.getBlockHash(blockId);
+        }
+        catch (final DatabaseException exception) {
+            Logger.debug(exception);
+            return null;
+        }
+    }
+
+    @Override
+    public Integer getTransactionBlockIndex(final Sha256Hash transactionHash) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+
+            final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+
+            final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
+            if (transactionId == null) { return null; }
+
+            final BlockId blockId = transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId);
+            return blockDatabaseManager.getTransactionIndex(blockId, transactionId);
+        }
+        catch (final DatabaseException exception) {
+            Logger.debug(exception);
+            return null;
+        }
+    }
+
+    @Override
+    public Boolean hasUnconfirmedInputs(final Sha256Hash transactionHash) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+
+            final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
+            if (transactionId == null) { return null; }
+
+            final Boolean isUnconfirmedTransaction = transactionDatabaseManager.isUnconfirmedTransaction(transactionId);
+            if (isUnconfirmedTransaction) { return false; }
+
+            return transactionDatabaseManager.hasUnconfirmedInputs(transactionId);
+
+        }
+        catch (final DatabaseException exception) {
+            Logger.debug(exception);
+            return null;
+        }
+    }
+
+    @Override
     public Difficulty getDifficulty() {
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             return _getDifficulty(databaseManager);
