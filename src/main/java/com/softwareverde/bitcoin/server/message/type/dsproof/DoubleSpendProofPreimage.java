@@ -19,7 +19,7 @@ public class DoubleSpendProofPreimage {
     protected Sha256Hash _previousOutputsDigest;            // Transaction Preimage Component #2
     protected Sha256Hash _sequenceNumbersDigest;            // Transaction Preimage Component #3
     protected Sha256Hash _executedTransactionOutputsDigest; // Transaction Preimage Component #8
-    protected HashMap<Mode, Sha256Hash> _alternateTransactionOutputsDigests = new HashMap<>(); // Alternate Preimage Component #8
+    protected final HashMap<Mode, Sha256Hash> _alternateTransactionOutputsDigests = new HashMap<>(); // Alternate Preimage Component #8
 
     protected final MutableList<ByteArray> _unlockingScriptPushData = new MutableList<>();
 

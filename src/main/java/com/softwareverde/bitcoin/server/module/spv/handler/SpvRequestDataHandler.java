@@ -9,7 +9,7 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class SpvRequestDataHandler implements BitcoinNode.RequestDataHandler {
-    protected ConcurrentHashMap<Sha256Hash, Transaction> _spvTransactions = new ConcurrentHashMap<>();
+    protected final ConcurrentHashMap<Sha256Hash, Transaction> _spvTransactions = new ConcurrentHashMap<>();
 
     @Override
     public void run(final BitcoinNode bitcoinNode, final List<InventoryItem> inventoryItems) {

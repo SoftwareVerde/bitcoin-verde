@@ -71,7 +71,7 @@ public class BitcoinNodeManagerTests extends IntegrationTest {
         final BitcoinNodeManager.Context bitcoinNodeContext = new BitcoinNodeManager.Context();
         bitcoinNodeContext.maxNodeCount = 1;
         bitcoinNodeContext.databaseManagerFactory = _fullNodeDatabaseManagerFactory;
-        bitcoinNodeContext.nodeFactory = new BitcoinNodeFactory(BitcoinProtocolMessage.BINARY_PACKET_FORMAT, nodeThreadPoolFactory, localNodeFeatures);;
+        bitcoinNodeContext.nodeFactory = new BitcoinNodeFactory(BitcoinProtocolMessage.BINARY_PACKET_FORMAT, nodeThreadPoolFactory, localNodeFeatures);
         bitcoinNodeContext.networkTime = new MutableNetworkTime();
         bitcoinNodeContext.nodeInitializer = nodeInitializer;
         bitcoinNodeContext.banFilter = banFilter;

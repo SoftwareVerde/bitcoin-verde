@@ -46,7 +46,6 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
     protected final QueuedInputs _queuedInputs = new QueuedInputs();
     protected final QueuedOutputs _queuedOutputs = new QueuedOutputs();
 
-    protected Double _storeAddressMs = 0D;
     protected Double _getUnprocessedTransactionsMs = 0D;
     protected Double _dequeueTransactionsForProcessingMs = 0D;
     protected Double _getTransactionIdMs = 0D;
@@ -171,7 +170,7 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
 
             TransactionUtil.commitTransaction(databaseConnection);
 
-            Logger.trace("_storeAddressMs=" + _storeAddressMs + "ms, _getUnprocessedTransactionsMs=" + _getUnprocessedTransactionsMs + "ms, _dequeueTransactionsForProcessingMs=" + _dequeueTransactionsForProcessingMs + "ms, _getTransactionIdMs=" + _getTransactionIdMs + "ms, _getTransactionMs=" + _getTransactionMs + "ms, _indexTransactionOutputMs=" + _indexTransactionOutputMs + "ms, _indexTransactionInputMs=" + _indexTransactionInputMs + "ms");
+            Logger.trace("_getUnprocessedTransactionsMs=" + _getUnprocessedTransactionsMs + "ms, _dequeueTransactionsForProcessingMs=" + _dequeueTransactionsForProcessingMs + "ms, _getTransactionIdMs=" + _getTransactionIdMs + "ms, _getTransactionMs=" + _getTransactionMs + "ms, _indexTransactionOutputMs=" + _indexTransactionOutputMs + "ms, _indexTransactionInputMs=" + _indexTransactionInputMs + "ms");
         }
         catch (final DatabaseException databaseException) {
             throw new ContextException(databaseException);

@@ -98,7 +98,7 @@ public class SeedPhraseGenerator {
 
         final ByteArray calculatedChecksum = _getChecksum(originalData);
         if (! Util.areEqual(calculatedChecksum.getBytes(), extractedChecksumBytes)) {
-            throw new IllegalArgumentException("Invalid seed phrase checksum: expected " + HexUtil.toHexString(extractedChecksumBytes) + " but found " + calculatedChecksum.toString());
+            throw new IllegalArgumentException("Invalid seed phrase checksum: expected " + HexUtil.toHexString(extractedChecksumBytes) + " but found " + calculatedChecksum);
         }
 
         return originalData;

@@ -123,7 +123,7 @@ public class BitcoinNodeManager {
 
     protected final ConcurrentHashMap<NodeId, BitcoinNode> _preferredNodes;
     protected final ConcurrentHashMap<NodeId, BitcoinNode> _otherNodes;
-    protected ConcurrentHashMap<NodeId, BitcoinNode> _pendingNodes = new ConcurrentHashMap<>(); // Nodes that have been added but have not yet completed their handshake.
+    protected final ConcurrentHashMap<NodeId, BitcoinNode> _pendingNodes = new ConcurrentHashMap<>(); // Nodes that have been added but have not yet completed their handshake.
 
     // _connectedNodeAddresses contains NodeIpAddresses that are either currently-connected, are pending handshake, or are about to be connected to.
     // All methods about to connect to a node should ensure the node will not be a duplicate by checking _connectedNodeAddresses for an existing entry.

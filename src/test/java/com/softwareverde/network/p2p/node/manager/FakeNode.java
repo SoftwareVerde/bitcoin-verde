@@ -18,7 +18,7 @@ import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 public class FakeNode extends BitcoinNode {
     protected static long _nextNonce = 0L;
 
-    protected Long _lastMessageReceivedTimestamp = 0L;
+    protected final Long _lastMessageReceivedTimestamp = 0L;
 
     public FakeNode(final String host, final ThreadPool threadPool) {
         super(host, 0, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, threadPool, new LocalNodeFeatures() {

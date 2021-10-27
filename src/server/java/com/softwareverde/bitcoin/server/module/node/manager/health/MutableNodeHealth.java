@@ -82,7 +82,7 @@ public class MutableNodeHealth implements NodeHealth {
     protected final Object _mutex = new Object();
     protected final Time _systemTime;
     protected final NodeId _nodeId;
-    protected RotatingQueue<Request> _requests = new RotatingQueue<>(1024);
+    protected final RotatingQueue<Request> _requests = new RotatingQueue<>(1024);
     protected Long _pingInMilliseconds = 0L;
 
     protected MutableList<Request> _getRecentRequests() {

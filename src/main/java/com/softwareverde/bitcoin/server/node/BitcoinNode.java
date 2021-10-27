@@ -208,7 +208,7 @@ public class BitcoinNode extends Node {
         void onResult(PendingRequest<S> pendingRequest);
     }
 
-    public static SynchronizationStatus DEFAULT_STATUS_CALLBACK = new SynchronizationStatus() {
+    public static final SynchronizationStatus DEFAULT_STATUS_CALLBACK = new SynchronizationStatus() {
         @Override
         public State getState() { return State.ONLINE; }
 
@@ -255,7 +255,7 @@ public class BitcoinNode extends Node {
     protected final Runnable _requestMonitor;
     protected Thread _requestMonitorThread;
 
-    protected ConcurrentLinkedQueue<BitcoinNodeObserver> _observers = new ConcurrentLinkedQueue<>();
+    protected final ConcurrentLinkedQueue<BitcoinNodeObserver> _observers = new ConcurrentLinkedQueue<>();
 
     protected final AddressInflater _addressInflater;
     protected final MessageRouter _messageRouter = new MessageRouter();

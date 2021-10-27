@@ -15,7 +15,7 @@ import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
 public class UtxoCommitmentsMessage extends BitcoinProtocolMessage {
-    public static Integer VERSION = 1;
+    public static final Integer VERSION = 1;
     public static final Integer MAX_COMMITMENT_COUNT = 32;
     public static final Integer MAX_SUB_BUCKET_COUNT = 128;
 

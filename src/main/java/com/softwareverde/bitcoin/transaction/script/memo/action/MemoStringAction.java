@@ -6,8 +6,8 @@ import com.softwareverde.json.Json;
 public abstract class MemoStringAction extends MemoAction {
     protected static final Integer STRING_DEFAULT_MAX_BYTE_COUNT = 217;
 
-    protected Integer _maxByteCount;
-    protected String _content;
+    protected final Integer _maxByteCount;
+    protected final String _content;
 
     @Override
     protected void _extendJson(final Json json) {

@@ -72,7 +72,7 @@ public class IntegrationTest extends UnitTest {
     protected final DifficultyCalculatorFactory _difficultyCalculatorFactory;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
 
-    protected Long _requiredCoinbaseMaturity = 0L;
+    protected final Long _requiredCoinbaseMaturity = 0L;
 
     public IntegrationTest() {
         Logger.setLogLevel("com.zaxxer.hikari.pool", LogLevel.WARN);

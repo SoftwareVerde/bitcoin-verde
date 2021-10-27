@@ -59,7 +59,7 @@ public class BitcoinPropertiesLoader {
             final String defaultBlacklist = "[\".*Bitcoin ABC.*\", \".*Bitcoin SV.*\"]";
             final Json blacklistJson = Json.parse(properties.getProperty("bitcoin.userAgentBlacklist", defaultBlacklist));
 
-            final int itemCount = blacklistJson.length();;
+            final int itemCount = blacklistJson.length();
             final MutableList<String> patterns = new MutableList<>(itemCount);
             for (int i = 0; i < itemCount; ++i) {
                 final String pattern = blacklistJson.getString(i);

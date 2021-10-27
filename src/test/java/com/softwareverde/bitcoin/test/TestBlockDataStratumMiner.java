@@ -204,7 +204,7 @@ class StratumMiner {
         parametersJson.add(_shareDifficulty); // Difficulty::getDifficultyRatio
         mineBlockMessage.setParameters(parametersJson);
 
-        Logger.info("Sent: "+ mineBlockMessage.toString());
+        Logger.info("Sent: "+ mineBlockMessage);
         socketConnection.write(new JsonProtocolMessage(mineBlockMessage));
     }
 
@@ -244,7 +244,7 @@ class StratumMiner {
             final ResponseMessage responseMessage = new ResponseMessage(requestMessage.getId());
             responseMessage.setResult(ResponseMessage.RESULT_TRUE);
 
-            Logger.info("Sent: "+ responseMessage.toString());
+            Logger.info("Sent: "+ responseMessage);
             socketConnection.write(new JsonProtocolMessage(responseMessage));
         }
 
@@ -303,7 +303,7 @@ class StratumMiner {
 
         final ResponseMessage blockAcceptedMessage = new MinerSubmitBlockResult(requestMessage.getId(), submissionWasAccepted);
 
-        Logger.info("Sent: "+ blockAcceptedMessage.toString());
+        Logger.info("Sent: "+ blockAcceptedMessage);
         socketConnection.write(new JsonProtocolMessage(blockAcceptedMessage));
 
         if (shouldExit) {

@@ -112,7 +112,7 @@ public class ChainValidationModule {
         }
 
         Sha256Hash nextBlockHash = _startingBlockHash;
-        try (final DatabaseConnection databaseConnection = database.newConnection();) {
+        try (final DatabaseConnection databaseConnection = database.newConnection()) {
             final FullNodeDatabaseManager databaseManager = new FullNodeDatabaseManager(
                 databaseConnection,
                 database.getMaxQueryBatchSize(),

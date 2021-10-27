@@ -13,7 +13,7 @@ import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
 public class QueryBlocksMessage extends BitcoinProtocolMessage {
-    public static Integer MAX_BLOCK_HASH_COUNT = 500;
+    public static final Integer MAX_BLOCK_HASH_COUNT = 500;
 
     protected Integer _version;
     protected final MutableList<Sha256Hash> _blockHashes = new MutableList<>();

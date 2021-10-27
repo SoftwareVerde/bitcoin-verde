@@ -20,7 +20,7 @@ public enum UpdateBloomFilterMode {
         return ((value & 0x04) != 0x00);
     }
 
-    protected byte _value;
+    protected final byte _value;
     UpdateBloomFilterMode(final int value) {
         _value = (byte) value;
     }

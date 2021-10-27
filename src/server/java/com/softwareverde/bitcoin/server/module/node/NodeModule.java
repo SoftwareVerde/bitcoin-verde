@@ -1041,12 +1041,12 @@ public class NodeModule {
 
                 final Boolean isBanned = _banFilter.isIpBanned(ip);
                 if (isBanned) {
-                    Logger.trace("Ignoring Banned Connection: " + binarySocket.toString());
+                    Logger.trace("Ignoring Banned Connection: " + binarySocket);
                     binarySocket.close();
                     return;
                 }
 
-                Logger.debug("New Connection: " + binarySocket.toString());
+                Logger.debug("New Connection: " + binarySocket);
                 _banFilter.onNodeConnected(ip);
 
                 final BitcoinNode bitcoinNode = _bitcoinNodeFactory.newNode(binarySocket);

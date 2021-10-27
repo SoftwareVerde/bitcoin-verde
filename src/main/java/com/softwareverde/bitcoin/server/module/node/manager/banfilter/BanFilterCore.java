@@ -22,7 +22,7 @@ public class BanFilterCore implements BanFilter {
         public static final Integer FAILED_CONNECTION_ATTEMPT_COUNT = 10;
         public static final Long FAILED_CONNECTION_ATTEMPT_SECONDS_SPAN = 20L;
 
-        public static List<Sha256Hash> INVALID_BLOCKS = new ImmutableList<>(
+        public static final List<Sha256Hash> INVALID_BLOCKS = new ImmutableList<>(
             Sha256Hash.fromHexString("0000000000000000005CCD563C9ED7212AD591467CD3DB71A17D44918B687F34"),   // BTC Block 504031
             Sha256Hash.fromHexString("000000000000000001D956714215D96FFC00E0AFDA4CD0A96C96F8D802B1662B")    // BSV Block 556767
         );

@@ -31,7 +31,7 @@ public class ApacheCommonsDatabaseConnectionPool implements DatabaseConnectionPo
 
     }
 
-    protected Integer _maxDatabaseConnectionCount;
+    protected final Integer _maxDatabaseConnectionCount;
     protected final BasicDataSource _dataSource = new BasicDataSource();
     protected final AtomicBoolean _isShutdown = new AtomicBoolean(false);
     protected final LoggerInstance _logger = Logger.getInstance(this.getClass());

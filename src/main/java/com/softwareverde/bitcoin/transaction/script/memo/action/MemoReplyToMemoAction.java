@@ -6,7 +6,7 @@ import com.softwareverde.json.Json;
 
 public class MemoReplyToMemoAction extends MemoTransactionHashAction {
     protected static final Integer MESSAGE_MAX_BYTE_COUNT = (MemoStringAction.STRING_DEFAULT_MAX_BYTE_COUNT - Sha256Hash.BYTE_COUNT - 1);
-    protected String _message;
+    protected final String _message;
 
     @Override
     protected void _extendJson(final Json json) {

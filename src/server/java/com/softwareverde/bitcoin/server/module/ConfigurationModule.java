@@ -62,7 +62,7 @@ public class ConfigurationModule {
             ConfigurationPropertiesExporter.exportConfiguration(configuration, _configurationFilename, _userInputMap);
         }
         catch (final Exception exception) {
-            System.out.println(exception.toString());
+            System.out.println(exception);
             exception.printStackTrace();
             BitcoinUtil.exitFailure();
         }

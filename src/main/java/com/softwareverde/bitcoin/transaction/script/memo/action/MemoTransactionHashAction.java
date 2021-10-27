@@ -5,7 +5,7 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
 
 public abstract class MemoTransactionHashAction extends MemoAction {
-    protected Sha256Hash _transactionHash;
+    protected final Sha256Hash _transactionHash;
 
     @Override
     protected void _extendJson(final Json json) {

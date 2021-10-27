@@ -13,7 +13,7 @@ import org.zeromq.ZMsg;
 
 public class ZmqNotificationThread extends Thread {
     protected final RpcNotificationType _rpcNotificationType;
-    protected RpcNotificationCallback _callback;
+    protected final RpcNotificationCallback _callback;
 
     public ZmqNotificationThread(final RpcNotificationType rpcNotificationType, final String endpointUri, final RpcNotificationCallback callback) {
         super(new Runnable() {

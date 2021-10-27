@@ -7,7 +7,7 @@ import com.softwareverde.json.Json;
 public class MemoPollVoteAction extends MemoTransactionHashAction {
     protected static final Integer COMMENT_MAX_BYTE_COUNT = 184;
 
-    protected String _comment;
+    protected final String _comment;
 
     @Override
     protected void _extendJson(final Json json) {

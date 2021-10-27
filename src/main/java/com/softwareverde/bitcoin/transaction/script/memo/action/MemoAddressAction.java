@@ -5,7 +5,7 @@ import com.softwareverde.bitcoin.transaction.script.memo.MemoScriptType;
 import com.softwareverde.json.Json;
 
 public abstract class MemoAddressAction extends MemoAction {
-    protected Address _address;
+    protected final Address _address;
 
     @Override
     protected void _extendJson(final Json json) {

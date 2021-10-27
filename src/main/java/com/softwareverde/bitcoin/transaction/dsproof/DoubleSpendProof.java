@@ -32,7 +32,7 @@ import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
 public class DoubleSpendProof implements Hashable, Const {
-    public static List<HashType> SUPPORTED_HASH_TYPES = new ImmutableList<>(
+    public static final List<HashType> SUPPORTED_HASH_TYPES = new ImmutableList<>(
         new HashType(Mode.SIGNATURE_HASH_ALL, true, false),     // HashType: 0x01
         new HashType(Mode.SIGNATURE_HASH_SINGLE, true, false)   // HashType: 0x03
     );

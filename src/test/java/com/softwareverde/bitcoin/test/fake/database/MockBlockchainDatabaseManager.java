@@ -11,10 +11,10 @@ import java.util.HashMap;
 
 public class MockBlockchainDatabaseManager implements FakeBlockchainDatabaseManager {
     protected BlockchainSegmentId _headBlockchainSegmentId = null;
-    protected MutableList<BlockchainSegmentId> _leafBlockchainSegmentIds = new MutableList<>();
-    protected HashMap<BlockchainSegmentId, BlockId> _startingBlockIds = new HashMap<>();
-    protected HashMap<BlockchainSegmentId, BlockId> _headBlockIds = new HashMap<>();
-    protected HashMap<BlockchainSegmentId, BlockchainSegmentId> _parentBlockchainSegmentIds = new HashMap<>();
+    protected final MutableList<BlockchainSegmentId> _leafBlockchainSegmentIds = new MutableList<>();
+    protected final HashMap<BlockchainSegmentId, BlockId> _startingBlockIds = new HashMap<>();
+    protected final HashMap<BlockchainSegmentId, BlockId> _headBlockIds = new HashMap<>();
+    protected final HashMap<BlockchainSegmentId, BlockchainSegmentId> _parentBlockchainSegmentIds = new HashMap<>();
 
     public void setHeadBlockchainSegmentId(final BlockchainSegmentId blockchainSegmentId) {
         _headBlockchainSegmentId = blockchainSegmentId;

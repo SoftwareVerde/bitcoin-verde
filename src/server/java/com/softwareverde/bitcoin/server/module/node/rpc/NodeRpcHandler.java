@@ -1843,7 +1843,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
                         if (! jsonSocket.isConnected()) {
                             iterator.remove();
-                            Logger.debug("Dropping HookEvent: " + HookEvent.NEW_BLOCK + " " + jsonSocket.toString());
+                            Logger.debug("Dropping HookEvent: " + HookEvent.NEW_BLOCK + " " + jsonSocket);
                         }
                     }
                 }
@@ -1944,7 +1944,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
                         if (! jsonSocket.isConnected()) {
                             iterator.remove();
-                            Logger.debug("Dropping HookEvent: " + HookEvent.NEW_TRANSACTION + " " + jsonSocket.toString());
+                            Logger.debug("Dropping HookEvent: " + HookEvent.NEW_TRANSACTION + " " + jsonSocket);
                         }
                     }
                 }
@@ -2144,7 +2144,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                             } break;
 
                             case "ADD_HOOK": {
-                                _jsonConnectionProperties.keepAliveIsEnabled = _addHook(parameters, response, socketConnection);;
+                                _jsonConnectionProperties.keepAliveIsEnabled = _addHook(parameters, response, socketConnection);
                             } break;
 
                             case "UPDATE_HOOK": {
