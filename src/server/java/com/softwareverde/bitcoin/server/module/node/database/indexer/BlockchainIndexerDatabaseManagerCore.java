@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.database.indexer;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.address.PayToScriptHashAddress;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -17,14 +18,18 @@ import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.ScriptTypeId;
+import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.cryptography.hash.ripemd160.Ripemd160Hash;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.util.HashUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.query.parameter.InClauseParameter;
 import com.softwareverde.database.query.parameter.TypedParameter;
@@ -39,6 +44,7 @@ import java.util.Iterator;
 import java.util.Set;
 
 public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDatabaseManager {
+    protected static final Boolean STORE_ADDRESS_IS_ENABLED = false; // Since Electrum requires script hash, storing address is redundant and is therefore disabled in order to save space.
     protected static final String LAST_INDEXED_TRANSACTION_KEY = "last_indexed_transaction_id";
 
     protected final FullNodeDatabaseManager _databaseManager;
@@ -115,12 +121,25 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
     protected AddressTransactions _getAddressTransactions(final BlockchainSegmentId blockchainSegmentId, final Address address) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
+        final Sha256Hash scriptHash;
+        { // Reverse engineer the Address to a scriptHash for lookup...
+            final LockingScript lockingScript;
+            if (address instanceof PayToScriptHashAddress) {
+                final Ripemd160Hash payToScriptHash = Ripemd160Hash.wrap(address.getBytes());
+                lockingScript = ScriptBuilder.payToScriptHash(payToScriptHash);
+            }
+            else {
+                lockingScript = ScriptBuilder.payToAddress(address);
+            }
+            scriptHash = HashUtil.sha256(lockingScript.getBytes());
+        }
+
         final java.util.List<Row> rows;
-        final HashMap<TransactionId, MutableList<Integer>> previousOutputs = new HashMap<TransactionId, MutableList<Integer>>();
+        final HashMap<TransactionId, MutableList<Integer>> previousOutputs = new HashMap<>();
         { // Load credits, with output_indexes...
             final java.util.List<Row> transactionOutputRows = databaseConnection.query(
-                new Query("SELECT blocks.blockchain_segment_id, indexed_transaction_outputs.transaction_id, indexed_transaction_outputs.output_index FROM indexed_transaction_outputs LEFT OUTER JOIN block_transactions ON block_transactions.transaction_id = indexed_transaction_outputs.transaction_id LEFT OUTER JOIN blocks ON blocks.id = block_transactions.block_id WHERE indexed_transaction_outputs.address = ?")
-                    .setParameter(address)
+                new Query("SELECT blocks.blockchain_segment_id, indexed_transaction_outputs.transaction_id, indexed_transaction_outputs.output_index FROM indexed_transaction_outputs LEFT OUTER JOIN block_transactions ON block_transactions.transaction_id = indexed_transaction_outputs.transaction_id LEFT OUTER JOIN blocks ON blocks.id = block_transactions.block_id WHERE indexed_transaction_outputs.script_hash = ?")
+                    .setParameter(scriptHash)
             );
             if (transactionOutputRows.isEmpty()) {
                 new AddressTransactions(blockchainSegmentId);
@@ -133,7 +152,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
 
                 MutableList<Integer> indexes = previousOutputs.get(transactionId);
                 if (indexes == null) {
-                    indexes = new MutableList<Integer>(1);
+                    indexes = new MutableList<>(1);
                     previousOutputs.put(transactionId, indexes);
                 }
 
@@ -143,7 +162,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
             rows = transactionOutputRows;
         }
 
-        final HashMap<TransactionId, MutableList<Integer>> spentOutputs = new HashMap<TransactionId, MutableList<Integer>>();
+        final HashMap<TransactionId, MutableList<Integer>> spentOutputs = new HashMap<>();
         if (! rows.isEmpty()) { // Load debits, with input_indexes...
             final java.util.List<Row> transactionInputRows = databaseConnection.query(
                 new Query("SELECT blocks.blockchain_segment_id, indexed_transaction_inputs.transaction_id, indexed_transaction_inputs.spends_transaction_id, indexed_transaction_inputs.spends_output_index FROM indexed_transaction_inputs LEFT OUTER JOIN block_transactions ON block_transactions.transaction_id = indexed_transaction_inputs.transaction_id LEFT OUTER JOIN blocks ON blocks.id = block_transactions.block_id WHERE (indexed_transaction_inputs.spends_transaction_id, indexed_transaction_inputs.spends_output_index) IN (?)")
@@ -341,11 +360,12 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
     }
 
     @Override
-    public void indexTransactionOutputs(final List<TransactionId> transactionIds, final List<Integer> outputIndexes, final List<Long> amounts, final List<ScriptType> scriptTypes, final List<Address> addresses, final List<TransactionId> slpTransactionIds, final List<ByteArray> memoActionTypes, final List<ByteArray> memoActionIdentifiers) throws DatabaseException {
+    public void indexTransactionOutputs(final List<TransactionId> transactionIds, final List<Integer> outputIndexes, final List<Long> amounts, final List<ScriptType> scriptTypes, final List<Address> addresses, final List<Sha256Hash> scriptHashes, final List<TransactionId> slpTransactionIds, final List<ByteArray> memoActionTypes, final List<ByteArray> memoActionIdentifiers) throws DatabaseException {
         final int itemCount = transactionIds.getCount();
         if (transactionIds.getCount()           != itemCount) { throw new DatabaseException("Mismatch parameter count transactionIds expected "         + itemCount + " got " + transactionIds.getCount()); }
         if (outputIndexes.getCount()            != itemCount) { throw new DatabaseException("Mismatch parameter count outputIndexes expected "          + itemCount + " got " + outputIndexes.getCount()); }
         if (amounts.getCount()                  != itemCount) { throw new DatabaseException("Mismatch parameter count amounts expected "                + itemCount + " got " + amounts.getCount()); }
+        if (scriptHashes.getCount()             != itemCount) { throw new DatabaseException("Mismatch parameter count scriptHashes expected "           + itemCount + " got " + scriptHashes.getCount()); }
         if (scriptTypes.getCount()              != itemCount) { throw new DatabaseException("Mismatch parameter count scriptTypes expected "            + itemCount + " got " + scriptTypes.getCount()); }
         if (addresses.getCount()                != itemCount) { throw new DatabaseException("Mismatch parameter count addresses expected "              + itemCount + " got " + addresses.getCount()); }
         if (slpTransactionIds.getCount()        != itemCount) { throw new DatabaseException("Mismatch parameter count slpTransactionIds expected "      + itemCount + " got " + slpTransactionIds.getCount()); }
@@ -365,12 +385,13 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         batchRunner.run(indexes, new BatchRunner.Batch<Integer>() {
             @Override
             public void run(final List<Integer> batchItems) throws Exception {
-                final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO indexed_transaction_outputs (transaction_id, output_index, amount, address, script_type_id, slp_transaction_id, memo_action_type, memo_action_identifier) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE amount = VALUES(amount), address = VALUES(address), script_type_id = VALUES(script_type_id), slp_transaction_id = VALUES(slp_transaction_id), memo_action_type = VALUES(memo_action_type), memo_action_identifier = VALUES(memo_action_identifier)");
+                final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO indexed_transaction_outputs (transaction_id, output_index, amount, address, script_hash, script_type_id, slp_transaction_id, memo_action_type, memo_action_identifier) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE amount = VALUES(amount), address = VALUES(address), script_hash = VALUES(script_hash), script_type_id = VALUES(script_type_id), slp_transaction_id = VALUES(slp_transaction_id), memo_action_type = VALUES(memo_action_type), memo_action_identifier = VALUES(memo_action_identifier)");
                 for (final Integer itemIndex : batchItems) {
                     final TransactionId transactionId = transactionIds.get(itemIndex);
                     final Integer outputIndex = outputIndexes.get(itemIndex);
                     final Long amount = amounts.get(itemIndex);
-                    final Address address = addresses.get(itemIndex);
+                    final Address address = (STORE_ADDRESS_IS_ENABLED ? addresses.get(itemIndex) : null);
+                    final Sha256Hash scriptHash = scriptHashes.get(itemIndex);
                     final ScriptType scriptType = scriptTypes.get(itemIndex);
                     final TransactionId slpTransactionId = slpTransactionIds.get(itemIndex);
                     final ByteArray memoActionType = memoActionTypes.get(itemIndex);
@@ -383,6 +404,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
                         .setParameter(outputIndex)
                         .setParameter(amount)
                         .setParameter(address)
+                        .setParameter(scriptHash)
                         .setParameter(scriptTypeId)
                         .setParameter(slpTransactionId)
                         .setParameter(memoActionType)
@@ -439,14 +461,14 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         TransactionUtil.startTransaction(databaseConnection);
 
         databaseConnection.executeSql(
-                new Query("DELETE FROM indexed_transaction_outputs")
+            new Query("DELETE FROM indexed_transaction_outputs")
         );
         databaseConnection.executeSql(
-                new Query("DELETE FROM indexed_transaction_inputs")
+            new Query("DELETE FROM indexed_transaction_inputs")
         );
         databaseConnection.executeSql(
-                new Query("DELETE FROM properties WHERE `key` = ?")
-                        .setParameter(LAST_INDEXED_TRANSACTION_KEY)
+            new Query("DELETE FROM properties WHERE `key` = ?")
+                .setParameter(LAST_INDEXED_TRANSACTION_KEY)
         );
 
         TransactionUtil.commitTransaction(databaseConnection);

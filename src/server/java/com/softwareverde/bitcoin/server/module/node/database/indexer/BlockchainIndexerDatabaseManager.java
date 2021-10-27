@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 
 public interface BlockchainIndexerDatabaseManager {
@@ -20,7 +21,7 @@ public interface BlockchainIndexerDatabaseManager {
     List<TransactionId> getUnprocessedTransactions(Integer batchSize) throws DatabaseException;
     void dequeueTransactionsForProcessing(List<TransactionId> transactionIds) throws DatabaseException;
 
-    void indexTransactionOutputs(List<TransactionId> transactionIds, List<Integer> outputIndexes, List<Long> amounts, List<ScriptType> scriptTypes, List<Address> addresses, List<TransactionId> slpTransactionIds, List<ByteArray> memoActionTypes, List<ByteArray> memoActionIdentifiers) throws DatabaseException;
+    void indexTransactionOutputs(List<TransactionId> transactionIds, List<Integer> outputIndexes, List<Long> amounts, List<ScriptType> scriptTypes, List<Address> addresses, List<Sha256Hash> scriptHashes, List<TransactionId> slpTransactionIds, List<ByteArray> memoActionTypes, List<ByteArray> memoActionIdentifiers) throws DatabaseException;
     void indexTransactionInputs(List<TransactionId> transactionIds, List<Integer> inputIndexes, List<TransactionOutputId> transactionOutputIds) throws DatabaseException;
 
     void deleteTransactionIndexes() throws DatabaseException;

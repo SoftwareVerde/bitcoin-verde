@@ -259,6 +259,10 @@ public abstract class Socket implements AutoCloseable {
         return _messages.poll();
     }
 
+    public Long getId() {
+        return _id;
+    }
+
     /**
      * Attempts to return the DNS lookup of the connection or null if the lookup fails.
      */
@@ -305,15 +309,15 @@ public abstract class Socket implements AutoCloseable {
 
     @Override
     public int hashCode() {
-        return (BinarySocket.class.getSimpleName().hashCode() + _id.hashCode());
+        return (Socket.class.getSimpleName().hashCode() + _id.hashCode());
     }
 
     @Override
     public boolean equals(final Object object) {
         if (object == null) { return false; }
-        if (! (object instanceof BinarySocket)) { return false; }
+        if (! (object instanceof Socket)) { return false; }
 
-        final BinarySocket socketConnectionObject = (BinarySocket) object;
+        final Socket socketConnectionObject = (Socket) object;
         return _id.equals(socketConnectionObject._id);
     }
 

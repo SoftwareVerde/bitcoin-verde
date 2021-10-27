@@ -102,6 +102,15 @@ public class BitcoinVerdeDatabase implements Database {
                 upgradedVersion = 8;
             }
 
+            // v8 -> v9 (Electrum Output Indexing)
+            if ( (upgradedVersion == 8) && (requiredVersion >= 9) ) {
+                Logger.info("[Upgrading DB to v9]");
+                final Boolean wasSuccessful = BitcoinVerdeDatabase.upgradeElectrumSupport(maintenanceDatabaseConnection);
+                if (! wasSuccessful) { return false; }
+
+                upgradedVersion = 9;
+            }
+
             return (upgradedVersion >= requiredVersion);
         }
     };
@@ -276,6 +285,24 @@ public class BitcoinVerdeDatabase implements Database {
     protected static Boolean upgradeUtxoCommitmentSupport(final com.softwareverde.database.DatabaseConnection<Connection> databaseConnection) {
         try {
             final String upgradeScript = IoUtil.getResource("/sql/node/mysql/upgrade/utxo_commitments_v1.sql"); // TODO: Use mysql/sqlite when appropriate...
+            if (Util.isBlank(upgradeScript)) { return false; }
+
+            TransactionUtil.startTransaction(databaseConnection);
+            final SqlScriptRunner scriptRunner = new SqlScriptRunner(databaseConnection.getRawConnection(), false, true);
+            scriptRunner.runScript(new StringReader(upgradeScript));
+            TransactionUtil.commitTransaction(databaseConnection);
+
+            return true;
+        }
+        catch (final Exception exception) {
+            Logger.debug(exception);
+            return false;
+        }
+    }
+
+    protected static Boolean upgradeElectrumSupport(final com.softwareverde.database.DatabaseConnection<Connection> databaseConnection) {
+        try {
+            final String upgradeScript = IoUtil.getResource("/sql/node/mysql/upgrade/electrum_indexing_v1.sql"); // TODO: Use mysql/sqlite when appropriate...
             if (Util.isBlank(upgradeScript)) { return false; }
 
             TransactionUtil.startTransaction(databaseConnection);

@@ -22,7 +22,7 @@ public interface AtomicTransactionOutputIndexerContext extends AutoCloseable {
     TransactionId getTransactionId(SlpTokenId slpTokenId) throws ContextException;
     Transaction getTransaction(TransactionId transactionId) throws ContextException;
 
-    void indexTransactionOutput(TransactionId transactionId, Integer outputIndex, Long amount, ScriptType scriptType, Address address, TransactionId slpTransactionId, ByteArray memoActionType, ByteArray memoActionIdentifier) throws ContextException;
+    void indexTransactionOutput(TransactionId transactionId, Integer outputIndex, Long amount, ScriptType scriptType, Address address, Sha256Hash scriptHash, TransactionId slpTransactionId, ByteArray memoActionType, ByteArray memoActionIdentifier) throws ContextException;
     void indexTransactionInput(TransactionId transactionId, Integer inputIndex, TransactionOutputId transactionOutputId) throws ContextException;
 
     @Override

@@ -28,6 +28,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.util.HashUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.DisabledMultiTimer;
@@ -47,6 +48,7 @@ public class BlockchainIndexer extends SleepyService {
         Long amount;
         ScriptType scriptType;
         Address address;
+        Sha256Hash scriptHash;
         TransactionId slpTransactionId;
         ByteArray memoActionType;
         ByteArray memoActionIdentifier;
@@ -158,9 +160,11 @@ public class BlockchainIndexer extends SleepyService {
 
                 final ScriptType scriptType;
                 final Address address;
+                final Sha256Hash scriptHash;
                 {
                     scriptType = _scriptPatternMatcher.getScriptType(lockingScript);
                     address = _scriptPatternMatcher.extractAddress(scriptType, lockingScript);
+                    scriptHash = HashUtil.sha256(lockingScript.getBytes());
                 }
 
                 final ByteArray memoActionType;
@@ -191,6 +195,7 @@ public class BlockchainIndexer extends SleepyService {
                 indexData.amount = transactionOutput.getAmount();
                 indexData.scriptType = scriptType;
                 indexData.address = address;
+                indexData.scriptHash = scriptHash;
                 indexData.slpTransactionId = null; // Handled later within this function...
                 indexData.memoActionType = memoActionType;
                 indexData.memoActionIdentifier = memoActionIdentifier;
@@ -325,7 +330,7 @@ public class BlockchainIndexer extends SleepyService {
         final Map<TransactionOutputIdentifier, OutputIndexData> outputIndexData = _indexTransactionOutputs(transactionId, transaction);
         timer.mark("_indexTransactionOutputs");
         for (final OutputIndexData indexData : outputIndexData.values()) {
-            context.indexTransactionOutput(indexData.transactionId, indexData.outputIndex, indexData.amount, indexData.scriptType, indexData.address, indexData.slpTransactionId, indexData.memoActionType, indexData.memoActionIdentifier);
+            context.indexTransactionOutput(indexData.transactionId, indexData.outputIndex, indexData.amount, indexData.scriptType, indexData.address, indexData.scriptHash, indexData.slpTransactionId, indexData.memoActionType, indexData.memoActionIdentifier);
         }
         timer.mark("indexTransactionOutput");
 

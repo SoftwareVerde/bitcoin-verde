@@ -13,6 +13,7 @@ import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.cryptography.hash.ripemd160.Ripemd160Hash;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.cryptography.util.HashUtil;
 import com.softwareverde.util.ByteUtil;
@@ -54,9 +55,13 @@ public class ScriptBuilder {
     }
 
     public static LockingScript payToScriptHash(final Script payToScript) {
+        final Ripemd160Hash scriptHash = HashUtil.ripemd160(HashUtil.sha256(payToScript.getBytes()));
+        return ScriptBuilder.payToScriptHash(scriptHash);
+    }
+    public static LockingScript payToScriptHash(final Ripemd160Hash scriptHash) {
         final ScriptBuilder scriptBuilder = new ScriptBuilder();
         scriptBuilder.pushOperation(CryptographicOperation.SHA_256_THEN_RIPEMD_160);
-        scriptBuilder.pushOperation(PushOperation.pushBytes(HashUtil.ripemd160(HashUtil.sha256(payToScript.getBytes()))));
+        scriptBuilder.pushOperation(PushOperation.pushBytes(scriptHash));
         scriptBuilder.pushOperation(ComparisonOperation.IS_EQUAL);
         return scriptBuilder.buildLockingScript();
     }
