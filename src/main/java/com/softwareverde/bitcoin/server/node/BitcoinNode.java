@@ -1382,7 +1382,8 @@ public class BitcoinNode extends Node {
                 case UTXO_COMMITMENT_EVEN:
                 case UTXO_COMMITMENT_ODD: {
                     synchronized (_downloadUtxoCommitmentRequests) {
-                        final Set<PendingRequest<DownloadUtxoCommitmentCallback>> downloadUtxoCommitmentCallbacks = _downloadUtxoCommitmentRequests.remove(itemHash);
+                        final PublicKey publicKey = RequestDataMessage.convertUtxoCommitmentInventoryToPublicKey(inventoryItemType, itemHash);
+                        final Set<PendingRequest<DownloadUtxoCommitmentCallback>> downloadUtxoCommitmentCallbacks = _downloadUtxoCommitmentRequests.remove(publicKey);
                         if (downloadUtxoCommitmentCallbacks == null) { return; }
 
                         for (final PendingRequest<DownloadUtxoCommitmentCallback> pendingRequest : downloadUtxoCommitmentCallbacks) {
@@ -1390,7 +1391,6 @@ public class BitcoinNode extends Node {
                             _threadPool.execute(new Runnable() {
                                 @Override
                                 public void run() {
-                                    final PublicKey publicKey = RequestDataMessage.convertUtxoCommitmentInventoryToPublicKey(inventoryItemType, itemHash);
                                     pendingRequest.callback.onFailure(pendingRequest.requestId, BitcoinNode.this, publicKey);
 
                                     for (final BitcoinNodeObserver observer : _observers) {

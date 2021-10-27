@@ -233,7 +233,7 @@ public class BitcoinNodeDatabaseManagerCore implements BitcoinNodeDatabaseManage
 
     @Override
     public List<BitcoinNodeIpAddress> findNodes(final List<NodeFeatures.Feature> requiredFeatures, final Long secondsSinceLastConnectionAttempt, final Integer maxCount) throws DatabaseException {
-        return this.findNodes(requiredFeatures, null, maxCount);
+        return this.findNodes(requiredFeatures, null, null, maxCount);
     }
 
     @Override
