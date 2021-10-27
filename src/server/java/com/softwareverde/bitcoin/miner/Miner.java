@@ -22,7 +22,7 @@ import com.softwareverde.util.type.time.SystemTime;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class Miner {
-    protected final Container<Boolean> _hasBeenFound = new Container<Boolean>(false);
+    protected final Container<Boolean> _hasBeenFound = new Container<>(false);
 
     protected final SystemTime _systemTime = new SystemTime();
     protected final BlockHeaderInflaters _blockHeaderInflaters;
@@ -45,10 +45,10 @@ public class Miner {
     }
 
     public Block mineBlock(final Block prototypeBlock) throws Exception {
-        final MutableList<Thread> threads = new MutableList<Thread>();
-        final MutableList<AtomicLong> hashCounts = new MutableList<AtomicLong>();
+        final MutableList<Thread> threads = new MutableList<>();
+        final MutableList<AtomicLong> hashCounts = new MutableList<>();
 
-        final Container<Block> blockContainer = new Container<Block>();
+        final Container<Block> blockContainer = new Container<>();
 
         final Runnable hashCountPrinter = new Runnable() {
             @Override

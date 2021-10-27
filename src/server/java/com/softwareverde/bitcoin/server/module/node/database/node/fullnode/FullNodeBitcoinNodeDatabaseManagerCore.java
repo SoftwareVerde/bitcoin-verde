@@ -96,7 +96,7 @@ public class FullNodeBitcoinNodeDatabaseManagerCore extends BitcoinNodeDatabaseM
                 .setInClauseParameters(nodeIds, ValueExtractor.IDENTIFIER)
         );
 
-        final HashSet<NodeId> filteredNodes = new HashSet<NodeId>(rows.size());
+        final HashSet<NodeId> filteredNodes = new HashSet<>(rows.size());
         if (filterType == FilterType.KEEP_NODES_WITHOUT_INVENTORY) {
             for (final NodeId nodeId : nodeIds) {
                 filteredNodes.add(nodeId);
@@ -114,7 +114,7 @@ public class FullNodeBitcoinNodeDatabaseManagerCore extends BitcoinNodeDatabaseM
             }
         }
 
-        return new ImmutableList<NodeId>(filteredNodes);
+        return new ImmutableList<>(filteredNodes);
     }
 
     @Override
@@ -128,12 +128,12 @@ public class FullNodeBitcoinNodeDatabaseManagerCore extends BitcoinNodeDatabaseM
 
         // TODO: Check for blockchain node feature...
 
-        final HashSet<NodeId> filteredNodes = new HashSet<NodeId>(rows.size());
+        final HashSet<NodeId> filteredNodes = new HashSet<>(rows.size());
 
         final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
         final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
-        if (blockId == null) { return new MutableList<NodeId>(0); }
+        if (blockId == null) { return new MutableList<>(0); }
 
         final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
         final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
@@ -161,6 +161,6 @@ public class FullNodeBitcoinNodeDatabaseManagerCore extends BitcoinNodeDatabaseM
             }
         }
 
-        return new ImmutableList<NodeId>(filteredNodes);
+        return new ImmutableList<>(filteredNodes);
     }
 }

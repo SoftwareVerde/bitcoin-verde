@@ -126,8 +126,8 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                 Check database (even during a commit this will be the expected pre-commit state)
          */
 
-    protected static final TreeMap<UtxoKey, UtxoValue> UTXO_SET = new TreeMap<UtxoKey, UtxoValue>(UtxoKey.COMPARATOR);
-    protected static final TreeMap<UtxoKey, UtxoValue> DOUBLE_BUFFER = new TreeMap<UtxoKey, UtxoValue>(UtxoKey.COMPARATOR);
+    protected static final TreeMap<UtxoKey, UtxoValue> UTXO_SET = new TreeMap<>(UtxoKey.COMPARATOR);
+    protected static final TreeMap<UtxoKey, UtxoValue> DOUBLE_BUFFER = new TreeMap<>(UtxoKey.COMPARATOR);
     protected static Thread DOUBLE_BUFFER_THREAD = null;
 
     protected final Long _maxUtxoCount;
@@ -176,7 +176,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
     }
 
     protected void _markTransactionOutputsAsSpent(final List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers) {
-        final TreeMap<UtxoKey, UtxoValue> queuedUpdates = new TreeMap<UtxoKey, UtxoValue>(UtxoKey.COMPARATOR);
+        final TreeMap<UtxoKey, UtxoValue> queuedUpdates = new TreeMap<>(UtxoKey.COMPARATOR);
         for (final TransactionOutputIdentifier transactionOutputIdentifier : spentTransactionOutputIdentifiers) {
             final UtxoKey utxoKey = new UtxoKey(transactionOutputIdentifier);
             final UtxoValue utxoValue = UTXO_SET.remove(utxoKey);
@@ -212,7 +212,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         byte[] previousTransactionHashBytes = null;
 
         final int itemCount = transactionOutputIdentifiers.getCount();
-        final TreeMap<UtxoKey, UtxoValue> queuedUpdates = new TreeMap<UtxoKey, UtxoValue>(UtxoKey.COMPARATOR);
+        final TreeMap<UtxoKey, UtxoValue> queuedUpdates = new TreeMap<>(UtxoKey.COMPARATOR);
         for (int i = 0; i < itemCount; ++i) {
             final TransactionOutputIdentifier transactionOutputIdentifier = transactionOutputIdentifiers.get(i);
             final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
@@ -274,7 +274,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
     }
 
     protected void _undoCreationOfTransactionOutputs(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) {
-        final TreeMap<UtxoKey, UtxoValue> queuedUpdates = new TreeMap<UtxoKey, UtxoValue>(UtxoKey.COMPARATOR);
+        final TreeMap<UtxoKey, UtxoValue> queuedUpdates = new TreeMap<>(UtxoKey.COMPARATOR);
         for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
             final UtxoKey utxoKey = new UtxoKey(transactionOutputIdentifier);
             final UtxoValue utxoValue = UTXO_SET.remove(utxoKey); // Remove the UTXO from the set.
@@ -378,7 +378,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
     }
 
     protected void _undoSpendingOfTransactionOutputs(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException {
-        final TreeMap<UtxoKey, UtxoValue> queuedUpdates = new TreeMap<UtxoKey, UtxoValue>(UtxoKey.COMPARATOR);
+        final TreeMap<UtxoKey, UtxoValue> queuedUpdates = new TreeMap<>(UtxoKey.COMPARATOR);
         for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
             final UtxoKey utxoKey = new UtxoKey(transactionOutputIdentifier);
             final UtxoValue utxoValue = UTXO_SET.remove(utxoKey);
@@ -500,8 +500,8 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         final JvmSpentState transientSpentState = new JvmSpentState(); // Re-initialize the same instance instead of creating many objects.
         final Iterator<Map.Entry<UtxoKey, UtxoValue>> iterator = DOUBLE_BUFFER.entrySet().iterator();
 
-        final MutableList<UtxoKey> nextDeleteBatch = new MutableList<UtxoKey>(maxUtxoPerBatch);
-        final MutableList<Utxo> nextInsertBatch = new MutableList<Utxo>(maxUtxoPerBatch);
+        final MutableList<UtxoKey> nextDeleteBatch = new MutableList<>(maxUtxoPerBatch);
+        final MutableList<Utxo> nextInsertBatch = new MutableList<>(maxUtxoPerBatch);
 
         while (iterator.hasNext()) {
             final Map.Entry<UtxoKey, UtxoValue> entry = iterator.next();
@@ -1179,8 +1179,8 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final int transactionOutputIdentifierCount = transactionOutputIdentifiers.getCount();
 
-        final MutableList<TransactionOutputIdentifier> cacheMissIdentifiers = new MutableList<TransactionOutputIdentifier>(transactionOutputIdentifierCount);
-        final HashSet<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers = new HashSet<TransactionOutputIdentifier>(transactionOutputIdentifierCount);
+        final MutableList<TransactionOutputIdentifier> cacheMissIdentifiers = new MutableList<>(transactionOutputIdentifierCount);
+        final HashSet<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers = new HashSet<>(transactionOutputIdentifierCount);
 
         final HashMap<TransactionOutputIdentifier, UnspentTransactionOutput> transactionOutputs = new HashMap<>();
 
@@ -1237,9 +1237,9 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                 final int cacheMissCount = cacheMissIdentifiers.getCount();
                 if (cacheMissCount > 0) {
                     final Integer batchSize = Math.min(512, _databaseManager.getMaxQueryBatchSize());
-                    final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(batchSize, false);
+                    final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<>(batchSize, false);
 
-                    final java.util.List<Row> rows = new ArrayList<Row>(0);
+                    final java.util.List<Row> rows = new ArrayList<>(0);
                     batchRunner.run(cacheMissIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
                         @Override
                         public void run(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws Exception {

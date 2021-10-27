@@ -10,7 +10,7 @@ import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.socket.BinarySocket;
 
 public class FakeBitcoinNode extends BitcoinNode {
-    protected final MutableList<ProtocolMessage> _outboundMessageQueue = new MutableList<ProtocolMessage>();
+    protected final MutableList<ProtocolMessage> _outboundMessageQueue = new MutableList<>();
 
     @Override
     protected void _initConnection() {

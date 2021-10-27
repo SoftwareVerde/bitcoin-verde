@@ -28,7 +28,7 @@ public class TransactionOutputIdentifier implements Const, Comparable<Transactio
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
         final int outputCount = transactionOutputs.getCount();
 
-        final MutableList<TransactionOutputIdentifier> transactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>(outputCount);
+        final MutableList<TransactionOutputIdentifier> transactionOutputIdentifiers = new MutableList<>(outputCount);
 
         for (int outputIndex = 0; outputIndex < outputCount; ++outputIndex) {
             final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(constTransactionHash, outputIndex);

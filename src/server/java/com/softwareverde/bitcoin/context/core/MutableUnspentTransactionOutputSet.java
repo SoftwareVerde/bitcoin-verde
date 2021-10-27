@@ -153,8 +153,8 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
         final List<Transaction> transactions = block.getTransactions();
 
         Transaction coinbaseTransaction = null;
-        final HashSet<TransactionOutputIdentifier> requiredTransactionOutputs = new HashSet<TransactionOutputIdentifier>();
-        final HashSet<TransactionOutputIdentifier> newOutputs = new HashSet<TransactionOutputIdentifier>();
+        final HashSet<TransactionOutputIdentifier> requiredTransactionOutputs = new HashSet<>();
+        final HashSet<TransactionOutputIdentifier> newOutputs = new HashSet<>();
         for (final Transaction transaction : transactions) {
             final Sha256Hash transactionHash = transaction.getHash();
             _transactionBlockHeights.put(transactionHash, blockHeight);
@@ -198,7 +198,7 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
 
         final HashSet<Sha256Hash> unknownTransactionBlockHeightsSet = new HashSet<>();
         boolean allTransactionOutputsWereLoaded = true;
-        final List<TransactionOutputIdentifier> transactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>(requiredTransactionOutputs);
+        final List<TransactionOutputIdentifier> transactionOutputIdentifiers = new MutableList<>(requiredTransactionOutputs);
         final List<UnspentTransactionOutput> transactionOutputs = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutputs(transactionOutputIdentifiers);
         for (int i = 0; i < transactionOutputs.getCount(); ++i) {
             final TransactionOutputIdentifier transactionOutputIdentifier = transactionOutputIdentifiers.get(i);
@@ -233,7 +233,7 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
             }
 
             final Map<Sha256Hash, BlockId> transactionBlockIds = transactionDatabaseManager.getBlockIds(blockchainSegmentId, transactionsWithUnknownBlockHeight);
-            final HashSet<BlockId> uniqueBlockIds = new HashSet<BlockId>(transactionBlockIds.values());
+            final HashSet<BlockId> uniqueBlockIds = new HashSet<>(transactionBlockIds.values());
             final Map<BlockId, Long> blockHeights = blockHeaderDatabaseManager.getBlockHeights(JavaListWrapper.wrap(uniqueBlockIds));
             for (final Sha256Hash transactionHash : transactionBlockIds.keySet()) {
                 final BlockId transactionBlockId = transactionBlockIds.get(transactionHash);

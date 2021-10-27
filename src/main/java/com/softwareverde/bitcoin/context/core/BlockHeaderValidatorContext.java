@@ -30,8 +30,8 @@ public class BlockHeaderValidatorContext extends CachingMedianBlockTimeContext i
     protected final UpgradeSchedule _upgradeSchedule;
     protected final VolatileNetworkTime _networkTime;
 
-    protected final HashMap<Long, BlockHeader> _blockHeaders = new HashMap<Long, BlockHeader>();
-    protected final HashMap<Long, ChainWork> _chainWorks = new HashMap<Long, ChainWork>();
+    protected final HashMap<Long, BlockHeader> _blockHeaders = new HashMap<>();
+    protected final HashMap<Long, ChainWork> _chainWorks = new HashMap<>();
 
     protected final AsertReferenceBlockLoader _asertReferenceBlockLoader;
     protected final DifficultyCalculatorFactory _difficultyCalculatorFactory;

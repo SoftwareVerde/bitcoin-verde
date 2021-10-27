@@ -27,7 +27,7 @@ public class ListUtil {
 
     @SafeVarargs
     public static <T> MutableList<T> newMutableList(final T... items) {
-        final MutableList<T> mutableList = new MutableList<T>(items.length);
+        final MutableList<T> mutableList = new MutableList<>(items.length);
         for (final T item : items) {
             mutableList.add(item);
         }

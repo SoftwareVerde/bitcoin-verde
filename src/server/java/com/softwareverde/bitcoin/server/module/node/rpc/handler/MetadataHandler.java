@@ -128,7 +128,7 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
         }
 
         { // Process TransactionInputs...
-            final HashMap<Sha256Hash, Transaction> cachedTransactions = new HashMap<Sha256Hash, Transaction>(8);
+            final HashMap<Sha256Hash, Transaction> cachedTransactions = new HashMap<>(8);
 
             int transactionInputIndex = 0;
             for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {

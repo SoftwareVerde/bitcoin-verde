@@ -132,7 +132,7 @@ public class SeedPhraseGenerator {
      * @return
      */
     public List<String> validateSeedPhrase(final String expectedSeedPhrase) {
-        final MutableList<String> errors = new MutableList<String>();
+        final MutableList<String> errors = new MutableList<>();
 
         final String[] seedWords = expectedSeedPhrase.split(" ");
         for (final String word : seedWords) {

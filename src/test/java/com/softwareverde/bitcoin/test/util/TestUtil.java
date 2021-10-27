@@ -58,7 +58,7 @@ public class TestUtil {
         int i = 0;
         for (final Row row : rows) {
             final Map<String, TypedParameter> values = ReflectionUtil.getValue(row, "_columnValues");
-            final HashMap<String, Object> debugValues = new HashMap<String, Object>();
+            final HashMap<String, Object> debugValues = new HashMap<>();
             for (final String columnName : row.getColumnNames()) {
                 final TypedParameter typedParameter = values.get(columnName);
                 if (typedParameter.value instanceof byte[]) {

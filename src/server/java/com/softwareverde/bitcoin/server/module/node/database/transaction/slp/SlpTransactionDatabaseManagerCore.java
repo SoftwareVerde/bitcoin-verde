@@ -79,7 +79,7 @@ public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabase
             )
         );
 
-        final ImmutableListBuilder<TransactionId> transactionIds = new ImmutableListBuilder<TransactionId>(rows.size());
+        final ImmutableListBuilder<TransactionId> transactionIds = new ImmutableListBuilder<>(rows.size());
 
         for (final Row row : rows) {
             final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));

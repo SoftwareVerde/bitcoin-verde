@@ -110,13 +110,13 @@ public class BatchRunner<T> {
         }
 
         final Runnable[] runnables = new Runnable[batchCount];
-        final Container<Exception> exceptionContainer = new Container<Exception>();
+        final Container<Exception> exceptionContainer = new Container<>();
         for (int i = 0; i < batchCount; ++i) {
             final int batchId = i;
             final Runnable runnable = new Runnable() {
                 @Override
                 public void run() {
-                    final MutableList<T> bathedItems = new MutableList<T>(itemCountPerBatch);
+                    final MutableList<T> bathedItems = new MutableList<>(itemCountPerBatch);
                     for (int j = 0; j < itemCountPerBatch; ++j) {
                         final int index = ((batchId * itemCountPerBatch) + j);
                         if (index >= totalItemCount) { break; }

@@ -85,7 +85,7 @@ public class BitcoinNodeManagerTests extends IntegrationTest {
         final String host = "127.0.0.1";
         final Ip ip = Ip.fromString(host);
 
-        final MutableList<BitcoinNode> bitcoinNodes = new MutableList<BitcoinNode>();
+        final MutableList<BitcoinNode> bitcoinNodes = new MutableList<>();
 
         // Action
         // Spam the NodeManager with 10 connections that never handshake.

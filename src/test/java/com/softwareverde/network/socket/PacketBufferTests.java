@@ -199,7 +199,7 @@ public class PacketBufferTests {
         packetBuffer.appendBytes(zVersionMessageBytes.getBytes(), zVersionMessageBytes.getByteCount());
         packetBuffer.appendBytes(inventoryMessageBytes.getBytes(), inventoryMessageBytes.getByteCount());
 
-        final MutableList<BitcoinProtocolMessage> protocolMessages = new MutableList<BitcoinProtocolMessage>();
+        final MutableList<BitcoinProtocolMessage> protocolMessages = new MutableList<>();
 
         // Action
         packetBuffer.evictCorruptedPackets();
@@ -230,7 +230,7 @@ public class PacketBufferTests {
         packetBuffer.appendBytes(inventoryMessageBytes.getBytes(), inventoryMessageBytes.getByteCount()); // Message becomes mangled by the off-by-one in zVersion.
         packetBuffer.appendBytes(inventoryMessageBytes.getBytes(), inventoryMessageBytes.getByteCount());
 
-        final MutableList<BitcoinProtocolMessage> protocolMessages = new MutableList<BitcoinProtocolMessage>();
+        final MutableList<BitcoinProtocolMessage> protocolMessages = new MutableList<>();
 
         // Action
         packetBuffer.evictCorruptedPackets();

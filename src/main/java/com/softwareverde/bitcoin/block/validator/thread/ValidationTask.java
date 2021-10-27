@@ -11,9 +11,9 @@ class ValidationTask<T, S> implements Runnable {
     protected final TaskHandler<T, S> _taskHandler;
     protected final List<T> _list;
 
-    protected final Container<Boolean> _shouldAbort = new Container<Boolean>(false);
-    protected final Container<Boolean> _isFinished = new Container<Boolean>(false);
-    protected final Container<Boolean> _didEncounterError = new Container<Boolean>(false);
+    protected final Container<Boolean> _shouldAbort = new Container<>(false);
+    protected final Container<Boolean> _isFinished = new Container<>(false);
+    protected final Container<Boolean> _didEncounterError = new Container<>(false);
 
     protected int _startIndex;
     protected int _itemCount;

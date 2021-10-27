@@ -66,7 +66,7 @@ public class TransactionInventoryAnnouncementHandler implements BitcoinNode.Tran
 
             final List<Sha256Hash> unseenTransactionHashes;
             {
-                final ImmutableListBuilder<Sha256Hash> unseenTransactionHashesBuilder = new ImmutableListBuilder<Sha256Hash>(cacheMissTransactionHashes.getCount());
+                final ImmutableListBuilder<Sha256Hash> unseenTransactionHashesBuilder = new ImmutableListBuilder<>(cacheMissTransactionHashes.getCount());
                 for (final Sha256Hash transactionHash : cacheMissTransactionHashes) {
                     final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
                     if (transactionId == null) {

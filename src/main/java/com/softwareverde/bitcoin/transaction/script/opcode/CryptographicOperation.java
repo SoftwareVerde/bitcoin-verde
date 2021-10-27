@@ -183,7 +183,7 @@ public class CryptographicOperation extends SubTypedOperation {
 
         final List<ByteArray> bytesToRemoveFromScript;
         { // NOTE: All instances of the signature should be purged from the signed script...
-            final ImmutableListBuilder<ByteArray> signatureBytesBuilder = new ImmutableListBuilder<ByteArray>(1);
+            final ImmutableListBuilder<ByteArray> signatureBytesBuilder = new ImmutableListBuilder<>(1);
             signatureBytesBuilder.add(MutableByteArray.wrap(signatureValue.getBytes()));
             bytesToRemoveFromScript = signatureBytesBuilder.build();
         }
@@ -280,7 +280,7 @@ public class CryptographicOperation extends SubTypedOperation {
 
         final List<PublicKey> publicKeys;
         {
-            final ImmutableListBuilder<PublicKey> listBuilder = new ImmutableListBuilder<PublicKey>();
+            final ImmutableListBuilder<PublicKey> listBuilder = new ImmutableListBuilder<>();
             for (int i = 0; i < publicKeyCount; ++i) {
                 final Value publicKeyValue = stack.pop();
                 if (stack.didOverflow()) { return false; }
@@ -311,8 +311,8 @@ public class CryptographicOperation extends SubTypedOperation {
         final List<ScriptSignature> signatures;
         {
             boolean signaturesAreEmpty = true;
-            final ImmutableListBuilder<ByteArray> signatureBytesBuilder = new ImmutableListBuilder<ByteArray>(signatureCount);
-            final ImmutableListBuilder<ScriptSignature> listBuilder = new ImmutableListBuilder<ScriptSignature>(signatureCount);
+            final ImmutableListBuilder<ByteArray> signatureBytesBuilder = new ImmutableListBuilder<>(signatureCount);
+            final ImmutableListBuilder<ScriptSignature> listBuilder = new ImmutableListBuilder<>(signatureCount);
             for (int i = 0; i < signatureCount; ++i) {
                 final Value signatureValue = stack.pop();
                 if (stack.didOverflow()) { return false; }
@@ -360,7 +360,7 @@ public class CryptographicOperation extends SubTypedOperation {
 
             { // Build `publicKeyIndexesToTry` as a list of indexes into the public key list.
                 // This operation mimics the legacy/ecdsa style of multi-sig validation, where all signatures are tested but are allowed to fail.
-                final ImmutableListBuilder<Integer> publicKeyIndexesBuilder = new ImmutableListBuilder<Integer>(publicKeyCount);
+                final ImmutableListBuilder<Integer> publicKeyIndexesBuilder = new ImmutableListBuilder<>(publicKeyCount);
                 for (int i = 0; i < publicKeyCount; ++i) {
                     // The public keys must be attempted in order, starting with the last public key pushed must be the first attempted.
                     //  This specific order is required due to strict-encoding rules that were added throughout the protocol's evolution.
@@ -392,7 +392,7 @@ public class CryptographicOperation extends SubTypedOperation {
                 //      checkBits := 0b00000010                                     # The 2nd bit was set, accessible via ByteArray::getBit(6).
                 //  This configuration results in only signature1 being validated.
 
-                final ImmutableListBuilder<Integer> publicKeyIndexesBuilder = new ImmutableListBuilder<Integer>();
+                final ImmutableListBuilder<Integer> publicKeyIndexesBuilder = new ImmutableListBuilder<>();
                 final int bitCount = (checkBitsValue.getByteCount() * 8);
                 int bitSetCount = 0;
                 for (int i = 0; i < bitCount; ++i) {

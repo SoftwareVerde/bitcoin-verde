@@ -53,7 +53,7 @@ public class SocketServer<T extends Socket> {
     protected final SocketFactory<T> _socketFactory;
     protected java.net.ServerSocket _socket;
 
-    protected final MutableList<T> _connections = new MutableList<T>();
+    protected final MutableList<T> _connections = new MutableList<>();
 
     protected Long _nextConnectionId = 0L;
     protected volatile Boolean _shouldContinue = true;
@@ -66,7 +66,7 @@ public class SocketServer<T extends Socket> {
 
     protected void _purgeDisconnectedConnections() {
         final int socketCount = _connections.getCount();
-        final MutableList<T> disconnectedSockets = new MutableList<T>(socketCount);
+        final MutableList<T> disconnectedSockets = new MutableList<>(socketCount);
 
         synchronized (_connections) {
             int socketIndex = 0;

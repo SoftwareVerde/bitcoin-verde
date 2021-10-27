@@ -12,7 +12,7 @@ public class ThreadPoolThrottle extends SleepyService implements ThreadPool {
     public static final Integer MAX_QUEUE_SIZE = 10000;
 
     protected final SystemTime _systemTime = new SystemTime();
-    protected final ConcurrentLinkedQueue<Runnable> _queue = new ConcurrentLinkedQueue<Runnable>();
+    protected final ConcurrentLinkedQueue<Runnable> _queue = new ConcurrentLinkedQueue<>();
     protected final AtomicInteger _queueSize = new AtomicInteger(0);
     protected final ThreadPool _threadPool;
     protected final Integer _maxSubmissionsPerSecond;

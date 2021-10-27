@@ -36,7 +36,7 @@ public class StratumMineBlockTask {
 
     // Creates the partialMerkleTree Json as little-endian hashes...
     protected void _buildMerkleTreeBranches() {
-        final ImmutableListBuilder<String> listBuilder = new ImmutableListBuilder<String>();
+        final ImmutableListBuilder<String> listBuilder = new ImmutableListBuilder<>();
         final List<Sha256Hash> partialMerkleTree = _prototypeBlock.getPartialMerkleTree(0);
         for (final Sha256Hash hash : partialMerkleTree) {
             final String hashString = hash.toString();
@@ -179,7 +179,7 @@ public class StratumMineBlockTask {
         final List<Transaction> transactions;
         {
             final List<Transaction> prototypeBlockTransaction = _prototypeBlock.getTransactions();
-            final MutableList<Transaction> mutableList = new MutableList<Transaction>(prototypeBlockTransaction);
+            final MutableList<Transaction> mutableList = new MutableList<>(prototypeBlockTransaction);
             mutableList.set(0, coinbaseTransaction);
             transactions = mutableList;
         }

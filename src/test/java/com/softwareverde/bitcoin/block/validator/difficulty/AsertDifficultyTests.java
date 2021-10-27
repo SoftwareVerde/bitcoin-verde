@@ -27,7 +27,7 @@ public class AsertDifficultyTests extends UnitTest {
     }
 
     public static List<TestVector> inflateTests(final String testsString) {
-        final MutableList<TestVector> tests = new MutableList<TestVector>();
+        final MutableList<TestVector> tests = new MutableList<>();
         final String[] testVectors = testsString.split("\n");
         for (final String vector : testVectors) {
             if (vector.startsWith("#")) { continue; }

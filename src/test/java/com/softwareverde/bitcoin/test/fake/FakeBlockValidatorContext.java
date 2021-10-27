@@ -26,9 +26,9 @@ import java.util.HashMap;
 public class FakeBlockValidatorContext extends FakeUnspentTransactionOutputContext implements BlockValidator.Context {
     protected final TransactionInflaters _transactionInflaters;
     protected final VolatileNetworkTime _networkTime;
-    protected final HashMap<Long, BlockHeader> _blocks = new HashMap<Long, BlockHeader>();
-    protected final HashMap<Long, MedianBlockTime> _medianBlockTimes = new HashMap<Long, MedianBlockTime>();
-    protected final HashMap<Long, ChainWork> _chainWorks = new HashMap<Long, ChainWork>();
+    protected final HashMap<Long, BlockHeader> _blocks = new HashMap<>();
+    protected final HashMap<Long, MedianBlockTime> _medianBlockTimes = new HashMap<>();
+    protected final HashMap<Long, ChainWork> _chainWorks = new HashMap<>();
 
     protected final AsertReferenceBlock _asertReferenceBlock;
     private final UpgradeSchedule _upgradeSchedule;

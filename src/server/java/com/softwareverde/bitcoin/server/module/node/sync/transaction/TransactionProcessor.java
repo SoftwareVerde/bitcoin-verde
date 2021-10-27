@@ -126,10 +126,10 @@ public class TransactionProcessor extends SleepyService {
                 final List<PendingTransactionId> pendingTransactionIds = pendingTransactionDatabaseManager.selectCandidatePendingTransactionIds();
                 if (pendingTransactionIds.isEmpty()) { return false; }
 
-                final HashMap<Sha256Hash, PendingTransactionId> pendingTransactionIdMap = new HashMap<Sha256Hash, PendingTransactionId>(pendingTransactionIds.getCount());
+                final HashMap<Sha256Hash, PendingTransactionId> pendingTransactionIdMap = new HashMap<>(pendingTransactionIds.getCount());
                 final List<Transaction> transactionsToStore;
                 {
-                    final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(pendingTransactionIds.getCount());
+                    final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<>(pendingTransactionIds.getCount());
                     for (final PendingTransactionId pendingTransactionId : pendingTransactionIds) {
                         if (thread.isInterrupted()) { return false; }
 
@@ -152,8 +152,8 @@ public class TransactionProcessor extends SleepyService {
                 final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
                 final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
 
-                final MutableList<Transaction> validTransactions = new MutableList<Transaction>(transactionsToStore.getCount());
-                final MutableList<TransactionId> validTransactionIds = new MutableList<TransactionId>(transactionsToStore.getCount());
+                final MutableList<Transaction> validTransactions = new MutableList<>(transactionsToStore.getCount());
+                final MutableList<TransactionId> validTransactionIds = new MutableList<>(transactionsToStore.getCount());
 
                 int invalidTransactionCount = 0;
                 final MilliTimer storeTransactionsTimer = new MilliTimer();

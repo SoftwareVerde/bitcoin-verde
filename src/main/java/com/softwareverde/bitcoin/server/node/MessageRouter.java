@@ -15,7 +15,7 @@ public class MessageRouter {
         void run(MessageType messageType, ProtocolMessage message, BitcoinNode bitcoinNode);
     }
 
-    protected final HashMap<MessageType, MessageHandler> _routingTable = new HashMap<MessageType, MessageHandler>();
+    protected final HashMap<MessageType, MessageHandler> _routingTable = new HashMap<>();
     protected UnknownRouteHandler _unknownRouteHandler;
 
     public void addRoute(final MessageType messageType, final MessageHandler messageHandler) {

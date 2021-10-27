@@ -64,7 +64,7 @@ public abstract class Socket implements AutoCloseable {
 
     protected final Long _id;
     protected final java.net.Socket _socket;
-    protected final ConcurrentLinkedQueue<ProtocolMessage> _messages = new ConcurrentLinkedQueue<ProtocolMessage>();
+    protected final ConcurrentLinkedQueue<ProtocolMessage> _messages = new ConcurrentLinkedQueue<>();
     protected final AtomicBoolean _isClosed = new AtomicBoolean(false);
 
     protected Runnable _messageReceivedCallback;

@@ -15,7 +15,7 @@ import com.softwareverde.util.bytearray.ByteArrayBuilder;
 
 public class BlockHeadersMessage extends BitcoinProtocolMessage {
     protected final BlockHeaderInflaters _blockHeaderInflaters;
-    protected final MutableList<BlockHeader> _blockHeaders = new MutableList<BlockHeader>();
+    protected final MutableList<BlockHeader> _blockHeaders = new MutableList<>();
 
     public BlockHeadersMessage(final BlockHeaderInflaters blockHeaderInflaters) {
         super(MessageType.BLOCK_HEADERS);

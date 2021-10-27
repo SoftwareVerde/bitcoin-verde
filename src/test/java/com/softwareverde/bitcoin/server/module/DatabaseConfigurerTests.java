@@ -49,7 +49,7 @@ public class DatabaseConfigurerTests extends UnitTest {
         // Action
         final EmbeddedDatabaseProperties databaseConfiguration = DatabaseConfigurer.configureDatabase(maxDatabaseThreadCount, databaseProperties);
 
-        final HashMap<String, String> arguments = new HashMap<String, String>();
+        final HashMap<String, String> arguments = new HashMap<>();
         for (final String string : databaseConfiguration.getCommandlineArguments()) {
             final String[] splitArgument = string.split("=");
             if (splitArgument.length != 2) { continue; } // Ignore flags...
@@ -88,7 +88,7 @@ public class DatabaseConfigurerTests extends UnitTest {
         // Action
         final EmbeddedDatabaseProperties databaseConfiguration = DatabaseConfigurer.configureDatabase(maxDatabaseThreadCount, databaseProperties);
 
-        final HashMap<String, String> arguments = new HashMap<String, String>();
+        final HashMap<String, String> arguments = new HashMap<>();
         for (final String string : databaseConfiguration.getCommandlineArguments()) {
             final String[] splitArgument = string.split("=");
             if (splitArgument.length != 2) { continue; } // Ignore flags...
@@ -126,7 +126,7 @@ public class DatabaseConfigurerTests extends UnitTest {
         // Action
         final EmbeddedDatabaseProperties databaseConfiguration = DatabaseConfigurer.configureDatabase(maxDatabaseThreadCount, databaseProperties);
 
-        final HashMap<String, String> arguments = new HashMap<String, String>();
+        final HashMap<String, String> arguments = new HashMap<>();
         for (final String string : databaseConfiguration.getCommandlineArguments()) {
             final String[] splitArgument = string.split("=");
             if (splitArgument.length != 2) { continue; } // Ignore flags...

@@ -37,7 +37,7 @@ public class TransactionBloomFilterMatcher implements MerkleTree.Filter<Transact
     }
 
     protected BloomFilterMatchResult _matchesBloomFilter(final Transaction transaction) {
-        final MutableList<ByteArray> itemsToAddToBloomFilter = new MutableList<ByteArray>();
+        final MutableList<ByteArray> itemsToAddToBloomFilter = new MutableList<>();
         if (_bloomFilter == null) {
             return new BloomFilterMatchResult(true, itemsToAddToBloomFilter);
         }

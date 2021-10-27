@@ -187,7 +187,7 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
                 .setParameter(blockchainSegmentId)
         );
 
-        final ImmutableListBuilder<BlockchainSegmentId> blockchainSegmentIds = new ImmutableListBuilder<BlockchainSegmentId>(rows.size());
+        final ImmutableListBuilder<BlockchainSegmentId> blockchainSegmentIds = new ImmutableListBuilder<>(rows.size());
         for (final Row row : rows) {
             blockchainSegmentIds.add(BlockchainSegmentId.wrap(row.getLong("id")));
         }
@@ -224,7 +224,7 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
         }
 
         final java.util.List<Row> rows = databaseConnection.query(query);
-        final HashMap<BlockchainSegmentId, Boolean> connectedBlockchainSegments = new HashMap<BlockchainSegmentId, Boolean>(rows.size());
+        final HashMap<BlockchainSegmentId, Boolean> connectedBlockchainSegments = new HashMap<>(rows.size());
         for (final Row row : rows) {
             final BlockchainSegmentId rowBlockchainSegmentId = BlockchainSegmentId.wrap(row.getLong("blockchain_segment_id"));
             final Boolean isConnected = row.getBoolean("is_connected");

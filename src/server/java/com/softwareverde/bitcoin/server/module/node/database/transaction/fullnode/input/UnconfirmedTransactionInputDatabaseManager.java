@@ -97,7 +97,7 @@ public class UnconfirmedTransactionInputDatabaseManager {
         final Long firstTransactionInputId = databaseConnection.executeSql(batchedInsertQuery);
         final Integer insertCount = databaseConnection.getRowsAffectedCount();
 
-        final MutableList<UnconfirmedTransactionInputId> transactionInputIds = new MutableList<UnconfirmedTransactionInputId>(insertCount);
+        final MutableList<UnconfirmedTransactionInputId> transactionInputIds = new MutableList<>(insertCount);
         for (int i = 0; i < insertCount; ++i) {
             final UnconfirmedTransactionInputId transactionInputId = UnconfirmedTransactionInputId.wrap(firstTransactionInputId + i);
             transactionInputIds.add(transactionInputId);
@@ -155,7 +155,7 @@ public class UnconfirmedTransactionInputDatabaseManager {
         );
         if (rows.isEmpty()) { return null; }
 
-        final MutableList<UnconfirmedTransactionInputId> transactionInputIds = new MutableList<UnconfirmedTransactionInputId>(rows.size());
+        final MutableList<UnconfirmedTransactionInputId> transactionInputIds = new MutableList<>(rows.size());
         for (final Row row : rows) {
             final UnconfirmedTransactionInputId transactionInputId = UnconfirmedTransactionInputId.wrap(row.getLong("id"));
             transactionInputIds.add(transactionInputId);

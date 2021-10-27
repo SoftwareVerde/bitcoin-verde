@@ -87,7 +87,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         long diskOffset = BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT;
         diskOffset += ByteUtil.variableLengthIntegerToBytes(transactions.getCount()).length;
 
-        final MutableList<Long> diskOffsets = new MutableList<Long>(transactions.getCount());
+        final MutableList<Long> diskOffsets = new MutableList<>(transactions.getCount());
         for (final Transaction transaction : transactions) {
             diskOffsets.add(diskOffset);
             diskOffset += transaction.getByteCount();
@@ -143,7 +143,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
                 .setParameter(blockId)
         );
 
-        final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());
+        final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<>(rows.size());
         for (final Row row : rows) {
             final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
             listBuilder.add(transactionId);

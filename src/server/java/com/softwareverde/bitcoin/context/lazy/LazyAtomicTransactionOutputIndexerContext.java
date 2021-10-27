@@ -114,7 +114,7 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
                 final QueuedOutputs queuedOutputs = new QueuedOutputs();
                 { // Sort the items...
                     final int itemCount = _queuedOutputs.transactionIds.getCount();
-                    final TreeMap<TransactionOutputId, Integer> treeMap = new TreeMap<TransactionOutputId, Integer>();
+                    final TreeMap<TransactionOutputId, Integer> treeMap = new TreeMap<>();
                     for (int i = 0; i < itemCount; ++i) {
                         final TransactionId transactionId = _queuedOutputs.transactionIds.get(i);
                         final Integer outputIndex = _queuedOutputs.outputIndexes.get(i);
@@ -148,7 +148,7 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
                 final QueuedInputs queuedInputs = new QueuedInputs();
                 { // Sort the items...
                     final int itemCount = _queuedInputs.transactionIds.getCount();
-                    final TreeMap<TransactionOutputId, Integer> treeMap = new TreeMap<TransactionOutputId, Integer>();
+                    final TreeMap<TransactionOutputId, Integer> treeMap = new TreeMap<>();
                     for (int i = 0; i < itemCount; ++i) {
                         final TransactionId transactionId = _queuedInputs.transactionIds.get(i);
                         final Integer inputIndex = _queuedInputs.inputIndexes.get(i);

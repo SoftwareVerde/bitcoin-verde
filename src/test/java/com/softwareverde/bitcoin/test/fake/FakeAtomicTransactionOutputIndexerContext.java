@@ -15,13 +15,13 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import java.util.HashMap;
 
 public class FakeAtomicTransactionOutputIndexerContext implements com.softwareverde.bitcoin.context.AtomicTransactionOutputIndexerContext {
-    protected final HashMap<Sha256Hash, TransactionId> _transactionIds = new HashMap<Sha256Hash, TransactionId>(0);
-    protected final HashMap<TransactionId, Transaction> _transactions = new HashMap<TransactionId, Transaction>(0);
+    protected final HashMap<Sha256Hash, TransactionId> _transactionIds = new HashMap<>(0);
+    protected final HashMap<TransactionId, Transaction> _transactions = new HashMap<>(0);
 
-    protected final MutableList<Address> _storedAddresses = new MutableList<Address>(0);
-    protected final MutableList<TransactionId> _unprocessedTransactions = new MutableList<TransactionId>(0);
-    protected final MutableList<IndexedOutput> _indexedOutputs = new MutableList<IndexedOutput>(0);
-    protected final MutableList<IndexedInput> _indexedInputs = new MutableList<IndexedInput>(0);
+    protected final MutableList<Address> _storedAddresses = new MutableList<>(0);
+    protected final MutableList<TransactionId> _unprocessedTransactions = new MutableList<>(0);
+    protected final MutableList<IndexedOutput> _indexedOutputs = new MutableList<>(0);
+    protected final MutableList<IndexedInput> _indexedInputs = new MutableList<>(0);
 
     protected Boolean _wasCommitted = null;
     protected Boolean _wasRolledBack = false;
@@ -61,7 +61,7 @@ public class FakeAtomicTransactionOutputIndexerContext implements com.softwareve
     }
 
     public List<TransactionId> getTransactionIds() {
-        return new ImmutableList<TransactionId>(_transactionIds.values());
+        return new ImmutableList<>(_transactionIds.values());
     }
 
     public Boolean wasCommitted() {
@@ -95,7 +95,7 @@ public class FakeAtomicTransactionOutputIndexerContext implements com.softwareve
 
     @Override
     public List<TransactionId> getUnprocessedTransactions(final Integer batchSize) {
-        final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>();
+        final MutableList<TransactionId> transactionIds = new MutableList<>();
         for (int i = 0; i < batchSize; ++i) {
             if (i >= _unprocessedTransactions.getCount()) { break; }
 

@@ -35,7 +35,7 @@ public class ThinTransactionsMessageInflater extends BitcoinProtocolMessageInfla
         if (transactionCount > BitcoinConstants.getMaxTransactionCountPerBlock()) { return null; }
 
         final TransactionInflater transactionInflater = _transactionInflaters.getTransactionInflater();
-        final ImmutableListBuilder<Transaction> transactionListBuilder = new ImmutableListBuilder<Transaction>(transactionCount);
+        final ImmutableListBuilder<Transaction> transactionListBuilder = new ImmutableListBuilder<>(transactionCount);
         for (int i = 0; i < transactionCount; ++i) {
             final Transaction transaction = transactionInflater.fromBytes(byteArrayReader);
             if (transaction == null) { return null; }

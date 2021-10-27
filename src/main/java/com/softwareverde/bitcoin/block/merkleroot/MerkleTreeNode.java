@@ -147,9 +147,9 @@ public class MerkleTreeNode<T extends Hashable> implements MutableMerkleTree<T> 
 
         final MerkleTreeNode<T> nodeOfEqualDepthToChildNode0;
         {
-            MerkleTreeNode<T> merkleTreeNode = new MerkleTreeNode<T>(item, null);
+            MerkleTreeNode<T> merkleTreeNode = new MerkleTreeNode<>(item, null);
             for (int i = 0; i < depth; ++i) {
-                merkleTreeNode = new MerkleTreeNode<T>(merkleTreeNode, null);
+                merkleTreeNode = new MerkleTreeNode<>(merkleTreeNode, null);
             }
             nodeOfEqualDepthToChildNode0 = merkleTreeNode;
         }
@@ -194,7 +194,7 @@ public class MerkleTreeNode<T extends Hashable> implements MutableMerkleTree<T> 
     }
 
     protected PartialMerkleTreeNode<T> _toPartialMerkleTreeNode(final int depth, final int maxDepth) {
-        final PartialMerkleTreeNode<T> partialMerkleTreeNode = new PartialMerkleTreeNode<T>(depth, maxDepth);
+        final PartialMerkleTreeNode<T> partialMerkleTreeNode = new PartialMerkleTreeNode<>(depth, maxDepth);
 
         if (_item0 != null) {
             partialMerkleTreeNode.newLeftNode();
@@ -242,8 +242,8 @@ public class MerkleTreeNode<T extends Hashable> implements MutableMerkleTree<T> 
                 _item1 = item;
             }
             else {
-                _childNode0 = new MerkleTreeNode<T>(_item0, _item1);
-                _childNode1 = new MerkleTreeNode<T>(item, null);
+                _childNode0 = new MerkleTreeNode<>(_item0, _item1);
+                _childNode1 = new MerkleTreeNode<>(item, null);
 
                 _item0 = null;
                 _item1 = null;
@@ -251,7 +251,7 @@ public class MerkleTreeNode<T extends Hashable> implements MutableMerkleTree<T> 
         }
         else {
             if (_isBalanced()) {
-                _childNode0 = new MerkleTreeNode<T>(_childNode0, _childNode1);
+                _childNode0 = new MerkleTreeNode<>(_childNode0, _childNode1);
                 _childNode1 = _createChildNodeOfEqualDepth(item);
             }
             else {
@@ -298,7 +298,7 @@ public class MerkleTreeNode<T extends Hashable> implements MutableMerkleTree<T> 
 
     @Override
     public List<T> getItems() {
-        final ImmutableListBuilder<T> immutableListBuilder = new ImmutableListBuilder<T>(_itemCount);
+        final ImmutableListBuilder<T> immutableListBuilder = new ImmutableListBuilder<>(_itemCount);
         _addItemsTo(immutableListBuilder);
         return immutableListBuilder.build();
     }
@@ -343,7 +343,7 @@ public class MerkleTreeNode<T extends Hashable> implements MutableMerkleTree<T> 
 
     @Override
     public List<Sha256Hash> getPartialTree(final int index) {
-        final ImmutableListBuilder<Sha256Hash> partialTreeBuilder = new ImmutableListBuilder<Sha256Hash>();
+        final ImmutableListBuilder<Sha256Hash> partialTreeBuilder = new ImmutableListBuilder<>();
         _getPartialTree(index, partialTreeBuilder);
         return partialTreeBuilder.build();
     }
@@ -353,7 +353,7 @@ public class MerkleTreeNode<T extends Hashable> implements MutableMerkleTree<T> 
         final int maxDepth = PartialMerkleTreeNode.calculateMaxDepth(_itemCount);
         final PartialMerkleTreeNode<T> rootPartialMerkleTreeNode = _toPartialMerkleTreeNode(0, maxDepth);
 
-        final MutableList<PartialMerkleTreeNode<T>> leafNodes = new MutableList<PartialMerkleTreeNode<T>>(_itemCount);
+        final MutableList<PartialMerkleTreeNode<T>> leafNodes = new MutableList<>(_itemCount);
         rootPartialMerkleTreeNode.visit(new PartialMerkleTreeNode.Visitor<T>() {
             @Override
             public void visit(final PartialMerkleTreeNode<T> partialMerkleTreeNode) {
@@ -383,8 +383,8 @@ public class MerkleTreeNode<T extends Hashable> implements MutableMerkleTree<T> 
             }
         }
 
-        final MutableList<Sha256Hash> hashes = new MutableList<Sha256Hash>();
-        final MutableList<Boolean> flagBits = new MutableList<Boolean>();
+        final MutableList<Sha256Hash> hashes = new MutableList<>();
+        final MutableList<Boolean> flagBits = new MutableList<>();
         rootPartialMerkleTreeNode.visit(new PartialMerkleTreeNode.Visitor<T>() {
             @Override
             public void visit(final PartialMerkleTreeNode<T> partialMerkleTreeNode) {

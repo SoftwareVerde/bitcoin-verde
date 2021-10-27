@@ -110,7 +110,7 @@ public class IntegrationTest extends UnitTest {
 
         // Bypass the Hikari database connection pool...
         _database.setDatabaseConnectionPool(new DatabaseConnectionPool() {
-            protected final MutableList<DatabaseConnection> _databaseConnections = new MutableList<DatabaseConnection>();
+            protected final MutableList<DatabaseConnection> _databaseConnections = new MutableList<>();
 
             @Override
             public DatabaseConnection newConnection() throws DatabaseException {

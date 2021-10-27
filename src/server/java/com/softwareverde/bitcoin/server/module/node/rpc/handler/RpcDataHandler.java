@@ -102,7 +102,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
 
         final List<Transaction> transactions = block.getTransactions();
 
-        final MutableList<Transaction> returnedTransactions = new MutableList<Transaction>(pageSize);
+        final MutableList<Transaction> returnedTransactions = new MutableList<>(pageSize);
         final int startIndex = (pageNumber * pageSize);
         for (int i = 0; i < pageSize; ++i) {
             final int readIndex = (startIndex + i);
@@ -133,7 +133,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
 
         final List<TransactionId> unconfirmedTransactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
 
-        final ImmutableListBuilder<Transaction> unconfirmedTransactionsListBuilder = new ImmutableListBuilder<Transaction>(unconfirmedTransactionIds.getCount());
+        final ImmutableListBuilder<Transaction> unconfirmedTransactionsListBuilder = new ImmutableListBuilder<>(unconfirmedTransactionIds.getCount());
         for (final TransactionId transactionId : unconfirmedTransactionIds) {
             final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
             unconfirmedTransactionsListBuilder.add(transaction);
@@ -147,7 +147,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
 
         final List<TransactionId> unconfirmedTransactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
 
-        final ImmutableListBuilder<TransactionWithFee> listBuilder = new ImmutableListBuilder<TransactionWithFee>(unconfirmedTransactionIds.getCount());
+        final ImmutableListBuilder<TransactionWithFee> listBuilder = new ImmutableListBuilder<>(unconfirmedTransactionIds.getCount());
         for (final TransactionId transactionId : unconfirmedTransactionIds) {
             final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
             if (transaction == null) {

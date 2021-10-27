@@ -103,7 +103,7 @@ public class BlockchainIndexer extends SleepyService {
     }
 
     protected List<InputIndexData> _indexTransactionInputs(final AtomicTransactionOutputIndexerContext context, final TransactionId transactionId, final Transaction transaction) throws ContextException {
-        final MutableList<InputIndexData> inputIndexDataList = new MutableList<InputIndexData>();
+        final MutableList<InputIndexData> inputIndexDataList = new MutableList<>();
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         final int transactionInputCount = transactionInputs.getCount();
@@ -140,7 +140,7 @@ public class BlockchainIndexer extends SleepyService {
     }
 
     protected Map<TransactionOutputIdentifier, OutputIndexData> _indexTransactionOutputs(final TransactionId transactionId, final Transaction transaction) throws ContextException {
-        final HashMap<TransactionOutputIdentifier, OutputIndexData> outputIndexData = new HashMap<TransactionOutputIdentifier, OutputIndexData>();
+        final HashMap<TransactionOutputIdentifier, OutputIndexData> outputIndexData = new HashMap<>();
 
         final Sha256Hash transactionHash = transaction.getHash();
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
@@ -356,7 +356,7 @@ public class BlockchainIndexer extends SleepyService {
 
         final boolean shouldExecuteAsynchronously = (_threadCount > 0);
         final int maxBatchCount = (shouldExecuteAsynchronously ? (BATCH_SIZE * _threadCount) : BATCH_SIZE);
-        final MutableList<TransactionId> transactionIdQueue = new MutableList<TransactionId>(maxBatchCount);
+        final MutableList<TransactionId> transactionIdQueue = new MutableList<>(maxBatchCount);
         try (final AtomicTransactionOutputIndexerContext context = _context.newTransactionOutputIndexerContext()) {
             final List<TransactionId> queuedTransactionIds = context.getUnprocessedTransactions(maxBatchCount);
             transactionIdQueue.addAll(queuedTransactionIds);
@@ -371,7 +371,7 @@ public class BlockchainIndexer extends SleepyService {
             return false;
         }
 
-        final BatchRunner<TransactionId> batchRunner = new BatchRunner<TransactionId>(BATCH_SIZE, shouldExecuteAsynchronously);
+        final BatchRunner<TransactionId> batchRunner = new BatchRunner<>(BATCH_SIZE, shouldExecuteAsynchronously);
         try {
             batchRunner.run(transactionIdQueue, new BatchRunner.Batch<TransactionId>() {
                 @Override

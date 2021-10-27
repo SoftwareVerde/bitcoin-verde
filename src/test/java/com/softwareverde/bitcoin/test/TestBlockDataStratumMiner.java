@@ -63,7 +63,7 @@ public class TestBlockDataStratumMiner {
 
         final Transaction coinbaseTransaction = transactionInflater.createCoinbaseTransactionWithExtraNonce(blockHeight, coinbaseMessage, StratumMiner.totalExtraNonceByteCount, address, BlockHeader.calculateBlockReward(blockHeight));
 
-        final MutableList<Transaction> transactions = new MutableList<Transaction>();
+        final MutableList<Transaction> transactions = new MutableList<>();
 
 //        {
 //            final PrivateKey prevoutPrivateKey = ???;

@@ -14,12 +14,12 @@ public class ImmutableArrayList<T> implements List<T>, Const {
      *  Use this function carefully, as leaking a reference to the provided list will break immutability.
      */
     protected static <T> ImmutableArrayList<T> wrap(final T[] objectArray) {
-        return new ImmutableArrayList<T>(objectArray);
+        return new ImmutableArrayList<>(objectArray);
     }
 
     public static <T> ImmutableArrayList<T> copyOf(final T[] objectArray) {
         final T[] copiedObjectArray = Util.copyArray(objectArray);
-        return new ImmutableArrayList<T>(copiedObjectArray);
+        return new ImmutableArrayList<>(copiedObjectArray);
     }
 
     protected final T[] _items;
@@ -92,11 +92,11 @@ public class ImmutableArrayList<T> implements List<T>, Const {
 
     @Override
     public ImmutableList<T> asConst() {
-        return new ImmutableList<T>(this);
+        return new ImmutableList<>(this);
     }
 
     @Override
     public Iterator<T> iterator() {
-        return new ImmutableListIterator<T>(this);
+        return new ImmutableListIterator<>(this);
     }
 }

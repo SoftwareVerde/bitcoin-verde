@@ -550,7 +550,7 @@ public class NodeModule {
                 @Override
                 public List<BitcoinNodeIpAddress> getConnectedPeers() {
                     final List<BitcoinNode> connectedNodes = _bitcoinNodeManager.getNodes();
-                    final ImmutableListBuilder<BitcoinNodeIpAddress> nodeIpAddresses = new ImmutableListBuilder<BitcoinNodeIpAddress>(connectedNodes.getCount());
+                    final ImmutableListBuilder<BitcoinNodeIpAddress> nodeIpAddresses = new ImmutableListBuilder<>(connectedNodes.getCount());
                     for (final BitcoinNode bitcoinNode : connectedNodes) {
                         final BitcoinNodeIpAddress bitcoinNodeIpAddress = bitcoinNode.getRemoteNodeIpAddress();
                         nodeIpAddresses.add(bitcoinNodeIpAddress);
@@ -828,11 +828,11 @@ public class NodeModule {
                             }
 
                             { // Broadcast new Block...
-                                final HashMap<NodeId, BitcoinNode> bitcoinNodeMap = new HashMap<NodeId, BitcoinNode>();
+                                final HashMap<NodeId, BitcoinNode> bitcoinNodeMap = new HashMap<>();
                                 final List<NodeId> connectedNodeIds;
                                 {
                                     final List<BitcoinNode> connectedNodes = _bitcoinNodeManager.getNodes();
-                                    final ImmutableListBuilder<NodeId> nodeIdsBuilder = new ImmutableListBuilder<NodeId>(connectedNodes.getCount());
+                                    final ImmutableListBuilder<NodeId> nodeIdsBuilder = new ImmutableListBuilder<>(connectedNodes.getCount());
                                     for (final BitcoinNode bitcoinNode : connectedNodes) {
                                         final NodeId nodeId = bitcoinNode.getId();
                                         nodeIdsBuilder.add(nodeId);
@@ -850,7 +850,7 @@ public class NodeModule {
                                         bitcoinNode.transmitBlockHeader(block);
                                     }
                                     else {
-                                        bitcoinNode.transmitBlockHashes(new ImmutableList<Sha256Hash>(blockHash));
+                                        bitcoinNode.transmitBlockHashes(new ImmutableList<>(blockHash));
                                     }
                                 }
                             }
@@ -914,7 +914,7 @@ public class NodeModule {
                 @Override
                 public void onNewHeadersReceived(final BitcoinNode bitcoinNode, final List<BlockHeader> blockHeaders) {
                     {
-                        final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>(blockHeaders.getCount());
+                        final MutableList<Sha256Hash> blockHashes = new MutableList<>(blockHeaders.getCount());
                         for (final BlockHeader blockHeader : blockHeaders) {
                             final Sha256Hash blockHash = blockHeader.getHash();
                             blockHashes.add(blockHash);

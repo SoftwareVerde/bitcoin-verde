@@ -16,7 +16,7 @@ public class QueryBlocksMessage extends BitcoinProtocolMessage {
     public static Integer MAX_BLOCK_HASH_COUNT = 500;
 
     protected Integer _version;
-    protected final MutableList<Sha256Hash> _blockHashes = new MutableList<Sha256Hash>();
+    protected final MutableList<Sha256Hash> _blockHashes = new MutableList<>();
     protected final MutableSha256Hash _stopBeforeBlockHash = new MutableSha256Hash();
 
     public QueryBlocksMessage() {

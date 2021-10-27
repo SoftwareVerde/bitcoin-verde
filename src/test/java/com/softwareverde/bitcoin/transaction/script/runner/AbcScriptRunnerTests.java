@@ -108,8 +108,8 @@ public class AbcScriptRunnerTests extends UnitTest {
     protected static final HashMap<Sha256Hash, String> DISABLED_TESTS;
     protected static final HashSet<Sha256Hash> ENABLED_TESTS;
     static {
-        DISABLED_TESTS = new HashMap<Sha256Hash, String>();
-        ENABLED_TESTS = new HashSet<Sha256Hash>();
+        DISABLED_TESTS = new HashMap<>();
+        ENABLED_TESTS = new HashSet<>();
 
         final Json testVectorManifest = Json.parse(IoUtil.getResource("/abc_test_vector_manifest.json"));
 
@@ -154,8 +154,8 @@ public class AbcScriptRunnerTests extends UnitTest {
     }
 
     public static void rebuiltTestVectorManifest() {
-        final HashSet<Sha256Hash> newDisabledTests = new HashSet<Sha256Hash>();
-        final HashSet<Sha256Hash> newEnabledTests = new HashSet<Sha256Hash>();
+        final HashSet<Sha256Hash> newDisabledTests = new HashSet<>();
+        final HashSet<Sha256Hash> newEnabledTests = new HashSet<>();
 
         final Json testVectors = Json.parse(IoUtil.getResource("/abc_test_vectors.json"));
         for (int i = 0; i < testVectors.length(); ++i) {

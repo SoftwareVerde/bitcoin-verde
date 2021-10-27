@@ -59,7 +59,7 @@ public class ProxyModule {
 
         _apiServer.setPort(proxyProperties.getHttpPort());
 
-        final HashMap<String, ProxyServlet.Url> proxyConfiguration = new HashMap<String, ProxyServlet.Url>();
+        final HashMap<String, ProxyServlet.Url> proxyConfiguration = new HashMap<>();
         proxyConfiguration.put("^pool\\..*$", new ProxyServlet.Url("http", "localhost", stratumProperties.getHttpPort()));
         proxyConfiguration.put(".*", new ProxyServlet.Url("http", "localhost", explorerProperties.getPort()));
 

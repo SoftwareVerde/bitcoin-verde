@@ -15,8 +15,8 @@ public class CachingMedianBlockTimeContext implements MedianBlockTimeContext {
     protected final BlockchainSegmentId _blockchainSegmentId;
     protected final DatabaseManager _databaseManager;
 
-    protected final HashMap<Long, BlockId> _blockIds = new HashMap<Long, BlockId>();
-    protected final HashMap<Long, MedianBlockTime> _medianBlockTimes = new HashMap<Long, MedianBlockTime>();
+    protected final HashMap<Long, BlockId> _blockIds = new HashMap<>();
+    protected final HashMap<Long, MedianBlockTime> _medianBlockTimes = new HashMap<>();
 
     protected BlockId _getBlockId(final Long blockHeight) throws DatabaseException {
         { // Check for a cached BlockId...

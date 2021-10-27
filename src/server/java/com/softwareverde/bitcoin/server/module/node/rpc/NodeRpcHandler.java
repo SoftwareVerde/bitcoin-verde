@@ -1353,7 +1353,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             return false;
         }
 
-        final HashSet<HookEvent> hookEvents = new HashSet<HookEvent>();
+        final HashSet<HookEvent> hookEvents = new HashSet<>();
         final Json events = parameters.get("events");
         for (int i = 0; i < events.length(); ++i) {
             final String event = events.getString(i);
@@ -1376,7 +1376,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             final Json addressFilterJson = parameters.getOrNull("addressFilter", Json.Types.JSON);
             if ( (addressFilterJson != null) && addressFilterJson.isArray() ) {
                 final int itemCount = addressFilterJson.length();
-                final ImmutableListBuilder<Address> listBuilder = new ImmutableListBuilder<Address>(itemCount);
+                final ImmutableListBuilder<Address> listBuilder = new ImmutableListBuilder<>(itemCount);
                 for (int i = 0; i < itemCount; ++i) {
                     final String addressString = addressFilterJson.getString(i);
                     final Address address = addressInflater.fromBase58Check(addressString);
@@ -1394,7 +1394,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         synchronized (_eventHooks) {
             for (final HookEvent hookEvent : hookEvents) {
                 if (! _eventHooks.containsKey(hookEvent)) {
-                    _eventHooks.put(hookEvent, new MutableList<HookListener>());
+                    _eventHooks.put(hookEvent, new MutableList<>());
                 }
 
                 final MutableList<HookListener> nodeIpAddresses = _eventHooks.get(hookEvent);

@@ -9,7 +9,7 @@ import com.softwareverde.network.p2p.node.NodeConnection;
 public class FakeNodeConnection extends NodeConnection {
     public final FakeBinarySocket fakeBinarySocket;
 
-    protected final MutableList<ProtocolMessage> _outboundMessageQueue = new MutableList<ProtocolMessage>();
+    protected final MutableList<ProtocolMessage> _outboundMessageQueue = new MutableList<>();
 
     public FakeNodeConnection(final FakeBinarySocket fakeBinarySocket, final ThreadPool threadPool) {
         super(fakeBinarySocket, threadPool);

@@ -34,7 +34,7 @@ public class TransactionDownloader extends SleepyService {
 
     protected final BitcoinNodeManager _bitcoinNodeManager;
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
-    protected final Map<Sha256Hash, MilliTimer> _currentTransactionDownloadSet = new ConcurrentHashMap<Sha256Hash, MilliTimer>();
+    protected final Map<Sha256Hash, MilliTimer> _currentTransactionDownloadSet = new ConcurrentHashMap<>();
     protected final BitcoinNode.DownloadTransactionCallback _transactionDownloadedCallback;
 
     protected final ConcurrentHashMap<Sha256Hash, Tuple<RequestId, BitcoinNode>> _pendingRequests = new ConcurrentHashMap<>();
@@ -68,7 +68,7 @@ public class TransactionDownloader extends SleepyService {
     //  This function should not be necessary, and is a work-around for a bug within the NodeManager that is causing onFailure to not be triggered.
     // TODO: Investigate why onFailure is not being invoked by the BitcoinNodeManager.
     protected void _checkForStalledDownloads() {
-        final MutableList<Sha256Hash> stalledTransactionHashes = new MutableList<Sha256Hash>();
+        final MutableList<Sha256Hash> stalledTransactionHashes = new MutableList<>();
         for (final Sha256Hash transactionHash : _currentTransactionDownloadSet.keySet()) {
             final MilliTimer milliTimer = _currentTransactionDownloadSet.get(transactionHash);
             if (milliTimer == null) {
@@ -134,10 +134,10 @@ public class TransactionDownloader extends SleepyService {
             final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = databaseManager.getPendingTransactionDatabaseManager();
 
             final List<BitcoinNode> nodes = _bitcoinNodeManager.getNodes();
-            final HashMap<NodeId, BitcoinNode> nodeMap = new HashMap<NodeId, BitcoinNode>();
+            final HashMap<NodeId, BitcoinNode> nodeMap = new HashMap<>();
             final List<NodeId> nodeIds;
             {
-                final ImmutableListBuilder<NodeId> listBuilder = new ImmutableListBuilder<NodeId>(nodes.getCount());
+                final ImmutableListBuilder<NodeId> listBuilder = new ImmutableListBuilder<>(nodes.getCount());
                 for (final BitcoinNode node : nodes) {
                     final NodeId nodeId = nodeDatabaseManager.getNodeId(node);
                     if (nodeId != null) {
@@ -154,7 +154,7 @@ public class TransactionDownloader extends SleepyService {
             for (final NodeId nodeId : downloadPlan.keySet()) {
                 if (_currentTransactionDownloadSet.size() >= maximumConcurrentDownloadCount) { break; }
                 final List<PendingTransactionId> pendingTransactionIds = downloadPlan.get(nodeId);
-                final MutableList<Sha256Hash> pendingTransactionHashes = new MutableList<Sha256Hash>(pendingTransactionIds.getCount());
+                final MutableList<Sha256Hash> pendingTransactionHashes = new MutableList<>(pendingTransactionIds.getCount());
                 for (final PendingTransactionId pendingTransactionId : pendingTransactionIds) {
                     final Sha256Hash transactionHash = pendingTransactionDatabaseManager.getPendingTransactionHash(pendingTransactionId);
                     if (transactionHash == null) { continue; }

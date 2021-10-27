@@ -186,7 +186,7 @@ public class TransactionProcessorTests extends IntegrationTest {
             blockchainBuilder.stop();
         }
 
-        final MutableList<Transaction> processedTransactions = new MutableList<Transaction>();
+        final MutableList<Transaction> processedTransactions = new MutableList<>();
         final TransactionProcessorContext transactionProcessorContext = new TransactionProcessorContext(transactionInflaters, _fullNodeDatabaseManagerFactory, new MutableNetworkTime(), new SystemTime(), _transactionValidatorFactory, upgradeSchedule, _threadPool);
         final TransactionProcessor transactionProcessor = new TransactionProcessor(transactionProcessorContext);
         transactionProcessor.setNewTransactionProcessedCallback(new TransactionProcessor.Callback() {

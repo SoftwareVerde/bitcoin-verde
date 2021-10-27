@@ -162,7 +162,7 @@ public class RequestBlockHeadersHandlerTests extends IntegrationTest {
 
         final Integer blockOffset = 0; // The block header/offset that is provided as the last known header...
 
-        final List<Sha256Hash> blockHashes = new MutableList<Sha256Hash>();
+        final List<Sha256Hash> blockHashes = new MutableList<>();
 
         // Action
         queryBlocksHandler.run(bitcoinNode, blockHashes, new ImmutableSha256Hash());
@@ -204,7 +204,7 @@ public class RequestBlockHeadersHandlerTests extends IntegrationTest {
 
         final Integer blockOffset = 0; // The block header/offset that is provided as the last known header...
 
-        final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>();
+        final MutableList<Sha256Hash> blockHashes = new MutableList<>();
         blockHashes.add(allBlocks[blockOffset].getHash());
 
         // Action
@@ -247,7 +247,7 @@ public class RequestBlockHeadersHandlerTests extends IntegrationTest {
 
         final Integer blockOffset = 1; // The block header/offset that is provided as the last known header...
 
-        final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>();
+        final MutableList<Sha256Hash> blockHashes = new MutableList<>();
         blockHashes.add(allBlocks[blockOffset].getHash());
 
         // Action
@@ -290,7 +290,7 @@ public class RequestBlockHeadersHandlerTests extends IntegrationTest {
 
         final Integer blockOffset = 2; // The block header/offset that is provided as the last known header...
 
-        final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>();
+        final MutableList<Sha256Hash> blockHashes = new MutableList<>();
         blockHashes.add(allBlocks[blockOffset].getHash());
 
         // Action
@@ -346,7 +346,7 @@ public class RequestBlockHeadersHandlerTests extends IntegrationTest {
 
         final FakeBitcoinNode bitcoinNode = new FakeBitcoinNode(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool, _localNodeFeatures);
 
-        final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>();
+        final MutableList<Sha256Hash> blockHashes = new MutableList<>();
         blockHashes.add(allBlocks[allBlocks.length - 1].getHash()); // Request the forked block (E')...
 
         // Action

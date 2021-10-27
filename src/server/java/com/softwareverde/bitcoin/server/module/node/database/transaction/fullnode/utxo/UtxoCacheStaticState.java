@@ -15,7 +15,7 @@ public class UtxoCacheStaticState {
     }
 
     // null indicates uninitialized; -1 represents an invalidated set, and must first be cleared (via _clearUncommittedUtxoSet) before any other operations are performed.
-    protected static final Container<Long> UNCOMMITTED_UTXO_BLOCK_HEIGHT = new Container<Long>(null);
+    protected static final Container<Long> UNCOMMITTED_UTXO_BLOCK_HEIGHT = new Container<>(null);
 
     protected static Long getUtxoBlockHeight() {
         return Util.coalesce(UNCOMMITTED_UTXO_BLOCK_HEIGHT.value, 0L);

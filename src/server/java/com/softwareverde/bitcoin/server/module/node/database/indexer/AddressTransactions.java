@@ -19,9 +19,9 @@ class AddressTransactions implements Jsonable {
 
     public AddressTransactions(final BlockchainSegmentId blockchainSegmentId) {
         this.blockchainSegmentId = blockchainSegmentId;
-        this.transactionIds = new ImmutableList<TransactionId>();
-        this.spentOutputs = new HashMap<TransactionId, MutableList<Integer>>(0);
-        this.previousOutputs = new HashMap<TransactionId, MutableList<Integer>>(0);
+        this.transactionIds = new ImmutableList<>();
+        this.spentOutputs = new HashMap<>(0);
+        this.previousOutputs = new HashMap<>(0);
     }
 
     public AddressTransactions(final BlockchainSegmentId blockchainSegmentId, final List<TransactionId> transactionIds, final HashMap<TransactionId, MutableList<Integer>> previousOutputs, final HashMap<TransactionId, MutableList<Integer>> spentOutputs) {

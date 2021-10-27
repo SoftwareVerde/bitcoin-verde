@@ -41,7 +41,7 @@ public abstract class Node {
         }
     }
 
-    protected static final RotatingQueue<Long> LOCAL_SYNCHRONIZATION_NONCES = new RotatingQueue<Long>(32);
+    protected static final RotatingQueue<Long> LOCAL_SYNCHRONIZATION_NONCES = new RotatingQueue<>(32);
 
     private static final Object NODE_ID_MUTEX = new Object();
     private static Long _nextId = 0L;
@@ -62,25 +62,25 @@ public abstract class Node {
     protected final AtomicBoolean _handshakeHasBeenInvoked = new AtomicBoolean(false);
     protected final AtomicBoolean _synchronizeVersionMessageHasBeenSent = new AtomicBoolean(false);
     protected Long _lastMessageReceivedTimestamp = 0L;
-    protected final ConcurrentLinkedQueue<ProtocolMessage> _postHandshakeMessageQueue = new ConcurrentLinkedQueue<ProtocolMessage>();
+    protected final ConcurrentLinkedQueue<ProtocolMessage> _postHandshakeMessageQueue = new ConcurrentLinkedQueue<>();
     protected Long _networkTimeOffset; // This field is an offset (in milliseconds) that should be added to the local time in order to adjust local SystemTime to this node's NetworkTime...
     protected final AtomicBoolean _hasBeenDisconnected = new AtomicBoolean(false);
 
-    protected final ConcurrentHashMap<Long, PingRequest> _pingRequests = new ConcurrentHashMap<Long, PingRequest>();
+    protected final ConcurrentHashMap<Long, PingRequest> _pingRequests = new ConcurrentHashMap<>();
 
     protected NodeAddressesReceivedCallback _nodeAddressesReceivedCallback = null;
     protected NodeConnectedCallback _nodeConnectedCallback = null;
     protected HandshakeCompleteCallback _handshakeCompleteCallback = null;
     protected DisconnectedCallback _nodeDisconnectedCallback = null;
 
-    protected final ConcurrentLinkedQueue<Runnable> _postConnectQueue = new ConcurrentLinkedQueue<Runnable>();
+    protected final ConcurrentLinkedQueue<Runnable> _postConnectQueue = new ConcurrentLinkedQueue<>();
 
     protected final ThreadPool _threadPool;
 
     /**
      * Latencies in milliseconds...
      */
-    protected final CircleBuffer<Long> _latenciesMs = new CircleBuffer<Long>(32);
+    protected final CircleBuffer<Long> _latenciesMs = new CircleBuffer<>(32);
 
     protected abstract PingMessage _createPingMessage();
     protected abstract PongMessage _createPongMessage(final PingMessage pingMessage);

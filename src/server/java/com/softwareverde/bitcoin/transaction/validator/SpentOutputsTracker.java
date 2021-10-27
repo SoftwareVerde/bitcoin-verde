@@ -11,7 +11,7 @@ public class SpentOutputsTracker {
     protected final ConcurrentHashMap<TransactionOutputIdentifier, Boolean> _spentOutputs;
 
     public SpentOutputsTracker() {
-        _spentOutputs = new ConcurrentHashMap<TransactionOutputIdentifier, Boolean>(256, 0.75F, 4);
+        _spentOutputs = new ConcurrentHashMap<>(256, 0.75F, 4);
     }
 
     /**
@@ -20,7 +20,7 @@ public class SpentOutputsTracker {
      *  `threadCount` may be used to optimize concurrent threads read/writes.
      */
     public SpentOutputsTracker(final Integer estimatedOutputCount, final Integer threadCount) {
-        _spentOutputs = new ConcurrentHashMap<TransactionOutputIdentifier, Boolean>(estimatedOutputCount, 0.75F, threadCount);
+        _spentOutputs = new ConcurrentHashMap<>(estimatedOutputCount, 0.75F, threadCount);
     }
 
     /**
@@ -33,6 +33,6 @@ public class SpentOutputsTracker {
     }
 
     public List<TransactionOutputIdentifier> getSpentOutputs() {
-        return new ImmutableList<TransactionOutputIdentifier>(_spentOutputs.keySet());
+        return new ImmutableList<>(_spentOutputs.keySet());
     }
 }

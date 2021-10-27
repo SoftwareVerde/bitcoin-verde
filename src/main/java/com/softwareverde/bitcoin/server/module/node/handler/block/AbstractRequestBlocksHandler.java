@@ -34,7 +34,7 @@ public abstract class AbstractRequestBlocksHandler {
     protected List<BlockId> _findBlockChildrenIds(final BlockId blockId, final Sha256Hash desiredBlockHash, final BlockchainSegmentId blockchainSegmentId, final Integer maxCount, final DatabaseManager databaseManager) throws DatabaseException {
         final BlockHeaderDatabaseManager blockDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
-        final MutableList<BlockId> returnedBlockIds = new MutableList<BlockId>();
+        final MutableList<BlockId> returnedBlockIds = new MutableList<>();
 
         BlockId nextBlockId = blockId;
         while (true) {

@@ -82,11 +82,11 @@ public class MutableNodeHealth implements NodeHealth {
     protected final Object _mutex = new Object();
     protected final Time _systemTime;
     protected final NodeId _nodeId;
-    protected RotatingQueue<Request> _requests = new RotatingQueue<Request>(1024);
+    protected RotatingQueue<Request> _requests = new RotatingQueue<>(1024);
     protected Long _pingInMilliseconds = 0L;
 
     protected MutableList<Request> _getRecentRequests() {
-        final MutableList<Request> recentRequests = new MutableList<Request>(_requests.size());
+        final MutableList<Request> recentRequests = new MutableList<>(_requests.size());
 
         final Long now = _systemTime.getCurrentTimeInMilliSeconds();
         final Long millisecondsRequiredToHealToFullHealth = _maxHealth;

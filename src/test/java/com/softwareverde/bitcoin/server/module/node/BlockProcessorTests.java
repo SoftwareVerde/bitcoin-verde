@@ -105,7 +105,7 @@ public class BlockProcessorTests extends IntegrationTest {
 
     protected static class FakeBlockInflaters implements BlockInflaters {
         protected final BlockDeflater _blockDeflater = new BlockDeflater();
-        protected final ConcurrentHashMap<Sha256Hash, Sha256Hash> _hashMap = new ConcurrentHashMap<Sha256Hash, Sha256Hash>();
+        protected final ConcurrentHashMap<Sha256Hash, Sha256Hash> _hashMap = new ConcurrentHashMap<>();
 
         public void defineBlockHash(final Sha256Hash invalidHash, final Sha256Hash validHash) {
             _hashMap.put(invalidHash, validHash);

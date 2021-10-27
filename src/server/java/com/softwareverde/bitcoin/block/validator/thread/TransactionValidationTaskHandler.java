@@ -15,13 +15,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class TransactionValidationTaskHandler implements TaskHandler<Transaction, TransactionValidationTaskHandler.TransactionValidationTaskResult> {
     public static class TransactionValidationTaskResult {
         public static TransactionValidationTaskResult invalid(final Transaction invalidTransaction, final TransactionValidationResult transactionValidationResult) {
-            final Map<Sha256Hash, TransactionValidationResult> invalidTransactions = new HashMap<Sha256Hash, TransactionValidationResult>(0);
+            final Map<Sha256Hash, TransactionValidationResult> invalidTransactions = new HashMap<>(0);
             invalidTransactions.put(invalidTransaction.getHash(), transactionValidationResult);
             return new TransactionValidationTaskResult(false, invalidTransactions, null);
         }
 
         public static TransactionValidationTaskResult invalid(final Map<Transaction, TransactionValidationResult> invalidTransactions) {
-            final Map<Sha256Hash, TransactionValidationResult> invalidTransactionsMap = new HashMap<Sha256Hash, TransactionValidationResult>(0);
+            final Map<Sha256Hash, TransactionValidationResult> invalidTransactionsMap = new HashMap<>(0);
             for (final Transaction transaction : invalidTransactions.keySet()) {
                 final TransactionValidationResult transactionValidationResult = invalidTransactions.get(transaction);
                 invalidTransactionsMap.put(transaction.getHash(), transactionValidationResult);
@@ -48,7 +48,7 @@ public class TransactionValidationTaskHandler implements TaskHandler<Transaction
         }
 
         public List<Sha256Hash> getInvalidTransactions() {
-            return new ImmutableList<Sha256Hash>(_invalidTransactions.keySet());
+            return new ImmutableList<>(_invalidTransactions.keySet());
         }
 
         public TransactionValidationResult getTransactionValidationResult(final Sha256Hash transactionHash) {
@@ -61,7 +61,7 @@ public class TransactionValidationTaskHandler implements TaskHandler<Transaction
     }
 
     protected final Long _blockHeight;
-    protected final HashMap<Transaction, TransactionValidationResult> _invalidTransactions = new HashMap<Transaction, TransactionValidationResult>(0);
+    protected final HashMap<Transaction, TransactionValidationResult> _invalidTransactions = new HashMap<>(0);
     protected final AtomicInteger _signatureOperationCount = new AtomicInteger(0);
 
     protected final TransactionValidator _transactionValidator;

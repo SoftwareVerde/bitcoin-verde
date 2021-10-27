@@ -189,7 +189,7 @@ public class BitcoinNodeDatabaseManagerCore implements BitcoinNodeDatabaseManage
             final NodeId nodeId = _getNodeId(ip, port);
             if (nodeId == null) { return; }
 
-            final MutableList<NodeFeatures.Feature> disabledFeatures = new MutableList<NodeFeatures.Feature>();
+            final MutableList<NodeFeatures.Feature> disabledFeatures = new MutableList<>();
             for (final NodeFeatures.Feature feature : NodeFeatures.Feature.values()) {
                 if (nodeFeatures.isFeatureEnabled(feature)) {
                     databaseConnection.executeSql(
@@ -255,7 +255,7 @@ public class BitcoinNodeDatabaseManagerCore implements BitcoinNodeDatabaseManage
                 .setParameter(requiredFeatures.getCount())
         );
 
-        final MutableList<BitcoinNodeIpAddress> nodeIpAddresses = new MutableList<BitcoinNodeIpAddress>(rows.size());
+        final MutableList<BitcoinNodeIpAddress> nodeIpAddresses = new MutableList<>(rows.size());
 
         for (final Row row : rows) {
             final Long nodeId = row.getLong("id");
@@ -290,7 +290,7 @@ public class BitcoinNodeDatabaseManagerCore implements BitcoinNodeDatabaseManage
                 .setParameter(secondsSinceLastConnectionAttempt)
         );
 
-        final MutableList<BitcoinNodeIpAddress> nodeIpAddresses = new MutableList<BitcoinNodeIpAddress>(rows.size());
+        final MutableList<BitcoinNodeIpAddress> nodeIpAddresses = new MutableList<>(rows.size());
 
         for (final Row row : rows) {
             final Long nodeId = row.getLong("id");

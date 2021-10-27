@@ -110,7 +110,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
 
         @Override
         public List<BitcoinNode> getNodes() {
-            return new MutableList<BitcoinNode>(0);
+            return new MutableList<>(0);
         }
     }
 

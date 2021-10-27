@@ -42,16 +42,16 @@ public class WalletTests extends UnitTest {
 
     protected MutableList<Tuple<String, BigInteger>> _setupTuples() {
         final MutableList<Tuple<String, BigInteger>> sortedTuples = new MutableList<>();
-        sortedTuples.add(new Tuple<String, BigInteger>("One", BigInteger.valueOf(1L)));
-        sortedTuples.add(new Tuple<String, BigInteger>("Two", BigInteger.valueOf(2L)));
-        sortedTuples.add(new Tuple<String, BigInteger>("Three", BigInteger.valueOf(3L)));
-        sortedTuples.add(new Tuple<String, BigInteger>("Four", BigInteger.valueOf(4L)));
-        sortedTuples.add(new Tuple<String, BigInteger>("Five", BigInteger.valueOf(5L)));
-        sortedTuples.add(new Tuple<String, BigInteger>("Six", BigInteger.valueOf(6L)));
-        sortedTuples.add(new Tuple<String, BigInteger>("Seven", BigInteger.valueOf(7L)));
-        sortedTuples.add(new Tuple<String, BigInteger>("Eight", BigInteger.valueOf(8L)));
-        sortedTuples.add(new Tuple<String, BigInteger>("Nine", BigInteger.valueOf(9L)));
-        sortedTuples.add(new Tuple<String, BigInteger>("Ten", BigInteger.valueOf(10L)));
+        sortedTuples.add(new Tuple<>("One", BigInteger.valueOf(1L)));
+        sortedTuples.add(new Tuple<>("Two", BigInteger.valueOf(2L)));
+        sortedTuples.add(new Tuple<>("Three", BigInteger.valueOf(3L)));
+        sortedTuples.add(new Tuple<>("Four", BigInteger.valueOf(4L)));
+        sortedTuples.add(new Tuple<>("Five", BigInteger.valueOf(5L)));
+        sortedTuples.add(new Tuple<>("Six", BigInteger.valueOf(6L)));
+        sortedTuples.add(new Tuple<>("Seven", BigInteger.valueOf(7L)));
+        sortedTuples.add(new Tuple<>("Eight", BigInteger.valueOf(8L)));
+        sortedTuples.add(new Tuple<>("Nine", BigInteger.valueOf(9L)));
+        sortedTuples.add(new Tuple<>("Ten", BigInteger.valueOf(10L)));
         return sortedTuples;
     }
 

@@ -18,13 +18,13 @@ public class SignatureContext {
     protected final Long _blockHeight;
 
     protected final UpgradeSchedule _upgradeSchedule;
-    protected final MutableList<Boolean> _inputScriptsToSign = new MutableList<Boolean>(); // Determines if the script is left intact or replaced with an empty script...
-    protected final MutableList<TransactionOutput> _previousTransactionOutputsBeingSpent = new MutableList<TransactionOutput>();
-    protected final MutableList<Integer> _codeSeparatorIndexes = new MutableList<Integer>();
+    protected final MutableList<Boolean> _inputScriptsToSign = new MutableList<>(); // Determines if the script is left intact or replaced with an empty script...
+    protected final MutableList<TransactionOutput> _previousTransactionOutputsBeingSpent = new MutableList<>();
+    protected final MutableList<Integer> _codeSeparatorIndexes = new MutableList<>();
 
     protected Integer _inputIndexBeingSigned = null;
     protected Script _currentScript;
-    protected List<ByteArray> _bytesToExcludeFromScript = new MutableList<ByteArray>();
+    protected List<ByteArray> _bytesToExcludeFromScript = new MutableList<>();
 
     public SignatureContext(final Transaction transaction, final HashType hashType, final UpgradeSchedule upgradeSchedule) {
         this(transaction, hashType, Long.MAX_VALUE, upgradeSchedule);

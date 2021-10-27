@@ -21,13 +21,13 @@ import com.softwareverde.logging.Logger;
 public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, TotalExpenditureTaskHandler.ExpenditureResult> {
     public static class ExpenditureResult {
         public static ExpenditureResult invalid(final Transaction invalidTransaction) {
-            final ImmutableListBuilder<Sha256Hash> invalidTransactions = new ImmutableListBuilder<Sha256Hash>(1);
+            final ImmutableListBuilder<Sha256Hash> invalidTransactions = new ImmutableListBuilder<>(1);
             invalidTransactions.add(invalidTransaction.getHash());
             return new ExpenditureResult(false, null, invalidTransactions.build());
         }
 
         public static ExpenditureResult invalid(final List<Transaction> invalidTransactions) {
-            final ImmutableListBuilder<Sha256Hash> invalidTransactionHashes = new ImmutableListBuilder<Sha256Hash>(1);
+            final ImmutableListBuilder<Sha256Hash> invalidTransactionHashes = new ImmutableListBuilder<>(1);
             for (final Transaction transaction : invalidTransactions) {
                 invalidTransactionHashes.add(transaction.getHash());
             }
@@ -53,7 +53,7 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
     protected final BlockOutputs _blockOutputs;
     protected final SpentOutputsTracker _spentOutputsTracker;
 
-    protected final MutableList<Transaction> _invalidTransactions = new MutableList<Transaction>(0);
+    protected final MutableList<Transaction> _invalidTransactions = new MutableList<>(0);
 
     protected TransactionOutput _getUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
         { // Ensure the output hasn't been spent already by this block...

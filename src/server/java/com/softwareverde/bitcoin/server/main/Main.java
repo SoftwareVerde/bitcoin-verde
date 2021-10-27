@@ -296,7 +296,7 @@ public class Main {
                 final Thread loggerFlushThread = _createLoggerFlusher();
                 loggerFlushThread.start();
 
-                final Container<NodeModule> nodeModuleContainer = new Container<NodeModule>();
+                final Container<NodeModule> nodeModuleContainer = new Container<>();
                 final BitcoinVerdeDatabase database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, bitcoinProperties, databaseProperties);
                 if (database == null) {
                     Logger.error("Error initializing database.");

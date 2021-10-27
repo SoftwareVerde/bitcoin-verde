@@ -46,7 +46,7 @@ public class MedianBlockTimeDatabaseManagerUtil {
         final MutableMedianBlockTime medianBlockTime = new MutableMedianBlockTime();
         if (firstBlockIdInclusive == null) { return medianBlockTime; } // Special case for the Genesis Block...
 
-        final MutableList<BlockHeader> blockHeadersInDescendingOrder = new MutableList<BlockHeader>(MedianBlockTime.BLOCK_COUNT);
+        final MutableList<BlockHeader> blockHeadersInDescendingOrder = new MutableList<>(MedianBlockTime.BLOCK_COUNT);
 
         Sha256Hash blockHash = firstBlockHashInclusive;
         for (int i = 0; i < MedianBlockTime.BLOCK_COUNT; ++i) {

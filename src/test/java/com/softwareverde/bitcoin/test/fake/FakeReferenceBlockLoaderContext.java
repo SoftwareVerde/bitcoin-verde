@@ -14,11 +14,11 @@ import com.softwareverde.util.Util;
 import java.util.HashMap;
 
 public class FakeReferenceBlockLoaderContext implements AsertReferenceBlockLoader.ReferenceBlockLoaderContext {
-    protected final HashMap<BlockchainSegmentId, BlockId> _headBlockIds = new HashMap<BlockchainSegmentId, BlockId>();
-    protected final HashMap<BlockId, MedianBlockTime> _medianBlockTimes = new HashMap<BlockId, MedianBlockTime>();
-    protected final HashMap<BlockId, Long> _blockTimestamps = new HashMap<BlockId, Long>();
-    protected final HashMap<BlockId, Long> _blockHeights = new HashMap<BlockId, Long>();
-    protected final HashMap<BlockId, Difficulty> _difficulties = new HashMap<BlockId, Difficulty>();
+    protected final HashMap<BlockchainSegmentId, BlockId> _headBlockIds = new HashMap<>();
+    protected final HashMap<BlockId, MedianBlockTime> _medianBlockTimes = new HashMap<>();
+    protected final HashMap<BlockId, Long> _blockTimestamps = new HashMap<>();
+    protected final HashMap<BlockId, Long> _blockHeights = new HashMap<>();
+    protected final HashMap<BlockId, Difficulty> _difficulties = new HashMap<>();
 
     protected Integer _lookupCount = 0;
     protected Integer _medianTimePastCalculationCount = 0;

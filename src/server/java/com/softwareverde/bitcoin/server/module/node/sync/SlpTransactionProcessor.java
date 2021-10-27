@@ -38,7 +38,7 @@ public class SlpTransactionProcessor extends SleepyService {
                 @Override
                 public Map<Sha256Hash, Transaction> getTransactions(final List<Sha256Hash> transactionHashes, final Boolean allowUnconfirmedTransactions) {
                     try {
-                        final HashMap<Sha256Hash, Transaction> transactions = new HashMap<Sha256Hash, Transaction>(transactionHashes.getCount());
+                        final HashMap<Sha256Hash, Transaction> transactions = new HashMap<>(transactionHashes.getCount());
                         final MilliTimer milliTimer = new MilliTimer();
                         milliTimer.start();
                         for (final Sha256Hash transactionHash : transactionHashes) {
@@ -126,7 +126,7 @@ public class SlpTransactionProcessor extends SleepyService {
             final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final SlpTransactionDatabaseManager slpTransactionDatabaseManager = databaseManager.getSlpTransactionDatabaseManager();
 
-            final Container<Integer> transactionLookupCount = new Container<Integer>(0);
+            final Container<Integer> transactionLookupCount = new Container<>(0);
 
             final TransactionAccumulator transactionAccumulator = SlpTransactionProcessor.createTransactionAccumulator(databaseManager, transactionLookupCount);
             final SlpTransactionValidationCache slpTransactionValidationCache = SlpTransactionProcessor.createSlpTransactionValidationCache(databaseManager);
