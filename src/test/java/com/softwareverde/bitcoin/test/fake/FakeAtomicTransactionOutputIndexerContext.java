@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.test.fake;
 
 import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.context.ContextException;
 import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputId;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -13,6 +14,7 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
 import java.util.HashMap;
+import java.util.Map;
 
 public class FakeAtomicTransactionOutputIndexerContext implements com.softwareverde.bitcoin.context.AtomicTransactionOutputIndexerContext {
     protected final HashMap<Sha256Hash, TransactionId> _transactionIds = new HashMap<>(0);
@@ -22,6 +24,7 @@ public class FakeAtomicTransactionOutputIndexerContext implements com.softwareve
     protected final MutableList<TransactionId> _unprocessedTransactions = new MutableList<>(0);
     protected final MutableList<IndexedOutput> _indexedOutputs = new MutableList<>(0);
     protected final MutableList<IndexedInput> _indexedInputs = new MutableList<>(0);
+    protected TransactionId _lastTransactionId = null;
 
     protected Boolean _wasCommitted = null;
     protected Boolean _wasRolledBack = false;
@@ -81,11 +84,12 @@ public class FakeAtomicTransactionOutputIndexerContext implements com.softwareve
     }
 
     @Override
-    public void startDatabaseTransaction() { _wasCommitted = false; }
+    public void initialize() { _wasCommitted = false; }
 
     @Override
-    public void commitDatabaseTransaction() {
+    public TransactionId finish() {
         _wasCommitted = true;
+        return _lastTransactionId;
     }
 
     @Override
@@ -106,12 +110,14 @@ public class FakeAtomicTransactionOutputIndexerContext implements com.softwareve
     }
 
     @Override
-    public void dequeueTransactionsForProcessing(final List<TransactionId> transactionIds) {
-        for (final TransactionId transactionId : transactionIds) {
-            final int index = _unprocessedTransactions.indexOf(transactionId);
-            if (index >= 0) {
-                _unprocessedTransactions.remove(index);
-            }
+    public void markTransactionProcessed(TransactionId transactionId) {
+        final int index = _unprocessedTransactions.indexOf(transactionId);
+        if (index >= 0) {
+            _unprocessedTransactions.remove(index);
+        }
+
+        if (_lastTransactionId == null || _lastTransactionId.longValue() < transactionId.longValue()) {
+            _lastTransactionId = transactionId;
         }
     }
 
@@ -123,6 +129,16 @@ public class FakeAtomicTransactionOutputIndexerContext implements com.softwareve
     @Override
     public TransactionId getTransactionId(final SlpTokenId slpTokenId) {
         return _transactionIds.get(slpTokenId);
+    }
+
+    @Override
+    public Map<Sha256Hash, TransactionId> getTransactionIds(final List<Sha256Hash> transactionHashes) throws ContextException {
+        final HashMap<Sha256Hash, TransactionId> transactionIdMap = new HashMap<>();
+        for (final Sha256Hash transactionHash : transactionHashes) {
+            final TransactionId transactionId = _transactionIds.get(transactionHash);
+            transactionIdMap.put(transactionHash, transactionId);
+        }
+        return transactionIdMap;
     }
 
     @Override

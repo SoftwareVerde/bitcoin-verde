@@ -5,6 +5,8 @@ import com.softwareverde.bitcoin.context.ContextException;
 import com.softwareverde.bitcoin.context.TransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.indexer.BlockchainIndexerDatabaseManager;
+import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.database.DatabaseException;
 
 public class LazyTransactionOutputIndexerContext implements TransactionOutputIndexerContext {
@@ -33,6 +35,17 @@ public class LazyTransactionOutputIndexerContext implements TransactionOutputInd
                 exception.addSuppressed(databaseException);
             }
 
+            throw new ContextException(exception);
+        }
+    }
+
+    @Override
+    public void commitLastProcessedTransactionId(final TransactionId transactionId) throws ContextException {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = databaseManager.getBlockchainIndexerDatabaseManager();
+            blockchainIndexerDatabaseManager.markTransactionProcessed(transactionId);
+        }
+        catch (final Exception exception) {
             throw new ContextException(exception);
         }
     }

@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin.context.lazy;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.context.AtomicTransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.context.ContextException;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.indexer.BlockchainIndexerDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputId;
@@ -17,10 +16,10 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.timer.NanoTimer;
 
+import java.util.Map;
 import java.util.TreeMap;
 
 public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransactionOutputIndexerContext {
@@ -34,17 +33,36 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
         public final MutableList<TransactionId> slpTransactionIds = new MutableList<>();
         public final MutableList<ByteArray> memoActionTypes = new MutableList<>();
         public final MutableList<ByteArray> memoActionIdentifiers = new MutableList<>();
+
+        public void clear() {
+            this.transactionIds.clear();
+            this.outputIndexes.clear();
+            this.amounts.clear();
+            this.scriptTypes.clear();
+            this.addresses.clear();
+            this.scriptHashes.clear();
+            this.slpTransactionIds.clear();
+            this.memoActionTypes.clear();
+            this.memoActionIdentifiers.clear();
+        }
     }
 
     protected static class QueuedInputs {
         public final MutableList<TransactionId> transactionIds = new MutableList<>();
         public final MutableList<Integer> inputIndexes = new MutableList<>();
         public final MutableList<TransactionOutputId> transactionOutputIds = new MutableList<>();
+
+        public void clear() {
+            this.transactionIds.clear();
+            this.inputIndexes.clear();
+            this.transactionOutputIds.clear();
+        }
     }
 
     protected final FullNodeDatabaseManager _databaseManager;
     protected final QueuedInputs _queuedInputs = new QueuedInputs();
     protected final QueuedOutputs _queuedOutputs = new QueuedOutputs();
+    protected TransactionId _greatestProcessedTransactionId = null;
 
     protected Double _getUnprocessedTransactionsMs = 0D;
     protected Double _dequeueTransactionsForProcessingMs = 0D;
@@ -85,26 +103,29 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
         }
     }
 
+    protected void _clear() {
+        _queuedInputs.clear();
+        _queuedOutputs.clear();
+        _greatestProcessedTransactionId = null;
+
+        _getUnprocessedTransactionsMs = 0D;
+        _dequeueTransactionsForProcessingMs = 0D;
+        _getTransactionIdMs = 0D;
+        _getTransactionMs = 0D;
+        _indexTransactionOutputMs = 0D;
+        _indexTransactionInputMs = 0D;
+    }
+
     public LazyAtomicTransactionOutputIndexerContext(final FullNodeDatabaseManager databaseManager) {
         _databaseManager = databaseManager;
     }
 
     @Override
-    public void startDatabaseTransaction() throws ContextException {
-        try {
-            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-            TransactionUtil.startTransaction(databaseConnection);
-        }
-        catch (final Exception databaseException) {
-            throw new ContextException(databaseException);
-        }
-    }
+    public void initialize() throws ContextException { }
 
     @Override
-    public void commitDatabaseTransaction() throws ContextException {
+    public TransactionId finish() throws ContextException {
         try {
-            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
             final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = _databaseManager.getBlockchainIndexerDatabaseManager();
             {
                 final NanoTimer nanoTimer = new NanoTimer();
@@ -168,23 +189,15 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
                 _indexTransactionInputMs += nanoTimer.getMillisecondsElapsed();
             }
 
-            TransactionUtil.commitTransaction(databaseConnection);
-
             Logger.trace("_getUnprocessedTransactionsMs=" + _getUnprocessedTransactionsMs + "ms, _dequeueTransactionsForProcessingMs=" + _dequeueTransactionsForProcessingMs + "ms, _getTransactionIdMs=" + _getTransactionIdMs + "ms, _getTransactionMs=" + _getTransactionMs + "ms, _indexTransactionOutputMs=" + _indexTransactionOutputMs + "ms, _indexTransactionInputMs=" + _indexTransactionInputMs + "ms");
+
+            return _greatestProcessedTransactionId;
         }
         catch (final DatabaseException databaseException) {
             throw new ContextException(databaseException);
         }
-    }
-
-    @Override
-    public void rollbackDatabaseTransaction() {
-        try {
-            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-            TransactionUtil.rollbackTransaction(databaseConnection);
-        }
-        catch (final DatabaseException databaseException) {
-            Logger.debug(databaseException);
+        finally {
+            _clear();
         }
     }
 
@@ -206,18 +219,11 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
     }
 
     @Override
-    public void dequeueTransactionsForProcessing(final List<TransactionId> transactionIds) throws ContextException {
-        try {
-            final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = _databaseManager.getBlockchainIndexerDatabaseManager();
+    public void markTransactionProcessed(final TransactionId transactionId) throws ContextException {
+        if (transactionId == null) { return; }
 
-            final NanoTimer nanoTimer = new NanoTimer();
-            nanoTimer.start();
-            blockchainIndexerDatabaseManager.dequeueTransactionsForProcessing(transactionIds);
-            nanoTimer.stop();
-            _dequeueTransactionsForProcessingMs += nanoTimer.getMillisecondsElapsed();
-        }
-        catch (final DatabaseException databaseException) {
-            throw new ContextException(databaseException);
+        if ( (_greatestProcessedTransactionId == null) || (_greatestProcessedTransactionId.longValue() < transactionId.longValue()) ) {
+            _greatestProcessedTransactionId = transactionId;
         }
     }
 
@@ -229,6 +235,23 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
     @Override
     public TransactionId getTransactionId(final SlpTokenId slpTokenId) throws ContextException {
         return _getTransactionId(slpTokenId);
+    }
+
+    @Override
+    public Map<Sha256Hash, TransactionId> getTransactionIds(final List<Sha256Hash> transactionHashes) throws ContextException {
+        try {
+            final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+
+            final NanoTimer nanoTimer = new NanoTimer();
+            nanoTimer.start();
+            final Map<Sha256Hash, TransactionId> transactionIds = transactionDatabaseManager.getTransactionIds(transactionHashes);
+            nanoTimer.stop();
+            _getTransactionIdMs += nanoTimer.getMillisecondsElapsed();
+            return transactionIds;
+        }
+        catch (final DatabaseException databaseException) {
+            throw new ContextException(databaseException);
+        }
     }
 
     @Override

@@ -140,6 +140,7 @@ public class ScriptPatternMatcher {
     protected Address _extractAddressFromPayToPublicKey(final Script lockingScript) {
         final PublicKey publicKey = _extractPublicKeyFromPayToPublicKey(lockingScript);
         if (publicKey == null) { return null; }
+        if (! publicKey.isValid()) { return null; }
 
         final AddressInflater addressInflater = new AddressInflater();
         return addressInflater.fromPublicKey(publicKey);

@@ -10,16 +10,18 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
+import java.util.Map;
+
 public interface AtomicTransactionOutputIndexerContext extends AutoCloseable {
-    void startDatabaseTransaction() throws ContextException;
-    void commitDatabaseTransaction() throws ContextException;
-    void rollbackDatabaseTransaction();
+    void initialize() throws ContextException;
+    TransactionId finish() throws ContextException;
 
     List<TransactionId> getUnprocessedTransactions(Integer batchSize) throws ContextException;
-    void dequeueTransactionsForProcessing(List<TransactionId> transactionIds) throws ContextException;
+    void markTransactionProcessed(TransactionId transactionId) throws ContextException;
 
     TransactionId getTransactionId(Sha256Hash transactionHash) throws ContextException;
     TransactionId getTransactionId(SlpTokenId slpTokenId) throws ContextException;
+    Map<Sha256Hash, TransactionId> getTransactionIds(List<Sha256Hash> transactionHashes) throws ContextException;
     Transaction getTransaction(TransactionId transactionId) throws ContextException;
 
     void indexTransactionOutput(TransactionId transactionId, Integer outputIndex, Long amount, ScriptType scriptType, Address address, Sha256Hash scriptHash, TransactionId slpTransactionId, ByteArray memoActionType, ByteArray memoActionIdentifier) throws ContextException;

@@ -259,27 +259,6 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         return row.getLong("value");
     }
 
-    protected void _updateLastIndexedTransactionId(final List<TransactionId> transactionIds) throws DatabaseException {
-        if (transactionIds.isEmpty()) { return; }
-
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        Long nextTransactionId = _getLastIndexedTransactionId();
-
-        for (final TransactionId transactionId : transactionIds) {
-            final long transactionIdLong = transactionId.longValue();
-            if (transactionIdLong >= nextTransactionId) {
-                nextTransactionId = transactionIdLong;
-            }
-        }
-
-        databaseConnection.executeSql(
-            new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES (value)")
-                .setParameter(LAST_INDEXED_TRANSACTION_KEY)
-                .setParameter(nextTransactionId)
-        );
-    }
-
     @Override
     public List<TransactionId> getTransactionIds(final BlockchainSegmentId blockchainSegmentId, final Address address, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
         final AddressTransactions addressTransactions = _getAddressTransactions(blockchainSegmentId, address, null);
@@ -361,8 +340,16 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
     }
 
     @Override
-    public void dequeueTransactionsForProcessing(final List<TransactionId> transactionIds) throws DatabaseException {
-        _updateLastIndexedTransactionId(transactionIds);
+    public void markTransactionProcessed(final TransactionId transactionId) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        databaseConnection.executeSql(
+            // NOTE: See SlpTransactionDatabaseManagerCore for GREATEST(value, VALUES(value)) discussion.
+            new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = GREATEST(value, ?)")
+                .setParameter(LAST_INDEXED_TRANSACTION_KEY)
+                .setParameter(transactionId)
+                .setParameter(transactionId)
+        );
     }
 
     @Override
