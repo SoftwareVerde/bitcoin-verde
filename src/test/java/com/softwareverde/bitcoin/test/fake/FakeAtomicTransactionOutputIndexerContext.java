@@ -93,11 +93,6 @@ public class FakeAtomicTransactionOutputIndexerContext implements com.softwareve
     }
 
     @Override
-    public void rollbackDatabaseTransaction() {
-        _wasRolledBack = true;
-    }
-
-    @Override
     public List<TransactionId> getUnprocessedTransactions(final Integer batchSize) {
         final MutableList<TransactionId> transactionIds = new MutableList<>();
         for (int i = 0; i < batchSize; ++i) {

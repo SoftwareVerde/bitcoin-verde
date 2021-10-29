@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.module.node.sync;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.context.AtomicTransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.context.ContextException;
+import com.softwareverde.bitcoin.context.IndexerCache;
 import com.softwareverde.bitcoin.context.TransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputId;

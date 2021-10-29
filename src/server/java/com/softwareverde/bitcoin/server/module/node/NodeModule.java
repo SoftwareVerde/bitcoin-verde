@@ -13,6 +13,7 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentMetadata;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorFactory;
+import com.softwareverde.bitcoin.context.IndexerCache;
 import com.softwareverde.bitcoin.context.TransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.context.core.BlockHeaderDownloaderContext;
@@ -779,7 +780,8 @@ public class NodeModule {
             _slpTransactionProcessor = new SlpTransactionProcessor(databaseManagerFactory);
 
             final Integer threadCount = bitcoinProperties.getMaxThreadCount();
-            final TransactionOutputIndexerContext transactionOutputIndexerContext = new LazyTransactionOutputIndexerContext(databaseManagerFactory);
+            final IndexerCache indexerCache = new IndexerCache(64);
+            final TransactionOutputIndexerContext transactionOutputIndexerContext = new LazyTransactionOutputIndexerContext(databaseManagerFactory, indexerCache);
             _blockchainIndexer = new BlockchainIndexer(transactionOutputIndexerContext, threadCount);
             _blockchainIndexer.setOnSleepCallback(new Runnable() {
                 @Override

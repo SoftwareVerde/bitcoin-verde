@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.context.lazy;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.context.AtomicTransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.context.ContextException;
+import com.softwareverde.bitcoin.context.IndexerCache;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.indexer.BlockchainIndexerDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputId;
@@ -19,6 +20,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.timer.NanoTimer;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -60,6 +62,8 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
     }
 
     protected final FullNodeDatabaseManager _databaseManager;
+    protected final IndexerCache _indexerCache;
+    protected final Integer _cacheIdentifier;
     protected final QueuedInputs _queuedInputs = new QueuedInputs();
     protected final QueuedOutputs _queuedOutputs = new QueuedOutputs();
     protected TransactionId _greatestProcessedTransactionId = null;
@@ -72,12 +76,16 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
     protected Double _indexTransactionInputMs = 0D;
 
     protected TransactionId _getTransactionId(final Sha256Hash transactionHash) throws ContextException {
+        final TransactionId cachedTransactionId = _indexerCache.getTransactionId(transactionHash);
+        if (cachedTransactionId != null) { return cachedTransactionId; }
+
         try {
             final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
 
             final NanoTimer nanoTimer = new NanoTimer();
             nanoTimer.start();
             final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
+            _indexerCache.cacheTransactionId(_cacheIdentifier, transactionHash, transactionId);
             nanoTimer.stop();
             _getTransactionIdMs += nanoTimer.getMillisecondsElapsed();
             return transactionId;
@@ -116,8 +124,10 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
         _indexTransactionInputMs = 0D;
     }
 
-    public LazyAtomicTransactionOutputIndexerContext(final FullNodeDatabaseManager databaseManager) {
+    public LazyAtomicTransactionOutputIndexerContext(final FullNodeDatabaseManager databaseManager, final IndexerCache indexerCache, final Integer cacheIdentifier) {
         _databaseManager = databaseManager;
+        _indexerCache = indexerCache;
+        _cacheIdentifier = cacheIdentifier;
     }
 
     @Override
@@ -239,19 +249,40 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
 
     @Override
     public Map<Sha256Hash, TransactionId> getTransactionIds(final List<Sha256Hash> transactionHashes) throws ContextException {
-        try {
-            final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+        final HashMap<Sha256Hash, TransactionId> transactionIds = new HashMap<>();
+        final MutableList<Sha256Hash> unknownTransactionHashes = new MutableList<>(transactionHashes.getCount());
+        for (final Sha256Hash transactionHash : transactionHashes) {
+            final TransactionId cachedTransactionId = _indexerCache.getTransactionId(transactionHash);
+            if (cachedTransactionId == null) {
+                unknownTransactionHashes.add(transactionHash);
+            }
+            else {
+                transactionIds.put(transactionHash, cachedTransactionId);
+            }
+        }
 
-            final NanoTimer nanoTimer = new NanoTimer();
-            nanoTimer.start();
-            final Map<Sha256Hash, TransactionId> transactionIds = transactionDatabaseManager.getTransactionIds(transactionHashes);
-            nanoTimer.stop();
-            _getTransactionIdMs += nanoTimer.getMillisecondsElapsed();
-            return transactionIds;
+        if (! unknownTransactionHashes.isEmpty()) {
+            try {
+                final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+
+                final NanoTimer nanoTimer = new NanoTimer();
+                nanoTimer.start();
+
+                final Map<Sha256Hash, TransactionId> foundTransactionIds = transactionDatabaseManager.getTransactionIds(unknownTransactionHashes);
+                for (final Map.Entry<Sha256Hash, TransactionId> entry : foundTransactionIds.entrySet()) {
+                    transactionIds.put(entry.getKey(), entry.getValue());
+                    _indexerCache.cacheTransactionId(_cacheIdentifier, entry.getKey(), entry.getValue());
+                }
+
+                nanoTimer.stop();
+                _getTransactionIdMs += nanoTimer.getMillisecondsElapsed();
+            }
+            catch (final DatabaseException databaseException) {
+                throw new ContextException(databaseException);
+            }
         }
-        catch (final DatabaseException databaseException) {
-            throw new ContextException(databaseException);
-        }
+
+        return transactionIds;
     }
 
     @Override
