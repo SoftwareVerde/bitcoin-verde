@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.server.module.stratum;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
@@ -20,6 +22,7 @@ import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
@@ -29,6 +32,7 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.http.tls.TlsCertificate;
 import com.softwareverde.http.tls.TlsFactory;
 import com.softwareverde.json.Json;
+import com.softwareverde.json.Jsonable;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.socket.JsonProtocolMessage;
 import com.softwareverde.network.socket.JsonSocket;
@@ -91,7 +95,6 @@ public class ElectrumModule {
     protected NodeJsonRpcConnection _getNodeConnection() {
         final String nodeHost = _electrumProperties.getBitcoinRpcUrl();
         final Integer nodePort = _electrumProperties.getBitcoinRpcPort();
-        Logger.trace("Connect: " + nodeHost + ":" + nodePort);
         return new NodeJsonRpcConnection(nodeHost, nodePort, _threadPool);
     }
 
@@ -112,7 +115,7 @@ public class ElectrumModule {
                 final Long blockHeight;
                 try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
                     final Json blockHeightJson = nodeConnection.getBlockHeaderHeight(blockHash);
-                    blockHeight = blockHeightJson.getLong("blockHeaderHeight");
+                    blockHeight = blockHeightJson.getLong("blockHeight");
                 }
 
                 Logger.debug("New Header: " + blockHash + " " + blockHeight);
@@ -493,7 +496,103 @@ public class ElectrumModule {
         jsonSocket.flush();
     }
 
-    protected static class TransactionPosition implements Comparable<TransactionPosition> {
+    protected void _handleGetTransactionMessage(final JsonSocket jsonSocket, final Json message) {
+        final Integer id = message.getInteger("id");
+
+        final Boolean verboseFormat;
+        final Sha256Hash transactionHash;
+        {
+            final Json parameters = message.get("params");
+            final String transactionHashString = parameters.getString(0);
+            transactionHash = Sha256Hash.fromHexString(transactionHashString);
+            if (transactionHash == null) {
+                Logger.debug("Invalid Transaction Hash: " + transactionHashString);
+                return;
+            }
+
+            verboseFormat = parameters.getBoolean(1);
+            if (verboseFormat) {
+                Logger.debug("Unsupported Get-Transaction mode.");
+                return;
+            }
+        }
+
+        final Json json = new ElectrumJson(false);
+        json.put("id", id);
+
+        final String transactionHexString;
+        try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
+            final Json transactionJson = nodeConnection.getTransaction(transactionHash, true);
+            final String transactionHexUppercaseString = transactionJson.getString("transaction");
+            transactionHexString = transactionHexUppercaseString.toLowerCase();
+        }
+
+        json.put("result", transactionHexString);
+
+
+        jsonSocket.write(new JsonProtocolMessage(json));
+        Logger.debug("Wrote: " + json);
+        jsonSocket.flush();
+    }
+
+    protected void _handleGetTransactionMerkleProofMessage(final JsonSocket jsonSocket, final Json message) {
+        final Integer id = message.getInteger("id");
+
+        final Long blockHeight;
+        final Sha256Hash transactionHash;
+        {
+            final Json parameters = message.get("params");
+            final String transactionHashString = parameters.getString(0);
+            transactionHash = Sha256Hash.fromHexString(transactionHashString);
+            if (transactionHash == null) {
+                Logger.debug("Invalid Transaction Hash: " + transactionHashString);
+                return;
+            }
+
+            blockHeight = parameters.getLong(1);
+        }
+
+        final Json json = new ElectrumJson(false);
+        json.put("id", id);
+
+        final Json resultJson = new ElectrumJson(false);
+        try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
+            nodeConnection.enableKeepAlive(true);
+
+            final Json transactionBlockHeightJson = nodeConnection.getTransactionBlockHeight(transactionHash);
+            final Long actualBlockHeight = transactionBlockHeightJson.getOrNull("blockHeight", Json.Types.LONG);
+            final Integer transactionIndex = transactionBlockHeightJson.getOrNull("transactionIndex", Json.Types.INTEGER);
+            final Boolean hasUnconfirmedInputs = transactionBlockHeightJson.getBoolean("hasUnconfirmedInputs");
+
+            if ( (actualBlockHeight == null) || (! Util.areEqual(actualBlockHeight, blockHeight))) {
+                Logger.debug("Transaction not found: " + transactionHash + ":" + blockHeight);
+                return;
+            }
+
+            final BlockInflater blockInflater = new BlockInflater();
+            final Json blockJson = nodeConnection.getBlock(blockHeight, true);
+            final Block block = blockInflater.fromBytes(ByteArray.fromHexString(blockJson.getString("block")));
+
+            final List<Sha256Hash> partialMerkleTree = block.getPartialMerkleTree(transactionIndex);
+            final Json partialMerkleTreeJson = new ElectrumJson(true);
+            for (final Sha256Hash item : partialMerkleTree) {
+                partialMerkleTreeJson.add(item);
+            }
+
+            resultJson.put("block_height", actualBlockHeight);
+            resultJson.put("merkle", partialMerkleTreeJson);
+            resultJson.put("pos", transactionIndex);
+        }
+
+        json.put("result", resultJson);
+
+
+        jsonSocket.write(new JsonProtocolMessage(json));
+        Logger.debug("Wrote: " + json);
+        jsonSocket.flush();
+    }
+
+    protected static class TransactionPosition implements Comparable<TransactionPosition>, Jsonable {
         public static final Comparator<TransactionPosition> COMPARATOR = new Comparator<TransactionPosition>() {
             @Override
             public int compare(final TransactionPosition transactionPosition0, final TransactionPosition transactionPosition1) {
@@ -550,7 +649,8 @@ public class ElectrumModule {
         public String toString() {
             final StringBuilder stringBuilder = new StringBuilder();
             final String transactionHashString = this.transactionHash.toString();
-            stringBuilder.append(transactionHashString.toLowerCase());
+            final String transactionHashLowerCaseString = transactionHashString.toLowerCase();
+            stringBuilder.append(transactionHashLowerCaseString);
             stringBuilder.append(":");
             if (this.isUnconfirmedTransaction()) {
                 if (this.hasUnconfirmedInputs) {
@@ -566,6 +666,14 @@ public class ElectrumModule {
             stringBuilder.append(":");
             return stringBuilder.toString();
         }
+
+        @Override
+        public Json toJson() {
+            final Json json = new ElectrumJson(false);
+            json.put("height", blockHeight);
+            json.put("tx_hash", transactionHash);
+            return json;
+        }
     }
 
     protected Sha256Hash _getAddressStatus(final AddressSubscriptionKey addressKey) {
@@ -578,6 +686,8 @@ public class ElectrumModule {
                 final Json addressTransaction = nodeConnection.getAddressTransactions(addressKey.scriptHash, true);
                 final Json transactionsArray = addressTransaction.get("transactions");
                 final Integer transactionCount = transactionsArray.length();
+                if (transactionCount < 1) { return null; }
+
                 transactionPositions = new MutableList<>(transactionCount);
                 for (int i = 0; i < transactionCount; ++i) {
                     final Sha256Hash transactionHash;
@@ -587,27 +697,36 @@ public class ElectrumModule {
                         transaction = transactionInflater.fromBytes(ByteArray.fromHexString((transactionHex)));
                         transactionHash = transaction.getHash();
                     }
+                    Logger.debug(transactionHash);
 
                     final Json transactionBlockHeightJson = nodeConnection.getTransactionBlockHeight(transactionHash);
                     final Long blockHeight = transactionBlockHeightJson.getOrNull("blockHeight", Json.Types.LONG);
                     final Integer transactionIndex = transactionBlockHeightJson.getOrNull("transactionIndex", Json.Types.INTEGER);
                     final Boolean hasUnconfirmedInputs = transactionBlockHeightJson.getBoolean("hasUnconfirmedInputs");
 
+                    Logger.debug(blockHeight);
+                    Logger.debug(transactionIndex);
+                    Logger.debug(hasUnconfirmedInputs);
+                    Logger.debug(transactionBlockHeightJson);
+
                     final TransactionPosition transactionPosition = new TransactionPosition(blockHeight, transactionIndex, hasUnconfirmedInputs, transactionHash);
                     transactionPositions.add(transactionPosition);
                 }
             }
             transactionPositions.sort(TransactionPosition.COMPARATOR);
+            Logger.debug(transactionPositions.getCount());
 
             try {
                 final MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
                 for (final TransactionPosition transactionPosition : transactionPositions) {
                     final String statusString = transactionPosition.toString();
+                    Logger.trace(statusString);
                     messageDigest.update(StringUtil.stringToBytes(statusString));
                 }
                 return Sha256Hash.wrap(messageDigest.digest());
             }
             catch (final Exception exception) {
+                Logger.debug(exception);
                 return null;
             }
         }
@@ -697,7 +816,7 @@ public class ElectrumModule {
 
         for (int i = 0; i < paramsJson.length(); ++i) {
             final String addressHashString = paramsJson.getString(i);
-            final Sha256Hash scriptHash = Sha256Hash.fromHexString(addressHashString);
+            final Sha256Hash scriptHash = Sha256Hash.fromHexString(BitcoinUtil.reverseEndianString(addressHashString));
             if (scriptHash == null) {
                 Logger.debug("Invalid Address hash: " + addressHashString);
                 continue;
@@ -727,7 +846,7 @@ public class ElectrumModule {
 
         for (int i = 0; i < paramsJson.length(); ++i) {
             final String addressHashString = paramsJson.getString(i);
-            final Sha256Hash scriptHash = Sha256Hash.fromHexString(addressHashString);
+            final Sha256Hash scriptHash = Sha256Hash.fromHexString(BitcoinUtil.reverseEndianString(addressHashString));
             if (scriptHash == null) {
                 Logger.debug("Invalid Address hash: " + addressHashString);
                 continue;
@@ -811,6 +930,74 @@ public class ElectrumModule {
         jsonSocket.flush();
     }
 
+    protected void _handleGetAddressHistory(final JsonSocket jsonSocket, final Json message) {
+        final TransactionInflater transactionInflater = new TransactionInflater();
+        final AddressInflater addressInflater = new AddressInflater();
+
+        final Integer id = message.getInteger("id");
+        final Json paramsJson = message.get("params");
+
+        if (paramsJson.length() != 1) { return; }
+
+        final Sha256Hash scriptHash;
+        final Address address;
+        {
+            final String addressString = paramsJson.getString(0);
+            scriptHash = Sha256Hash.fromHexString(BitcoinUtil.reverseEndianString(addressString));
+            address = Util.coalesce(addressInflater.fromBase32Check(addressString), addressInflater.fromBase58Check(addressString));
+            if ((scriptHash == null) && (address == null)) {
+                Logger.debug("Invalid Address/Hash: " + addressString);
+                return;
+            }
+        }
+
+        final Json resultJson = new ElectrumJson(true);
+        try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
+            nodeConnection.enableKeepAlive(true);
+
+            final Json addressTransactionsJson;
+            if (address != null) {
+                addressTransactionsJson = nodeConnection.getAddressTransactions(address, true);
+            }
+            else {
+                addressTransactionsJson = nodeConnection.getAddressTransactions(scriptHash, true);
+            }
+
+            final Json transactionsJson = addressTransactionsJson.get("transactions");
+            final int transactionCount = transactionsJson.length();
+            final MutableList<TransactionPosition> transactionPositions = new MutableList<>(transactionCount);
+            for (int i = 0; i < transactionCount; ++i) {
+                final String transactionHex = transactionsJson.getString(i);
+                final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString(transactionHex));
+                final Sha256Hash transactionHash = transaction.getHash();
+
+                final Json transactionBlockHeightJson = nodeConnection.getTransactionBlockHeight(transactionHash);
+                final Long blockHeight = transactionBlockHeightJson.getOrNull("blockHeight", Json.Types.LONG);
+                final Integer transactionIndex = transactionBlockHeightJson.getOrNull("transactionIndex", Json.Types.INTEGER);
+                final Boolean hasUnconfirmedInputs = transactionBlockHeightJson.getBoolean("hasUnconfirmedInputs");
+
+                final TransactionPosition transactionPosition = new TransactionPosition(blockHeight, transactionIndex, hasUnconfirmedInputs, transactionHash);
+                transactionPositions.add(transactionPosition);
+            }
+            transactionPositions.sort(TransactionPosition.COMPARATOR);
+
+            for (final TransactionPosition transactionPosition : transactionPositions) {
+                resultJson.add(transactionPosition);
+            }
+        }
+
+        {
+            final Json json = new ElectrumJson(false);
+            json.put("id", id);
+            json.put("result", resultJson);
+
+            jsonSocket.write(new JsonProtocolMessage(json));
+            Logger.debug("Wrote: " + json);
+            jsonSocket.flush();
+        }
+        jsonSocket.flush();
+    }
+
     protected void _handlePeersMessage(final JsonSocket jsonSocket, final Json message) {
         final Integer id = message.getInteger("id");
 
@@ -870,11 +1057,21 @@ public class ElectrumModule {
                     case "blockchain.address.unsubscribe": {
                         _handleUnsubscribeAddressMessage(jsonSocket, jsonMessage);
                     } break;
+                    case "blockchain.address.get_history":
+                    case "blockchain.scripthash.get_history": {
+                        _handleGetAddressHistory(jsonSocket, jsonMessage);
+                    } break;
                     case "blockchain.block.headers": {
                         _handleBlockHeadersMessage(jsonSocket, jsonMessage);
                     } break;
                     case "blockchain.block.header": {
                         _handleBlockHeaderMessage(jsonSocket, jsonMessage);
+                    } break;
+                    case "blockchain.transaction.get": {
+                        _handleGetTransactionMessage(jsonSocket, jsonMessage);
+                    } break;
+                    case "blockchain.transaction.get_merkle": {
+                        _handleGetTransactionMerkleProofMessage(jsonSocket, jsonMessage);
                     } break;
                     default: {
                         Logger.debug("Received unsupported message: " + jsonMessage);

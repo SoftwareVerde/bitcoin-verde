@@ -402,6 +402,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         final Json rpcRequestJson = new Json();
         rpcRequestJson.put("method", "GET");
         rpcRequestJson.put("query", "BLOCK_HEIGHT");
+        rpcRequestJson.put("parameters", rpcParametersJson);
 
         return _executeJsonRequest(rpcRequestJson);
     }
@@ -415,6 +416,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         final Json rpcRequestJson = new Json();
         rpcRequestJson.put("method", "GET");
         rpcRequestJson.put("query", "BLOCK_HEIGHT");
+        rpcRequestJson.put("parameters", rpcParametersJson);
 
         return _executeJsonRequest(rpcRequestJson);
     }

@@ -5,7 +5,6 @@ import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
-import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
@@ -751,7 +750,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             final Sha256Hash blockHash = Sha256Hash.fromHexString(blockHashString);
             final Long blockHeaderHeight = dataHandler.getBlockHeaderHeight(blockHash);
 
-            response.put("blockHeaderHeight", blockHeaderHeight);
+            response.put("blockHeight", blockHeaderHeight);
             response.put(WAS_SUCCESS_KEY, 1);
         }
         else if (parameters.hasKey("transactionHash")) {

@@ -153,7 +153,6 @@ public class UnconfirmedTransactionInputDatabaseManager {
             new Query("SELECT id FROM unconfirmed_transaction_inputs WHERE transaction_id = ?")
                 .setParameter(transactionId)
         );
-        if (rows.isEmpty()) { return null; }
 
         final MutableList<UnconfirmedTransactionInputId> transactionInputIds = new MutableList<>(rows.size());
         for (final Row row : rows) {
