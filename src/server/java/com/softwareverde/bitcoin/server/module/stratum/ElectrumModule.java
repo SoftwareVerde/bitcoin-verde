@@ -21,6 +21,8 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
+import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
+import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.threadpool.CachedThreadPool;
@@ -45,6 +47,7 @@ import java.lang.ref.WeakReference;
 import java.security.MessageDigest;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map;
@@ -55,15 +58,18 @@ public class ElectrumModule {
     protected static class AddressSubscriptionKey {
         public final Sha256Hash scriptHash;
         public final String subscriptionString;
+        public final Boolean isScriptHash;
 
         public AddressSubscriptionKey(final Address address, final String subscriptionString) {
             this.scriptHash = ScriptBuilder.computeScriptHash(address);
             this.subscriptionString = subscriptionString;
+            this.isScriptHash = false;
         }
 
         public AddressSubscriptionKey(final Sha256Hash scriptHash, final String subscriptionString) {
             this.scriptHash = scriptHash;
             this.subscriptionString = subscriptionString;
+            this.isScriptHash = true;
         }
 
         @Override
@@ -77,6 +83,27 @@ public class ElectrumModule {
         public int hashCode() {
             return this.scriptHash.hashCode();
         }
+
+        @Override
+        public String toString() {
+            return this.scriptHash + ":" + (this.isScriptHash ? "Hash" : "Address");
+        }
+    }
+
+    protected static class ConnectionAddress {
+        public final AddressSubscriptionKey subscriptionKey;
+        public final WeakReference<JsonSocket> connection;
+        public Sha256Hash status;
+
+        public ConnectionAddress(final AddressSubscriptionKey subscriptionKey, final JsonSocket jsonSocket) {
+            this.subscriptionKey = subscriptionKey;
+            this.connection = new WeakReference<>(jsonSocket);
+        }
+
+        @Override
+        public String toString() {
+            return this.subscriptionKey + ":" + this.status;
+        }
     }
 
     protected final ElectrumProperties _electrumProperties;
@@ -84,7 +111,7 @@ public class ElectrumModule {
     protected final CachedThreadPool _threadPool;
     protected final ElectrumServerSocket _electrumServerSocket;
     protected final ConcurrentHashMap<Long, JsonSocket> _connections = new ConcurrentHashMap<>();
-    protected final HashMap<AddressSubscriptionKey, LinkedList<WeakReference<JsonSocket>>> _connectionAddresses = new HashMap<>();
+    protected final HashMap<AddressSubscriptionKey, LinkedList<ConnectionAddress>> _connectionAddresses = new HashMap<>();
 
     protected final MutableList<BlockHeader> _cachedBlockHeaders = new MutableList<>(0);
     protected Long _chainHeight = 0L;
@@ -110,19 +137,7 @@ public class ElectrumModule {
         nodeJsonRpcConnection.upgradeToAnnouncementHook(new NodeJsonRpcConnection.RawAnnouncementHookCallback() {
             @Override
             public void onNewBlockHeader(final BlockHeader blockHeader) {
-                final Sha256Hash blockHash = blockHeader.getHash();
-
-                final Long blockHeight;
-                try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
-                    final Json blockHeightJson = nodeConnection.getBlockHeaderHeight(blockHash);
-                    blockHeight = blockHeightJson.getLong("blockHeight");
-                }
-
-                Logger.debug("New Header: " + blockHash + " " + blockHeight);
-
-                for (final JsonSocket socket : _connections.values()) {
-                    _notifyBlockHeader(socket, blockHeader, blockHeight);
-                }
+                _onNewHeader(blockHeader);
             }
 
             @Override
@@ -132,10 +147,87 @@ public class ElectrumModule {
         });
     }
 
+    protected void _onNewHeader(final BlockHeader blockHeader) {
+        final Sha256Hash blockHash = blockHeader.getHash();
+
+        final Long blockHeight;
+        try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
+            final Json blockHeightJson = nodeConnection.getBlockHeaderHeight(blockHash);
+            blockHeight = blockHeightJson.getLong("blockHeight");
+        }
+
+        Logger.debug("New Header: " + blockHash + " " + blockHeight);
+
+        for (final JsonSocket socket : _connections.values()) {
+            _notifyBlockHeader(socket, blockHeader, blockHeight);
+        }
+
+        synchronized (_connectionAddresses) {
+            for (final Map.Entry<AddressSubscriptionKey, LinkedList<ConnectionAddress>> entry : _connectionAddresses.entrySet()) {
+                for (final ConnectionAddress connectionAddress : entry.getValue()) {
+                    final JsonSocket jsonSocket = connectionAddress.connection.get();
+                    final boolean isConnected = ((jsonSocket != null) && jsonSocket.isConnected());
+                    if (! isConnected) { continue; }
+
+                    final Sha256Hash addressStatus = _calculateAddressStatus(connectionAddress.subscriptionKey);
+                    if (! Util.areEqual(addressStatus, connectionAddress.status)) {
+                        connectionAddress.status = addressStatus;
+                        Logger.debug("Updated Status: " + connectionAddress);
+
+                        if (connectionAddress.subscriptionKey.isScriptHash) {
+                            _notifyScriptHashStatus(jsonSocket, connectionAddress.subscriptionKey, addressStatus);
+                        }
+                        else {
+                            _notifyAddressStatus(jsonSocket, connectionAddress.subscriptionKey, addressStatus);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     protected void _onNewTransaction(final Transaction transaction, final Long fee) {
+        final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
+
+        final HashSet<Address> matchedAddresses = new HashSet<>();
         for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
             final LockingScript lockingScript = transactionOutput.getLockingScript();
 
+            final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
+            if (scriptType == null) { continue; }
+
+            final Address address = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
+            if (address == null) { continue; }
+
+            final AddressSubscriptionKey addressSubscriptionKey = new AddressSubscriptionKey(address, null);
+            synchronized (_connectionAddresses) {
+                final boolean addressIsConnected = _connectionAddresses.containsKey(addressSubscriptionKey);
+                if (addressIsConnected) {
+                    matchedAddresses.add(address);
+                }
+            }
+        }
+
+        for (final Address address : matchedAddresses) {
+            synchronized (_connectionAddresses) {
+                final LinkedList<ConnectionAddress> connectionAddresses = _connectionAddresses.get(new AddressSubscriptionKey(address, null));
+                for (final ConnectionAddress connectionAddress : connectionAddresses) {
+                    final JsonSocket jsonSocket = connectionAddress.connection.get();
+                    final boolean jsonSocketIsConnected = ((jsonSocket != null) && jsonSocket.isConnected());
+                    if (!jsonSocketIsConnected) { continue; }
+
+                    if (connectionAddress.subscriptionKey.isScriptHash) {
+                        _notifyScriptHashStatus(jsonSocket, connectionAddress.subscriptionKey);
+                    }
+                    else {
+                        final Sha256Hash status = _calculateAddressStatus(connectionAddress.subscriptionKey);
+                        connectionAddress.status = status;
+                        Logger.debug("Updated Status: " + connectionAddress);
+
+                        _notifyAddressStatus(jsonSocket, connectionAddress.subscriptionKey, status);
+                    }
+                }
+            }
         }
     }
 
@@ -614,6 +706,14 @@ public class ElectrumModule {
         public final Sha256Hash transactionHash;
         public final Boolean hasUnconfirmedInputs;
 
+        protected Long _getBlockHeight() {
+            if (this.isUnconfirmedTransaction()) {
+                return (this.hasUnconfirmedInputs ? -1L : 0L);
+            }
+
+            return this.blockHeight;
+        }
+
         public TransactionPosition(final Long blockHeight, final Integer transactionIndex, final Boolean hasUnconfirmedInputs, final Sha256Hash transactionHash) {
             this.blockHeight = blockHeight;
             this.transactionIndex = transactionIndex;
@@ -650,33 +750,43 @@ public class ElectrumModule {
             final StringBuilder stringBuilder = new StringBuilder();
             final String transactionHashString = this.transactionHash.toString();
             final String transactionHashLowerCaseString = transactionHashString.toLowerCase();
+            final Long blockHeight = _getBlockHeight();
+
             stringBuilder.append(transactionHashLowerCaseString);
             stringBuilder.append(":");
-            if (this.isUnconfirmedTransaction()) {
-                if (this.hasUnconfirmedInputs) {
-                    stringBuilder.append(-1);
-                }
-                else {
-                    stringBuilder.append(0);
-                }
-            }
-            else {
-                stringBuilder.append(this.blockHeight);
-            }
+            stringBuilder.append(blockHeight);
             stringBuilder.append(":");
             return stringBuilder.toString();
         }
 
         @Override
         public Json toJson() {
+            final Long blockHeight = _getBlockHeight();
+
             final Json json = new ElectrumJson(false);
             json.put("height", blockHeight);
-            json.put("tx_hash", transactionHash);
+            json.put("tx_hash", this.transactionHash);
             return json;
         }
     }
 
-    protected Sha256Hash _getAddressStatus(final AddressSubscriptionKey addressKey) {
+    protected Sha256Hash _getCachedAddressStatus(final AddressSubscriptionKey addressKey) {
+        synchronized (_connectionAddresses) {
+            final LinkedList<ConnectionAddress> connectionAddresses = _connectionAddresses.get(addressKey);
+            if (connectionAddresses == null) { return null; }
+
+            for (final ConnectionAddress connectionAddress : connectionAddresses) {
+                final Sha256Hash status = connectionAddress.status;
+                if (status == null) { continue; }
+
+                return status;
+            }
+
+            return null;
+        }
+    }
+
+    protected Sha256Hash _calculateAddressStatus(final AddressSubscriptionKey addressKey) {
         try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
             nodeConnection.enableKeepAlive(true);
 
@@ -733,8 +843,11 @@ public class ElectrumModule {
     }
 
     protected void _notifyScriptHashStatus(final JsonSocket jsonSocket, final AddressSubscriptionKey addressKey) {
-        final Sha256Hash addressStatus = _getAddressStatus(addressKey);
+        final Sha256Hash addressStatus = _calculateAddressStatus(addressKey);
+        _notifyScriptHashStatus(jsonSocket, addressKey, addressStatus);
+    }
 
+    protected void _notifyScriptHashStatus(final JsonSocket jsonSocket, final AddressSubscriptionKey addressKey, final Sha256Hash addressStatus) {
         final String addressString = addressKey.subscriptionString;
 
         final Json responseJson = new ElectrumJson(true);
@@ -750,8 +863,11 @@ public class ElectrumModule {
     }
 
     protected void _notifyAddressStatus(final JsonSocket jsonSocket, final AddressSubscriptionKey addressKey) {
-        final Sha256Hash addressStatus = _getAddressStatus(addressKey);
+        final Sha256Hash addressStatus = _calculateAddressStatus(addressKey);
+        _notifyAddressStatus(jsonSocket, addressKey, addressStatus);
+    }
 
+    protected void _notifyAddressStatus(final JsonSocket jsonSocket, final AddressSubscriptionKey addressKey, final Sha256Hash addressStatus) {
         final String addressString = addressKey.subscriptionString;
 
         final Json responseJson = new ElectrumJson(true);
@@ -766,27 +882,36 @@ public class ElectrumModule {
         jsonSocket.flush();
     }
 
-    protected void _addAddressSubscription(final AddressSubscriptionKey addressKey, final JsonSocket jsonSocket) {
+    protected void _addAddressSubscription(final AddressSubscriptionKey addressKey, final JsonSocket jsonSocket, final Sha256Hash addressStatus) {
         synchronized (_connectionAddresses) {
-            final LinkedList<WeakReference<JsonSocket>> jsonSockets;
+            final LinkedList<ConnectionAddress> connectionAddresses;
             if (_connectionAddresses.containsKey(addressKey)) {
-                jsonSockets = _connectionAddresses.get(addressKey);
+                connectionAddresses = _connectionAddresses.get(addressKey);
             }
             else {
-                jsonSockets = new LinkedList<>();
-                _connectionAddresses.put(addressKey, jsonSockets);
+                connectionAddresses = new LinkedList<>();
+                _connectionAddresses.put(addressKey, connectionAddresses);
             }
 
             { // Add the JsonSocket as a WeakReference if the set does not contain it...
                 boolean socketExists = false;
-                for (final WeakReference<JsonSocket> jsonSocketReference : jsonSockets) {
-                    if (Util.areEqual(jsonSocket, jsonSocketReference.get())) {
+                for (final ConnectionAddress connectionAddress : connectionAddresses) {
+                    if (addressStatus != null) {
+                        connectionAddress.status = addressStatus;
+                        Logger.debug("Updated Status: " + connectionAddress);
+                    }
+
+                    if (Util.areEqual(jsonSocket, connectionAddress.connection.get())) {
                         socketExists = true;
-                        break;
                     }
                 }
+
                 if (! socketExists) {
-                    jsonSockets.add(new WeakReference<>(jsonSocket));
+                    final ConnectionAddress connectionAddress = new ConnectionAddress(addressKey, jsonSocket);
+                    connectionAddress.status = addressStatus;
+                    Logger.debug("Updated Status: " + connectionAddress);
+
+                    connectionAddresses.add(connectionAddress);
                 }
             }
         }
@@ -794,13 +919,13 @@ public class ElectrumModule {
 
     protected Boolean _removeAddressSubscription(final AddressSubscriptionKey addressKey, final JsonSocket jsonSocket) {
         synchronized (_connectionAddresses) {
-            final LinkedList<WeakReference<JsonSocket>> jsonSockets = _connectionAddresses.get(addressKey);
-            if (jsonSockets == null) { return false; }
+            final LinkedList<ConnectionAddress> connectionAddresses = _connectionAddresses.get(addressKey);
+            if (connectionAddresses == null) { return false; }
 
-            final Iterator<WeakReference<JsonSocket>> iterator = jsonSockets.iterator();
+            final Iterator<ConnectionAddress> iterator = connectionAddresses.iterator();
             while (iterator.hasNext()) {
-                final WeakReference<JsonSocket> jsonSocketReference = iterator.next();
-                if (Util.areEqual(jsonSocket, jsonSocketReference.get())) {
+                final ConnectionAddress connectionAddress = iterator.next();
+                if (Util.areEqual(jsonSocket, connectionAddress.connection.get())) {
                     iterator.remove();
                     return true;
                 }
@@ -823,11 +948,20 @@ public class ElectrumModule {
             }
 
             final AddressSubscriptionKey addressKey = new AddressSubscriptionKey(scriptHash, addressHashString);
-            _addAddressSubscription(addressKey, jsonSocket);
+            final Sha256Hash addressStatus;
+            {
+                final Sha256Hash cachedStatus = _getCachedAddressStatus(addressKey);
+                if (cachedStatus != null) {
+                    addressStatus = cachedStatus;
+                }
+                else {
+                    addressStatus = _calculateAddressStatus(addressKey);
+                }
+            }
+
+            _addAddressSubscription(addressKey, jsonSocket, addressStatus);
 
             {
-                final Sha256Hash addressStatus = _getAddressStatus(addressKey);
-
                 final Json json = new ElectrumJson(false);
                 json.put("id", id);
                 json.put("result", addressStatus);
@@ -883,11 +1017,20 @@ public class ElectrumModule {
             }
 
             final AddressSubscriptionKey addressKey = new AddressSubscriptionKey(address, addressString);
-            _addAddressSubscription(addressKey, jsonSocket);
+            final Sha256Hash addressStatus;
+            {
+                final Sha256Hash cachedStatus = _getCachedAddressStatus(addressKey);
+                if (cachedStatus != null) {
+                    addressStatus = cachedStatus;
+                }
+                else {
+                    addressStatus = _calculateAddressStatus(addressKey);
+                }
+            }
+
+            _addAddressSubscription(addressKey, jsonSocket, addressStatus);
 
             {
-                final Sha256Hash addressStatus = _getAddressStatus(addressKey);
-
                 final Json json = new ElectrumJson(false);
                 json.put("id", id);
                 json.put("result", addressStatus);
@@ -1141,15 +1284,15 @@ public class ElectrumModule {
 
                     if (iterationsSinceAddressCleanup >= 20) {
                         synchronized (_connectionAddresses) {
-                            for (final Map.Entry<AddressSubscriptionKey, LinkedList<WeakReference<JsonSocket>>> entry : _connectionAddresses.entrySet()) {
+                            for (final Map.Entry<AddressSubscriptionKey, LinkedList<ConnectionAddress>> entry : _connectionAddresses.entrySet()) {
                                 boolean queueHasActiveSocket = false;
 
-                                final LinkedList<WeakReference<JsonSocket>> list = entry.getValue();
-                                final Iterator<WeakReference<JsonSocket>> iterator = list.iterator();
+                                final LinkedList<ConnectionAddress> connectionAddresses = entry.getValue();
+                                final Iterator<ConnectionAddress> iterator = connectionAddresses.iterator();
                                 while (iterator.hasNext()) {
-                                    final WeakReference<JsonSocket> jsonSocketReference = iterator.next();
+                                    final ConnectionAddress connectionAddress = iterator.next();
 
-                                    final JsonSocket jsonSocket = jsonSocketReference.get();
+                                    final JsonSocket jsonSocket = connectionAddress.connection.get();
                                     final boolean jsonSocketIsConnected = ( (jsonSocket != null) && jsonSocket.isConnected() );
 
                                     if (! jsonSocketIsConnected) {
