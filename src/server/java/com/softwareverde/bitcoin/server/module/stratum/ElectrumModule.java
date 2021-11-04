@@ -106,6 +106,8 @@ public class ElectrumModule {
         }
     }
 
+    protected final Long _minTransactionFeePerByte;
+
     protected final ElectrumProperties _electrumProperties;
     protected final Boolean _tlsIsEnabled;
     protected final CachedThreadPool _threadPool;
@@ -406,8 +408,29 @@ public class ElectrumModule {
 
         final Json json = new ElectrumJson(false);
 
+        final double minRelayFee = ((_minTransactionFeePerByte * 1000L) / Transaction.SATOSHIS_PER_BITCOIN.doubleValue());
+
         json.put("id", id);
-        json.put("result", 1000D / Transaction.SATOSHIS_PER_BITCOIN); // Float; in Bitcoins, not Satoshis...
+        json.put("result", minRelayFee); // Float; in Bitcoins, not Satoshis...
+        jsonSocket.write(new JsonProtocolMessage(json));
+        Logger.debug("Wrote: " + json);
+        jsonSocket.flush();
+    }
+
+    protected void _handleEstimateFeeMessage(final JsonSocket jsonSocket, final Json message) {
+        final Integer id = message.getInteger("id");
+
+        final Long blockCount;
+        {
+            final Json parameters = message.get("params");
+            blockCount = parameters.getLong(0);
+        }
+
+        final double minRelayFee = ((_minTransactionFeePerByte * 1000L) / Transaction.SATOSHIS_PER_BITCOIN.doubleValue());
+
+        final Json json = new ElectrumJson(false);
+        json.put("id", id);
+        json.put("result", minRelayFee); // Float; in Bitcoins, not Satoshis...
         jsonSocket.write(new JsonProtocolMessage(json));
         Logger.debug("Wrote: " + json);
         jsonSocket.flush();
@@ -939,67 +962,61 @@ public class ElectrumModule {
         final Integer id = message.getInteger("id");
         final Json paramsJson = message.get("params");
 
-        for (int i = 0; i < paramsJson.length(); ++i) {
-            final String addressHashString = paramsJson.getString(i);
-            final Sha256Hash scriptHash = Sha256Hash.fromHexString(BitcoinUtil.reverseEndianString(addressHashString));
-            if (scriptHash == null) {
-                Logger.debug("Invalid Address hash: " + addressHashString);
-                continue;
+        final String addressHashString = paramsJson.getString(0);
+        final Sha256Hash scriptHash = Sha256Hash.fromHexString(BitcoinUtil.reverseEndianString(addressHashString));
+        if (scriptHash == null) {
+            Logger.debug("Invalid Address hash: " + addressHashString);
+            return;
+        }
+
+        final AddressSubscriptionKey addressKey = new AddressSubscriptionKey(scriptHash, addressHashString);
+        final Sha256Hash addressStatus;
+        {
+            final Sha256Hash cachedStatus = _getCachedAddressStatus(addressKey);
+            if (cachedStatus != null) {
+                addressStatus = cachedStatus;
             }
-
-            final AddressSubscriptionKey addressKey = new AddressSubscriptionKey(scriptHash, addressHashString);
-            final Sha256Hash addressStatus;
-            {
-                final Sha256Hash cachedStatus = _getCachedAddressStatus(addressKey);
-                if (cachedStatus != null) {
-                    addressStatus = cachedStatus;
-                }
-                else {
-                    addressStatus = _calculateAddressStatus(addressKey);
-                }
-            }
-
-            _addAddressSubscription(addressKey, jsonSocket, addressStatus);
-
-            {
-                final Json json = new ElectrumJson(false);
-                json.put("id", id);
-                json.put("result", addressStatus);
-
-                jsonSocket.write(new JsonProtocolMessage(json));
-                Logger.debug("Wrote: " + json);
-                jsonSocket.flush();
+            else {
+                addressStatus = _calculateAddressStatus(addressKey);
             }
         }
-        jsonSocket.flush();
+
+        _addAddressSubscription(addressKey, jsonSocket, addressStatus);
+
+        {
+            final Json json = new ElectrumJson(false);
+            json.put("id", id);
+            json.put("result", addressStatus);
+
+            jsonSocket.write(new JsonProtocolMessage(json));
+            Logger.debug("Wrote: " + json);
+            jsonSocket.flush();
+        }
     }
 
     protected void _handleUnsubscribeScriptHashMessage(final JsonSocket jsonSocket, final Json message) {
         final Integer id = message.getInteger("id");
         final Json paramsJson = message.get("params");
 
-        for (int i = 0; i < paramsJson.length(); ++i) {
-            final String addressHashString = paramsJson.getString(i);
-            final Sha256Hash scriptHash = Sha256Hash.fromHexString(BitcoinUtil.reverseEndianString(addressHashString));
-            if (scriptHash == null) {
-                Logger.debug("Invalid Address hash: " + addressHashString);
-                continue;
-            }
-
-            final AddressSubscriptionKey addressKey = new AddressSubscriptionKey(scriptHash, addressHashString);
-            final Boolean addressExisted = _removeAddressSubscription(addressKey, jsonSocket);
-
-            {
-                final Json json = new ElectrumJson(false);
-                json.put("id", id);
-                json.put("result", addressExisted);
-
-                jsonSocket.write(new JsonProtocolMessage(json));
-                Logger.debug("Wrote: " + json);
-                jsonSocket.flush();
-            }
+        final String addressHashString = paramsJson.getString(0);
+        final Sha256Hash scriptHash = Sha256Hash.fromHexString(BitcoinUtil.reverseEndianString(addressHashString));
+        if (scriptHash == null) {
+            Logger.debug("Invalid Address hash: " + addressHashString);
+            return;
         }
-        jsonSocket.flush();
+
+        final AddressSubscriptionKey addressKey = new AddressSubscriptionKey(scriptHash, addressHashString);
+        final Boolean addressExisted = _removeAddressSubscription(addressKey, jsonSocket);
+
+        {
+            final Json json = new ElectrumJson(false);
+            json.put("id", id);
+            json.put("result", addressExisted);
+
+            jsonSocket.write(new JsonProtocolMessage(json));
+            Logger.debug("Wrote: " + json);
+            jsonSocket.flush();
+        }
     }
 
     protected void _handleSubscribeAddressMessage(final JsonSocket jsonSocket, final Json message) {
@@ -1008,39 +1025,94 @@ public class ElectrumModule {
         final Integer id = message.getInteger("id");
         final Json paramsJson = message.get("params");
 
-        for (int i = 0; i < paramsJson.length(); ++i) {
-            final String addressString = paramsJson.getString(i);
-            final Address address = Util.coalesce(addressInflater.fromBase32Check(addressString), addressInflater.fromBase58Check(addressString));
-            if (address == null) {
-                Logger.debug("Invalid address: " + addressString);
-                continue;
+        final String addressString = paramsJson.getString(0);
+        final Address address = Util.coalesce(addressInflater.fromBase32Check(addressString), addressInflater.fromBase58Check(addressString));
+        if (address == null) {
+            Logger.debug("Invalid address: " + addressString);
+            return;
+        }
+
+        final AddressSubscriptionKey addressKey = new AddressSubscriptionKey(address, addressString);
+        final Sha256Hash addressStatus;
+        {
+            final Sha256Hash cachedStatus = _getCachedAddressStatus(addressKey);
+            if (cachedStatus != null) {
+                addressStatus = cachedStatus;
             }
-
-            final AddressSubscriptionKey addressKey = new AddressSubscriptionKey(address, addressString);
-            final Sha256Hash addressStatus;
-            {
-                final Sha256Hash cachedStatus = _getCachedAddressStatus(addressKey);
-                if (cachedStatus != null) {
-                    addressStatus = cachedStatus;
-                }
-                else {
-                    addressStatus = _calculateAddressStatus(addressKey);
-                }
-            }
-
-            _addAddressSubscription(addressKey, jsonSocket, addressStatus);
-
-            {
-                final Json json = new ElectrumJson(false);
-                json.put("id", id);
-                json.put("result", addressStatus);
-
-                jsonSocket.write(new JsonProtocolMessage(json));
-                Logger.debug("Wrote: " + json);
-                jsonSocket.flush();
+            else {
+                addressStatus = _calculateAddressStatus(addressKey);
             }
         }
+
+        _addAddressSubscription(addressKey, jsonSocket, addressStatus);
+
+        {
+            final Json json = new ElectrumJson(false);
+            json.put("id", id);
+            json.put("result", addressStatus);
+
+            jsonSocket.write(new JsonProtocolMessage(json));
+            Logger.debug("Wrote: " + json);
+            jsonSocket.flush();
+        }
+    }
+
+    protected void _handleGetBalanceMessage(final JsonSocket jsonSocket, final AddressSubscriptionKey addressKey, final Integer requestId) {
+        final Long confirmedBalance;
+        final Long unconfirmedBalance;
+        try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
+            final Json balanceJson = nodeConnection.getAddressBalance(addressKey.scriptHash);
+            unconfirmedBalance = balanceJson.getLong("balance");
+            confirmedBalance = balanceJson.getLong("confirmedBalance");
+        }
+
+        final Json balanceJson = new ElectrumJson(false);
+        balanceJson.put("confirmed", confirmedBalance);
+        balanceJson.put("unconfirmed", unconfirmedBalance);
+
+        {
+            final Json json = new ElectrumJson(false);
+            json.put("id", requestId);
+            json.put("result", balanceJson);
+
+            jsonSocket.write(new JsonProtocolMessage(json));
+            Logger.debug("Wrote: " + json);
+            jsonSocket.flush();
+        }
+
         jsonSocket.flush();
+    }
+
+    protected void _handleGetScriptHashBalanceMessage(final JsonSocket jsonSocket, final Json message) {
+        final Integer id = message.getInteger("id");
+        final Json paramsJson = message.get("params");
+
+        final String addressHashString = paramsJson.getString(0);
+        final Sha256Hash scriptHash = Sha256Hash.fromHexString(BitcoinUtil.reverseEndianString(addressHashString));
+        if (scriptHash == null) {
+            Logger.debug("Invalid Address hash: " + addressHashString);
+            return;
+        }
+
+        final AddressSubscriptionKey addressKey = new AddressSubscriptionKey(scriptHash, addressHashString);
+        _handleGetBalanceMessage(jsonSocket, addressKey, id);
+    }
+
+    protected void _handleGetAddressBalanceMessage(final JsonSocket jsonSocket, final Json message) {
+        final AddressInflater addressInflater = new AddressInflater();
+
+        final Integer id = message.getInteger("id");
+        final Json paramsJson = message.get("params");
+
+        final String addressString = paramsJson.getString(0);
+        final Address address = Util.coalesce(addressInflater.fromBase32Check(addressString), addressInflater.fromBase58Check(addressString));
+        if (address == null) {
+            Logger.debug("Invalid address: " + addressString);
+            return;
+        }
+
+        final AddressSubscriptionKey addressKey = new AddressSubscriptionKey(address, addressString);
+        _handleGetBalanceMessage(jsonSocket, addressKey, id);
     }
 
     protected void _handleUnsubscribeAddressMessage(final JsonSocket jsonSocket, final Json message) {
@@ -1049,28 +1121,25 @@ public class ElectrumModule {
         final Integer id = message.getInteger("id");
         final Json paramsJson = message.get("params");
 
-        for (int i = 0; i < paramsJson.length(); ++i) {
-            final String addressString = paramsJson.getString(i);
-            final Address address = Util.coalesce(addressInflater.fromBase32Check(addressString), addressInflater.fromBase58Check(addressString));
-            if (address == null) {
-                Logger.debug("Invalid address: " + addressString);
-                continue;
-            }
-
-            final AddressSubscriptionKey addressKey = new AddressSubscriptionKey(address, addressString);
-            final Boolean addressExisted = _removeAddressSubscription(addressKey, jsonSocket);
-
-            {
-                final Json json = new ElectrumJson(false);
-                json.put("id", id);
-                json.put("result", addressExisted);
-
-                jsonSocket.write(new JsonProtocolMessage(json));
-                Logger.debug("Wrote: " + json);
-                jsonSocket.flush();
-            }
+        final String addressString = paramsJson.getString(0);
+        final Address address = Util.coalesce(addressInflater.fromBase32Check(addressString), addressInflater.fromBase58Check(addressString));
+        if (address == null) {
+            Logger.debug("Invalid address: " + addressString);
+            return;
         }
-        jsonSocket.flush();
+
+        final AddressSubscriptionKey addressKey = new AddressSubscriptionKey(address, addressString);
+        final Boolean addressExisted = _removeAddressSubscription(addressKey, jsonSocket);
+
+        {
+            final Json json = new ElectrumJson(false);
+            json.put("id", id);
+            json.put("result", addressExisted);
+
+            jsonSocket.write(new JsonProtocolMessage(json));
+            Logger.debug("Wrote: " + json);
+            jsonSocket.flush();
+        }
     }
 
     protected void _handleGetAddressHistory(final JsonSocket jsonSocket, final Json message) {
@@ -1182,6 +1251,9 @@ public class ElectrumModule {
                     case "blockchain.relayfee": {
                         _handleMinimumRelayFeeMessage(jsonSocket, jsonMessage);
                     } break;
+                    case "blockchain.estimatefee": {
+                        _handleEstimateFeeMessage(jsonSocket, jsonMessage);
+                    } break;
                     case "blockchain.headers.subscribe": {
                         _handleSubscribeBlockHeadersMessage(jsonSocket, jsonMessage);
                     } break;
@@ -1196,6 +1268,12 @@ public class ElectrumModule {
                     } break;
                     case "blockchain.scripthash.unsubscribe": {
                         _handleUnsubscribeScriptHashMessage(jsonSocket, jsonMessage);
+                    } break;
+                    case "blockchain.scripthash.get_balance": {
+                        _handleGetScriptHashBalanceMessage(jsonSocket, jsonMessage);
+                    } break;
+                    case "blockchain.address.get_balance": {
+                        _handleGetAddressBalanceMessage(jsonSocket, jsonMessage);
                     } break;
                     case "blockchain.address.unsubscribe": {
                         _handleUnsubscribeAddressMessage(jsonSocket, jsonMessage);
@@ -1243,6 +1321,8 @@ public class ElectrumModule {
     public ElectrumModule(final ElectrumProperties electrumProperties) {
         _electrumProperties = electrumProperties;
         _threadPool = new CachedThreadPool(1024, 30000L);
+
+        _minTransactionFeePerByte = 1L;
 
         final Integer port = _electrumProperties.getHttpPort();
         final Integer tlsPort = _electrumProperties.getTlsPort();

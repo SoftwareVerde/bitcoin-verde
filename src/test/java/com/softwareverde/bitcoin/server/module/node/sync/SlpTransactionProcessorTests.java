@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.sync;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
+import com.softwareverde.bitcoin.context.IndexerCache;
 import com.softwareverde.bitcoin.context.TransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.context.lazy.LazyTransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
@@ -40,7 +41,8 @@ public class SlpTransactionProcessorTests extends IntegrationTest {
     @Test
     public void should_index_slp_transaction_validation_results() throws Exception {
         // Setup
-        final TransactionOutputIndexerContext transactionOutputIndexerContext = new LazyTransactionOutputIndexerContext(_fullNodeDatabaseManagerFactory);
+        final IndexerCache indexerCache = new IndexerCache(1);
+        final TransactionOutputIndexerContext transactionOutputIndexerContext = new LazyTransactionOutputIndexerContext(_fullNodeDatabaseManagerFactory, indexerCache);
         final BlockchainIndexer blockchainIndexer = new BlockchainIndexer(transactionOutputIndexerContext, 0);
 
         final List<Transaction> bvtTransactions = BlockchainIndexerTests.inflateBitcoinVerdeTestTokens();

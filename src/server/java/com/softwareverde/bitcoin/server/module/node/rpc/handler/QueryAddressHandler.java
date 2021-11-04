@@ -25,17 +25,17 @@ import java.util.HashMap;
 public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
 
-    protected Long _getBalance(final Address address, final Sha256Hash scriptHash, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
+    protected Long _getBalance(final Address address, final Sha256Hash scriptHash, final Boolean includeUnconfirmedTransactions, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
         final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = databaseManager.getBlockchainIndexerDatabaseManager();
 
         final BlockchainSegmentId headChainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
         if (address != null) {
-            return blockchainIndexerDatabaseManager.getAddressBalance(headChainSegmentId, address);
+            return blockchainIndexerDatabaseManager.getAddressBalance(headChainSegmentId, address, includeUnconfirmedTransactions);
         }
         else {
-            return blockchainIndexerDatabaseManager.getAddressBalance(headChainSegmentId, scriptHash);
+            return blockchainIndexerDatabaseManager.getAddressBalance(headChainSegmentId, scriptHash, includeUnconfirmedTransactions);
         }
     }
 
@@ -100,9 +100,9 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
     }
 
     @Override
-    public Long getBalance(final Address address) {
+    public Long getBalance(final Address address, final Boolean includeUnconfirmedTransactions) {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            return _getBalance(address, null, databaseManager);
+            return _getBalance(address, null, includeUnconfirmedTransactions, databaseManager);
         }
         catch (final Exception exception) {
             Logger.warn(exception);
@@ -111,9 +111,9 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
     }
 
     @Override
-    public Long getBalance(final Sha256Hash scriptHash) {
+    public Long getBalance(final Sha256Hash scriptHash, final Boolean includeUnconfirmedTransactions) {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            return _getBalance(null, scriptHash, databaseManager);
+            return _getBalance(null, scriptHash, includeUnconfirmedTransactions, databaseManager);
         }
         catch (final Exception exception) {
             Logger.warn(exception);

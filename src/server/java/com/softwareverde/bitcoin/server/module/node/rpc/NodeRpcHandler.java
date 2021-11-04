@@ -85,8 +85,8 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     }
 
     public interface QueryAddressHandler {
-        Long getBalance(Address address);
-        Long getBalance(Sha256Hash scriptHash);
+        Long getBalance(Address address, Boolean includeUnconfirmedTransactions);
+        Long getBalance(Sha256Hash scriptHash, Boolean includeUnconfirmedTransactions);
         List<Transaction> getAddressTransactions(Address address);
         List<Transaction> getAddressTransactions(Sha256Hash scriptHash);
     }
@@ -1043,7 +1043,8 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             return;
         }
 
-        final Long balance = queryAddressHandler.getBalance(address);
+        final Long balance = queryAddressHandler.getBalance(address, true);
+        final Long confirmedBalance = queryAddressHandler.getBalance(address, false);
 
         if (balance == null) {
             response.put(ERROR_MESSAGE_KEY, "Unable to determine balance.");
@@ -1056,6 +1057,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         response.put("address", addressJson);
         response.put("balance", balance);
+        response.put("confirmedBalance", balance);
 
         response.put(WAS_SUCCESS_KEY, 1);
     }
@@ -1078,6 +1080,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         final Json addressJson = new Json(false);
         final List<Transaction> addressTransactions;
         final Long balance;
+        final Long confirmedBalance;
         if (parameters.hasKey("address")) {
             final String addressString = parameters.getString("address");
             final Address address;
@@ -1094,7 +1097,8 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             }
 
             addressTransactions = queryAddressHandler.getAddressTransactions(address);
-            balance = queryAddressHandler.getBalance(address);
+            balance = queryAddressHandler.getBalance(address, true);
+            confirmedBalance = queryAddressHandler.getBalance(address, false);
             addressJson.put("base32CheckEncoded", address.toBase32CheckEncoded(true));
             addressJson.put("base58CheckEncoded", address.toBase58CheckEncoded());
         }
@@ -1108,7 +1112,8 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             }
 
             addressTransactions = queryAddressHandler.getAddressTransactions(scriptHash);
-            balance = queryAddressHandler.getBalance(scriptHash);
+            balance = queryAddressHandler.getBalance(scriptHash, true);
+            confirmedBalance = queryAddressHandler.getBalance(scriptHash, false);
             addressJson.put("scriptHash", scriptHash);
         }
 
@@ -1144,6 +1149,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         response.put("address", addressJson);
         response.put("balance", balance);
+        response.put("confirmedBalance", confirmedBalance);
         response.put("transactions", transactionsJson);
 
         response.put(WAS_SUCCESS_KEY, 1);

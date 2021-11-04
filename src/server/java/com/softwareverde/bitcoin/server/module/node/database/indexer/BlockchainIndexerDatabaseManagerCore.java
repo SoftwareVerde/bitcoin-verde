@@ -114,7 +114,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         return transactionIds;
     }
 
-    protected AddressTransactions _getAddressTransactions(final BlockchainSegmentId blockchainSegmentId, final Address address, final Sha256Hash nullableScriptHash) throws DatabaseException {
+    protected AddressTransactions _getAddressTransactions(final BlockchainSegmentId blockchainSegmentId, final Address address, final Sha256Hash nullableScriptHash, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final Sha256Hash scriptHash;
@@ -189,7 +189,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
 
         // Get Transactions that are connected to the provided blockchainSegmentId...
         final Set<Tuple<TransactionId, BlockchainSegmentId>> transactionBlockchainSegmentIds = _extractTransactionBlockchainSegmentIds(rows);
-        final Set<TransactionId> connectedTransactionIds = _filterTransactionsConnectedToBlockchainSegment(transactionBlockchainSegmentIds, blockchainSegmentId, true);
+        final Set<TransactionId> connectedTransactionIds = _filterTransactionsConnectedToBlockchainSegment(transactionBlockchainSegmentIds, blockchainSegmentId, includeUnconfirmedTransactions);
 
         // Remove Transactions that are not connected to this blockchain...
         { // PreviousOutputs
@@ -214,8 +214,8 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         return new AddressTransactions(blockchainSegmentId, new ImmutableList<>(connectedTransactionIds), previousOutputs, spentOutputs);
     }
 
-    protected Long _getAddressBalance(final BlockchainSegmentId blockchainSegmentId, final Address address, final Sha256Hash scriptHash) throws DatabaseException {
-        final AddressTransactions addressTransactions = _getAddressTransactions(blockchainSegmentId, address, scriptHash);
+    protected Long _getAddressBalance(final BlockchainSegmentId blockchainSegmentId, final Address address, final Sha256Hash scriptHash, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
+        final AddressTransactions addressTransactions = _getAddressTransactions(blockchainSegmentId, address, scriptHash, includeUnconfirmedTransactions);
 
         final List<Integer> emptyList = new MutableList<>(0);
 
@@ -261,24 +261,24 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
 
     @Override
     public List<TransactionId> getTransactionIds(final BlockchainSegmentId blockchainSegmentId, final Address address, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
-        final AddressTransactions addressTransactions = _getAddressTransactions(blockchainSegmentId, address, null);
+        final AddressTransactions addressTransactions = _getAddressTransactions(blockchainSegmentId, address, null, includeUnconfirmedTransactions);
         return addressTransactions.transactionIds;
     }
 
     @Override
     public List<TransactionId> getTransactionIds(final BlockchainSegmentId blockchainSegmentId, final Sha256Hash scriptHash, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
-        final AddressTransactions addressTransactions = _getAddressTransactions(blockchainSegmentId, null, scriptHash);
+        final AddressTransactions addressTransactions = _getAddressTransactions(blockchainSegmentId, null, scriptHash, includeUnconfirmedTransactions);
         return addressTransactions.transactionIds;
     }
 
     @Override
-    public Long getAddressBalance(final BlockchainSegmentId blockchainSegmentId, final Address address) throws DatabaseException {
-        return _getAddressBalance(blockchainSegmentId, address, null);
+    public Long getAddressBalance(final BlockchainSegmentId blockchainSegmentId, final Address address, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
+        return _getAddressBalance(blockchainSegmentId, address, null, includeUnconfirmedTransactions);
     }
 
     @Override
-    public Long getAddressBalance(final BlockchainSegmentId blockchainSegmentId, final Sha256Hash scriptHash) throws DatabaseException {
-        return _getAddressBalance(blockchainSegmentId, null, scriptHash);
+    public Long getAddressBalance(final BlockchainSegmentId blockchainSegmentId, final Sha256Hash scriptHash, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
+        return _getAddressBalance(blockchainSegmentId, null, scriptHash, includeUnconfirmedTransactions);
     }
 
     @Override

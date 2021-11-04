@@ -13,8 +13,8 @@ import com.softwareverde.database.DatabaseException;
 public interface BlockchainIndexerDatabaseManager {
     List<TransactionId> getTransactionIds(BlockchainSegmentId blockchainSegmentId, Address address, Boolean includeUnconfirmedTransactions) throws DatabaseException;
     List<TransactionId> getTransactionIds(BlockchainSegmentId blockchainSegmentId, Sha256Hash scriptHash, Boolean includeUnconfirmedTransactions) throws DatabaseException;
-    Long getAddressBalance(BlockchainSegmentId blockchainSegmentId, Address address) throws DatabaseException;
-    Long getAddressBalance(BlockchainSegmentId blockchainSegmentId, Sha256Hash scriptHash) throws DatabaseException;
+    Long getAddressBalance(BlockchainSegmentId blockchainSegmentId, Address address, Boolean includeUnconfirmedTransactions) throws DatabaseException;
+    Long getAddressBalance(BlockchainSegmentId blockchainSegmentId, Sha256Hash scriptHash, Boolean includeUnconfirmedTransactions) throws DatabaseException;
 
     SlpTokenId getSlpTokenId(TransactionId transactionId) throws DatabaseException;
     List<TransactionId> getSlpTransactionIds(SlpTokenId slpTokenId) throws DatabaseException;
