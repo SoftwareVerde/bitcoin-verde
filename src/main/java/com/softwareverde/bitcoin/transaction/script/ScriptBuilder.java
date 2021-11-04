@@ -83,6 +83,13 @@ public class ScriptBuilder {
         return HashUtil.sha256(lockingScript.getBytes());
     }
 
+    public static Sha256Hash computeScriptHash(final LockingScript lockingScript) {
+        if (lockingScript == null) { return null; }
+
+        final ByteArray lockingScriptBytes = lockingScript.getBytes();
+        return HashUtil.sha256(lockingScriptBytes);
+    }
+
     protected void _pushBytes(final ByteArray bytes) {
         final int dataByteCount = bytes.getByteCount();
 

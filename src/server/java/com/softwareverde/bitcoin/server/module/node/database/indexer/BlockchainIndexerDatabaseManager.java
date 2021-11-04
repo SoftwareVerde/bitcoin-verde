@@ -10,11 +10,14 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 
+import java.util.Map;
+
 public interface BlockchainIndexerDatabaseManager {
     List<TransactionId> getTransactionIds(BlockchainSegmentId blockchainSegmentId, Address address, Boolean includeUnconfirmedTransactions) throws DatabaseException;
     List<TransactionId> getTransactionIds(BlockchainSegmentId blockchainSegmentId, Sha256Hash scriptHash, Boolean includeUnconfirmedTransactions) throws DatabaseException;
     Long getAddressBalance(BlockchainSegmentId blockchainSegmentId, Address address, Boolean includeUnconfirmedTransactions) throws DatabaseException;
     Long getAddressBalance(BlockchainSegmentId blockchainSegmentId, Sha256Hash scriptHash, Boolean includeUnconfirmedTransactions) throws DatabaseException;
+    Map<Integer, TransactionId> getTransactionsSpendingOutputsOf(TransactionId transactionId) throws DatabaseException;
 
     SlpTokenId getSlpTokenId(TransactionId transactionId) throws DatabaseException;
     List<TransactionId> getSlpTransactionIds(SlpTokenId slpTokenId) throws DatabaseException;

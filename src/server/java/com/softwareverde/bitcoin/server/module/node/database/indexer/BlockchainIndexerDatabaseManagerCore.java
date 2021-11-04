@@ -37,6 +37,7 @@ import com.softwareverde.util.Util;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
 
 public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDatabaseManager {
@@ -279,6 +280,25 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
     @Override
     public Long getAddressBalance(final BlockchainSegmentId blockchainSegmentId, final Sha256Hash scriptHash, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
         return _getAddressBalance(blockchainSegmentId, null, scriptHash, includeUnconfirmedTransactions);
+    }
+
+    @Override
+    public Map<Integer, TransactionId> getTransactionsSpendingOutputsOf(final TransactionId transactionId) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT transaction_id, spends_output_index FROM indexed_transaction_inputs WHERE spends_transaction_id = ? ORDER BY spends_output_index ASC")
+                .setParameter(transactionId)
+        );
+
+        final HashMap<Integer, TransactionId> spentOutputsMap = new HashMap<>();
+        for (final Row row : rows) {
+            final TransactionId spendingTransactionId = TransactionId.wrap(row.getLong("transaction_id"));
+            final Integer spendsOutputIndex = row.getInteger("spends_output_index");
+
+            spentOutputsMap.put(spendsOutputIndex, spendingTransactionId);
+        }
+        return spentOutputsMap;
     }
 
     @Override

@@ -766,7 +766,8 @@ public class ElectrumModule {
 
         @Override
         public int hashCode() {
-            return Long.hashCode(this.blockHeight);
+            final Long blockHeight = _getBlockHeight();
+            return Long.hashCode(blockHeight);
         }
 
         @Override
@@ -1227,6 +1228,111 @@ public class ElectrumModule {
         jsonSocket.flush();
     }
 
+    protected void _handleGetUnspentOutputs(final JsonSocket jsonSocket, final Json message) {
+        final AddressInflater addressInflater = new AddressInflater();
+
+        final Integer id = message.getInteger("id");
+        final Json paramsJson = message.get("params");
+
+        if (paramsJson.length() != 1) { return; }
+
+        final Sha256Hash scriptHash;
+        final Address address;
+        {
+            final String addressString = paramsJson.getString(0);
+            address = Util.coalesce(addressInflater.fromBase32Check(addressString), addressInflater.fromBase58Check(addressString));
+            if (address != null) {
+                scriptHash = ScriptBuilder.computeScriptHash(address);
+            }
+            else {
+                scriptHash = Sha256Hash.fromHexString(BitcoinUtil.reverseEndianString(addressString));
+                if (scriptHash == null) {
+                    Logger.debug("Invalid Address/Hash: " + addressString);
+                    return;
+                }
+            }
+        }
+
+        final Json resultJson = new ElectrumJson(true);
+        try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
+            nodeConnection.enableKeepAlive(true);
+
+            final Json addressTransactionsJson;
+            if (address != null) {
+                addressTransactionsJson = nodeConnection.getAddressTransactions(address, false);
+            }
+            else {
+                addressTransactionsJson = nodeConnection.getAddressTransactions(scriptHash, false);
+            }
+
+            final Json transactionsJson = addressTransactionsJson.get("transactions");
+            final int transactionCount = transactionsJson.length();
+            Logger.debug("Tx Count: " + transactionCount);
+            final MutableList<TransactionPosition> transactionPositions = new MutableList<>(transactionCount);
+            final HashMap<TransactionPosition, MutableList<Json>> transactionPositionJsons = new HashMap<>();
+            for (int i = 0; i < transactionCount; ++i) {
+                final Json transactionJson = transactionsJson.get(i);
+                final Sha256Hash transactionHash = Sha256Hash.fromHexString(transactionJson.getString("hash"));
+
+                final Json transactionBlockHeightJson = nodeConnection.getTransactionBlockHeight(transactionHash);
+                final Long blockHeight = transactionBlockHeightJson.getOrNull("blockHeight", Json.Types.LONG);
+                final Integer transactionIndex = transactionBlockHeightJson.getOrNull("transactionIndex", Json.Types.INTEGER);
+                final Boolean hasUnconfirmedInputs = transactionBlockHeightJson.getBoolean("hasUnconfirmedInputs");
+
+                final TransactionPosition transactionPosition = new TransactionPosition(blockHeight, transactionIndex, hasUnconfirmedInputs, transactionHash);
+                transactionPositions.add(transactionPosition);
+
+                final Json transactionOutputsJson = transactionJson.get("outputs");
+                final int transactionOutputCount = transactionOutputsJson.length();
+                for (int outputIndex = 0; outputIndex < transactionOutputCount; ++outputIndex) {
+                    final Json transactionOutputJson = transactionOutputsJson.get(outputIndex);
+                    final Long amount = transactionOutputJson.getLong("amount");
+                    final Sha256Hash spentByTransaction = Sha256Hash.fromHexString(transactionOutputJson.getOrNull("spentByTransaction", Json.Types.STRING));
+                    final Sha256Hash transactionOutputScriptHash = Sha256Hash.fromHexString(transactionOutputJson.getOrNull("scriptHash", Json.Types.STRING));
+
+                    if (! Util.areEqual(scriptHash, transactionOutputScriptHash)) { continue; }
+
+                    final boolean isUnspent = (spentByTransaction == null);
+                    if (! isUnspent) { continue; }
+
+                    final Json json = transactionPosition.toJson();
+                    json.put("tx_pos", outputIndex);
+                    json.put("value", amount);
+
+                    MutableList<Json> jsonList = transactionPositionJsons.get(transactionPosition);
+                    if (jsonList == null) {
+                        jsonList = new MutableList<>();
+                        transactionPositionJsons.put(transactionPosition, jsonList);
+                    }
+
+                    jsonList.add(json);
+                }
+            }
+            transactionPositions.sort(TransactionPosition.COMPARATOR);
+
+            // Add the TransactionOutput Json objects in sorted order by their associated TransactionPosition...
+            for (final TransactionPosition transactionPosition : transactionPositions) {
+                final List<Json> jsonList = transactionPositionJsons.get(transactionPosition);
+                if (jsonList == null) { continue; }
+
+                for (final Json transactionPositionJson : jsonList) {
+                    resultJson.add(transactionPositionJson);
+                }
+            }
+        }
+
+        {
+            final Json json = new ElectrumJson(false);
+            json.put("id", id);
+            json.put("result", resultJson);
+
+            jsonSocket.write(new JsonProtocolMessage(json));
+            Logger.debug("Wrote: " + json);
+            jsonSocket.flush();
+        }
+        jsonSocket.flush();
+    }
+
     protected void _handlePeersMessage(final JsonSocket jsonSocket, final Json message) {
         final Integer id = message.getInteger("id");
 
@@ -1302,6 +1408,10 @@ public class ElectrumModule {
                     case "blockchain.address.get_mempool":
                     case "blockchain.scripthash.get_mempool": {
                         _handleGetAddressHistory(jsonSocket, jsonMessage, false, true, true);
+                    } break;
+                    case "blockchain.address.listunspent":
+                    case "blockchain.scripthash.listunspent": {
+                        _handleGetUnspentOutputs(jsonSocket, jsonMessage);
                     } break;
                     case "blockchain.block.headers": {
                         _handleBlockHeadersMessage(jsonSocket, jsonMessage);

@@ -52,6 +52,7 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.TransactionWithFee;
 import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProof;
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidationResult;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
@@ -477,11 +478,17 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
             final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
             if (transactionId == null) { return null; }
 
-            final Boolean isUnconfirmedTransaction = transactionDatabaseManager.isUnconfirmedTransaction(transactionId);
-            if (isUnconfirmedTransaction) { return false; }
+            final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+            final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+            for (final TransactionInput transactionInput : transactionInputs) {
+                final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+                final TransactionId previousOutputTransactionId = transactionDatabaseManager.getTransactionId(previousOutputTransactionHash);
 
-            return transactionDatabaseManager.hasUnconfirmedInputs(transactionId);
+                final Boolean isUnconfirmedTransaction = transactionDatabaseManager.isUnconfirmedTransaction(previousOutputTransactionId);
+                if (isUnconfirmedTransaction) { return true; }
+            }
 
+            return false;
         }
         catch (final DatabaseException exception) {
             Logger.debug(exception);

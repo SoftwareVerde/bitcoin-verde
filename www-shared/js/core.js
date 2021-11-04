@@ -294,6 +294,17 @@ class Ui {
         }
         $(".amount", transactionOutputUi).text((transactionOutput.amount || 0).toLocaleString());
 
+        if (transactionOutput.spentByTransaction) {
+            const transactionLink = $(".spent-by .value", transactionOutputUi);
+            transactionLink.text(transactionOutput.spentByTransaction);
+            Ui.makeHashCopyable(transactionLink);
+            transactionLink.on("click", Ui._makeNavigateToTransactionEvent(transactionOutput.spentByTransaction));
+        }
+        else {
+            $(".is-spent", transactionOutputUi).remove();
+            $(".spent-by", transactionOutputUi).remove();
+        }
+
         const lockingScript = transactionOutput.lockingScript;
         $(".locking-script .type .value", transactionOutputUi).text(lockingScript.scriptType);
         const operationsContainer = $(".locking-script .script .value", transactionOutputUi);
