@@ -536,6 +536,36 @@ public class ElectrumModule {
         return new GetBlockHeadersResult(blockHeaderCount, concatenatedHeadersHexString, merkleRoot, partialMerkleTree);
     }
 
+    protected void _handleSubmitTransactionMessage(final JsonSocket jsonSocket, final Json message) {
+        final TransactionInflater transactionInflater = new TransactionInflater();
+        final Integer id = message.getInteger("id");
+
+        final Transaction transaction;
+        {
+            final Json parameters = message.get("params");
+            final String transactionHex = parameters.getString(0);
+            transaction = transactionInflater.fromBytes(ByteArray.fromHexString(transactionHex));
+
+            if (transaction == null) {
+                Logger.debug("Invalid Transaction hex.");
+                return;
+            }
+        }
+
+        final Sha256Hash transactionHash;
+        try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
+            nodeConnection.submitTransaction(transaction);
+            transactionHash = transaction.getHash();
+        }
+
+        final Json json = new ElectrumJson(false);
+        json.put("id", id);
+        json.put("result", transactionHash);
+        jsonSocket.write(new JsonProtocolMessage(json));
+        Logger.debug("Wrote: " + json);
+        jsonSocket.flush();
+    }
+
     protected void _handleBlockHeadersMessage(final JsonSocket jsonSocket, final Json message) {
         final Integer id = message.getInteger("id");
 
@@ -1412,6 +1442,9 @@ public class ElectrumModule {
                     case "blockchain.address.listunspent":
                     case "blockchain.scripthash.listunspent": {
                         _handleGetUnspentOutputs(jsonSocket, jsonMessage);
+                    } break;
+                    case "blockchain.transaction.broadcast": {
+                        _handleSubmitTransactionMessage(jsonSocket, jsonMessage);
                     } break;
                     case "blockchain.block.headers": {
                         _handleBlockHeadersMessage(jsonSocket, jsonMessage);
