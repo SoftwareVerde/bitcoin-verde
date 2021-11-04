@@ -1142,7 +1142,7 @@ public class ElectrumModule {
         }
     }
 
-    protected void _handleGetAddressHistory(final JsonSocket jsonSocket, final Json message) {
+    protected void _handleGetAddressHistory(final JsonSocket jsonSocket, final Json message, final Boolean includeConfirmedTransactions, final Boolean includeUnconfirmedTransactions) {
         final TransactionInflater transactionInflater = new TransactionInflater();
         final AddressInflater addressInflater = new AddressInflater();
 
@@ -1189,6 +1189,9 @@ public class ElectrumModule {
                 final Boolean hasUnconfirmedInputs = transactionBlockHeightJson.getBoolean("hasUnconfirmedInputs");
 
                 final TransactionPosition transactionPosition = new TransactionPosition(blockHeight, transactionIndex, hasUnconfirmedInputs, transactionHash);
+                if ( transactionPosition.isUnconfirmedTransaction() && (! includeUnconfirmedTransactions) ) { continue; }
+                if ( (! transactionPosition.isUnconfirmedTransaction()) && (! includeConfirmedTransactions) ) { continue; }
+
                 transactionPositions.add(transactionPosition);
             }
             transactionPositions.sort(TransactionPosition.COMPARATOR);
@@ -1280,7 +1283,11 @@ public class ElectrumModule {
                     } break;
                     case "blockchain.address.get_history":
                     case "blockchain.scripthash.get_history": {
-                        _handleGetAddressHistory(jsonSocket, jsonMessage);
+                        _handleGetAddressHistory(jsonSocket, jsonMessage, true, true);
+                    } break;
+                    case "blockchain.address.get_mempool":
+                    case "blockchain.scripthash.get_mempool": {
+                        _handleGetAddressHistory(jsonSocket, jsonMessage, false, true);
                     } break;
                     case "blockchain.block.headers": {
                         _handleBlockHeadersMessage(jsonSocket, jsonMessage);
