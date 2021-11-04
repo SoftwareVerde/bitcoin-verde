@@ -728,6 +728,7 @@ public class ElectrumModule {
         public final Integer transactionIndex;
         public final Sha256Hash transactionHash;
         public final Boolean hasUnconfirmedInputs;
+        public Long transactionFee;
 
         protected Long _getBlockHeight() {
             if (this.isUnconfirmedTransaction()) {
@@ -785,10 +786,14 @@ public class ElectrumModule {
         @Override
         public Json toJson() {
             final Long blockHeight = _getBlockHeight();
+            final Long transactionFee = this.transactionFee;
 
             final Json json = new ElectrumJson(false);
             json.put("height", blockHeight);
             json.put("tx_hash", this.transactionHash);
+            if (transactionFee != null) {
+                json.put("fee", transactionFee);
+            }
             return json;
         }
     }
@@ -1142,7 +1147,7 @@ public class ElectrumModule {
         }
     }
 
-    protected void _handleGetAddressHistory(final JsonSocket jsonSocket, final Json message, final Boolean includeConfirmedTransactions, final Boolean includeUnconfirmedTransactions) {
+    protected void _handleGetAddressHistory(final JsonSocket jsonSocket, final Json message, final Boolean includeConfirmedTransactions, final Boolean includeUnconfirmedTransactions, final Boolean includeTransactionFees) {
         final TransactionInflater transactionInflater = new TransactionInflater();
         final AddressInflater addressInflater = new AddressInflater();
 
@@ -1189,12 +1194,21 @@ public class ElectrumModule {
                 final Boolean hasUnconfirmedInputs = transactionBlockHeightJson.getBoolean("hasUnconfirmedInputs");
 
                 final TransactionPosition transactionPosition = new TransactionPosition(blockHeight, transactionIndex, hasUnconfirmedInputs, transactionHash);
+
                 if ( transactionPosition.isUnconfirmedTransaction() && (! includeUnconfirmedTransactions) ) { continue; }
                 if ( (! transactionPosition.isUnconfirmedTransaction()) && (! includeConfirmedTransactions) ) { continue; }
 
                 transactionPositions.add(transactionPosition);
             }
             transactionPositions.sort(TransactionPosition.COMPARATOR);
+
+            if (includeTransactionFees) {
+                for (final TransactionPosition transactionPosition : transactionPositions) {
+                    final Json getTransactionJson = nodeConnection.getTransaction(transactionPosition.transactionHash, false);
+                    final Json transactionJson = getTransactionJson.get("transaction");
+                    transactionPosition.transactionFee = transactionJson.getLong("fee");
+                }
+            }
 
             for (final TransactionPosition transactionPosition : transactionPositions) {
                 resultJson.add(transactionPosition);
@@ -1283,11 +1297,11 @@ public class ElectrumModule {
                     } break;
                     case "blockchain.address.get_history":
                     case "blockchain.scripthash.get_history": {
-                        _handleGetAddressHistory(jsonSocket, jsonMessage, true, true);
+                        _handleGetAddressHistory(jsonSocket, jsonMessage, true, true, false);
                     } break;
                     case "blockchain.address.get_mempool":
                     case "blockchain.scripthash.get_mempool": {
-                        _handleGetAddressHistory(jsonSocket, jsonMessage, false, true);
+                        _handleGetAddressHistory(jsonSocket, jsonMessage, false, true, true);
                     } break;
                     case "blockchain.block.headers": {
                         _handleBlockHeadersMessage(jsonSocket, jsonMessage);
