@@ -128,6 +128,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         BlockHeader getBlockHeader(Long blockHeight);
         BlockHeader getBlockHeader(Sha256Hash blockHash);
+        Boolean isBlockOrphaned(Sha256Hash blockHash);
 
         Long getBlockHeaderHeight(Sha256Hash blockHash);
 
@@ -749,8 +750,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             final String blockHashString = parameters.getString("hash");
             final Sha256Hash blockHash = Sha256Hash.fromHexString(blockHashString);
             final Long blockHeaderHeight = dataHandler.getBlockHeaderHeight(blockHash);
+            final Boolean isOrphan = dataHandler.isBlockOrphaned(blockHash);
 
             response.put("blockHeight", blockHeaderHeight);
+            response.put("isOrphan", isOrphan);
             response.put(WAS_SUCCESS_KEY, 1);
         }
         else if (parameters.hasKey("transactionHash")) {
@@ -760,11 +763,13 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             final Long blockHeight = dataHandler.getBlockHeaderHeight(blockHash);
             final Integer transactionIndex = dataHandler.getTransactionBlockIndex(transactionHash);
             final Boolean hasUnconfirmedInputs = dataHandler.hasUnconfirmedInputs(transactionHash);
+            final Boolean isOrphan = dataHandler.isBlockOrphaned(blockHash);
 
             response.put("blockHash", blockHash);
             response.put("blockHeight", blockHeight);
             response.put("transactionIndex", transactionIndex);
             response.put("hasUnconfirmedInputs", hasUnconfirmedInputs);
+            response.put("isOrphan", isOrphan);
             response.put(WAS_SUCCESS_KEY, 1);
         }
         else {
@@ -773,6 +778,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
             response.put("blockHeight", blockHeight);
             response.put("blockHeaderHeight", blockHeaderHeight);
+            response.put("isOrphan", false);
             response.put(WAS_SUCCESS_KEY, 1);
         }
     }

@@ -21,6 +21,7 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
+import com.softwareverde.bitcoin.transaction.script.ScriptInflater;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
@@ -909,6 +910,84 @@ public class ElectrumModule {
         jsonSocket.flush();
     }
 
+    protected void _handleGetUtxoInfoMessage(final JsonSocket jsonSocket, final Json message) {
+        final Integer id = message.getInteger("id");
+        final Json paramsJson = message.get("params");
+
+        final Sha256Hash transactionHash;
+        final Integer transactionOutputIndex;
+        {
+            transactionHash = Sha256Hash.fromHexString(paramsJson.getString(0));
+            transactionOutputIndex = paramsJson.getInteger(1);
+            if (transactionOutputIndex < 0) { return; }
+        }
+
+        final Long amount;
+        final Long blockHeight;
+        final Sha256Hash scriptHash;
+        final Address address;
+        try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
+            nodeConnection.enableKeepAlive(true);
+
+            final Json getTransactionJson = nodeConnection.getTransaction(transactionHash, false);
+            final Json transactionJson = getTransactionJson.get("transaction");
+            final Json transactionOutputsJson = transactionJson.get("outputs");
+            if (transactionOutputIndex >= transactionOutputsJson.length()) {
+                Logger.debug("Invalid outputIndex: " + transactionHash + ":" + transactionOutputIndex);
+                return;
+            }
+
+            Long transactionBlockHeight = null;
+            final Json minedInBlocksJson = transactionJson.get("blocks");
+            if (minedInBlocksJson.length() > 0) {
+                for (int i = 0; i < minedInBlocksJson.length(); ++i) {
+                    final Sha256Hash blockHash = Sha256Hash.fromHexString(minedInBlocksJson.getString(i));
+                    final Json getBlockHeightJson = nodeConnection.getBlockHeaderHeight(blockHash);
+
+                    final boolean isConnectedToMainChain = (! getBlockHeightJson.getBoolean("isOrphan"));
+                    if (! isConnectedToMainChain) { continue; }
+
+                    final Long jsonBlockHeight = getBlockHeightJson.getLong("blockHeight");
+                    if ( (transactionBlockHeight == null) || (jsonBlockHeight >= transactionBlockHeight) ) {
+                        transactionBlockHeight = jsonBlockHeight;
+                    }
+                }
+            }
+
+            final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
+            final ScriptInflater scriptInflater = new ScriptInflater();
+            final Json transactionOutputJson = transactionOutputsJson.get(transactionOutputIndex);
+            final Json lockingScriptJson = transactionOutputJson.get("lockingScript");
+            final LockingScript lockingScript = LockingScript.castFrom(
+                scriptInflater.fromBytes(
+                    ByteArray.fromHexString(lockingScriptJson.getString("bytes"))
+                )
+            );
+            final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
+
+            amount = transactionOutputJson.getLong("amount");
+            blockHeight = transactionBlockHeight;
+            address = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
+            scriptHash = ScriptBuilder.computeScriptHash(lockingScript);
+        }
+
+        final Json json = new ElectrumJson(false);
+        json.put("id", id);
+
+        final Json resultJson = new Json();
+        resultJson.put("confirmed_height", blockHeight);
+        resultJson.put("scripthash", scriptHash);
+        resultJson.put("address", (address != null ? address.toBase32CheckEncoded() : null));
+        resultJson.put("value", amount);
+
+        json.put("result", resultJson);
+
+        jsonSocket.write(new JsonProtocolMessage(json));
+        Logger.debug("Wrote: " + json);
+        jsonSocket.flush();
+
+    }
+
     protected Sha256Hash _getCachedAddressStatus(final AddressSubscriptionKey addressKey) {
         synchronized (_connectionAddresses) {
             final LinkedList<ConnectionAddress> connectionAddresses = _connectionAddresses.get(addressKey);
@@ -1543,6 +1622,9 @@ public class ElectrumModule {
                     } break;
                     case "blockchain.transaction.id_from_pos": {
                         _handleGetTransactionFromBlockPositionMessage(jsonSocket, jsonMessage);
+                    } break;
+                    case "blockchain.utxo.get_info": {
+                        _handleGetUtxoInfoMessage(jsonSocket, jsonMessage);
                     } break;
                     default: {
                         Logger.debug("Received unsupported message: " + jsonMessage);
