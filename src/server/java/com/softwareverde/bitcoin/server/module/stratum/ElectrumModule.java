@@ -106,6 +106,98 @@ public class ElectrumModule {
         }
     }
 
+    protected static class TransactionPosition implements Comparable<TransactionPosition>, Jsonable {
+        public static final Comparator<TransactionPosition> COMPARATOR = new Comparator<TransactionPosition>() {
+            @Override
+            public int compare(final TransactionPosition transactionPosition0, final TransactionPosition transactionPosition1) {
+                if (transactionPosition0.isUnconfirmedTransaction()) {
+                    return (transactionPosition1.isUnconfirmedTransaction() ? 0 : 1);
+                }
+                else if (transactionPosition1.isUnconfirmedTransaction()) {
+                    return -1;
+                }
+
+                final int blockHeightCompare = transactionPosition0.blockHeight.compareTo(transactionPosition1.blockHeight);
+                if (blockHeightCompare != 0) { return blockHeightCompare; }
+                return transactionPosition0.transactionIndex.compareTo(transactionPosition1.transactionIndex);
+            }
+        };
+
+        public final Long blockHeight;
+        public final Integer transactionIndex;
+        public final Sha256Hash transactionHash;
+        public final Boolean hasUnconfirmedInputs;
+        public Long transactionFee;
+
+        protected Long _getBlockHeight() {
+            if (this.isUnconfirmedTransaction()) {
+                return (this.hasUnconfirmedInputs ? -1L : 0L);
+            }
+
+            return this.blockHeight;
+        }
+
+        public TransactionPosition(final Long blockHeight, final Integer transactionIndex, final Boolean hasUnconfirmedInputs, final Sha256Hash transactionHash) {
+            this.blockHeight = blockHeight;
+            this.transactionIndex = transactionIndex;
+            this.transactionHash = transactionHash;
+            this.hasUnconfirmedInputs = hasUnconfirmedInputs;
+        }
+
+        public Boolean isUnconfirmedTransaction() {
+            return (this.blockHeight == null);
+        }
+
+        @Override
+        public boolean equals(final Object object) {
+            if (! (object instanceof TransactionPosition)) { return false; }
+            final TransactionPosition transactionPosition = (TransactionPosition) object;
+
+            if (! Util.areEqual(this.blockHeight, transactionPosition.blockHeight)) { return false; }
+            if (! Util.areEqual(this.transactionIndex, transactionPosition.transactionIndex)) { return false; }
+            return true;
+        }
+
+        @Override
+        public int compareTo(final TransactionPosition transactionPosition) {
+            return TransactionPosition.COMPARATOR.compare(this, transactionPosition);
+        }
+
+        @Override
+        public int hashCode() {
+            final Long blockHeight = _getBlockHeight();
+            return Long.hashCode(blockHeight);
+        }
+
+        @Override
+        public String toString() {
+            final StringBuilder stringBuilder = new StringBuilder();
+            final String transactionHashString = this.transactionHash.toString();
+            final String transactionHashLowerCaseString = transactionHashString.toLowerCase();
+            final Long blockHeight = _getBlockHeight();
+
+            stringBuilder.append(transactionHashLowerCaseString);
+            stringBuilder.append(":");
+            stringBuilder.append(blockHeight);
+            stringBuilder.append(":");
+            return stringBuilder.toString();
+        }
+
+        @Override
+        public Json toJson() {
+            final Long blockHeight = _getBlockHeight();
+            final Long transactionFee = this.transactionFee;
+
+            final Json json = new ElectrumJson(false);
+            json.put("height", blockHeight);
+            json.put("tx_hash", this.transactionHash);
+            if (transactionFee != null) {
+                json.put("fee", transactionFee);
+            }
+            return json;
+        }
+    }
+
     protected final Long _minTransactionFeePerByte;
 
     protected final ElectrumProperties _electrumProperties;
@@ -737,96 +829,84 @@ public class ElectrumModule {
         jsonSocket.flush();
     }
 
-    protected static class TransactionPosition implements Comparable<TransactionPosition>, Jsonable {
-        public static final Comparator<TransactionPosition> COMPARATOR = new Comparator<TransactionPosition>() {
-            @Override
-            public int compare(final TransactionPosition transactionPosition0, final TransactionPosition transactionPosition1) {
-                if (transactionPosition0.isUnconfirmedTransaction()) {
-                    return (transactionPosition1.isUnconfirmedTransaction() ? 0 : 1);
-                }
-                else if (transactionPosition1.isUnconfirmedTransaction()) {
-                    return -1;
-                }
+    protected void _handleConvertAddressToScriptHashMessage(final JsonSocket jsonSocket, final Json message) {
+        final AddressInflater addressInflater = new AddressInflater();
 
-                final int blockHeightCompare = transactionPosition0.blockHeight.compareTo(transactionPosition1.blockHeight);
-                if (blockHeightCompare != 0) { return blockHeightCompare; }
-                return transactionPosition0.transactionIndex.compareTo(transactionPosition1.transactionIndex);
+        final Integer id = message.getInteger("id");
+        final Json paramsJson = message.get("params");
+
+        final Address address;
+        {
+            final String addressString = paramsJson.getString(0);
+            address = Util.coalesce(addressInflater.fromBase32Check(addressString), addressInflater.fromBase58Check(addressString));
+            if (address == null) { return; }
+        }
+
+        final AddressSubscriptionKey addressKey = new AddressSubscriptionKey(address, null);
+
+        final Json json = new ElectrumJson(false);
+        json.put("id", id);
+        json.put("result", addressKey.scriptHash);
+        jsonSocket.write(new JsonProtocolMessage(json));
+        Logger.debug("Wrote: " + json);
+        jsonSocket.flush();
+    }
+
+    protected void _handleGetTransactionFromBlockPositionMessage(final JsonSocket jsonSocket, final Json message) {
+        final BlockInflater blockInflater = new BlockInflater();
+
+        final Integer id = message.getInteger("id");
+        final Json paramsJson = message.get("params");
+
+        final Sha256Hash blockHash;
+        final Integer transactionIndex;
+        final Boolean includePartialMerkleTree;
+        {
+            blockHash = Sha256Hash.fromHexString(paramsJson.getString(0));
+            transactionIndex = paramsJson.getInteger(1);
+            includePartialMerkleTree = paramsJson.getBoolean(2);
+
+            if ( (blockHash == null) || (transactionIndex < 0) ) { return; }
+        }
+
+        final Sha256Hash transactionHash;
+        final List<Sha256Hash> partialMerkleTree;
+        try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
+            final Json blockJson = nodeConnection.getBlock(blockHash, true);
+            final Block block = blockInflater.fromBytes(ByteArray.fromHexString(blockJson.getString("block")));
+
+            final List<Transaction> transactions = block.getTransactions();
+            if (transactionIndex >= transactions.getCount()) { return; }
+
+            final Transaction transaction = transactions.get(transactionIndex);
+
+            transactionHash = transaction.getHash();
+            partialMerkleTree = (includePartialMerkleTree ? block.getPartialMerkleTree(transactionIndex) : null);
+        }
+
+        final Json json = new ElectrumJson(false);
+        json.put("id", id);
+
+
+        if (includePartialMerkleTree) {
+            final Json resultJson = new Json();
+            resultJson.put("tx_hash", transactionHash);
+
+            final Json merkleTreeJson = new ElectrumJson(true);
+            for (final Sha256Hash itemHash : partialMerkleTree) {
+                merkleTreeJson.add(itemHash);
             }
-        };
+            resultJson.put("merkle", merkleTreeJson);
 
-        public final Long blockHeight;
-        public final Integer transactionIndex;
-        public final Sha256Hash transactionHash;
-        public final Boolean hasUnconfirmedInputs;
-        public Long transactionFee;
-
-        protected Long _getBlockHeight() {
-            if (this.isUnconfirmedTransaction()) {
-                return (this.hasUnconfirmedInputs ? -1L : 0L);
-            }
-
-            return this.blockHeight;
+            json.put("result", resultJson);
+        }
+        else {
+            json.put("result", transactionHash);
         }
 
-        public TransactionPosition(final Long blockHeight, final Integer transactionIndex, final Boolean hasUnconfirmedInputs, final Sha256Hash transactionHash) {
-            this.blockHeight = blockHeight;
-            this.transactionIndex = transactionIndex;
-            this.transactionHash = transactionHash;
-            this.hasUnconfirmedInputs = hasUnconfirmedInputs;
-        }
-
-        public Boolean isUnconfirmedTransaction() {
-            return (this.blockHeight == null);
-        }
-
-        @Override
-        public boolean equals(final Object object) {
-            if (! (object instanceof TransactionPosition)) { return false; }
-            final TransactionPosition transactionPosition = (TransactionPosition) object;
-
-            if (! Util.areEqual(this.blockHeight, transactionPosition.blockHeight)) { return false; }
-            if (! Util.areEqual(this.transactionIndex, transactionPosition.transactionIndex)) { return false; }
-            return true;
-        }
-
-        @Override
-        public int compareTo(final TransactionPosition transactionPosition) {
-            return TransactionPosition.COMPARATOR.compare(this, transactionPosition);
-        }
-
-        @Override
-        public int hashCode() {
-            final Long blockHeight = _getBlockHeight();
-            return Long.hashCode(blockHeight);
-        }
-
-        @Override
-        public String toString() {
-            final StringBuilder stringBuilder = new StringBuilder();
-            final String transactionHashString = this.transactionHash.toString();
-            final String transactionHashLowerCaseString = transactionHashString.toLowerCase();
-            final Long blockHeight = _getBlockHeight();
-
-            stringBuilder.append(transactionHashLowerCaseString);
-            stringBuilder.append(":");
-            stringBuilder.append(blockHeight);
-            stringBuilder.append(":");
-            return stringBuilder.toString();
-        }
-
-        @Override
-        public Json toJson() {
-            final Long blockHeight = _getBlockHeight();
-            final Long transactionFee = this.transactionFee;
-
-            final Json json = new ElectrumJson(false);
-            json.put("height", blockHeight);
-            json.put("tx_hash", this.transactionHash);
-            if (transactionFee != null) {
-                json.put("fee", transactionFee);
-            }
-            return json;
-        }
+        jsonSocket.write(new JsonProtocolMessage(json));
+        Logger.debug("Wrote: " + json);
+        jsonSocket.flush();
     }
 
     protected Sha256Hash _getCachedAddressStatus(final AddressSubscriptionKey addressKey) {
@@ -1457,6 +1537,12 @@ public class ElectrumModule {
                     } break;
                     case "blockchain.transaction.get_merkle": {
                         _handleGetTransactionMerkleProofMessage(jsonSocket, jsonMessage);
+                    } break;
+                    case "blockchain.address.get_scripthash": {
+                        _handleConvertAddressToScriptHashMessage(jsonSocket, jsonMessage);
+                    } break;
+                    case "blockchain.transaction.id_from_pos": {
+                        _handleGetTransactionFromBlockPositionMessage(jsonSocket, jsonMessage);
                     } break;
                     default: {
                         Logger.debug("Received unsupported message: " + jsonMessage);
