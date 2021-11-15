@@ -31,6 +31,7 @@ import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.http.tls.TlsCertificate;
@@ -38,10 +39,12 @@ import com.softwareverde.http.tls.TlsFactory;
 import com.softwareverde.json.Json;
 import com.softwareverde.json.Jsonable;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.socket.JsonProtocolMessage;
 import com.softwareverde.network.socket.JsonSocket;
 import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.StringUtil;
+import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 
 import java.io.InputStream;
@@ -203,6 +206,80 @@ public class ElectrumModule {
         }
     }
 
+    protected static class ElectrumPeer implements Jsonable {
+        public final Ip ip;
+        public final String host;
+        public final Integer tcpPort;
+        public final Integer tlsPort;
+        public final List<String> otherFeatures;
+
+        protected static Tuple<Integer, Integer> parsePorts(final List<String> features) {
+            final Tuple<Integer, Integer> ports = new Tuple<>();
+            for (final String feature : features) {
+                if (feature.startsWith("t")) {
+                    ports.first = Util.parseInt(feature.substring(1));
+                }
+                else if (feature.startsWith("s")) {
+                    ports.second = Util.parseInt(feature.substring(1));
+                }
+            }
+            return ports;
+        }
+
+        protected static List<String> excludePortFeatures(final List<String> features) {
+            final ImmutableListBuilder<String> listBuilder = new ImmutableListBuilder<>();
+            for (final String feature : features) {
+                if (feature.startsWith("t") || feature.startsWith("s")) { continue; }
+                listBuilder.add(feature);
+            }
+            return listBuilder.build();
+        }
+
+        public ElectrumPeer(final Ip ip, final String host, final List<String> features) {
+            this.ip = ip;
+            this.host = host;
+            this.otherFeatures = ElectrumPeer.excludePortFeatures(features.asConst());
+
+            final Tuple<Integer, Integer> ports = ElectrumPeer.parsePorts(features);
+            this.tcpPort = ports.first;
+            this.tlsPort = ports.second;
+        }
+
+        public ElectrumPeer(final Ip ip, final String host, final String protocolVersion, final Integer port, final Integer tlsPort) {
+            this.ip = ip;
+            this.host = host;
+            this.tcpPort = port;
+            this.tlsPort = tlsPort;
+
+            final ImmutableListBuilder<String> features = new ImmutableListBuilder<>();
+            if (protocolVersion != null) {
+                features.add("v" + protocolVersion);
+            }
+            this.otherFeatures = features.build();
+        }
+
+        @Override
+        public Json toJson() {
+            final Json json = new ElectrumJson(true);
+            json.add(this.ip);
+            json.add(this.host);
+
+            final Json featuresJson = new ElectrumJson(true);
+            for (final String feature : this.otherFeatures) {
+                featuresJson.add(feature);
+            }
+            if (this.tcpPort != null) {
+                featuresJson.add("t" + this.tcpPort);
+            }
+            if (this.tlsPort != null) {
+                featuresJson.add("s" + this.tlsPort);
+            }
+            json.add(featuresJson);
+
+            return json;
+        }
+    }
+
     protected static Json createErrorJson(final Integer requestId, final String errorMessage, final Integer errorCode) {
         final Json errorJson = new ElectrumJson(false);
         errorJson.put("message", errorMessage);
@@ -216,6 +293,8 @@ public class ElectrumModule {
         return json;
     }
 
+    // TODO: Implement request throttling...
+
     protected final Long _minTransactionFeePerByte;
 
     protected final ElectrumProperties _electrumProperties;
@@ -224,6 +303,7 @@ public class ElectrumModule {
     protected final ElectrumServerSocket _electrumServerSocket;
     protected final ConcurrentHashMap<Long, JsonSocket> _connections = new ConcurrentHashMap<>();
     protected final HashMap<AddressSubscriptionKey, LinkedList<ConnectionAddress>> _connectionAddresses = new HashMap<>();
+    protected final ConcurrentHashMap<Integer, ElectrumPeer> _peers = new ConcurrentHashMap<>();
 
     protected final MutableList<BlockHeader> _cachedBlockHeaders = new MutableList<>(0);
     protected Long _chainHeight = 0L;
@@ -609,6 +689,32 @@ public class ElectrumModule {
             this.blockHeadersMerkleRoot = blockHeadersMerkleRoot;
             this.blockHeadersPartialMerkleTree = blockHeadersPartialMerkleTree;
         }
+    }
+
+    protected Json _createFeaturesJson() {
+        final Json json = new ElectrumJson(false);
+
+        final Json hostsJson;
+        {
+            hostsJson = new ElectrumJson(false);
+            for (final ElectrumPeer electrumPeer : _peers.values()) {
+                final Json hostPortsJson = new ElectrumJson(false);
+                hostPortsJson.put("tcp_port", electrumPeer.tcpPort);
+                hostPortsJson.put("ssl_port", electrumPeer.tlsPort);
+
+                hostsJson.put(electrumPeer.host, hostPortsJson);
+            }
+        }
+
+        json.put("hosts", hostsJson);
+        json.put("genesis_hash", BlockHeader.GENESIS_BLOCK_HASH);
+        json.put("hash_function", "sha256");
+        json.put("server_version", ElectrumModule.SERVER_VERSION);
+        json.put("protocol_max", ElectrumModule.PROTOCOL_VERSION);
+        json.put("protocol_min", "1.0");
+        json.put("pruning", null);
+
+        return json;
     }
 
     protected GetBlockHeadersResult _getBlockHeaders(final Long requestedBlockHeight, final Integer requestedBlockCount, final Long checkpointBlockHeight) {
@@ -1632,26 +1738,28 @@ public class ElectrumModule {
     protected void _handlePeerFeaturesMessage(final JsonSocket jsonSocket, final Json message) {
         final Integer id = message.getInteger("id");
 
-        final Json json = new ElectrumJson(false);
-        final Json hostsJson = new ElectrumJson(false);
-        for (final String host : new String[0]) { // TODO
-            final Json hostPortsJson = new ElectrumJson(false);
-            hostPortsJson.put("ssl_port", null);
-            hostPortsJson.put("tcp_port", null);
+        final Json resultJson = _createFeaturesJson();
 
-            hostsJson.put(host, hostPortsJson);
+        final Json json = new ElectrumJson(false);
+        json.put("id", id);
+        json.put("result", resultJson);
+        jsonSocket.write(new ElectrumJsonProtocolMessage(json));
+        Logger.debug("Wrote: " + json);
+        jsonSocket.flush();
+    }
+
+    protected void _sendAddPeerMessage(final JsonSocket jsonSocket) {
+        final Json paramsJson;
+        {
+            final Json featuresJson = _createFeaturesJson();
+
+            paramsJson = new ElectrumJson(true);
+            paramsJson.add(featuresJson);
         }
 
-        json.put("hosts", hostsJson);
-        json.put("genesis_hash", BlockHeader.GENESIS_BLOCK_HASH);
-        json.put("hash_function", "sha256");
-        json.put("server_version", ElectrumModule.SERVER_VERSION);
-        json.put("protocol_max", ElectrumModule.PROTOCOL_VERSION);
-        json.put("protocol_min", "1.0");
-        json.put("pruning", null);
-
-        json.put("id", id);
-        json.put("result", json);
+        final Json json = new ElectrumJson(false);
+        json.put("method", "server.add_peer");
+        json.put("params", paramsJson);
         jsonSocket.write(new ElectrumJsonProtocolMessage(json));
         Logger.debug("Wrote: " + json);
         jsonSocket.flush();
