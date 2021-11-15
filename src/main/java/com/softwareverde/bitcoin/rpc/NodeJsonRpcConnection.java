@@ -23,6 +23,10 @@ import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.timer.NanoTimer;
 
 public class NodeJsonRpcConnection implements AutoCloseable {
+    protected enum BlockHeaderDirection {
+        BEFORE, AFTER
+    }
+
     public interface AnnouncementHookCallback {
         void onNewBlockHeader(Json blockHeaderJson);
         void onNewTransaction(Json transactionJson);
@@ -221,6 +225,65 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return _executeJsonRequest(rpcRequestJson);
     }
 
+    protected Json _getBlockHeaders(final Long blockHeight, final Integer maxBlockCount, final Boolean returnRawFormat, final BlockHeaderDirection direction) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
+        final Json rpcParametersJson = new Json();
+        if (blockHeight != null) {
+            rpcParametersJson.put("blockHeight", blockHeight);
+        }
+        rpcParametersJson.put("maxBlockCount", maxBlockCount);
+        rpcParametersJson.put("rawFormat", (returnRawFormat ? 1 : 0));
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", (direction == BlockHeaderDirection.BEFORE ? "BLOCK_HEADERS_BEFORE" : "BLOCK_HEADERS_AFTER"));
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
+    protected Json _getAddressTransactions(final Address address, final Sha256Hash scriptHash, final Boolean hexFormat) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
+        final Json rpcParametersJson = new Json();
+        if (address != null) {
+            rpcParametersJson.put("address", address.toBase58CheckEncoded());
+        }
+        else {
+            rpcParametersJson.put("scriptHash", scriptHash);
+        }
+        if (hexFormat != null) {
+            rpcParametersJson.put("rawFormat", (hexFormat ? 1 : 0));
+        }
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "ADDRESS");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
+    protected Json _getAddressBalance(final Address address, final Sha256Hash scriptHash) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
+        final Json rpcParametersJson = new Json();
+        if (address != null) {
+            rpcParametersJson.put("address", address.toBase58CheckEncoded());
+        }
+        else {
+            rpcParametersJson.put("scriptHash", scriptHash);
+        }
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "BALANCE");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
     public NodeJsonRpcConnection(final String hostname, final Integer port, final ThreadPool threadPool) {
         this(
             hostname,
@@ -270,35 +333,20 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         }
     }
 
-    public Json getBlockHeaders(final Long blockHeight, final Integer maxBlockCount, final Boolean returnRawFormat) {
-        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
-
-        final Json rpcParametersJson = new Json();
-        rpcParametersJson.put("blockHeight", blockHeight);
-        rpcParametersJson.put("maxBlockCount", maxBlockCount);
-        rpcParametersJson.put("rawFormat", (returnRawFormat ? 1 : 0));
-
-        final Json rpcRequestJson = new Json();
-        rpcRequestJson.put("method", "GET");
-        rpcRequestJson.put("query", "BLOCK_HEADERS");
-        rpcRequestJson.put("parameters", rpcParametersJson);
-
-        return _executeJsonRequest(rpcRequestJson);
+    public Json getBlockHeadersBefore(final Long blockHeight, final Integer maxBlockCount, final Boolean returnRawFormat) {
+        return _getBlockHeaders(blockHeight, maxBlockCount, returnRawFormat, BlockHeaderDirection.BEFORE);
     }
 
-    public Json getBlockHeaders(final Integer maxBlockCount, final Boolean returnRawFormat) {
-        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+    public Json getBlockHeadersBeforeHead(final Integer maxBlockCount, final Boolean returnRawFormat) {
+        return _getBlockHeaders(null, maxBlockCount, returnRawFormat, BlockHeaderDirection.BEFORE);
+    }
 
-        final Json rpcParametersJson = new Json();
-        rpcParametersJson.put("maxBlockCount", maxBlockCount);
-        rpcParametersJson.put("rawFormat", (returnRawFormat ? 1 : 0));
+    public Json getBlockHeadersAfter(final Long blockHeight, final Integer maxBlockCount, final Boolean returnRawFormat) {
+        return _getBlockHeaders(blockHeight, maxBlockCount, returnRawFormat, BlockHeaderDirection.AFTER);
+    }
 
-        final Json rpcRequestJson = new Json();
-        rpcRequestJson.put("method", "GET");
-        rpcRequestJson.put("query", "BLOCK_HEADERS");
-        rpcRequestJson.put("parameters", rpcParametersJson);
-
-        return _executeJsonRequest(rpcRequestJson);
+    public Json getBlockHeadersAfterGenesis(final Integer maxBlockCount, final Boolean returnRawFormat) {
+        return _getBlockHeaders(null, maxBlockCount, returnRawFormat, BlockHeaderDirection.AFTER);
     }
 
     public Json getDifficulty() {
@@ -345,15 +393,30 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return _executeJsonRequest(rpcRequestJson);
     }
 
-    public Json getBlockHeaderHeight(final Sha256Hash blockHash) {
+    public Json getTransactionBlockHeight(final Sha256Hash transactionHash) {
         if (_jsonSocket == null) { return null; } // Socket was unable to connect.
 
         final Json rpcParametersJson = new Json();
-        rpcParametersJson.put("hash", blockHash.toString());
+        rpcParametersJson.put("transactionHash", transactionHash);
 
         final Json rpcRequestJson = new Json();
         rpcRequestJson.put("method", "GET");
         rpcRequestJson.put("query", "BLOCK_HEIGHT");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
+    public Json getBlockHeaderHeight(final Sha256Hash blockHash) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
+        final Json rpcParametersJson = new Json();
+        rpcParametersJson.put("hash", blockHash);
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "BLOCK_HEIGHT");
+        rpcRequestJson.put("parameters", rpcParametersJson);
 
         return _executeJsonRequest(rpcRequestJson);
     }
@@ -387,34 +450,19 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json getAddressTransactions(final Address address, final Boolean hexFormat) {
-        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+        return _getAddressTransactions(address, null, hexFormat);
+    }
 
-        final Json rpcParametersJson = new Json();
-        rpcParametersJson.put("address", address.toBase58CheckEncoded());
-        if (hexFormat != null) {
-            rpcParametersJson.put("rawFormat", (hexFormat ? 1 : 0));
-        }
-
-        final Json rpcRequestJson = new Json();
-        rpcRequestJson.put("method", "GET");
-        rpcRequestJson.put("query", "ADDRESS");
-        rpcRequestJson.put("parameters", rpcParametersJson);
-
-        return _executeJsonRequest(rpcRequestJson);
+    public Json getAddressTransactions(final Sha256Hash scriptHash, final Boolean hexFormat) {
+        return _getAddressTransactions(null, scriptHash, hexFormat);
     }
 
     public Json getAddressBalance(final Address address) {
-        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+        return _getAddressBalance(address, null);
+    }
 
-        final Json rpcParametersJson = new Json();
-        rpcParametersJson.put("address", address.toBase58CheckEncoded());
-
-        final Json rpcRequestJson = new Json();
-        rpcRequestJson.put("method", "GET");
-        rpcRequestJson.put("query", "BALANCE");
-        rpcRequestJson.put("parameters", rpcParametersJson);
-
-        return _executeJsonRequest(rpcRequestJson);
+    public Json getAddressBalance(final Sha256Hash scriptHash) {
+        return _getAddressBalance(null, scriptHash);
     }
 
     public Json getBlock(final Sha256Hash blockHash) {
@@ -818,6 +866,20 @@ public class NodeJsonRpcConnection implements AutoCloseable {
 
     public Boolean isConnected() {
         return ( (_jsonSocket != null) && _jsonSocket.isConnected() );
+    }
+
+    public void enableKeepAlive(final Boolean keepAliveIsEnabled) {
+        if (_jsonSocket == null) { return; } // Socket was unable to connect.
+
+        final Json rpcParametersJson = new Json();
+        rpcParametersJson.put("enableKeepAlive", keepAliveIsEnabled);
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "POST");
+        rpcRequestJson.put("query", "KEEP_ALIVE");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        _executeJsonRequest(rpcRequestJson);
     }
 
     @Override

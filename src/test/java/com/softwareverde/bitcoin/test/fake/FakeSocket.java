@@ -11,13 +11,13 @@ public class FakeSocket extends Socket {
     public final ByteArrayOutputStream outputStream;
 
     public FakeSocket() {
-        inputStream = new ByteArrayInputStream(new byte[0]);
-        outputStream = new ByteArrayOutputStream();
+        this.inputStream = new ByteArrayInputStream(new byte[0]);
+        this.outputStream = new ByteArrayOutputStream();
     }
 
     public FakeSocket(final byte[] inputBytes) {
-        inputStream = new ByteArrayInputStream(inputBytes);
-        outputStream = new ByteArrayOutputStream();
+        this.inputStream = new ByteArrayInputStream(inputBytes);
+        this.outputStream = new ByteArrayOutputStream();
     }
 
     @Override

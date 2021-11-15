@@ -147,7 +147,7 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryA
     @Override
     public void onNewHeaders(final BitcoinNode bitcoinNode, final List<BlockHeader> blockHeaders) {
         Long maxBlockHeight = null;
-        final MutableList<BlockHeader> unknownBlockHeaders = new MutableList<BlockHeader>();
+        final MutableList<BlockHeader> unknownBlockHeaders = new MutableList<>();
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 

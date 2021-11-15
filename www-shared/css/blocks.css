@@ -663,6 +663,12 @@
     color: #1BAB1B !important;
 }
 
+.transaction-output img.is-spent {
+    height: 1em;
+    padding-left: 1em;
+    vertical-align: middle;
+}
+
 .transaction-input > .label.highlight {
     border-color: #AB1B1B !important;
 }

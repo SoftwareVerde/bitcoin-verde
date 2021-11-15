@@ -29,7 +29,7 @@ public class QueryBlockchainHandler implements NodeRpcHandler.QueryBlockchainHan
                 new Query("SELECT blockchain_segment_id, blockchain_segments.nested_set_left, blockchain_segments.nested_set_right, parent_blockchain_segment_id, COUNT(*) AS block_count, MIN(block_height) AS min_block_height, MAX(block_height) AS max_block_height FROM blocks INNER JOIN blockchain_segments ON blockchain_segments.id = blocks.blockchain_segment_id GROUP BY blocks.blockchain_segment_id ORDER BY nested_set_left ASC, nested_set_right ASC")
             );
 
-            final ImmutableListBuilder<BlockchainMetadata> blockchainMetadataList = new ImmutableListBuilder<BlockchainMetadata>(rows.size());
+            final ImmutableListBuilder<BlockchainMetadata> blockchainMetadataList = new ImmutableListBuilder<>(rows.size());
 
             for (final Row row : rows) {
                 final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(row.getLong("blockchain_segment_id"));

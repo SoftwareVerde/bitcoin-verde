@@ -24,6 +24,7 @@ import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProof;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
@@ -33,6 +34,7 @@ import com.softwareverde.bitcoin.transaction.script.slp.SlpScriptInflater;
 import com.softwareverde.bitcoin.transaction.script.slp.genesis.SlpGenesisScript;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
@@ -42,6 +44,7 @@ import com.softwareverde.util.Util;
 
 import java.math.BigInteger;
 import java.util.HashMap;
+import java.util.Map;
 
 public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
 
@@ -88,13 +91,33 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
 
         final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
         final SlpTokenId slpTokenId = blockchainIndexerDatabaseManager.getSlpTokenId(transactionId);
-        final Boolean hasSlpData = (slpTokenId != null);
+        final boolean hasSlpData = (slpTokenId != null);
         final Boolean isSlpValid;
         if (hasSlpData) {
             isSlpValid = slpTransactionDatabaseManager.getSlpTransactionValidationResult(transactionId);
         }
         else {
             isSlpValid = null;
+        }
+
+        final List<Sha256Hash> spendingTransactionHashes;
+        {
+            final Map<Integer, TransactionId> spendingTransactionIds = blockchainIndexerDatabaseManager.getTransactionsSpendingOutputsOf(transactionId);
+            final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+            final int transactionOutputCount = transactionOutputs.getCount();
+            final ImmutableListBuilder<Sha256Hash> listBuilder = new ImmutableListBuilder<>(transactionOutputCount);
+            for (int outputIndex = 0; outputIndex < transactionOutputCount; ++outputIndex) {
+                final TransactionId spendingTransactionId = spendingTransactionIds.get(outputIndex);
+                if (spendingTransactionId == null) {
+                    listBuilder.add(null);
+                    continue;
+                }
+
+                final Sha256Hash spendingTransactionHash = transactionDatabaseManager.getTransactionHash(spendingTransactionId);
+                listBuilder.add(spendingTransactionHash);
+            }
+
+            spendingTransactionHashes = listBuilder.build();
         }
 
         Long transactionFee = 0L;
@@ -128,7 +151,7 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
         }
 
         { // Process TransactionInputs...
-            final HashMap<Sha256Hash, Transaction> cachedTransactions = new HashMap<Sha256Hash, Transaction>(8);
+            final HashMap<Sha256Hash, Transaction> cachedTransactions = new HashMap<>(8);
 
             int transactionInputIndex = 0;
             for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
@@ -220,16 +243,22 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
                 { // Add extra TransactionOutput json fields...
                     final String addressString;
                     final String cashAddressString;
+                    final Sha256Hash scriptHash;
                     {
                         final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
                         final Address address = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
                         addressString = (address != null ? address.toBase58CheckEncoded() : null);
                         cashAddressString = (address != null ? address.toBase32CheckEncoded(true) : null);
+                        scriptHash = ScriptBuilder.computeScriptHash(lockingScript);
                     }
+
+                    final Sha256Hash spendingTransactionHash = spendingTransactionHashes.get(transactionOutputIndex);
 
                     final Json transactionOutputJson = transactionJson.get("outputs").get(transactionOutputIndex);
                     transactionOutputJson.put("address", addressString);
                     transactionOutputJson.put("cashAddress", cashAddressString);
+                    transactionOutputJson.put("scriptHash", scriptHash);
+                    transactionOutputJson.put("spentByTransaction", spendingTransactionHash);
 
                     if (hasSlpData && Util.coalesce(isSlpValid, false)) { // SLP
                         final Boolean isSlpOutput = SlpUtil.isSlpTokenOutput(transaction, transactionOutputIndex);

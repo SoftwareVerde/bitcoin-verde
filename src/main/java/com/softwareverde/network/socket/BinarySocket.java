@@ -4,8 +4,8 @@ import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.util.ByteUtil;
 
 public class BinarySocket extends Socket {
-    public static Integer DEFAULT_BUFFER_PAGE_BYTE_COUNT = 1460; // MTU - IP - TCP = 1500 - 20 - 20 = 1460
-    public static Integer DEFAULT_MAX_BUFFER_BYTE_COUNT = (int) (128L * ByteUtil.Unit.Binary.MEBIBYTES);
+    public static final Integer DEFAULT_BUFFER_PAGE_BYTE_COUNT = 1460; // MTU - IP - TCP = 1500 - 20 - 20 = 1460
+    public static final Integer DEFAULT_MAX_BUFFER_BYTE_COUNT = (int) (128L * ByteUtil.Unit.Binary.MEBIBYTES);
 
     protected final BinaryPacketFormat _binaryPacketFormat;
 

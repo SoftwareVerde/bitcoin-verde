@@ -6,7 +6,7 @@ import com.softwareverde.json.Json;
 import java.util.HashMap;
 
 public class StratumApiResult extends ApiResult {
-    private HashMap<String, Object> _values = new HashMap<String, Object>();
+    protected final HashMap<String, Object> _values = new HashMap<>();
 
     public void put(final String key, final Object object) {
         _values.put(key, object);

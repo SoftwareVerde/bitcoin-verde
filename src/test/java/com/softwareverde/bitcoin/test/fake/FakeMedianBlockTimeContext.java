@@ -6,7 +6,7 @@ import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
 import java.util.HashMap;
 
 public class FakeMedianBlockTimeContext implements MedianBlockTimeContext {
-    protected final HashMap<Long, MedianBlockTime> _medianBlockTimes = new HashMap<Long, MedianBlockTime>();
+    protected final HashMap<Long, MedianBlockTime> _medianBlockTimes = new HashMap<>();
 
     @Override
     public MedianBlockTime getMedianBlockTime(final Long blockHeight) {

@@ -14,7 +14,7 @@ public interface UnspentTransactionOutputContext {
      *  are now near-impossible to create.  Consensus behavior dictates that historic duplicate transactions overwrite
      *  one another, so only the latter transactions is actually spendable.
      */
-    List<Sha256Hash> ALLOWED_DUPLICATE_TRANSACTION_HASHES = new ImmutableList<Sha256Hash>(
+    List<Sha256Hash> ALLOWED_DUPLICATE_TRANSACTION_HASHES = new ImmutableList<>(
         Sha256Hash.fromHexString("E3BF3D07D4B0375638D5F1DB5255FE07BA2C4CB067CD81B84EE974B6585FB468"),
         Sha256Hash.fromHexString("D5D27987D2A3DFC724E359870C6644B40E497BDC0589A033220FE15429D88599")
     );

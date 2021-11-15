@@ -14,7 +14,7 @@ import java.math.BigInteger;
 import java.math.RoundingMode;
 
 public class ImmutableDifficulty implements Difficulty, Const {
-    protected static BigInteger MAX_WORK = BigInteger.valueOf(2L).pow(256);
+    protected static final BigInteger MAX_WORK = BigInteger.valueOf(2L).pow(256);
 
     private final Integer _exponent;
     private final ByteArray _significand;

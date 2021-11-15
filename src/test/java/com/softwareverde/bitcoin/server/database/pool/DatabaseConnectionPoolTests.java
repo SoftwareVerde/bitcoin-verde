@@ -37,7 +37,7 @@ public class DatabaseConnectionPoolTests extends IntegrationTest {
         final DatabaseConnection databaseConnection = _database.newConnection();
         final Integer baselineConnectionCount = _getCurrentConnectionCount(databaseConnection);
 
-        final Integer maxConnectionCount = 10;
+        final int maxConnectionCount = 10;
         final DatabaseConnectionPool databaseConnectionPool = _database.getDatabaseConnectionPool();
 
         final DatabaseConnection[] pooledConnections = new DatabaseConnection[maxConnectionCount];

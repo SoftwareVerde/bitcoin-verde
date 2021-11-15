@@ -183,7 +183,7 @@ public class Wallet {
 
     protected List<SlpToken> _getSlpTokens(final SlpTokenId matchingSlpTokenId, final Boolean shouldIncludeNotYetValidatedTransactions) {
         final Collection<? extends SpendableTransactionOutput> spendableTransactionOutputs = _transactionOutputs.values();
-        final ImmutableListBuilder<SlpToken> slpTokens = new ImmutableListBuilder<SlpToken>(spendableTransactionOutputs.size());
+        final ImmutableListBuilder<SlpToken> slpTokens = new ImmutableListBuilder<>(spendableTransactionOutputs.size());
         for (final SpendableTransactionOutput spendableTransactionOutput : spendableTransactionOutputs) {
             final TransactionOutputIdentifier transactionOutputIdentifier = spendableTransactionOutput.getIdentifier();
             final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
@@ -335,8 +335,8 @@ public class Wallet {
     }
 
     protected void _reloadTransactions() {
-        final MutableList<Transaction> transactions = new MutableList<Transaction>(_transactions.values());
-        final HashSet<Sha256Hash> confirmedTransactions = new HashSet<Sha256Hash>(_confirmedTransactions);
+        final MutableList<Transaction> transactions = new MutableList<>(_transactions.values());
+        final HashSet<Sha256Hash> confirmedTransactions = new HashSet<>(_confirmedTransactions);
         final Map<TransactionOutputIdentifier, Sha256Hash> externallySpentTransactionOutputs = new HashMap<>(_externallySpentTransactionOutputs);
 
         _externallySpentTransactionOutputs.clear();
@@ -499,7 +499,7 @@ public class Wallet {
     }
 
     protected Container<Long> _createNewFeeContainer(final Integer newOutputCount, final LockingScript opReturnScript) {
-        final Container<Long> feesContainer = new Container<Long>(0L);
+        final Container<Long> feesContainer = new Container<>(0L);
         feesContainer.value += (long) (BYTES_PER_TRANSACTION_HEADER * _satoshisPerByteFee);
 
         final long feeToSpendOneOutput = (long) (BYTES_PER_TRANSACTION_OUTPUT * _satoshisPerByteFee);
@@ -519,9 +519,9 @@ public class Wallet {
         final long feeToSpendOneUncompressedOutput = (long) (BYTES_PER_UNCOMPRESSED_TRANSACTION_INPUT * _satoshisPerByteFee);
 
         long selectedUtxoAmount = 0L;
-        final MutableList<SpendableTransactionOutput> transactionOutputsToSpend = new MutableList<SpendableTransactionOutput>();
+        final MutableList<SpendableTransactionOutput> transactionOutputsToSpend = new MutableList<>();
 
-        final MutableList<SpendableTransactionOutput> unspentTransactionOutputs = new MutableList<SpendableTransactionOutput>(_transactionOutputs.size());
+        final MutableList<SpendableTransactionOutput> unspentTransactionOutputs = new MutableList<>(_transactionOutputs.size());
         for (final SpendableTransactionOutput spendableTransactionOutput : _transactionOutputs.values()) {
             final Boolean hasPrivateKey = _hasPrivateKeyFor(spendableTransactionOutput);
             if (! hasPrivateKey) { continue; }
@@ -579,7 +579,7 @@ public class Wallet {
 
                         // Subtract the fee for spending this output...
                         final Address addressBeingRemoved = selectedTransactionOutput.getAddress();
-                        final Long feeToSpendRemovedOutput = (addressBeingRemoved.isCompressed() ? feeToSpendOneOutput : feeToSpendOneUncompressedOutput);
+                        final long feeToSpendRemovedOutput = (addressBeingRemoved.isCompressed() ? feeToSpendOneOutput : feeToSpendOneUncompressedOutput);
                         feesToSpendOutputs.value -= feeToSpendRemovedOutput;
                     }
                 }
@@ -609,7 +609,7 @@ public class Wallet {
     }
 
     protected List<TransactionOutputIdentifier> _getOutputsToSpend(final Integer newTransactionOutputCount, final Long desiredSpendAmount, final SlpTokenId slpTokenId, final BigInteger desiredSlpSpendAmount, final List<TransactionOutputIdentifier> requiredTransactionOutputsToSpend, final Boolean shouldIncludeNotYetValidatedTransactions) {
-        final MutableList<SlpPaymentAmount> slpPaymentAmounts = new MutableList<SlpPaymentAmount>(newTransactionOutputCount);
+        final MutableList<SlpPaymentAmount> slpPaymentAmounts = new MutableList<>(newTransactionOutputCount);
         { // Create fake SlpPaymentAmounts that sum exactly to the requested amounts, and contain exactly newTransactionOutputCount items...
             if (newTransactionOutputCount > 0) {
                 final Long fakeDesiredSpendAmount = (desiredSpendAmount - (newTransactionOutputCount - 1));
@@ -636,7 +636,7 @@ public class Wallet {
         final List<SpendableTransactionOutput> spendableTransactionOutputs = _getOutputsToSpend(desiredSpendAmount, feesContainer, slpTokenId, requiredTransactionOutputIdentifiersToSpend);
         if (spendableTransactionOutputs == null) { return null; }
 
-        final MutableList<TransactionOutputIdentifier> transactionOutputs = new MutableList<TransactionOutputIdentifier>(spendableTransactionOutputs.getCount());
+        final MutableList<TransactionOutputIdentifier> transactionOutputs = new MutableList<>(spendableTransactionOutputs.getCount());
         for (final SpendableTransactionOutput spendableTransactionOutput : spendableTransactionOutputs) {
             transactionOutputs.add(spendableTransactionOutput.getIdentifier());
         }
@@ -938,7 +938,7 @@ public class Wallet {
         final List<SpendableTransactionOutput> transactionOutputsToSpend = _getOutputsToSpend(totalPaymentAmount, feesContainer, slpTokenId, mandatoryOutputs);
         if (transactionOutputsToSpend == null) { return null; }
 
-        final MutableList<PaymentAmount> paymentAmountsWithChange = new MutableList<PaymentAmount>(paymentAmounts.getCount() + newOutputCountEstimate);
+        final MutableList<PaymentAmount> paymentAmountsWithChange = new MutableList<>(paymentAmounts.getCount() + newOutputCountEstimate);
         paymentAmountsWithChange.addAll(paymentAmounts);
         BigInteger totalSlpInput = BigInteger.ZERO;
         BigInteger totalSlpOutput = BigInteger.ZERO;
@@ -1254,7 +1254,7 @@ public class Wallet {
     }
 
     public synchronized List<TransactionOutputIdentifier> getOutputsToSpend(final Integer newTransactionOutputCount, final Long desiredSpendAmount) {
-        final List<TransactionOutputIdentifier> requiredTransactionOutputsToSpend = new MutableList<TransactionOutputIdentifier>(0);
+        final List<TransactionOutputIdentifier> requiredTransactionOutputsToSpend = new MutableList<>(0);
         return _getOutputsToSpend(newTransactionOutputCount, desiredSpendAmount, null, null, requiredTransactionOutputsToSpend);
     }
 
@@ -1263,17 +1263,17 @@ public class Wallet {
     }
 
     public synchronized List<TransactionOutputIdentifier> getOutputsToSpend(final Integer newTransactionOutputCount, final Long desiredSpendAmount, final LockingScript opReturnScript) {
-        final List<TransactionOutputIdentifier> requiredTransactionOutputsToSpend = new MutableList<TransactionOutputIdentifier>(0);
+        final List<TransactionOutputIdentifier> requiredTransactionOutputsToSpend = new MutableList<>(0);
         return _getOutputsToSpend(newTransactionOutputCount, desiredSpendAmount, null, opReturnScript, requiredTransactionOutputsToSpend);
     }
 
     public synchronized List<TransactionOutputIdentifier> getOutputsToSpend(final Integer newTransactionOutputCount, final Long desiredSpendAmount, final SlpTokenId slpTokenId, final BigInteger desiredSlpSpendAmount) {
-        final List<TransactionOutputIdentifier> requiredTransactionOutputsToSpend = new MutableList<TransactionOutputIdentifier>(0);
+        final List<TransactionOutputIdentifier> requiredTransactionOutputsToSpend = new MutableList<>(0);
         return _getOutputsToSpend(newTransactionOutputCount, desiredSpendAmount, slpTokenId, desiredSlpSpendAmount, requiredTransactionOutputsToSpend, true);
     }
 
     public synchronized List<TransactionOutputIdentifier> getOutputsToSpend(final Integer newTransactionOutputCount, final Long desiredSpendAmount, final SlpTokenId slpTokenId, final BigInteger desiredSlpSpendAmount, final Boolean shouldIncludeNotYetValidatedTransactions) {
-        final List<TransactionOutputIdentifier> requiredTransactionOutputsToSpend = new MutableList<TransactionOutputIdentifier>(0);
+        final List<TransactionOutputIdentifier> requiredTransactionOutputsToSpend = new MutableList<>(0);
         return _getOutputsToSpend(newTransactionOutputCount, desiredSpendAmount, slpTokenId, desiredSlpSpendAmount, requiredTransactionOutputsToSpend, shouldIncludeNotYetValidatedTransactions);
     }
 
@@ -1298,13 +1298,13 @@ public class Wallet {
     }
 
     public synchronized Transaction createTransaction(final List<PaymentAmount> paymentAmounts, final Address changeAddress) {
-        final List<TransactionOutputIdentifier> mandatoryTransactionOutputsToSpend = new MutableList<TransactionOutputIdentifier>(0);
+        final List<TransactionOutputIdentifier> mandatoryTransactionOutputsToSpend = new MutableList<>(0);
         final TransactionBundle transactionBundle = _createTransactionBundle(paymentAmounts, changeAddress, mandatoryTransactionOutputsToSpend, null, null);
         return _createSignedTransaction(transactionBundle);
     }
 
     public synchronized Transaction createTransaction(final List<PaymentAmount> paymentAmounts, final Address changeAddress, final LockingScript opReturnScript) {
-        final List<TransactionOutputIdentifier> mandatoryTransactionOutputsToSpend = new MutableList<TransactionOutputIdentifier>(0);
+        final List<TransactionOutputIdentifier> mandatoryTransactionOutputsToSpend = new MutableList<>(0);
         final TransactionBundle transactionBundle = _createTransactionBundle(paymentAmounts, changeAddress, mandatoryTransactionOutputsToSpend, opReturnScript, null);
         return _createSignedTransaction(transactionBundle);
     }
@@ -1320,7 +1320,7 @@ public class Wallet {
     }
 
     public synchronized Transaction createSlpTokenTransaction(final SlpTokenId slpTokenId, final List<SlpPaymentAmount> paymentAmounts, final Address changeAddress) {
-        return _createSlpTokenTransaction(slpTokenId, paymentAmounts, changeAddress, new MutableList<TransactionOutputIdentifier>(0), true);
+        return _createSlpTokenTransaction(slpTokenId, paymentAmounts, changeAddress, new MutableList<>(0), true);
     }
 
     public synchronized Transaction createSlpTokenTransaction(final SlpTokenId slpTokenId, final List<SlpPaymentAmount> paymentAmounts, final Address changeAddress, final List<TransactionOutputIdentifier> requiredTransactionOutputIdentifiersToSpend) {
@@ -1371,7 +1371,7 @@ public class Wallet {
 
     public synchronized List<SpendableTransactionOutput> getTransactionOutputs() {
         final Collection<? extends SpendableTransactionOutput> spendableTransactionOutputs = _transactionOutputs.values();
-        final ImmutableListBuilder<SpendableTransactionOutput> transactionOutputs = new ImmutableListBuilder<SpendableTransactionOutput>(spendableTransactionOutputs.size());
+        final ImmutableListBuilder<SpendableTransactionOutput> transactionOutputs = new ImmutableListBuilder<>(spendableTransactionOutputs.size());
         for (final SpendableTransactionOutput spendableTransactionOutput : spendableTransactionOutputs) {
             final Boolean hasPrivateKey = _hasPrivateKeyFor(spendableTransactionOutput);
             if (hasPrivateKey) {
@@ -1383,7 +1383,7 @@ public class Wallet {
 
     public synchronized List<SpendableTransactionOutput> getNonSlpTokenTransactionOutputs() {
         final Collection<? extends SpendableTransactionOutput> spendableTransactionOutputs = _transactionOutputs.values();
-        final ImmutableListBuilder<SpendableTransactionOutput> transactionOutputs = new ImmutableListBuilder<SpendableTransactionOutput>(spendableTransactionOutputs.size());
+        final ImmutableListBuilder<SpendableTransactionOutput> transactionOutputs = new ImmutableListBuilder<>(spendableTransactionOutputs.size());
         for (final SpendableTransactionOutput spendableTransactionOutput : spendableTransactionOutputs) {
             final TransactionOutputIdentifier transactionOutputIdentifier = spendableTransactionOutput.getIdentifier();
             if (! _isSlpTokenOutput(transactionOutputIdentifier)) {
@@ -1398,7 +1398,7 @@ public class Wallet {
 
     public synchronized List<SpendableTransactionOutput> getTransactionOutputsAndSpendableTokens(final SlpTokenId tokenId, final Boolean shouldIncludeNotYetValidatedTransactions) {
         final Collection<? extends SpendableTransactionOutput> spendableTransactionOutputs = _transactionOutputs.values();
-        final ImmutableListBuilder<SpendableTransactionOutput> transactionOutputs = new ImmutableListBuilder<SpendableTransactionOutput>(spendableTransactionOutputs.size());
+        final ImmutableListBuilder<SpendableTransactionOutput> transactionOutputs = new ImmutableListBuilder<>(spendableTransactionOutputs.size());
         for (final SpendableTransactionOutput spendableTransactionOutput : spendableTransactionOutputs) {
             final TransactionOutputIdentifier transactionOutputIdentifier = spendableTransactionOutput.getIdentifier();
             final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
@@ -1599,7 +1599,7 @@ public class Wallet {
     }
 
     public synchronized List<SlpTokenId> getSlpTokenIds() {
-        final HashSet<SlpTokenId> tokenIdsSet = new HashSet<SlpTokenId>();
+        final HashSet<SlpTokenId> tokenIdsSet = new HashSet<>();
         for (final SpendableTransactionOutput spendableTransactionOutput : _transactionOutputs.values()) {
             if (! spendableTransactionOutput.isSpent()) {
                 final Boolean hasPrivateKey = _hasPrivateKeyFor(spendableTransactionOutput);
@@ -1622,7 +1622,7 @@ public class Wallet {
             }
         }
 
-        final MutableList<SlpTokenId> tokenIds = new MutableList<SlpTokenId>();
+        final MutableList<SlpTokenId> tokenIds = new MutableList<>();
         tokenIds.addAll(tokenIdsSet);
         tokenIds.sort(SlpTokenId.COMPARATOR);
         return tokenIds;
@@ -1642,6 +1642,6 @@ public class Wallet {
     }
 
     public synchronized List<PublicKey> getPublicKeys() {
-        return new ImmutableList<PublicKey>(_privateKeys.keySet());
+        return new ImmutableList<>(_privateKeys.keySet());
     }
 }

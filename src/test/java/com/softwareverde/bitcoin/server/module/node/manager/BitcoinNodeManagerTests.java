@@ -71,7 +71,7 @@ public class BitcoinNodeManagerTests extends IntegrationTest {
         final BitcoinNodeManager.Context bitcoinNodeContext = new BitcoinNodeManager.Context();
         bitcoinNodeContext.maxNodeCount = 1;
         bitcoinNodeContext.databaseManagerFactory = _fullNodeDatabaseManagerFactory;
-        bitcoinNodeContext.nodeFactory = new BitcoinNodeFactory(BitcoinProtocolMessage.BINARY_PACKET_FORMAT, nodeThreadPoolFactory, localNodeFeatures);;
+        bitcoinNodeContext.nodeFactory = new BitcoinNodeFactory(BitcoinProtocolMessage.BINARY_PACKET_FORMAT, nodeThreadPoolFactory, localNodeFeatures);
         bitcoinNodeContext.networkTime = new MutableNetworkTime();
         bitcoinNodeContext.nodeInitializer = nodeInitializer;
         bitcoinNodeContext.banFilter = banFilter;
@@ -85,7 +85,7 @@ public class BitcoinNodeManagerTests extends IntegrationTest {
         final String host = "127.0.0.1";
         final Ip ip = Ip.fromString(host);
 
-        final MutableList<BitcoinNode> bitcoinNodes = new MutableList<BitcoinNode>();
+        final MutableList<BitcoinNode> bitcoinNodes = new MutableList<>();
 
         // Action
         // Spam the NodeManager with 10 connections that never handshake.

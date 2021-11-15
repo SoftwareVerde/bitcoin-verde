@@ -257,7 +257,7 @@ public class SpvModule {
             final SpvBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
-            final HashSet<TransactionId> confirmedTransactionIds = new HashSet<TransactionId>();
+            final HashSet<TransactionId> confirmedTransactionIds = new HashSet<>();
 
             { // load known valid/invalid SLP transaction hashes (unknowns will be handed automatically)
                 final List<Sha256Hash> validSlpTransactions = transactionDatabaseManager.getSlpTransactionsWithSlpStatus(SlpValidity.VALID);
@@ -533,7 +533,7 @@ public class SpvModule {
                         public void onResult(final BitcoinNode bitcoinNode, final List<Sha256Hash> transactions) {
                             Logger.debug("Received " + transactions.getCount() + " transaction inventories.");
 
-                            final MutableList<Sha256Hash> unseenTransactions = new MutableList<Sha256Hash>(transactions.getCount());
+                            final MutableList<Sha256Hash> unseenTransactions = new MutableList<>(transactions.getCount());
                             try (final SpvDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
                                 final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
@@ -600,7 +600,7 @@ public class SpvModule {
                 @Override
                 public List<BitcoinNodeIpAddress> getConnectedPeers() {
                     final List<BitcoinNode> connectedNodes = _bitcoinNodeManager.getNodes();
-                    final ImmutableListBuilder<BitcoinNodeIpAddress> nodeIpAddresses = new ImmutableListBuilder<BitcoinNodeIpAddress>(connectedNodes.getCount());
+                    final ImmutableListBuilder<BitcoinNodeIpAddress> nodeIpAddresses = new ImmutableListBuilder<>(connectedNodes.getCount());
                     for (final BitcoinNode bitcoinNode : connectedNodes) {
 
                         final NodeIpAddress nodeIpAddress = bitcoinNode.getRemoteNodeIpAddress();
@@ -628,7 +628,7 @@ public class SpvModule {
 
                 @Override
                 public void onNewHeaders(final BitcoinNode bitcoinNode, final List<BlockHeader> blockHeaders) {
-                    final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>(blockHeaders.getCount());
+                    final MutableList<Sha256Hash> blockHashes = new MutableList<>(blockHeaders.getCount());
                     for (final BlockHeader blockHeader : blockHeaders) {
                         final Sha256Hash blockHash = blockHeader.getHash();
                         blockHashes.add(blockHash);
@@ -654,7 +654,7 @@ public class SpvModule {
                 @Override
                 public List<BitcoinNodeIpAddress> getConnectedPeers() {
                     final List<BitcoinNode> connectedNodes = _bitcoinNodeManager.getNodes();
-                    final ImmutableListBuilder<BitcoinNodeIpAddress> nodeIpAddresses = new ImmutableListBuilder<BitcoinNodeIpAddress>(connectedNodes.getCount());
+                    final ImmutableListBuilder<BitcoinNodeIpAddress> nodeIpAddresses = new ImmutableListBuilder<>(connectedNodes.getCount());
                     for (final BitcoinNode bitcoinNode : connectedNodes) {
                         final NodeIpAddress nodeIpAddress = bitcoinNode.getRemoteNodeIpAddress();
                         final BitcoinNodeIpAddress bitcoinNodeIpAddress = new BitcoinNodeIpAddress(nodeIpAddress);
@@ -725,7 +725,7 @@ public class SpvModule {
                 Logger.debug("Defined Seed Node: " + nodeIpAddress);
             }
 
-            final List<String> dnsSeeds = new ImmutableList<String>("seed.bchd.cash", "seed-bch.bitcoinforks.org", "btccash-seeder.bitcoinunlimited.info", "seed.flowee.cash");
+            final List<String> dnsSeeds = new ImmutableList<>("seed.bchd.cash", "seed-bch.bitcoinforks.org", "btccash-seeder.bitcoinunlimited.info", "seed.flowee.cash");
             _bitcoinNodeManager.defineDnsSeeds(dnsSeeds);
         }
 
@@ -852,7 +852,7 @@ public class SpvModule {
     public void broadcastTransaction(final Transaction transaction) {
         _spvRequestDataHandler.addSpvTransaction(transaction);
 
-        final MutableList<Sha256Hash> transactionHashes = new MutableList<Sha256Hash>(1);
+        final MutableList<Sha256Hash> transactionHashes = new MutableList<>(1);
         transactionHashes.add(transaction.getHash());
 
         for (final BitcoinNode bitcoinNode : _bitcoinNodeManager.getNodes()) {

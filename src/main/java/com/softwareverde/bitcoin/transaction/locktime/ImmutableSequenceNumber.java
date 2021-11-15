@@ -14,7 +14,7 @@ public class ImmutableSequenceNumber implements SequenceNumber, Const {
     }
 
     protected SequenceNumberType _getType() {
-        final Boolean isTimeSpan = ( (_value & (1 << 22)) != 0x00);
+        final boolean isTimeSpan = ( (_value & (1 << 22)) != 0x00);
         return (isTimeSpan ? SequenceNumberType.SECONDS_ELAPSED : SequenceNumberType.BLOCK_COUNT);
     }
 

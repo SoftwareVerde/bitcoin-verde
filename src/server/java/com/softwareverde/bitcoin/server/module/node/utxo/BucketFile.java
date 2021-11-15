@@ -54,7 +54,7 @@ class BucketFile implements AutoCloseable {
         _outputDirectory = outputDirectory;
         _maxByteCountPerFile = maxByteCountPerFile;
 
-        _queue = new ConcurrentLinkedQueue<CommittedUnspentTransactionOutput>();
+        _queue = new ConcurrentLinkedQueue<>();
         _protoFile = new File(outputDirectory, "utxo-" + index + ".dat");
         _index = index;
         _outputStream = null;

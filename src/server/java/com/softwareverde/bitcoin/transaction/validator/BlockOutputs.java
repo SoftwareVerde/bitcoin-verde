@@ -17,7 +17,7 @@ public class BlockOutputs {
 
     public static BlockOutputs fromBlock(final Block block) {
         final List<Transaction> transactions = block.getTransactions();
-        final HashMap<TransactionOutputIdentifier, TransactionOutput> transactionOutputMap = new HashMap<TransactionOutputIdentifier, TransactionOutput>(transactions.getCount());
+        final HashMap<TransactionOutputIdentifier, TransactionOutput> transactionOutputMap = new HashMap<>(transactions.getCount());
 
         final Transaction coinbaseTransaction = block.getCoinbaseTransaction();
         final Sha256Hash coinbaseTransactionHash = coinbaseTransaction.getHash();
@@ -43,7 +43,7 @@ public class BlockOutputs {
 
     public BlockOutputs() {
         _coinbaseTransactionHash = null;
-        _transactionOutputs = new HashMap<TransactionOutputIdentifier, TransactionOutput>(0);
+        _transactionOutputs = new HashMap<>(0);
     }
 
     public TransactionOutput getTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {

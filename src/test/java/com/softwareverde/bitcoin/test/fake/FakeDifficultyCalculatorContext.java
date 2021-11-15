@@ -15,10 +15,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 
 public class FakeDifficultyCalculatorContext implements DifficultyCalculatorContext {
-    protected final HashMap<Long, BlockHeader> _blockHeaders = new HashMap<Long, BlockHeader>();
-    protected final HashMap<Long, ChainWork> _chainWorks = new HashMap<Long, ChainWork>();
-    protected final HashMap<Long, MedianBlockTime> _medianBlockTimes = new HashMap<Long, MedianBlockTime>();
-    protected final HashSet<BlockHeader> _requestedBlocks = new HashSet<BlockHeader>();
+    protected final HashMap<Long, BlockHeader> _blockHeaders = new HashMap<>();
+    protected final HashMap<Long, ChainWork> _chainWorks = new HashMap<>();
+    protected final HashMap<Long, MedianBlockTime> _medianBlockTimes = new HashMap<>();
+    protected final HashSet<BlockHeader> _requestedBlocks = new HashSet<>();
 
     protected final AsertReferenceBlock _asertReferenceBlock;
     protected final UpgradeSchedule _upgradeSchedule;
@@ -84,7 +84,7 @@ public class FakeDifficultyCalculatorContext implements DifficultyCalculatorCont
     }
 
     public List<BlockHeader> getUnusedBlocks() {
-        final MutableList<BlockHeader> unusedBlocks = new MutableList<BlockHeader>();
+        final MutableList<BlockHeader> unusedBlocks = new MutableList<>();
         for (final BlockHeader blockHeader : _blockHeaders.values()) {
             if (! _requestedBlocks.contains(blockHeader)) {
                 unusedBlocks.add(blockHeader);

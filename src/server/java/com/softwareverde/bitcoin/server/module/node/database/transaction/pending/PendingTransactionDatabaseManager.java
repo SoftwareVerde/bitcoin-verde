@@ -102,7 +102,7 @@ public class PendingTransactionDatabaseManager {
         final Long firstPendingTransactionId = databaseConnection.executeSql(batchedInsertQuery);
         final Integer newRowCount = databaseConnection.getRowsAffectedCount();
 
-        final ImmutableListBuilder<PendingTransactionId> pendingTransactionIds = new ImmutableListBuilder<PendingTransactionId>(newRowCount);
+        final ImmutableListBuilder<PendingTransactionId> pendingTransactionIds = new ImmutableListBuilder<>(newRowCount);
         for (int i = 0; i < newRowCount; ++i) {
             pendingTransactionIds.add(PendingTransactionId.wrap(firstPendingTransactionId + i));
         }
@@ -122,12 +122,12 @@ public class PendingTransactionDatabaseManager {
                 .setInClauseParameters(connectedNodeIds, ValueExtractor.IDENTIFIER)
         );
 
-        final HashMap<NodeId, MutableList<PendingTransactionId>> downloadPlan = new HashMap<NodeId, MutableList<PendingTransactionId>>();
+        final HashMap<NodeId, MutableList<PendingTransactionId>> downloadPlan = new HashMap<>();
         for (final Row row : rows) {
             final NodeId nodeId = NodeId.wrap(row.getLong("node_id"));
             final PendingTransactionId pendingTransactionId = PendingTransactionId.wrap(row.getLong("pending_transaction_id"));
             if (! downloadPlan.containsKey(nodeId)) {
-                downloadPlan.put(nodeId, new MutableList<PendingTransactionId>());
+                downloadPlan.put(nodeId, new MutableList<>());
             }
 
             final MutableList<PendingTransactionId> list = downloadPlan.get(nodeId);
@@ -143,7 +143,7 @@ public class PendingTransactionDatabaseManager {
             new Query("SELECT pending_transactions.id, pending_transactions.hash FROM pending_transactions INNER JOIN pending_transaction_data ON pending_transaction_data.pending_transaction_id = pending_transactions.id WHERE NOT EXISTS (SELECT * FROM pending_transactions_dependent_transactions LEFT OUTER JOIN transactions ON transactions.hash = pending_transactions_dependent_transactions.hash WHERE (transactions.id IS NULL) AND (pending_transactions_dependent_transactions.pending_transaction_id = pending_transactions.id))")
         );
 
-        final ImmutableListBuilder<PendingTransactionId> pendingTransactionIds = new ImmutableListBuilder<PendingTransactionId>(rows.size());
+        final ImmutableListBuilder<PendingTransactionId> pendingTransactionIds = new ImmutableListBuilder<>(rows.size());
         for (final Row row : rows) {
             final PendingTransactionId pendingTransactionId = PendingTransactionId.wrap(row.getLong("id"));
             pendingTransactionIds.add(pendingTransactionId);
@@ -218,7 +218,7 @@ public class PendingTransactionDatabaseManager {
                 .setParameter(maxFailedDownloadCount)
         );
 
-        final MutableList<PendingTransactionId> pendingTransactionIds = new MutableList<PendingTransactionId>(rows.size());
+        final MutableList<PendingTransactionId> pendingTransactionIds = new MutableList<>(rows.size());
         for (final Row row : rows) {
             final PendingTransactionId pendingTransactionId = PendingTransactionId.wrap(row.getLong("id"));
             Logger.debug("Deleting Failed Pending Transaction: " + pendingTransactionId);
@@ -233,7 +233,7 @@ public class PendingTransactionDatabaseManager {
 
         if (pendingTransactionIds.isEmpty()) { return; }
 
-        final HashSet<Sha256Hash> pendingTransactionHashes = new HashSet<Sha256Hash>(pendingTransactionIds.getCount());
+        final HashSet<Sha256Hash> pendingTransactionHashes = new HashSet<>(pendingTransactionIds.getCount());
         for (final PendingTransactionId pendingTransactionId : pendingTransactionIds) {
             final Sha256Hash pendingTransactionHash = _getPendingTransactionHash(pendingTransactionId);
             pendingTransactionHashes.add(pendingTransactionHash);
@@ -257,7 +257,7 @@ public class PendingTransactionDatabaseManager {
             new Query("SELECT pending_transactions.id FROM pending_transactions LEFT OUTER JOIN transactions ON transactions.hash = pending_transactions.hash WHERE (transactions.id IS NOT NULL) OR (pending_transactions.timestamp < ?)")
                 .setParameter(minimumTimestamp)
         );
-        final MutableList<PendingTransactionId> pendingTransactionIds = new MutableList<PendingTransactionId>(rows.size());
+        final MutableList<PendingTransactionId> pendingTransactionIds = new MutableList<>(rows.size());
         for (final Row row : rows) {
             final PendingTransactionId pendingTransactionId = PendingTransactionId.wrap(row.getLong("id"));
             pendingTransactionIds.add(pendingTransactionId);
@@ -342,7 +342,7 @@ public class PendingTransactionDatabaseManager {
         if (pendingTransactionId == null) { return; }
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-        final HashSet<Sha256Hash> requiredTransactionHashes = new HashSet<Sha256Hash>(transactionInputs.getCount());
+        final HashSet<Sha256Hash> requiredTransactionHashes = new HashSet<>(transactionInputs.getCount());
         for (final TransactionInput transactionInput : transactionInputs) {
             final Sha256Hash transactionHash = transactionInput.getPreviousOutputTransactionHash();
             requiredTransactionHashes.add(transactionHash);
@@ -572,7 +572,7 @@ public class PendingTransactionDatabaseManager {
     public void deletePendingTransaction(final PendingTransactionId pendingTransactionId) throws DatabaseException {
         try {
             WRITE_LOCK.lock();
-            final MutableList<PendingTransactionId> pendingTransactionIds = new MutableList<PendingTransactionId>(1);
+            final MutableList<PendingTransactionId> pendingTransactionIds = new MutableList<>(1);
             pendingTransactionIds.add(pendingTransactionId);
             _deletePendingTransactions(pendingTransactionIds);
         }

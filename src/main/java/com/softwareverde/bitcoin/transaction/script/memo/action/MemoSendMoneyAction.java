@@ -7,7 +7,7 @@ import com.softwareverde.json.Json;
 public class MemoSendMoneyAction extends MemoAddressAction {
     protected static final Integer MESSAGE_MAX_BYTE_COUNT = 194;
 
-    protected String _message;
+    protected final String _message;
 
     @Override
     protected void _extendJson(final Json json) {

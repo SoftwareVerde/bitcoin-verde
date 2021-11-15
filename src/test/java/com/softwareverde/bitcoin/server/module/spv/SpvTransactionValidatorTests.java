@@ -13,11 +13,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class SpvTransactionValidatorTests {
     public static class SimpleTransactionAccumulator implements SpvTransactionValidator.TransactionAccumulator {
-        protected final HashMap<Sha256Hash, Transaction> _transactions = new HashMap<Sha256Hash, Transaction>();
+        protected final HashMap<Sha256Hash, Transaction> _transactions = new HashMap<>();
 
         @Override
         public void getTransactions(final List<Sha256Hash> previousTransactionHashes, final SpvTransactionValidator.TransactionAccumulatorCallback callback) {
-            final HashMap<Sha256Hash, Transaction> transactions = new HashMap<Sha256Hash, Transaction>();
+            final HashMap<Sha256Hash, Transaction> transactions = new HashMap<>();
             for (final Sha256Hash transactionHash : previousTransactionHashes) {
                 final Transaction previousTransaction = _transactions.get(transactionHash);
                 transactions.put(transactionHash, previousTransaction);

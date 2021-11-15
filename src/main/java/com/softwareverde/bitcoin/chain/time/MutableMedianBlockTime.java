@@ -26,7 +26,7 @@ public class MutableMedianBlockTime extends MedianBlockTimeCore implements Media
         //     Logger.warn("NOTICE: Attempted to retrieve MedianBlockTime without setting at least " + _requiredBlockCount + " blocks.");
         // }
 
-        final List<Long> blockTimestamps = new ArrayList<Long>(blockCount);
+        final List<Long> blockTimestamps = new ArrayList<>(blockCount);
         for (final BlockHeader block : _previousBlocks) {
             blockTimestamps.add(block.getTimestamp());
         }
@@ -42,7 +42,7 @@ public class MutableMedianBlockTime extends MedianBlockTimeCore implements Media
         _writeLock = readWriteLock.writeLock();
 
         _requiredBlockCount = requiredBlockCount;
-        _previousBlocks = new RotatingQueue<BlockHeader>(_requiredBlockCount);
+        _previousBlocks = new RotatingQueue<>(_requiredBlockCount);
     }
 
     public MutableMedianBlockTime() {
@@ -51,7 +51,7 @@ public class MutableMedianBlockTime extends MedianBlockTimeCore implements Media
         _writeLock = readWriteLock.writeLock();
 
         _requiredBlockCount = BLOCK_COUNT;
-        _previousBlocks = new RotatingQueue<BlockHeader>(_requiredBlockCount);
+        _previousBlocks = new RotatingQueue<>(_requiredBlockCount);
     }
 
     public void addBlock(final BlockHeader blockHeader) {
@@ -112,7 +112,7 @@ public class MutableMedianBlockTime extends MedianBlockTimeCore implements Media
     public MedianBlockTime subset(final Integer blockCount) {
         final MutableMedianBlockTime medianBlockTime = new MutableMedianBlockTime(blockCount);
 
-        final java.util.List<BlockHeader> blockHeaders = new java.util.ArrayList<BlockHeader>(_previousBlocks.size());
+        final java.util.List<BlockHeader> blockHeaders = new java.util.ArrayList<>(_previousBlocks.size());
         blockHeaders.addAll(_previousBlocks);
 
         for (int i = 0; i < blockCount; ++i) {
@@ -126,7 +126,7 @@ public class MutableMedianBlockTime extends MedianBlockTimeCore implements Media
 
     @Override
     public BlockHeader getBlockHeader(final Integer indexFromTip) {
-        final java.util.List<BlockHeader> blockHeaders = new java.util.ArrayList<BlockHeader>(_previousBlocks.size());
+        final java.util.List<BlockHeader> blockHeaders = new java.util.ArrayList<>(_previousBlocks.size());
         blockHeaders.addAll(_previousBlocks);
         return blockHeaders.get(blockHeaders.size() - indexFromTip - 1);
     }

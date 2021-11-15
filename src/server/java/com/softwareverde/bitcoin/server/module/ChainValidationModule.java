@@ -112,7 +112,7 @@ public class ChainValidationModule {
         }
 
         Sha256Hash nextBlockHash = _startingBlockHash;
-        try (final DatabaseConnection databaseConnection = database.newConnection();) {
+        try (final DatabaseConnection databaseConnection = database.newConnection()) {
             final FullNodeDatabaseManager databaseManager = new FullNodeDatabaseManager(
                 databaseConnection,
                 database.getMaxQueryBatchSize(),
@@ -182,7 +182,7 @@ public class ChainValidationModule {
                     }
                 }
                 blockInflaterTimer.stop();
-                System.out.println("Block Inflation: " +  block.getHash() + " " + blockInflaterTimer.getMillisecondsElapsed() + "ms");
+                Logger.debug("Block Inflation: " +  block.getHash() + " " + blockInflaterTimer.getMillisecondsElapsed() + "ms");
 
                 validatedTransactionCount += blockDatabaseManager.getTransactionCount(blockId);
 

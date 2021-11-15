@@ -82,7 +82,7 @@ public class StratumRpcServer {
                             response.put(ERROR_MESSAGE_KEY, null);
 
                             final Json parameters = message.get("parameters");
-                            Boolean closeConnection = true;
+                            boolean closeConnection = true;
 
                             switch (method.toUpperCase()) {
                                 case "GET": {

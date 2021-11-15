@@ -5,7 +5,7 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import java.util.HashMap;
 
 public class HashMapSlpTransactionValidationCache implements SlpTransactionValidationCache {
-    protected final HashMap<Sha256Hash, Boolean> _validatedTransactions = new HashMap<Sha256Hash, Boolean>();
+    protected final HashMap<Sha256Hash, Boolean> _validatedTransactions = new HashMap<>();
 
     @Override
     public Boolean isValid(final Sha256Hash transactionHash) {

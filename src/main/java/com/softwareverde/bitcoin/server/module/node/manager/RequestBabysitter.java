@@ -25,7 +25,7 @@ public class RequestBabysitter extends SleepyService {
     }
 
     protected final SystemTime _systemTime = new SystemTime();
-    protected final TreeMap<Long, List<WatchedRequest>> _requests = new TreeMap<Long, List<WatchedRequest>>();
+    protected final TreeMap<Long, List<WatchedRequest>> _requests = new TreeMap<>();
 
     protected final ReentrantReadWriteLock.ReadLock _readLock;
     protected final ReentrantReadWriteLock.WriteLock _writeLock;
@@ -36,7 +36,7 @@ public class RequestBabysitter extends SleepyService {
     @Override
     protected Boolean _run() {
         final List<WatchedRequest> removedWatchedRequests;
-        final List<Long> itemsToRemove = new ArrayList<Long>();
+        final List<Long> itemsToRemove = new ArrayList<>();
 
         _readLock.lock();
         try {
@@ -53,7 +53,7 @@ public class RequestBabysitter extends SleepyService {
         }
 
         if (! itemsToRemove.isEmpty()) {
-            removedWatchedRequests = new ArrayList<WatchedRequest>();
+            removedWatchedRequests = new ArrayList<>();
             _writeLock.lock();
             try {
                 for (final Long expirationTime : itemsToRemove) {
@@ -126,7 +126,7 @@ public class RequestBabysitter extends SleepyService {
             try {
                 list = _requests.get(expireAfter);
                 if (list == null) {
-                    list = new ArrayList<WatchedRequest>();
+                    list = new ArrayList<>();
                     _requests.put(expireAfter, list);
                 }
                 list.add(watchedRequest);

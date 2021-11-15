@@ -47,7 +47,7 @@ public class TransactionInputDeflater {
         {
             final Script unlockingScript = transactionInput.getUnlockingScript();
 
-            Integer byteCount = 0;
+            int byteCount = 0;
             byteCount += ByteUtil.variableLengthIntegerToBytes(unlockingScript.getByteCount()).length;
             byteCount += unlockingScript.getByteCount();
             scriptByteCount = byteCount;

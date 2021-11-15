@@ -208,7 +208,7 @@ public class BitcoinNode extends Node {
         void onResult(PendingRequest<S> pendingRequest);
     }
 
-    public static SynchronizationStatus DEFAULT_STATUS_CALLBACK = new SynchronizationStatus() {
+    public static final SynchronizationStatus DEFAULT_STATUS_CALLBACK = new SynchronizationStatus() {
         @Override
         public State getState() { return State.ONLINE; }
 
@@ -255,7 +255,7 @@ public class BitcoinNode extends Node {
     protected final Runnable _requestMonitor;
     protected Thread _requestMonitorThread;
 
-    protected ConcurrentLinkedQueue<BitcoinNodeObserver> _observers = new ConcurrentLinkedQueue<>();
+    protected final ConcurrentLinkedQueue<BitcoinNodeObserver> _observers = new ConcurrentLinkedQueue<>();
 
     protected final AddressInflater _addressInflater;
     protected final MessageRouter _messageRouter = new MessageRouter();
@@ -761,7 +761,7 @@ public class BitcoinNode extends Node {
         final RequestDataHandler requestDataHandler = _requestDataHandler;
 
         if (requestDataHandler != null) {
-            final List<InventoryItem> dataHashes = new ImmutableList<InventoryItem>(requestDataMessage.getInventoryItems());
+            final List<InventoryItem> dataHashes = new ImmutableList<>(requestDataMessage.getInventoryItems());
             _threadPool.execute(new Runnable() {
                 @Override
                 public void run() {
@@ -780,7 +780,7 @@ public class BitcoinNode extends Node {
     }
 
     protected void _onInventoryMessageReceived(final InventoryMessage inventoryMessage) {
-        final Map<InventoryItemType, MutableList<Sha256Hash>> dataHashesMap = new HashMap<InventoryItemType, MutableList<Sha256Hash>>();
+        final Map<InventoryItemType, MutableList<Sha256Hash>> dataHashesMap = new HashMap<>();
 
         final List<InventoryItem> dataHashes = inventoryMessage.getInventoryItems();
         for (final InventoryItem inventoryItem : dataHashes) {
@@ -1130,7 +1130,7 @@ public class BitcoinNode extends Node {
         final RequestBlockHashesHandler queryBlocksCallback = _queryBlocksCallback;
 
         if (queryBlocksCallback != null) {
-            final MutableList<Sha256Hash> blockHeaderHashes = new MutableList<Sha256Hash>(queryBlocksMessage.getBlockHashes());
+            final MutableList<Sha256Hash> blockHeaderHashes = new MutableList<>(queryBlocksMessage.getBlockHashes());
             final Sha256Hash desiredBlockHeaderHash = queryBlocksMessage.getStopBeforeBlockHash();
             _threadPool.execute(new Runnable() {
                 @Override
@@ -1382,7 +1382,8 @@ public class BitcoinNode extends Node {
                 case UTXO_COMMITMENT_EVEN:
                 case UTXO_COMMITMENT_ODD: {
                     synchronized (_downloadUtxoCommitmentRequests) {
-                        final Set<PendingRequest<DownloadUtxoCommitmentCallback>> downloadUtxoCommitmentCallbacks = _downloadUtxoCommitmentRequests.remove(itemHash);
+                        final PublicKey publicKey = RequestDataMessage.convertUtxoCommitmentInventoryToPublicKey(inventoryItemType, itemHash);
+                        final Set<PendingRequest<DownloadUtxoCommitmentCallback>> downloadUtxoCommitmentCallbacks = _downloadUtxoCommitmentRequests.remove(publicKey);
                         if (downloadUtxoCommitmentCallbacks == null) { return; }
 
                         for (final PendingRequest<DownloadUtxoCommitmentCallback> pendingRequest : downloadUtxoCommitmentCallbacks) {
@@ -1390,7 +1391,6 @@ public class BitcoinNode extends Node {
                             _threadPool.execute(new Runnable() {
                                 @Override
                                 public void run() {
-                                    final PublicKey publicKey = RequestDataMessage.convertUtxoCommitmentInventoryToPublicKey(inventoryItemType, itemHash);
                                     pendingRequest.callback.onFailure(pendingRequest.requestId, BitcoinNode.this, publicKey);
 
                                     for (final BitcoinNodeObserver observer : _observers) {
@@ -1551,7 +1551,7 @@ public class BitcoinNode extends Node {
         final RequestDataMessage requestDataMessage = _protocolMessageFactory.newRequestDataMessage();
         requestDataMessage.addInventoryItem(new InventoryItem(InventoryItemType.MERKLE_BLOCK, blockHash));
 
-        final MutableList<BitcoinProtocolMessage> messages = new MutableList<BitcoinProtocolMessage>(2);
+        final MutableList<BitcoinProtocolMessage> messages = new MutableList<>(2);
         messages.add(requestDataMessage);
         messages.add(_protocolMessageFactory.newPingMessage()); // A ping message is sent to ensure the remote node responds with a non-transaction message (Pong) to close out the MerkleBlockMessage transmission.
         _queueMessages(messages);
@@ -1751,7 +1751,7 @@ public class BitcoinNode extends Node {
 
     public RequestId requestBlock(final Sha256Hash blockHash, final DownloadBlockCallback downloadBlockCallback, final RequestPriority requestPriority) {
         final RequestId requestId = _newRequestId();
-        BitcoinNodeUtil.storeInMapSet(_downloadBlockRequests, blockHash, new PendingRequest<DownloadBlockCallback>(requestId, downloadBlockCallback, requestPriority));
+        BitcoinNodeUtil.storeInMapSet(_downloadBlockRequests, blockHash, new PendingRequest<>(requestId, downloadBlockCallback, requestPriority));
         final Long requestStartBytesReceived = _connection.getTotalBytesReceivedCount();
         _failableRequests.put(requestId, new FailableRequest("BLOCK " + blockHash, requestStartBytesReceived, downloadBlockCallback, new Runnable() {
             @Override
@@ -1785,7 +1785,7 @@ public class BitcoinNode extends Node {
         }
 
         final RequestId requestId = _newRequestId();
-        BitcoinNodeUtil.storeInMapSet(_downloadUtxoCommitmentRequests, compressedPublicKey, new PendingRequest<DownloadUtxoCommitmentCallback>(requestId, downloadUtxoCommitmentCallback, requestPriority));
+        BitcoinNodeUtil.storeInMapSet(_downloadUtxoCommitmentRequests, compressedPublicKey, new PendingRequest<>(requestId, downloadUtxoCommitmentCallback, requestPriority));
         final Long requestStartBytesReceived = _connection.getTotalBytesReceivedCount();
         _failableRequests.put(requestId, new FailableRequest("UTXO COMMITMENT " + bucketHash, requestStartBytesReceived, downloadUtxoCommitmentCallback, new Runnable() {
             @Override
@@ -1883,7 +1883,7 @@ public class BitcoinNode extends Node {
 
     public RequestId requestThinTransactions(final Sha256Hash blockHash, final List<Sha256Hash> transactionHashes, final DownloadThinTransactionsCallback downloadThinBlockCallback, final RequestPriority requestPriority) {
         final RequestId requestId = _newRequestId();
-        final ImmutableListBuilder<ByteArray> shortTransactionHashesBuilder = new ImmutableListBuilder<ByteArray>(transactionHashes.getCount());
+        final ImmutableListBuilder<ByteArray> shortTransactionHashesBuilder = new ImmutableListBuilder<>(transactionHashes.getCount());
         for (final Sha256Hash transactionHash : transactionHashes) {
             final ByteArray shortTransactionHash = MutableByteArray.wrap(transactionHash.getBytes(0, 8));
             shortTransactionHashesBuilder.add(shortTransactionHash);
@@ -1908,11 +1908,11 @@ public class BitcoinNode extends Node {
     }
 
     public RequestId requestBlockHeadersAfter(final Sha256Hash blockHash, final DownloadBlockHeadersCallback downloadBlockHeaderCallback) {
-        return this.requestBlockHeadersAfter(new ImmutableList<Sha256Hash>(blockHash), downloadBlockHeaderCallback, RequestPriority.NORMAL);
+        return this.requestBlockHeadersAfter(new ImmutableList<>(blockHash), downloadBlockHeaderCallback, RequestPriority.NORMAL);
     }
 
     public RequestId requestBlockHeadersAfter(final Sha256Hash blockHash, final DownloadBlockHeadersCallback downloadBlockHeaderCallback, final RequestPriority requestPriority) {
-        return this.requestBlockHeadersAfter(new ImmutableList<Sha256Hash>(blockHash), downloadBlockHeaderCallback, requestPriority);
+        return this.requestBlockHeadersAfter(new ImmutableList<>(blockHash), downloadBlockHeaderCallback, requestPriority);
     }
 
     public RequestId requestBlockHeadersAfter(final List<Sha256Hash> blockFinder, final DownloadBlockHeadersCallback downloadBlockHeaderCallback) {
@@ -2142,7 +2142,7 @@ public class BitcoinNode extends Node {
             //  1. The first message should be the MerkleBlock itself.
             //  2. Immediately following should be the any transactions that match the Node's bloomFilter.
             //  3. Finally, since the receiving node has no way to determine if the transaction stream is complete, a ping message is sent to interrupt the flow.
-            final MutableList<ProtocolMessage> messages = new MutableList<ProtocolMessage>();
+            final MutableList<ProtocolMessage> messages = new MutableList<>();
 
             final MerkleBlockMessage merkleBlockMessage = _protocolMessageFactory.newMerkleBlockMessage();
             merkleBlockMessage.setBlockHeader(block);

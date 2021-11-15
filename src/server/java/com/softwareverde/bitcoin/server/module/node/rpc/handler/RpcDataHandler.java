@@ -28,6 +28,7 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
@@ -52,6 +53,7 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.TransactionWithFee;
 import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProof;
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidationResult;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
@@ -102,7 +104,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
 
         final List<Transaction> transactions = block.getTransactions();
 
-        final MutableList<Transaction> returnedTransactions = new MutableList<Transaction>(pageSize);
+        final MutableList<Transaction> returnedTransactions = new MutableList<>(pageSize);
         final int startIndex = (pageNumber * pageSize);
         for (int i = 0; i < pageSize; ++i) {
             final int readIndex = (startIndex + i);
@@ -133,7 +135,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
 
         final List<TransactionId> unconfirmedTransactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
 
-        final ImmutableListBuilder<Transaction> unconfirmedTransactionsListBuilder = new ImmutableListBuilder<Transaction>(unconfirmedTransactionIds.getCount());
+        final ImmutableListBuilder<Transaction> unconfirmedTransactionsListBuilder = new ImmutableListBuilder<>(unconfirmedTransactionIds.getCount());
         for (final TransactionId transactionId : unconfirmedTransactionIds) {
             final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
             unconfirmedTransactionsListBuilder.add(transaction);
@@ -147,7 +149,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
 
         final List<TransactionId> unconfirmedTransactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
 
-        final ImmutableListBuilder<TransactionWithFee> listBuilder = new ImmutableListBuilder<TransactionWithFee>(unconfirmedTransactionIds.getCount());
+        final ImmutableListBuilder<TransactionWithFee> listBuilder = new ImmutableListBuilder<>(unconfirmedTransactionIds.getCount());
         for (final TransactionId transactionId : unconfirmedTransactionIds) {
             final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
             if (transaction == null) {
@@ -258,7 +260,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     }
 
     @Override
-    public List<BlockHeader> getBlockHeaders(final Long nullableBlockHeight, final Integer maxBlockCount) {
+    public List<BlockHeader> getBlockHeaders(final Long nullableBlockHeight, final Integer maxBlockCount, final Direction direction) {
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
@@ -276,11 +278,12 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
-            final ImmutableListBuilder<BlockHeader> blockHeaders = new ImmutableListBuilder<BlockHeader>(maxBlockCount);
+            final ImmutableListBuilder<BlockHeader> blockHeaders = new ImmutableListBuilder<>(maxBlockCount);
             for (int i = 0; i < maxBlockCount; ++i) {
-                if (startingBlockHeight < i) { break; }
+                final long nextBlockHeight = ( (direction == Direction.BEFORE) ? (startingBlockHeight - i) : (startingBlockHeight + i) );
+                if (nextBlockHeight < 0L) { break; }
 
-                final BlockId blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, (startingBlockHeight - i));
+                final BlockId blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, nextBlockHeight);
                 if (blockId == null) { break; }
 
                 final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
@@ -324,6 +327,25 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
             if (blockId == null) { return null; }
 
             return blockHeaderDatabaseManager.getBlockHeader(blockId);
+        }
+        catch (final DatabaseException exception) {
+            Logger.debug(exception);
+            return null;
+        }
+    }
+
+    @Override
+    public Boolean isBlockOrphaned(final Sha256Hash blockHash) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+
+            final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+
+            final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+            final Boolean isConnectedToMainChain = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, headBlockchainSegmentId, BlockRelationship.ANY);
+
+            return (! isConnectedToMainChain);
         }
         catch (final DatabaseException exception) {
             Logger.debug(exception);
@@ -419,6 +441,74 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
             if (transactionId == null) { return null; }
 
             return transactionDatabaseManager.getTransaction(transactionId);
+        }
+        catch (final DatabaseException exception) {
+            Logger.debug(exception);
+            return null;
+        }
+    }
+
+    @Override
+    public Sha256Hash getTransactionBlockHash(final Sha256Hash transactionHash) {
+        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+
+            final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+
+            final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
+            if (transactionId == null) { return null; }
+
+            final BlockId blockId = transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId);
+            return blockHeaderDatabaseManager.getBlockHash(blockId);
+        }
+        catch (final DatabaseException exception) {
+            Logger.debug(exception);
+            return null;
+        }
+    }
+
+    @Override
+    public Integer getTransactionBlockIndex(final Sha256Hash transactionHash) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+
+            final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+
+            final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
+            if (transactionId == null) { return null; }
+
+            final BlockId blockId = transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId);
+            return blockDatabaseManager.getTransactionIndex(blockId, transactionId);
+        }
+        catch (final DatabaseException exception) {
+            Logger.debug(exception);
+            return null;
+        }
+    }
+
+    @Override
+    public Boolean hasUnconfirmedInputs(final Sha256Hash transactionHash) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+
+            final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
+            if (transactionId == null) { return null; }
+
+            final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+            final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+            for (final TransactionInput transactionInput : transactionInputs) {
+                final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+                final TransactionId previousOutputTransactionId = transactionDatabaseManager.getTransactionId(previousOutputTransactionHash);
+
+                final Boolean isUnconfirmedTransaction = transactionDatabaseManager.isUnconfirmedTransaction(previousOutputTransactionId);
+                if (isUnconfirmedTransaction) { return true; }
+            }
+
+            return false;
         }
         catch (final DatabaseException exception) {
             Logger.debug(exception);

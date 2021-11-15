@@ -14,7 +14,7 @@ public class PrivateKeyInflater {
         protected static final int UNCOMPRESSED_EXTENDED_KEY_BYTE_COUNT = (NETWORK_PREFIX_BYTE_COUNT + PrivateKey.KEY_BYTE_COUNT);
         protected static final int COMPRESSED_EXTENDED_KEY_BYTE_COUNT = (NETWORK_PREFIX_BYTE_COUNT + PrivateKey.KEY_BYTE_COUNT + OPTIONAL_COMPRESSED_FLAG_BYTE_COUNT);
 
-        public static byte MAIN_NET_PREFIX = (byte) 0x80;
+        public static final byte MAIN_NET_PREFIX = (byte) 0x80;
         public static byte TEST_NET_PREFIX = (byte) 0xEF;
         public static final Integer UNCOMPRESSED_BYTE_COUNT = (UNCOMPRESSED_EXTENDED_KEY_BYTE_COUNT + CHECKSUM_BYTE_COUNT);
         public static final Integer COMPRESSED_BYTE_COUNT = (COMPRESSED_EXTENDED_KEY_BYTE_COUNT + CHECKSUM_BYTE_COUNT);

@@ -18,7 +18,7 @@ public class StratumServerSocket {
     protected final Integer _port;
     protected java.net.ServerSocket _socket;
 
-    protected final List<JsonSocket> _connections = new ArrayList<JsonSocket>();
+    protected final List<JsonSocket> _connections = new ArrayList<>();
 
     protected Long _nextConnectionId = 0L;
     protected volatile Boolean _shouldContinue = true;

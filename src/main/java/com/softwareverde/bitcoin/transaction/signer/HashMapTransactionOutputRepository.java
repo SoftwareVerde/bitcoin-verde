@@ -6,7 +6,7 @@ import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutput
 import java.util.HashMap;
 
 public class HashMapTransactionOutputRepository implements TransactionOutputRepository {
-    protected final HashMap<TransactionOutputIdentifier, TransactionOutput> _data = new HashMap<TransactionOutputIdentifier, TransactionOutput>();
+    protected final HashMap<TransactionOutputIdentifier, TransactionOutput> _data = new HashMap<>();
 
     @Override
     public TransactionOutput get(final TransactionOutputIdentifier transactionOutputIdentifier) {

@@ -69,7 +69,7 @@ public class SpvSlpTransactionValidator extends SleepyService {
             Logger.info("Requesting SLP status of " + unknownValidityTransactionHashes.getCount() + " transactions from: " + bitcoinNode.getConnectionString());
             int startIndex = 0;
             while (startIndex < unknownValidityTransactionHashes.getCount()) {
-                final MutableList<Sha256Hash> batchOfHashes = new MutableList<Sha256Hash>();
+                final MutableList<Sha256Hash> batchOfHashes = new MutableList<>();
                 for (int i = 0; (i < QuerySlpStatusMessage.MAX_HASH_COUNT) && ((startIndex + i) < unknownValidityTransactionHashes.getCount()); i++) {
                     batchOfHashes.add(unknownValidityTransactionHashes.get(startIndex + i));
                 }

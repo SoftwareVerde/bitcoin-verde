@@ -104,7 +104,7 @@ public class BlockchainIndexerTests extends UnitTest {
         };
 
         final TransactionInflater transactionInflater = new TransactionInflater();
-        final ImmutableListBuilder<Transaction> transactions = new ImmutableListBuilder<Transaction>(bvtTransactionData.length);
+        final ImmutableListBuilder<Transaction> transactions = new ImmutableListBuilder<>(bvtTransactionData.length);
         for (final String transactionData : bvtTransactionData) {
             final ByteArray byteArray = ByteArray.fromHexString(transactionData);
             final Transaction transaction = transactionInflater.fromBytes(byteArray);
@@ -115,7 +115,7 @@ public class BlockchainIndexerTests extends UnitTest {
 
     protected static List<TransactionOutputIdentifier> createOutputIdentifiers(final String transactionHashString, final int[] outputIndices) {
         final Sha256Hash transactionHash = Sha256Hash.fromHexString(transactionHashString);
-        final MutableList<TransactionOutputIdentifier> transactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>(outputIndices.length);
+        final MutableList<TransactionOutputIdentifier> transactionOutputIdentifiers = new MutableList<>(outputIndices.length);
         for (final int outputIndex : outputIndices) {
             final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
             transactionOutputIdentifiers.add(transactionOutputIdentifier);
@@ -163,7 +163,7 @@ public class BlockchainIndexerTests extends UnitTest {
             // Assert
             final List<TransactionOutputIdentifier> expectedSlpTransactionOutputIdentifiers;
             {
-                final ImmutableListBuilder<TransactionOutputIdentifier> transactionOutputIdentifiers = new ImmutableListBuilder<TransactionOutputIdentifier>();
+                final ImmutableListBuilder<TransactionOutputIdentifier> transactionOutputIdentifiers = new ImmutableListBuilder<>();
                 transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("34DD2FE8F0C5BBA8FC4F280C3815C1E46C2F52404F00DA3067D7CE12962F2ED0", new int[] { 0, 1, 2 }));
                 transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("97BB8FFE6DC71AC5B263F322056069CF398CDA2677E21951364F00D2D572E887", new int[] { 0, 1, 2 }));
                 transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("8572AA67141E5FB6C48557508D036542AAD99C828F22B429612BDCABBAD95373", new int[] { 0, 1, 2 }));
@@ -183,7 +183,7 @@ public class BlockchainIndexerTests extends UnitTest {
 
             final List<TransactionOutputIdentifier> expectedInvalidSlpTransactionOutputIdentifiers;
             {
-                final ImmutableListBuilder<TransactionOutputIdentifier> transactionOutputIdentifiers = new ImmutableListBuilder<TransactionOutputIdentifier>();
+                final ImmutableListBuilder<TransactionOutputIdentifier> transactionOutputIdentifiers = new ImmutableListBuilder<>();
                 transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("9BD457D106B1EECBD43CD6ECA0A993420ABE16075B05012C8A76BB96D1AE16CE", new int[] { 0, 1 }));
                 transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("08937051BA961330600D382A749262753B8A941E9E155BA9798D2922C2CE3842", new int[] { 0, 1 }));
                 transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("9DF13E226887F408207F94E99108706B55149AF8C8EB9D2F36427BA3007DCD64", new int[] { 0, 1 }));
@@ -194,7 +194,7 @@ public class BlockchainIndexerTests extends UnitTest {
 
             final List<TransactionOutputIdentifier> expectedNonSlpTransactionOutputIdentifiers;
             {
-                final ImmutableListBuilder<TransactionOutputIdentifier> transactionOutputIdentifiers = new ImmutableListBuilder<TransactionOutputIdentifier>();
+                final ImmutableListBuilder<TransactionOutputIdentifier> transactionOutputIdentifiers = new ImmutableListBuilder<>();
                 transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("34DD2FE8F0C5BBA8FC4F280C3815C1E46C2F52404F00DA3067D7CE12962F2ED0", new int[] { 3 }));
                 transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("97BB8FFE6DC71AC5B263F322056069CF398CDA2677E21951364F00D2D572E887", new int[] { 3 }));
                 transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("8572AA67141E5FB6C48557508D036542AAD99C828F22B429612BDCABBAD95373", new int[] { 3 }));
@@ -211,8 +211,8 @@ public class BlockchainIndexerTests extends UnitTest {
                 expectedNonSlpTransactionOutputIdentifiers = transactionOutputIdentifiers.build();
             }
 
-            final MutableList<TransactionOutputIdentifier> remainingSlpTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>(expectedSlpTransactionOutputIdentifiers);
-            final MutableList<TransactionOutputIdentifier> remainingNonSlpTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>(expectedNonSlpTransactionOutputIdentifiers);
+            final MutableList<TransactionOutputIdentifier> remainingSlpTransactionOutputIdentifiers = new MutableList<>(expectedSlpTransactionOutputIdentifiers);
+            final MutableList<TransactionOutputIdentifier> remainingNonSlpTransactionOutputIdentifiers = new MutableList<>(expectedNonSlpTransactionOutputIdentifiers);
             int slpOutputCount = 0;
             final List<IndexedOutput> indexedOutputs = atomicTransactionOutputIndexerContext.getIndexedOutputs();
             for (final IndexedOutput indexedOutput : indexedOutputs) {

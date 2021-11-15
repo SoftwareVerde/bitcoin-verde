@@ -133,7 +133,7 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
 
         final Long expectedPreviousBlockTimestamp;
         {
-            final Long blockHeight = 700000L;
+            final long blockHeight = 700000L;
             final BlockId blockId = BlockId.wrap(blockHeight + 1L);
             final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString("18033273"));
             final long timestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + blockHeight);
@@ -187,7 +187,7 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
 
         final Long expectedPreviousBlockTimestamp;
         {
-            final Long blockHeight = 700000L;
+            final long blockHeight = 700000L;
             final BlockId blockId = BlockId.wrap(blockHeight + 1L);
             final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString("18033273"));
             final long timestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + blockHeight);
@@ -241,7 +241,7 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
 
         final Long expectedPreviousBlockTimestamp;
         {
-            final Long blockHeight = 700000L;
+            final long blockHeight = 700000L;
             final BlockId blockId = BlockId.wrap(blockHeight + 1L);
             final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString("18033273"));
             final long timestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + blockHeight);
@@ -295,7 +295,7 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
 
         final Long expectedPreviousBlockTimestamp;
         {
-            final Long blockHeight = 700000L;
+            final long blockHeight = 700000L;
             final BlockId blockId = BlockId.wrap(blockHeight + 1L);
             final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString("18033273"));
             final long timestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + blockHeight);
@@ -349,7 +349,7 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
 
         final Long expectedPreviousBlockTimestamp;
         {
-            final Long blockHeight = 700000L;
+            final long blockHeight = 700000L;
             final BlockId blockId = BlockId.wrap(blockHeight + 1L);
             final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString("18033273"));
             final long timestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + blockHeight);

@@ -96,7 +96,7 @@ public class BitcoinNodeTests extends UnitTest {
             }
         };
 
-        final MutableList<ExposedBitcoinNode> receivedNodeConnections = new MutableList<ExposedBitcoinNode>();
+        final MutableList<ExposedBitcoinNode> receivedNodeConnections = new MutableList<>();
         final BinarySocketServer socketServer = new BinarySocketServer(FAKE_PORT, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, mainThreadPool);
         socketServer.setSocketConnectedCallback(new BinarySocketServer.SocketConnectedCallback() {
             @Override
@@ -373,7 +373,7 @@ public class BitcoinNodeTests extends UnitTest {
             }
         };
 
-        final MutableList<ExposedBitcoinNode> receivedNodeConnections = new MutableList<ExposedBitcoinNode>();
+        final MutableList<ExposedBitcoinNode> receivedNodeConnections = new MutableList<>();
         final BinarySocketServer socketServer = new BinarySocketServer(FAKE_PORT, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, mainThreadPool);
         socketServer.setSocketConnectedCallback(new BinarySocketServer.SocketConnectedCallback() {
             @Override
@@ -506,7 +506,7 @@ public class BitcoinNodeTests extends UnitTest {
             }
         };
 
-        final MutableList<ExposedBitcoinNode> receivedNodeConnections = new MutableList<ExposedBitcoinNode>();
+        final MutableList<ExposedBitcoinNode> receivedNodeConnections = new MutableList<>();
         final BinarySocketServer socketServer = new BinarySocketServer(FAKE_PORT, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, mainThreadPool);
         socketServer.setSocketConnectedCallback(new BinarySocketServer.SocketConnectedCallback() {
             @Override

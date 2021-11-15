@@ -135,12 +135,12 @@ public class SpvTransactionValidator {
     protected static List<Sha256Hash> _getPreviousTransactionHashes(final Transaction transaction) {
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
 
-        final HashSet<Sha256Hash> uniqueTransactionHashes = new HashSet<Sha256Hash>();
+        final HashSet<Sha256Hash> uniqueTransactionHashes = new HashSet<>();
         for (final TransactionInput transactionInput : transactionInputs) {
             final Sha256Hash previousTransactionHash = transactionInput.getPreviousOutputTransactionHash();
             uniqueTransactionHashes.add(previousTransactionHash);
         }
-        return new MutableList<Sha256Hash>(uniqueTransactionHashes);
+        return new MutableList<>(uniqueTransactionHashes);
     }
 
     protected static BigInteger _calculateTotalSlpAmountSpent(final Transaction transaction) {
@@ -161,7 +161,7 @@ public class SpvTransactionValidator {
         return total;
     }
 
-    class ValidationMetaData {
+    protected static class ValidationMetaData {
         public final SlpTokenId slpTokenId;
         public final Transaction rootTransaction;
         public final ValidationCallback validationCallback;
@@ -371,7 +371,7 @@ public class SpvTransactionValidator {
                     if (slpScriptType == SlpScriptType.GENESIS) { // If a valid genesis is found, then the mint is successful.
                         final SlpGenesisScript slpGenesisScript = slpScriptInflater.genesisScriptFromScript(previousSlpTransactionScript);
                         final BigInteger genesisTokenAmount = slpGenesisScript.getTokenCount();
-                        final Boolean isValid = (totalSlpAmountSent.compareTo(genesisTokenAmount) <= 0);
+                        final boolean isValid = (totalSlpAmountSent.compareTo(genesisTokenAmount) <= 0);
                         if (isValid) {
                             validationMetaData.onSuccess();
                         }
@@ -480,7 +480,7 @@ public class SpvTransactionValidator {
         if (slpScriptType == SlpScriptType.SEND) {
             final BigInteger totalSlpSent = _calculateTotalSlpAmountSpent(transactionToValidate);
             final ValidationMetaData validationMetaData = new ValidationMetaData(transactionToValidate, _validationCallback);
-            _validateSendTransaction(validationMetaData, transactionToValidate, 0, totalSlpSent, new Container<BigInteger>(BigInteger.ZERO), new Runnable() {
+            _validateSendTransaction(validationMetaData, transactionToValidate, 0, totalSlpSent, new Container<>(BigInteger.ZERO), new Runnable() {
                 @Override
                 public void run() {
                     validationMetaData.onSuccess();

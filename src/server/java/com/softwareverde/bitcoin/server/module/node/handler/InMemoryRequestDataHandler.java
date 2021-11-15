@@ -13,12 +13,12 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class InMemoryRequestDataHandler implements BitcoinNode.RequestDataHandler {
-    protected final ConcurrentHashMap<Sha256Hash, Transaction> _availableTransactions = new ConcurrentHashMap<Sha256Hash, Transaction>();
-    protected final ConcurrentHashMap<Sha256Hash, Block> _availableBlocks = new ConcurrentHashMap<Sha256Hash, Block>();
+    protected final ConcurrentHashMap<Sha256Hash, Transaction> _availableTransactions = new ConcurrentHashMap<>();
+    protected final ConcurrentHashMap<Sha256Hash, Block> _availableBlocks = new ConcurrentHashMap<>();
 
     @Override
     public void run(final BitcoinNode bitcoinNode, final List<InventoryItem> dataHashes) {
-        final MutableList<InventoryItem> notFoundDataHashes = new MutableList<InventoryItem>();
+        final MutableList<InventoryItem> notFoundDataHashes = new MutableList<>();
 
         for (final InventoryItem inventoryItem : dataHashes) {
             final Sha256Hash objectHash = inventoryItem.getItemHash();

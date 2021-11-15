@@ -22,7 +22,7 @@ public class BlockInflater {
         final int transactionCount = byteArrayReader.readVariableLengthInteger().intValue();
         if (transactionCount > BitcoinConstants.getMaxTransactionCountPerBlock()) { return null; }
 
-        final MutableList<Transaction> transactions = new MutableList<Transaction>(transactionCount);
+        final MutableList<Transaction> transactions = new MutableList<>(transactionCount);
 
         for (int i = 0; i < transactionCount; ++i) {
             final Transaction transaction = transactionInflater.fromBytes(byteArrayReader);

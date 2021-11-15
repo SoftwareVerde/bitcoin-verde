@@ -67,7 +67,7 @@ public interface Ip extends Const {
         try {
             final InetAddress[] inetAddresses = InetAddress.getAllByName(hostName);
 
-            final MutableList<Ip> ipAddresses = new MutableList<Ip>(inetAddresses.length);
+            final MutableList<Ip> ipAddresses = new MutableList<>(inetAddresses.length);
             for (final InetAddress inetAddress : inetAddresses) {
                 final Ip ip;
                 if (inetAddress instanceof Inet4Address) {

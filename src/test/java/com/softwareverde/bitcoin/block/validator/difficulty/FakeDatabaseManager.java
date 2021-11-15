@@ -18,11 +18,11 @@ import java.util.HashMap;
 public class FakeDatabaseManager implements com.softwareverde.bitcoin.test.fake.database.FakeDatabaseManager {
     protected static final BlockchainSegmentId BLOCKCHAIN_SEGMENT_ID = BlockchainSegmentId.wrap(1L);
     protected Long _nextBlockId = 1L;
-    protected final HashMap<Sha256Hash, BlockId> _blockIds = new HashMap<Sha256Hash, BlockId>();
-    protected final HashMap<BlockId, BlockHeader> _blockHeaders = new HashMap<BlockId, BlockHeader>();
-    protected final HashMap<BlockId, Long> _blockHeights = new HashMap<BlockId, Long>();
-    protected final HashMap<Long, BlockId> _blocksByBlockHeight = new HashMap<Long, BlockId>();
-    protected final HashMap<BlockId, ChainWork> _chainWork = new HashMap<BlockId, ChainWork>();
+    protected final HashMap<Sha256Hash, BlockId> _blockIds = new HashMap<>();
+    protected final HashMap<BlockId, BlockHeader> _blockHeaders = new HashMap<>();
+    protected final HashMap<BlockId, Long> _blockHeights = new HashMap<>();
+    protected final HashMap<Long, BlockId> _blocksByBlockHeight = new HashMap<>();
+    protected final HashMap<BlockId, ChainWork> _chainWork = new HashMap<>();
 
     @Override
     public BlockHeaderDatabaseManager getBlockHeaderDatabaseManager() {

@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.sync;
 
 import com.softwareverde.bitcoin.context.AtomicTransactionOutputIndexerContext;
+import com.softwareverde.bitcoin.context.IndexerCache;
 import com.softwareverde.bitcoin.context.TransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.context.lazy.LazyTransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.test.IntegrationTest;
@@ -22,7 +23,8 @@ public class BlockchainIndexerContextTests extends IntegrationTest {
     @Test
     public void should_index_transaction_output() throws Exception {
         // Setup
-        final TransactionOutputIndexerContext transactionOutputIndexerContext = new LazyTransactionOutputIndexerContext(_fullNodeDatabaseManagerFactory);
+        final IndexerCache indexerCache = new IndexerCache(1);
+        final TransactionOutputIndexerContext transactionOutputIndexerContext = new LazyTransactionOutputIndexerContext(_fullNodeDatabaseManagerFactory, indexerCache);
 
         // Action
         try (final AtomicTransactionOutputIndexerContext context = transactionOutputIndexerContext.newTransactionOutputIndexerContext()) {

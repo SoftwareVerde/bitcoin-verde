@@ -5,7 +5,7 @@ import com.softwareverde.util.Util;
 import java.util.Properties;
 
 public class ExplorerPropertiesLoader {
-    public static ExplorerProperties loadExplorerProperties(final Properties properties) {
+    public static ExplorerProperties loadProperties(final Properties properties) {
         final Integer port = Util.parseInt(properties.getProperty("explorer.httpPort", String.valueOf(ExplorerProperties.HTTP_PORT)));
         final String rootDirectory = properties.getProperty("explorer.rootDirectory", "explorer/www");
 

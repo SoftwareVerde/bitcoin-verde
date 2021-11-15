@@ -94,7 +94,7 @@ public class SlpTransactionProcessorAccumulatorTests extends IntegrationTest {
 
             final Sha256Hash transactionHash0 = Sha256Hash.fromHexString("0E3E2357E806B6CDB1F70B54C3A3A17B6714EE1F0E68BEBB44A74B1EFD512098");
             final Sha256Hash transactionHash1 = Sha256Hash.fromHexString("9B0FC92260312CE44E74EF369F5C66BBB85848F2EDDD5A7A1CDE251E54CCFDD5");
-            final List<Sha256Hash> transactionHashes = new ImmutableList<Sha256Hash>(
+            final List<Sha256Hash> transactionHashes = new ImmutableList<>(
                 transactionHash0,
                 transactionHash1
             );

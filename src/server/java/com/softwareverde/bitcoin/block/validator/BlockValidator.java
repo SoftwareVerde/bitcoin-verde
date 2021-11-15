@@ -67,7 +67,7 @@ public class BlockValidator {
         { // Remove the coinbase transaction and create a lookup map for transaction outputs...
             final List<Transaction> fullTransactionList = block.getTransactions();
             final int transactionCount = (fullTransactionList.getCount() - 1);
-            final ImmutableArrayListBuilder<Transaction> listBuilder = new ImmutableArrayListBuilder<Transaction>(transactionCount);
+            final ImmutableArrayListBuilder<Transaction> listBuilder = new ImmutableArrayListBuilder<>(transactionCount);
             int transactionIndex = 0;
             for (final Transaction transaction : fullTransactionList) {
                 if (transactionIndex > 0) {
@@ -96,7 +96,7 @@ public class BlockValidator {
         }
 
         final SpentOutputsTracker spentOutputsTracker = new SpentOutputsTracker(blockOutputs.getOutputCount(), threadCount);
-        final ParalleledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult> totalExpenditureValidationTaskSpawner = new ParalleledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult>("Expenditures", threadPool);
+        final ParalleledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult> totalExpenditureValidationTaskSpawner = new ParalleledTaskSpawner<>("Expenditures", threadPool);
         totalExpenditureValidationTaskSpawner.setTaskHandlerFactory(new TaskHandlerFactory<Transaction, TotalExpenditureTaskHandler.ExpenditureResult>() {
             @Override
             public TaskHandler<Transaction, TotalExpenditureTaskHandler.ExpenditureResult> newInstance() {
@@ -105,7 +105,7 @@ public class BlockValidator {
         });
 
         final TransactionValidator transactionValidator = _context.getTransactionValidator(blockOutputs, _context);
-        final ParalleledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationTaskResult> transactionValidationTaskSpawner = new ParalleledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationTaskResult>("Validation", threadPool);
+        final ParalleledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationTaskResult> transactionValidationTaskSpawner = new ParalleledTaskSpawner<>("Validation", threadPool);
         transactionValidationTaskSpawner.setTaskHandlerFactory(new TaskHandlerFactory<Transaction, TransactionValidationTaskHandler.TransactionValidationTaskResult>() {
             @Override
             public TaskHandler<Transaction, TransactionValidationTaskHandler.TransactionValidationTaskResult> newInstance() {
@@ -202,7 +202,7 @@ public class BlockValidator {
         if (currentThread.isInterrupted()) { BlockValidationResult.invalid("Validation aborted."); } // Bail out if an abort occurred...
         if (transactionValidationTaskResults == null) { return BlockValidationResult.invalid("An internal error occurred during InputsValidatorTask."); }
 
-        final MutableList<Sha256Hash> invalidTransactions = new MutableList<Sha256Hash>();
+        final MutableList<Sha256Hash> invalidTransactions = new MutableList<>();
 
         final long totalTransactionFees;
         {

@@ -32,11 +32,11 @@ public class TransactionRelay {
 
     protected final Long _batchWindow;
     protected final Thread _batchThread;
-    protected final ConcurrentLinkedDeque<Transaction> _queuedTransactions = new ConcurrentLinkedDeque<Transaction>();
+    protected final ConcurrentLinkedDeque<Transaction> _queuedTransactions = new ConcurrentLinkedDeque<>();
 
     protected void _relayTransactions(final List<Transaction> transactions) {
-        final HashMap<NodeId, MutableList<Sha256Hash>> nodeUnseenTransactionHashes = new HashMap<NodeId, MutableList<Sha256Hash>>();
-        final MutableList<TransactionWithFee> transactionsToAnnounceViaRpc = new MutableList<TransactionWithFee>((_nodeRpcHandler != null) ? transactions.getCount() : 0);
+        final HashMap<NodeId, MutableList<Sha256Hash>> nodeUnseenTransactionHashes = new HashMap<>();
+        final MutableList<TransactionWithFee> transactionsToAnnounceViaRpc = new MutableList<>((_nodeRpcHandler != null) ? transactions.getCount() : 0);
 
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final FullNodeBitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
@@ -49,7 +49,7 @@ public class TransactionRelay {
             final List<NodeId> connectedNodes;
             {
                 final List<BitcoinNode> nodes = _bitcoinNodeManager.getNodes();
-                final ImmutableListBuilder<NodeId> nodeIdsBuilder = new ImmutableListBuilder<NodeId>(nodes.getCount());
+                final ImmutableListBuilder<NodeId> nodeIdsBuilder = new ImmutableListBuilder<>(nodes.getCount());
                 for (final BitcoinNode bitcoinNode : nodes) {
                     nodeIdsBuilder.add(bitcoinNode.getId());
                 }
@@ -83,7 +83,7 @@ public class TransactionRelay {
                     if (! bitcoinNode.matchesFilter(transaction)) { continue; }
 
                     if (! nodeUnseenTransactionHashes.containsKey(nodeId)) {
-                        nodeUnseenTransactionHashes.put(nodeId, new MutableList<Sha256Hash>());
+                        nodeUnseenTransactionHashes.put(nodeId, new MutableList<>());
                     }
 
                     final MutableList<Sha256Hash> transactionHashes = nodeUnseenTransactionHashes.get(nodeId);
@@ -117,7 +117,7 @@ public class TransactionRelay {
     }
 
     protected List<Transaction> _drainQueuedTransactions() {
-        final MutableList<Transaction> transactions = new MutableList<Transaction>();
+        final MutableList<Transaction> transactions = new MutableList<>();
         while (true) {
             final Transaction transaction = _queuedTransactions.pollFirst();
             if (transaction == null) { break; }

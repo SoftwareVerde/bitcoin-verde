@@ -84,7 +84,7 @@ public class HeadersBootstrapper {
                         final MutableByteArray buffer = new MutableByteArray(BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT);
 
                         final int batchSize = 4096;
-                        final MutableList<BlockHeader> batchedHeaders = new MutableList<BlockHeader>(batchSize);
+                        final MutableList<BlockHeader> batchedHeaders = new MutableList<>(batchSize);
 
                         final Thread currentThread = Thread.currentThread();
                         while ( (! _abortInit) && (! currentThread.isInterrupted()) ) {

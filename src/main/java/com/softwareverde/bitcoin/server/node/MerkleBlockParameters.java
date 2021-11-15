@@ -8,7 +8,7 @@ import com.softwareverde.util.Util;
 
 public class MerkleBlockParameters {
     protected final MerkleBlock _merkleBlock;
-    protected final MutableList<Transaction> _transactions = new MutableList<Transaction>();
+    protected final MutableList<Transaction> _transactions = new MutableList<>();
 
     public MerkleBlock getMerkleBlock() {
         return _merkleBlock;

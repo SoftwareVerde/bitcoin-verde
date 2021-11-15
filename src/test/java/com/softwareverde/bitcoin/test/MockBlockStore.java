@@ -15,8 +15,8 @@ import java.util.HashMap;
 public class MockBlockStore implements PendingBlockStore {
     protected final BlockInflaters _blockInflaters = new CoreInflater();
 
-    protected final HashMap<Sha256Hash, Block> _pendingBlocks = new HashMap<Sha256Hash, Block>();
-    protected final HashMap<Sha256Hash, Block> _blocks = new HashMap<Sha256Hash, Block>();
+    protected final HashMap<Sha256Hash, Block> _pendingBlocks = new HashMap<>();
+    protected final HashMap<Sha256Hash, Block> _blocks = new HashMap<>();
 
     public MockBlockStore() { }
 

@@ -11,10 +11,10 @@ import com.softwareverde.logging.Logger;
 import java.util.HashMap;
 
 public class FakeUnspentTransactionOutputContext implements UnspentTransactionOutputContext {
-    protected final HashMap<TransactionOutputIdentifier, TransactionOutput> _transactionOutputs = new HashMap<TransactionOutputIdentifier, TransactionOutput>();
-    protected final HashMap<TransactionOutputIdentifier, Boolean> _transactionCoinbaseStatuses = new HashMap<TransactionOutputIdentifier, Boolean>();
-    protected final HashMap<TransactionOutputIdentifier, Sha256Hash> _transactionBlockHashes = new HashMap<TransactionOutputIdentifier, Sha256Hash>();
-    protected final HashMap<TransactionOutputIdentifier, Long> _transactionBlockHeights = new HashMap<TransactionOutputIdentifier, Long>();
+    protected final HashMap<TransactionOutputIdentifier, TransactionOutput> _transactionOutputs = new HashMap<>();
+    protected final HashMap<TransactionOutputIdentifier, Boolean> _transactionCoinbaseStatuses = new HashMap<>();
+    protected final HashMap<TransactionOutputIdentifier, Sha256Hash> _transactionBlockHashes = new HashMap<>();
+    protected final HashMap<TransactionOutputIdentifier, Long> _transactionBlockHeights = new HashMap<>();
 
     @Override
     public TransactionOutput getTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {

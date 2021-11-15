@@ -16,7 +16,7 @@ import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.StringUtil;
 
 public class Value extends ImmutableByteArray implements Const {
-    public static Integer MAX_BYTE_COUNT = 520; // https://en.bitcoin.it/wiki/Script#Arithmetic
+    public static final Integer MAX_BYTE_COUNT = 520; // https://en.bitcoin.it/wiki/Script#Arithmetic
     public static final Value ZERO = Value.fromInteger(0L);
 
     /**
@@ -140,7 +140,7 @@ public class Value extends ImmutableByteArray implements Const {
             bigEndianBytes[0] &= (byte) 0x7F;
         }
 
-        final Integer value = ByteUtil.bytesToInteger(bigEndianBytes);
+        final int value = ByteUtil.bytesToInteger(bigEndianBytes);
         return (isNegative ? -value : value);
     }
 
@@ -155,7 +155,7 @@ public class Value extends ImmutableByteArray implements Const {
             bigEndianBytes[0] &= (byte) 0x7F;
         }
 
-        final Long value = ByteUtil.bytesToLong(bigEndianBytes);
+        final long value = ByteUtil.bytesToLong(bigEndianBytes);
         return (isNegative ? -value : value);
     }
 

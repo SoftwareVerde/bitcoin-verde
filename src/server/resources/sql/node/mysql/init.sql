@@ -288,7 +288,8 @@ CREATE TABLE indexed_transaction_outputs (
     transaction_id INT UNSIGNED NOT NULL,
     output_index INT UNSIGNED NOT NULL,
     amount BIGINT UNSIGNED NOT NULL,
-    address BINARY(20),
+    address BINARY(20) COMMENT "Unused; replaced with script_hash in order to facilitate electrum.",
+    script_hash BINARY(32),
     script_type_id INT UNSIGNED NOT NULL DEFAULT 1,
     slp_transaction_id INT UNSIGNED,
     memo_action_type BINARY(2),
@@ -297,7 +298,8 @@ CREATE TABLE indexed_transaction_outputs (
     INDEX indexed_transaction_outputs_addr_ix (address) USING BTREE,
     INDEX indexed_transaction_outputs_scripts_type_ix (script_type_id) USING BTREE,
     INDEX indexed_transaction_outputs_slp_tx_ix (slp_transaction_id) USING BTREE,
-    INDEX indexed_transaction_outputs_memo_identifier (memo_action_identifier) USING BTREE
+    INDEX indexed_transaction_outputs_memo_identifier (memo_action_identifier) USING BTREE,
+    INDEX indexed_transaction_outputs_script_hash (script_hash) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
 CREATE TABLE indexed_transaction_inputs (
@@ -335,4 +337,4 @@ CREATE TABLE properties (
     PRIMARY KEY (`key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
-INSERT INTO metadata (version, timestamp) VALUES (8, UNIX_TIMESTAMP());
+INSERT INTO metadata (version, timestamp) VALUES (9, UNIX_TIMESTAMP());

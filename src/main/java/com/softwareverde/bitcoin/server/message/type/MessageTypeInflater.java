@@ -8,7 +8,7 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 public class MessageTypeInflater {
     protected static final List<MessageType> MESSAGE_TYPES;
     static {
-        final ImmutableListBuilder<MessageType> messageTypes = new ImmutableListBuilder<MessageType>();
+        final ImmutableListBuilder<MessageType> messageTypes = new ImmutableListBuilder<>();
         messageTypes.add(MessageType.SYNCHRONIZE_VERSION);
         messageTypes.add(MessageType.ACKNOWLEDGE_VERSION);
         messageTypes.add(MessageType.PING);

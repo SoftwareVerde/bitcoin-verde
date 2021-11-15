@@ -36,7 +36,7 @@ public class RequestDataMessage extends BitcoinProtocolMessage {
         return new Tuple<>(inventoryItemType, bucketHash);
     }
 
-    protected final MutableList<InventoryItem> _inventoryItems = new MutableList<InventoryItem>();
+    protected final MutableList<InventoryItem> _inventoryItems = new MutableList<>();
 
     public RequestDataMessage() {
         super(MessageType.REQUEST_DATA);

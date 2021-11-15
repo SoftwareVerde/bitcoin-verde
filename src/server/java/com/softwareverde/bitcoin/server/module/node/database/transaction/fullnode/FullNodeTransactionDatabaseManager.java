@@ -35,6 +35,8 @@ public interface FullNodeTransactionDatabaseManager extends TransactionDatabaseM
     // "Select transactions that are unconfirmed that spent an output produced by any of these transactionIds..."
     List<TransactionId> getUnconfirmedTransactionsDependingOn(List<TransactionId> transactionIds) throws DatabaseException;
 
+    Boolean hasUnconfirmedInputs(TransactionId transactionId) throws DatabaseException;
+
     Integer getUnconfirmedTransactionCount() throws DatabaseException;
     Long calculateTransactionFee(Transaction transaction) throws DatabaseException;
 

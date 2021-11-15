@@ -6,7 +6,7 @@ import java.util.List;
 public class Stack {
     public static final Value OVERFLOW_VALUE = Value.fromInteger(0L);
 
-    protected final List<Value> _values = new LinkedList<Value>();
+    protected final List<Value> _values = new LinkedList<>();
     protected Boolean _didOverflow = false;
 
     protected Integer _maxItemCount = Integer.MAX_VALUE;
@@ -171,7 +171,7 @@ public class Stack {
 
         if (_altStack != null) {
             stringBuilder.append("-----");
-            stringBuilder.append(_altStack.toString());
+            stringBuilder.append(_altStack);
         }
 
         return stringBuilder.toString();

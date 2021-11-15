@@ -41,7 +41,7 @@ public class RequestSpvBlocksHandler implements BitcoinNode.RequestSpvBlocksHand
 
             final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
-            final HashSet<TransactionId> transactionIds = new HashSet<TransactionId>();
+            final HashSet<TransactionId> transactionIds = new HashSet<>();
             for (final Address address : addresses) {
                 final List<TransactionId> matchedTransactionIds = blockchainIndexerDatabaseManager.getTransactionIds(headBlockchainSegmentId, address, false);
                 for (final TransactionId transactionId : matchedTransactionIds) {
@@ -50,7 +50,7 @@ public class RequestSpvBlocksHandler implements BitcoinNode.RequestSpvBlocksHand
             }
             if (transactionIds.isEmpty()) { return; }
 
-            final HashSet<BlockId> blockIds = new HashSet<BlockId>(transactionIds.size());
+            final HashSet<BlockId> blockIds = new HashSet<>(transactionIds.size());
             for (final TransactionId transactionId : transactionIds) {
                 final BlockId blockId = transactionDatabaseManager.getBlockId(headBlockchainSegmentId, transactionId);
                 if (blockId == null) { continue; }

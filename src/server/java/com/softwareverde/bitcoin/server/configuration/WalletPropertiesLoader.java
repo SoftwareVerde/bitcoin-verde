@@ -5,7 +5,7 @@ import com.softwareverde.util.Util;
 import java.util.Properties;
 
 public class WalletPropertiesLoader {
-    public static WalletProperties loadWalletProperties(final Properties properties) {
+    public static WalletProperties loadProperties(final Properties properties) {
         final Integer port = Util.parseInt(properties.getProperty("wallet.port", String.valueOf(WalletProperties.PORT)));
         final String rootDirectory = properties.getProperty("wallet.rootDirectory", "wallet/www");
 

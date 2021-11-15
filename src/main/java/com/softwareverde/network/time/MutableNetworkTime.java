@@ -28,7 +28,7 @@ public class MutableNetworkTime implements NetworkTime, VolatileNetworkTime {
         _writeLock = readWriteLock.writeLock();
 
         _systemTime = systemTime;
-        _networkTimeOffsets  = new ArrayList<Long>(16);
+        _networkTimeOffsets  = new ArrayList<>(16);
 
         _networkTimeOffsets.add(0L);
     }

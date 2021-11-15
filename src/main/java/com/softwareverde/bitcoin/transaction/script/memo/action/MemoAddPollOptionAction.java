@@ -6,7 +6,7 @@ import com.softwareverde.json.Json;
 
 public class MemoAddPollOptionAction extends MemoTransactionHashAction {
     protected static final Integer OPTION_TEXT_MAX_BYTE_COUNT = 184;
-    protected String _optionText;
+    protected final String _optionText;
 
     @Override
     protected void _extendJson(final Json json) {

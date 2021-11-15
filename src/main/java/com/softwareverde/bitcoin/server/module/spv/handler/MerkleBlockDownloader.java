@@ -47,7 +47,7 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryAnnou
     protected final SystemTime _systemTime = new SystemTime();
     protected final SpvDatabaseManagerFactory _databaseManagerFactory;
     protected final Downloader _merkleBlockDownloader;
-    protected final ConcurrentLinkedQueue<Sha256Hash> _queuedBlockHashes = new ConcurrentLinkedQueue<Sha256Hash>();
+    protected final ConcurrentLinkedQueue<Sha256Hash> _queuedBlockHashes = new ConcurrentLinkedQueue<>();
     protected final AtomicBoolean _blockIsInFlight = new AtomicBoolean(false);
 
     protected final RequestBabysitter _requestBabysitter = new RequestBabysitter();
@@ -59,7 +59,7 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryAnnou
     protected final AtomicBoolean _isPaused = new AtomicBoolean(true);
 
     protected final BitcoinNode.DownloadMerkleBlockCallback _onMerkleBlockDownloaded = new BitcoinNode.DownloadMerkleBlockCallback() {
-        private final ConcurrentHashMap<Sha256Hash, ConcurrentLinkedDeque<Long>> _failedDownloadTimes = new ConcurrentHashMap<Sha256Hash, ConcurrentLinkedDeque<Long>>();
+        private final ConcurrentHashMap<Sha256Hash, ConcurrentLinkedDeque<Long>> _failedDownloadTimes = new ConcurrentHashMap<>();
 
         protected synchronized Boolean _processMerkleBlock(final MerkleBlockParameters merkleBlockParameters) {
             if (merkleBlockParameters == null) { return false; }
@@ -138,7 +138,7 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryAnnou
             final Long now = _systemTime.getCurrentTimeInMilliSeconds();
             ConcurrentLinkedDeque<Long> failedDownloadTimestamps = _failedDownloadTimes.get(merkleBlockHash);
             if (failedDownloadTimestamps == null) {
-                failedDownloadTimestamps = new ConcurrentLinkedDeque<Long>();
+                failedDownloadTimestamps = new ConcurrentLinkedDeque<>();
                 _failedDownloadTimes.put(merkleBlockHash, failedDownloadTimestamps);
             }
             failedDownloadTimestamps.add(now);

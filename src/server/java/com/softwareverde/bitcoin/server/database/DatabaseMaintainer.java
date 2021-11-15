@@ -12,7 +12,7 @@ public class DatabaseMaintainer {
 
     protected static final List<String> TABLES;
     static {
-        final ImmutableListBuilder<String> listBuilder = new ImmutableListBuilder<String>();
+        final ImmutableListBuilder<String> listBuilder = new ImmutableListBuilder<>();
         listBuilder.add("block_transactions");
         listBuilder.add("blockchain_segments");
         listBuilder.add("blocks");

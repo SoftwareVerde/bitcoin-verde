@@ -340,7 +340,7 @@ public class BlockHeaderDownloader extends SleepyService {
         final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
 
         try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-            final MutableList<Sha256Hash> invalidBlockHashes = new MutableList<Sha256Hash>(0);
+            final MutableList<Sha256Hash> invalidBlockHashes = new MutableList<>(0);
             final Boolean headersAreValid = _validateAndStoreBlockHeaders(blockHeaders, databaseManager, invalidBlockHashes);
             if (! headersAreValid) {
                 final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();

@@ -43,16 +43,16 @@ public class ConfigurationTests {
         Assert.assertEquals(new ImmutableList<String>(), PropertiesUtil.parseStringArrayProperty("empty_array", null, properties));
         Assert.assertEquals(new ImmutableList<String>(), PropertiesUtil.parseStringArrayProperty("value_with_bracket", null, properties));
 
-        Assert.assertEquals(new ImmutableList<String>( "value" ),                       PropertiesUtil.parseStringArrayProperty("single_value", null, properties));
-        Assert.assertEquals(new ImmutableList<String>( "va[ue" ),                       PropertiesUtil.parseStringArrayProperty("quoted_value_with_bracket", null, properties));
-        Assert.assertEquals(new ImmutableList<String>( "" ),                            PropertiesUtil.parseStringArrayProperty("empty_comma", null, properties));
-        Assert.assertEquals(new ImmutableList<String>( "", "" ),                        PropertiesUtil.parseStringArrayProperty("empty_two_commas", null, properties));
-        Assert.assertEquals(new ImmutableList<String>( "single value with spaces" ),    PropertiesUtil.parseStringArrayProperty("single_value_with_spaces", null, properties));
-        Assert.assertEquals(new ImmutableList<String>( "value one", "value two" ),      PropertiesUtil.parseStringArrayProperty("two_values_without_brackets", null, properties));
-        Assert.assertEquals(new ImmutableList<String>( "value one", "value two" ),      PropertiesUtil.parseStringArrayProperty("two_values_with_brackets", null, properties));
-        Assert.assertEquals(new ImmutableList<String>( "value one", "value two" ),      PropertiesUtil.parseStringArrayProperty("two_values_with_quotes", null, properties));
-        Assert.assertEquals(new ImmutableList<String>( "value one" ),                   PropertiesUtil.parseStringArrayProperty("value_with_brackets", null, properties));
-        Assert.assertEquals(new ImmutableList<String>( "value one]" ),                  PropertiesUtil.parseStringArrayProperty("value_with_bracket_as_value", null, properties));
-        Assert.assertEquals(new ImmutableList<String>( "1", "3", "4", "", "6" ),        PropertiesUtil.parseStringArrayProperty("some_missing_values_with_brackets", null, properties));
+        Assert.assertEquals(new ImmutableList<>("value"),                       PropertiesUtil.parseStringArrayProperty("single_value", null, properties));
+        Assert.assertEquals(new ImmutableList<>("va[ue"),                       PropertiesUtil.parseStringArrayProperty("quoted_value_with_bracket", null, properties));
+        Assert.assertEquals(new ImmutableList<>(""),                            PropertiesUtil.parseStringArrayProperty("empty_comma", null, properties));
+        Assert.assertEquals(new ImmutableList<>("", ""),                        PropertiesUtil.parseStringArrayProperty("empty_two_commas", null, properties));
+        Assert.assertEquals(new ImmutableList<>("single value with spaces"),    PropertiesUtil.parseStringArrayProperty("single_value_with_spaces", null, properties));
+        Assert.assertEquals(new ImmutableList<>("value one", "value two"),      PropertiesUtil.parseStringArrayProperty("two_values_without_brackets", null, properties));
+        Assert.assertEquals(new ImmutableList<>("value one", "value two"),      PropertiesUtil.parseStringArrayProperty("two_values_with_brackets", null, properties));
+        Assert.assertEquals(new ImmutableList<>("value one", "value two"),      PropertiesUtil.parseStringArrayProperty("two_values_with_quotes", null, properties));
+        Assert.assertEquals(new ImmutableList<>("value one"),                   PropertiesUtil.parseStringArrayProperty("value_with_brackets", null, properties));
+        Assert.assertEquals(new ImmutableList<>("value one]"),                  PropertiesUtil.parseStringArrayProperty("value_with_bracket_as_value", null, properties));
+        Assert.assertEquals(new ImmutableList<>("1", "3", "4", "", "6"),        PropertiesUtil.parseStringArrayProperty("some_missing_values_with_brackets", null, properties));
     }
 }

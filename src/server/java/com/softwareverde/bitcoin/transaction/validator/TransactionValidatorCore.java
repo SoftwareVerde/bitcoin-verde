@@ -297,7 +297,7 @@ public class TransactionValidatorCore implements TransactionValidator {
             }
 
             final int transactionInputCount = transactionInputs.getCount();
-            final HashSet<TransactionOutputIdentifier> spentOutputIdentifiers = new HashSet<TransactionOutputIdentifier>(transactionInputCount);
+            final HashSet<TransactionOutputIdentifier> spentOutputIdentifiers = new HashSet<>(transactionInputCount);
 
             for (int i = 0; i < transactionInputCount; ++i) {
                 transactionContext.setTransactionOutputBeingSpent(null); // Clear the TransactionOutput being spent for sane logging of an error before the utxo has been retrieved.

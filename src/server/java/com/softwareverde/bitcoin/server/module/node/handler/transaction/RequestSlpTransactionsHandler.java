@@ -30,7 +30,7 @@ public class RequestSlpTransactionsHandler implements BitcoinNode.RequestSlpTran
     @Override
     public void run(final BitcoinNode bitcoinNode, final List<Sha256Hash> transactionHashes) {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final MutableList<Sha256Hash> validatedTransactionHashes = new MutableList<Sha256Hash>(transactionHashes.getCount());
+            final MutableList<Sha256Hash> validatedTransactionHashes = new MutableList<>(transactionHashes.getCount());
             for (final Sha256Hash transactionHash : transactionHashes) {
                 final Boolean isValid = _getSlpStatus(databaseManager, transactionHash);
                 if (isValid != null) {

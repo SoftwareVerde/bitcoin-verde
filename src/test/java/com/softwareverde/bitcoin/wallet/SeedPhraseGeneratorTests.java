@@ -20,7 +20,7 @@ public class SeedPhraseGeneratorTests extends UnitTest {
     @BeforeClass
     public static void beforeClass() throws IOException {
         final String seedWords = IoUtil.getResource("/seed_words/seed_words_english.txt");
-        final ImmutableListBuilder<String> seedWordsBuilder = new ImmutableListBuilder<String>(2048);
+        final ImmutableListBuilder<String> seedWordsBuilder = new ImmutableListBuilder<>(2048);
         for (final String seedWord : seedWords.split("\n")) {
             seedWordsBuilder.add(seedWord.trim());
         }

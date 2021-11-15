@@ -81,7 +81,7 @@ import java.util.Map;
 
 public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory<BitcoinProtocolMessage> {
     protected final BitcoinProtocolMessageHeaderInflater _protocolMessageHeaderParser;
-    protected final Map<MessageType, BitcoinProtocolMessageInflater> _commandInflaterMap = new HashMap<MessageType, BitcoinProtocolMessageInflater>();
+    protected final Map<MessageType, BitcoinProtocolMessageInflater> _commandInflaterMap = new HashMap<>();
 
     protected final MasterInflater _masterInflater;
 

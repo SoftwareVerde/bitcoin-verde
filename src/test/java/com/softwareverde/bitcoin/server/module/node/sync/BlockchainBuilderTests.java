@@ -110,7 +110,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
 
         @Override
         public List<BitcoinNode> getNodes() {
-            return new MutableList<BitcoinNode>(0);
+            return new MutableList<>(0);
         }
     }
 
@@ -309,7 +309,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
         final Block[] mainChainBlocks;
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             final BlockInflater blockInflater = _masterInflater.getBlockInflater();
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();;
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
             int blockHeight = 0;
             mainChainBlocks = new Block[5];

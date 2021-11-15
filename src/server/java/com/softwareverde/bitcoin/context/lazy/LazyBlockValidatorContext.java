@@ -46,10 +46,10 @@ public class LazyBlockValidatorContext implements BlockValidator.Context {
     protected final AsertReferenceBlockLoader _asertReferenceBlockLoader;
     protected final DifficultyCalculatorFactory _difficultyCalculatorFactory;
 
-    protected final HashMap<Long, BlockId> _blockIds = new HashMap<Long, BlockId>();
-    protected final HashMap<Long, BlockHeader> _blockHeaders = new HashMap<Long, BlockHeader>();
-    protected final HashMap<Long, ChainWork> _chainWorks = new HashMap<Long, ChainWork>();
-    protected final HashMap<Long, MedianBlockTime> _medianBlockTimes = new HashMap<Long, MedianBlockTime>();
+    protected final HashMap<Long, BlockId> _blockIds = new HashMap<>();
+    protected final HashMap<Long, BlockHeader> _blockHeaders = new HashMap<>();
+    protected final HashMap<Long, ChainWork> _chainWorks = new HashMap<>();
+    protected final HashMap<Long, MedianBlockTime> _medianBlockTimes = new HashMap<>();
 
     protected BlockId _getBlockId(final Long blockHeight) throws DatabaseException {
         { // Check for a cached BlockId...

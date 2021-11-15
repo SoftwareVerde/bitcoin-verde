@@ -19,7 +19,7 @@ public class ThinBlockAssembler {
     }
 
     public AssembleThinBlockResult assembleThinBlock(final BlockHeader blockHeader, final List<Sha256Hash> transactionHashes, final List<Transaction> extraTransactions) {
-        final HashMap<Sha256Hash, Transaction> mappedTransactions = new HashMap<Sha256Hash, Transaction>();
+        final HashMap<Sha256Hash, Transaction> mappedTransactions = new HashMap<>();
         for (final Transaction transaction : extraTransactions) {
             final Sha256Hash transactionHash = transaction.getHash();
             mappedTransactions.put(transactionHash, transaction);

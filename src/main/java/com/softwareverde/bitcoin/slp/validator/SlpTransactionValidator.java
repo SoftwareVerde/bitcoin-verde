@@ -40,7 +40,7 @@ public class SlpTransactionValidator {
     }
 
     protected Map<Sha256Hash, Transaction> _getTransactions(final List<TransactionInput> transactionInputs, final Boolean allowUnconfirmedTransactions) {
-        final ImmutableListBuilder<Sha256Hash> transactionHashes = new ImmutableListBuilder<Sha256Hash>(transactionInputs.getCount());
+        final ImmutableListBuilder<Sha256Hash> transactionHashes = new ImmutableListBuilder<>(transactionInputs.getCount());
         for (final TransactionInput transactionInput : transactionInputs) {
             final Sha256Hash transactionHash = transactionInput.getPreviousOutputTransactionHash();
             transactionHashes.add(transactionHash);
@@ -164,7 +164,7 @@ public class SlpTransactionValidator {
         final Map<Sha256Hash, Transaction> previousTransactions = _getTransactions(transactionInputs, _allowUnconfirmedTransactions);
         if (previousTransactions == null) { return false; }
 
-        final HashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new HashMap<SlpScriptType, MutableList<Transaction>>();
+        final HashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new HashMap<>();
 
         boolean hasBaton = false;
 
@@ -255,7 +255,7 @@ public class SlpTransactionValidator {
 
                     final Boolean isValid;
                     {
-                        final HashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new HashMap<SlpScriptType, MutableList<Transaction>>();
+                        final HashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new HashMap<>();
                         ConstUtil.addToListMap(SlpScriptType.GENESIS, previousTransaction, recursiveTransactionsToValidate);
                         isValid = _validateRecursiveTransactions(recursiveTransactionsToValidate, (recursionDepth + 1));
                         recursiveTransactionsToValidate.clear();
@@ -273,7 +273,7 @@ public class SlpTransactionValidator {
                 if (Util.areEqual(previousTransactionOutputIndex, SlpMintScript.RECEIVER_TRANSACTION_OUTPUT_INDEX)) {
                     final Boolean isValid;
                     {
-                        final HashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new HashMap<SlpScriptType, MutableList<Transaction>>();
+                        final HashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new HashMap<>();
                         ConstUtil.addToListMap(SlpScriptType.MINT, previousTransaction, recursiveTransactionsToValidate);
                         isValid = _validateRecursiveTransactions(recursiveTransactionsToValidate, (recursionDepth + 1));
                         recursiveTransactionsToValidate.clear();
@@ -290,7 +290,7 @@ public class SlpTransactionValidator {
 
                 final Boolean isValid;
                 {
-                    final HashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new HashMap<SlpScriptType, MutableList<Transaction>>();
+                    final HashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new HashMap<>();
                     ConstUtil.addToListMap(SlpScriptType.SEND, previousTransaction, recursiveTransactionsToValidate);
                     isValid = _validateRecursiveTransactions(recursiveTransactionsToValidate, (recursionDepth + 1));
                     recursiveTransactionsToValidate.clear();

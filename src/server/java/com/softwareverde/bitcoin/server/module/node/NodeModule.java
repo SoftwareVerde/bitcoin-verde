@@ -13,6 +13,7 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentMetadata;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorFactory;
+import com.softwareverde.bitcoin.context.IndexerCache;
 import com.softwareverde.bitcoin.context.TransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.context.core.BlockHeaderDownloaderContext;
@@ -550,7 +551,7 @@ public class NodeModule {
                 @Override
                 public List<BitcoinNodeIpAddress> getConnectedPeers() {
                     final List<BitcoinNode> connectedNodes = _bitcoinNodeManager.getNodes();
-                    final ImmutableListBuilder<BitcoinNodeIpAddress> nodeIpAddresses = new ImmutableListBuilder<BitcoinNodeIpAddress>(connectedNodes.getCount());
+                    final ImmutableListBuilder<BitcoinNodeIpAddress> nodeIpAddresses = new ImmutableListBuilder<>(connectedNodes.getCount());
                     for (final BitcoinNode bitcoinNode : connectedNodes) {
                         final BitcoinNodeIpAddress bitcoinNodeIpAddress = bitcoinNode.getRemoteNodeIpAddress();
                         nodeIpAddresses.add(bitcoinNodeIpAddress);
@@ -779,7 +780,8 @@ public class NodeModule {
             _slpTransactionProcessor = new SlpTransactionProcessor(databaseManagerFactory);
 
             final Integer threadCount = bitcoinProperties.getMaxThreadCount();
-            final TransactionOutputIndexerContext transactionOutputIndexerContext = new LazyTransactionOutputIndexerContext(databaseManagerFactory);
+            final IndexerCache indexerCache = new IndexerCache(64);
+            final TransactionOutputIndexerContext transactionOutputIndexerContext = new LazyTransactionOutputIndexerContext(databaseManagerFactory, indexerCache);
             _blockchainIndexer = new BlockchainIndexer(transactionOutputIndexerContext, threadCount);
             _blockchainIndexer.setOnSleepCallback(new Runnable() {
                 @Override
@@ -828,11 +830,11 @@ public class NodeModule {
                             }
 
                             { // Broadcast new Block...
-                                final HashMap<NodeId, BitcoinNode> bitcoinNodeMap = new HashMap<NodeId, BitcoinNode>();
+                                final HashMap<NodeId, BitcoinNode> bitcoinNodeMap = new HashMap<>();
                                 final List<NodeId> connectedNodeIds;
                                 {
                                     final List<BitcoinNode> connectedNodes = _bitcoinNodeManager.getNodes();
-                                    final ImmutableListBuilder<NodeId> nodeIdsBuilder = new ImmutableListBuilder<NodeId>(connectedNodes.getCount());
+                                    final ImmutableListBuilder<NodeId> nodeIdsBuilder = new ImmutableListBuilder<>(connectedNodes.getCount());
                                     for (final BitcoinNode bitcoinNode : connectedNodes) {
                                         final NodeId nodeId = bitcoinNode.getId();
                                         nodeIdsBuilder.add(nodeId);
@@ -850,7 +852,7 @@ public class NodeModule {
                                         bitcoinNode.transmitBlockHeader(block);
                                     }
                                     else {
-                                        bitcoinNode.transmitBlockHashes(new ImmutableList<Sha256Hash>(blockHash));
+                                        bitcoinNode.transmitBlockHashes(new ImmutableList<>(blockHash));
                                     }
                                 }
                             }
@@ -914,7 +916,7 @@ public class NodeModule {
                 @Override
                 public void onNewHeadersReceived(final BitcoinNode bitcoinNode, final List<BlockHeader> blockHeaders) {
                     {
-                        final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>(blockHeaders.getCount());
+                        final MutableList<Sha256Hash> blockHashes = new MutableList<>(blockHeaders.getCount());
                         for (final BlockHeader blockHeader : blockHeaders) {
                             final Sha256Hash blockHash = blockHeader.getHash();
                             blockHashes.add(blockHash);
@@ -1041,12 +1043,12 @@ public class NodeModule {
 
                 final Boolean isBanned = _banFilter.isIpBanned(ip);
                 if (isBanned) {
-                    Logger.trace("Ignoring Banned Connection: " + binarySocket.toString());
+                    Logger.trace("Ignoring Banned Connection: " + binarySocket);
                     binarySocket.close();
                     return;
                 }
 
-                Logger.debug("New Connection: " + binarySocket.toString());
+                Logger.debug("New Connection: " + binarySocket);
                 _banFilter.onNodeConnected(ip);
 
                 final BitcoinNode bitcoinNode = _bitcoinNodeFactory.newNode(binarySocket);

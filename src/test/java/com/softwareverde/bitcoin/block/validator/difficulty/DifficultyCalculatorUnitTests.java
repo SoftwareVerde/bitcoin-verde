@@ -61,7 +61,7 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
         final BlockHeader blockHeader_587198 = blockHeaderInflater.fromBytes(ByteArray.fromHexString("00E0FF3FEA3DA6788DDDFB4BC584A6F342CE5AB6C4C67DDB4319860100000000000000003FB1703177952BCFA51D4AD1A099FE56D5E681266BDF4DAE12941DE9AC685AF3F871055D144703183F87E206"));
         final BlockHeader blockHeader_587199 = blockHeaderInflater.fromBytes(ByteArray.fromHexString("000000208D950B2E905F563F7DD5B268218FC71A5650BCB6A06EB601000000000000000062FAE64FAFFBCE8F47250501AF1C9DEF00585B4668DA8A0B2E635DFC02A5B2CA2972055D0D41031882224C0B"));
 
-        final HashMap<Sha256Hash, Long> blockHeights = new HashMap<Sha256Hash, Long>(3);
+        final HashMap<Sha256Hash, Long> blockHeights = new HashMap<>(3);
         blockHeights.put(blockHeader_587196.getHash(), 587196L);
         blockHeights.put(blockHeader_587197.getHash(), 587197L);
         blockHeights.put(blockHeader_587198.getHash(), 587198L);
@@ -186,9 +186,9 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
         // Setup
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
-        final HashMap<Long, BlockHeader> blockHeaders = new HashMap<Long, BlockHeader>();
-        final HashMap<Long, ChainWork> chainWorks = new HashMap<Long, ChainWork>();
-        final HashMap<Long, MedianBlockTime> medianBlockTimes = new HashMap<Long, MedianBlockTime>();
+        final HashMap<Long, BlockHeader> blockHeaders = new HashMap<>();
+        final HashMap<Long, ChainWork> chainWorks = new HashMap<>();
+        final HashMap<Long, MedianBlockTime> medianBlockTimes = new HashMap<>();
 
         {
             final Long blockHeight = 587051L;

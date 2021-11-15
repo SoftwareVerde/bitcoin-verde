@@ -17,19 +17,19 @@ public class PartialMerkleTreeInflater {
 
         final Integer transactionCount = byteArrayReader.readInteger(4, Endian.LITTLE);
 
-        final Integer hashesCount = byteArrayReader.readVariableLengthInteger().intValue();
+        final int hashesCount = byteArrayReader.readVariableLengthInteger().intValue();
         if (hashesCount > MAX_HASHES_COUNT) {
             Logger.debug("MerkleBlock exceeded maximum hashes count: " + hashesCount);
             return null;
         }
 
-        final ImmutableListBuilder<Sha256Hash> hashesBuilder = new ImmutableListBuilder<Sha256Hash>(hashesCount);
+        final ImmutableListBuilder<Sha256Hash> hashesBuilder = new ImmutableListBuilder<>(hashesCount);
         for (int i = 0; i < hashesCount; ++i) {
             final Sha256Hash hash = MutableSha256Hash.wrap(byteArrayReader.readBytes(Sha256Hash.BYTE_COUNT, Endian.LITTLE));
             hashesBuilder.add(hash);
         }
 
-        final Integer flagsByteCount = byteArrayReader.readVariableLengthInteger().intValue();
+        final int flagsByteCount = byteArrayReader.readVariableLengthInteger().intValue();
         if (flagsByteCount > MAX_HASHES_COUNT) {
             Logger.debug("MerkleBlock exceeded maximum flag-bytes count: " + flagsByteCount);
             return null;

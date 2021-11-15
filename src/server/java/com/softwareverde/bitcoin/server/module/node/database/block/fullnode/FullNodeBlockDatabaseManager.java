@@ -87,7 +87,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         long diskOffset = BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT;
         diskOffset += ByteUtil.variableLengthIntegerToBytes(transactions.getCount()).length;
 
-        final MutableList<Long> diskOffsets = new MutableList<Long>(transactions.getCount());
+        final MutableList<Long> diskOffsets = new MutableList<>(transactions.getCount());
         for (final Transaction transaction : transactions) {
             diskOffsets.add(diskOffset);
             diskOffset += transaction.getByteCount();
@@ -143,7 +143,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
                 .setParameter(blockId)
         );
 
-        final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());
+        final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<>(rows.size());
         for (final Row row : rows) {
             final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
             listBuilder.add(transactionId);
@@ -347,6 +347,19 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
     @Override
     public List<TransactionId> getTransactionIds(final BlockId blockId) throws DatabaseException {
         return _getTransactionIds(blockId);
+    }
+
+    public Integer getTransactionIndex(final BlockId blockId, final TransactionId transactionId) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT `index` FROM block_transactions WHERE block_id = ? AND transaction_id = ?")
+                .setParameter(blockId)
+                .setParameter(transactionId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return row.getInteger("index");
     }
 
     /**

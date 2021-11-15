@@ -59,7 +59,8 @@ public class DifficultyCalculatorTests extends IntegrationTest {
                 return MedianBlockTime.fromSeconds(MedianBlockTime.GENESIS_BLOCK_TIMESTAMP);
             }
         }
-    };
+    }
+
     protected BlockHeader[] _initBlocks(final Long stopBeforeBlockHeight, final DatabaseManager databaseManager) throws DatabaseException {
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();

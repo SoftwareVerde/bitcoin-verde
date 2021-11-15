@@ -63,7 +63,7 @@ public class BlockchainBuilder extends GracefulSleepyService {
     protected NewBlockProcessedCallback _synchronousNewBlockProcessedCallback;
     protected UnavailableBlockCallback _unavailableBlockCallback;
 
-    protected final CircleBuffer<Long> _blockProcessingTimes = new CircleBuffer<Long>(100);
+    protected final CircleBuffer<Long> _blockProcessingTimes = new CircleBuffer<>(100);
     protected Float _averageBlocksPerSecond = 0F;
 
     protected void _checkUtxoSet(final FullNodeDatabaseManager databaseManager) throws DatabaseException {

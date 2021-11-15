@@ -15,6 +15,7 @@ import com.softwareverde.bitcoin.block.validator.ValidationResult;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
+import com.softwareverde.bitcoin.server.message.type.query.header.RequestBlockHeadersMessage;
 import com.softwareverde.bitcoin.server.module.node.rpc.blockchain.BlockchainMetadata;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.request.UnfulfilledPublicKeyRequest;
@@ -84,8 +85,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     }
 
     public interface QueryAddressHandler {
-        Long getBalance(Address address);
+        Long getBalance(Address address, Boolean includeUnconfirmedTransactions);
+        Long getBalance(Sha256Hash scriptHash, Boolean includeUnconfirmedTransactions);
         List<Transaction> getAddressTransactions(Address address);
+        List<Transaction> getAddressTransactions(Sha256Hash scriptHash);
     }
 
     public interface ThreadPoolInquisitor {
@@ -112,6 +115,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     }
 
     public interface DataHandler {
+        enum Direction {
+            BEFORE, AFTER
+        }
+
         Long getBlockHeaderHeight();
         Long getBlockHeight();
 
@@ -121,8 +128,9 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         BlockHeader getBlockHeader(Long blockHeight);
         BlockHeader getBlockHeader(Sha256Hash blockHash);
+        Boolean isBlockOrphaned(Sha256Hash blockHash);
 
-        Long getBlockHeaderHeight(final Sha256Hash blockHash);
+        Long getBlockHeaderHeight(Sha256Hash blockHash);
 
         Block getBlock(Long blockHeight);
         Block getBlock(Sha256Hash blockHash);
@@ -130,9 +138,12 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         List<Transaction> getBlockTransactions(Long blockHeight, Integer pageSize, Integer pageNumber);
         List<Transaction> getBlockTransactions(Sha256Hash blockHash, Integer pageSize, Integer pageNumber);
 
-        List<BlockHeader> getBlockHeaders(Long nullableBlockHeight, Integer maxBlockCount);
+        List<BlockHeader> getBlockHeaders(Long nullableBlockHeight, Integer maxBlockCount, Direction blockHeaderDirection);
 
         Transaction getTransaction(Sha256Hash transactionHash);
+        Sha256Hash getTransactionBlockHash(Sha256Hash transactionHash);
+        Integer getTransactionBlockIndex(Sha256Hash transactionHash);
+        Boolean hasUnconfirmedInputs(Sha256Hash transactionHash);
 
         Difficulty getDifficulty();
         List<Transaction> getUnconfirmedTransactions();
@@ -230,6 +241,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         }
     }
 
+    protected static class JsonConnectionProperties {
+        public volatile boolean keepAliveIsEnabled = false;
+    }
+
     protected final MasterInflater _masterInflater;
     protected final ThreadPool _threadPool;
 
@@ -295,7 +310,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     }
 
     // Requires GET: [blockHeight], [maxBlockCount=10], [rawFormat=0]
-    protected void _getBlockHeaders(final Json parameters, final Json response) {
+    protected void _getBlockHeaders(final Json parameters, final Json response, final DataHandler.Direction direction) {
 
         final Long startingBlockHeight;
         {
@@ -310,17 +325,11 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         }
 
         final int defaultMaxBlockCount = 10;
-        final int maxMaxBlockCount = 1024;
+        final int maxMaxBlockCount = RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT;
         final int maxBlockCount;
-        final String paramMaxBlockCountString = parameters.getString("maxBlockCount");
-        if ( parameters.hasKey("maxBlockCount") && Util.isInt(paramMaxBlockCountString) ) {
-            final Integer paramMaxBlockCount = Util.parseInt(paramMaxBlockCountString);
-            if (paramMaxBlockCount < 0) {
-                maxBlockCount = maxMaxBlockCount;
-            }
-            else {
-                maxBlockCount = Math.min(paramMaxBlockCount, maxMaxBlockCount);
-            }
+        final Integer paramMaxBlockCount = parameters.getOrNull("maxBlockCount", Json.Types.INTEGER);
+        if (paramMaxBlockCount != null) {
+            maxBlockCount = Math.min(paramMaxBlockCount, maxMaxBlockCount);
         }
         else {
             maxBlockCount = defaultMaxBlockCount;
@@ -332,7 +341,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         final DataHandler dataHandler = _dataHandler;
         if (dataHandler != null) {
-            final List<BlockHeader> blockHeaders = dataHandler.getBlockHeaders(startingBlockHeight, maxBlockCount);
+            final List<BlockHeader> blockHeaders = dataHandler.getBlockHeaders(startingBlockHeight, maxBlockCount, direction);
             if (blockHeaders == null) {
                 response.put(WAS_SUCCESS_KEY, 0);
                 response.put(ERROR_MESSAGE_KEY, "Error loading BlockHeaders.");
@@ -729,7 +738,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         response.put(ERROR_MESSAGE_KEY, "Missing parameter. Required: hash | transactionOutputIdentifier | transactionHash");
     }
 
-    // Requires GET:
+    // Requires GET: [hash|transactionHash]
     protected void _queryBlockHeight(final Json parameters, final Json response) {
         final DataHandler dataHandler = _dataHandler;
         if (dataHandler == null) {
@@ -741,8 +750,26 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             final String blockHashString = parameters.getString("hash");
             final Sha256Hash blockHash = Sha256Hash.fromHexString(blockHashString);
             final Long blockHeaderHeight = dataHandler.getBlockHeaderHeight(blockHash);
+            final Boolean isOrphan = dataHandler.isBlockOrphaned(blockHash);
 
-            response.put("blockHeaderHeight", blockHeaderHeight);
+            response.put("blockHeight", blockHeaderHeight);
+            response.put("isOrphan", isOrphan);
+            response.put(WAS_SUCCESS_KEY, 1);
+        }
+        else if (parameters.hasKey("transactionHash")) {
+            final String transactionHashString = parameters.getString("transactionHash");
+            final Sha256Hash transactionHash = Sha256Hash.fromHexString(transactionHashString);
+            final Sha256Hash blockHash = dataHandler.getTransactionBlockHash(transactionHash);
+            final Long blockHeight = dataHandler.getBlockHeaderHeight(blockHash);
+            final Integer transactionIndex = dataHandler.getTransactionBlockIndex(transactionHash);
+            final Boolean hasUnconfirmedInputs = dataHandler.hasUnconfirmedInputs(transactionHash);
+            final Boolean isOrphan = dataHandler.isBlockOrphaned(blockHash);
+
+            response.put("blockHash", blockHash);
+            response.put("blockHeight", blockHeight);
+            response.put("transactionIndex", transactionIndex);
+            response.put("hasUnconfirmedInputs", hasUnconfirmedInputs);
+            response.put("isOrphan", isOrphan);
             response.put(WAS_SUCCESS_KEY, 1);
         }
         else {
@@ -751,6 +778,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
             response.put("blockHeight", blockHeight);
             response.put("blockHeaderHeight", blockHeaderHeight);
+            response.put("isOrphan", false);
             response.put(WAS_SUCCESS_KEY, 1);
         }
     }
@@ -1021,7 +1049,8 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             return;
         }
 
-        final Long balance = queryAddressHandler.getBalance(address);
+        final Long balance = queryAddressHandler.getBalance(address, true);
+        final Long confirmedBalance = queryAddressHandler.getBalance(address, false);
 
         if (balance == null) {
             response.put(ERROR_MESSAGE_KEY, "Unable to determine balance.");
@@ -1034,11 +1063,12 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         response.put("address", addressJson);
         response.put("balance", balance);
+        response.put("confirmedBalance", balance);
 
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
-    // Requires GET: <address>
+    // Requires GET: <address|scriptHash>
     protected void _queryAddressTransactions(final Json parameters, final Json response) {
         final QueryAddressHandler queryAddressHandler = _queryAddressHandler;
         if (queryAddressHandler == null) {
@@ -1046,39 +1076,57 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             return;
         }
 
-        if (! parameters.hasKey("address")) {
-            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: address");
+        if ( (! parameters.hasKey("address")) && (! parameters.hasKey("scriptHash")) ) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: address or scriptHash");
             return;
         }
 
         final boolean rawFormat = (parameters.hasKey("rawFormat") ? parameters.getBoolean("rawFormat") : false);
 
-        final String addressString = parameters.getString("address");
-        final AddressInflater addressInflater = _masterInflater.getAddressInflater();
-        final Address address;
-        {
-            final Address base58Address = addressInflater.fromBase58Check(addressString);
-            final Address base32Address = addressInflater.fromBase32Check(addressString);
-            address = Util.coalesce(base58Address, base32Address);
-        }
+        final Json addressJson = new Json(false);
+        final List<Transaction> addressTransactions;
+        final Long balance;
+        final Long confirmedBalance;
+        if (parameters.hasKey("address")) {
+            final String addressString = parameters.getString("address");
+            final Address address;
+            {
+                final AddressInflater addressInflater = _masterInflater.getAddressInflater();
+                final Address base58Address = addressInflater.fromBase58Check(addressString);
+                final Address base32Address = addressInflater.fromBase32Check(addressString);
+                address = Util.coalesce(base58Address, base32Address);
+            }
 
-        if (address == null) {
-            response.put(ERROR_MESSAGE_KEY, "Invalid address: " + addressString);
-            return;
-        }
+            if (address == null) {
+                response.put(ERROR_MESSAGE_KEY, "Invalid address: " + addressString);
+                return;
+            }
 
-        final List<Transaction> addressTransactions = queryAddressHandler.getAddressTransactions(address);
+            addressTransactions = queryAddressHandler.getAddressTransactions(address);
+            balance = queryAddressHandler.getBalance(address, true);
+            confirmedBalance = queryAddressHandler.getBalance(address, false);
+            addressJson.put("base32CheckEncoded", address.toBase32CheckEncoded(true));
+            addressJson.put("base58CheckEncoded", address.toBase58CheckEncoded());
+        }
+        else {
+            final String scriptHashString = parameters.getString("scriptHash");
+            final Sha256Hash scriptHash = Sha256Hash.fromHexString(scriptHashString);
+
+            if (scriptHash == null) {
+                response.put(ERROR_MESSAGE_KEY, "Invalid scriptHash: " + scriptHashString);
+                return;
+            }
+
+            addressTransactions = queryAddressHandler.getAddressTransactions(scriptHash);
+            balance = queryAddressHandler.getBalance(scriptHash, true);
+            confirmedBalance = queryAddressHandler.getBalance(scriptHash, false);
+            addressJson.put("scriptHash", scriptHash);
+        }
 
         if (addressTransactions == null) {
             response.put(ERROR_MESSAGE_KEY, "Unable to determine address transactions.");
             return;
         }
-
-        final Json addressJson = new Json();
-        addressJson.put("base32CheckEncoded", address.toBase32CheckEncoded(true));
-        addressJson.put("base58CheckEncoded", address.toBase58CheckEncoded());
-
-        final Long balance = queryAddressHandler.getBalance(address);
 
         final Json transactionsJson = new Json(true);
         if (rawFormat) {
@@ -1107,6 +1155,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         response.put("address", addressJson);
         response.put("balance", balance);
+        response.put("confirmedBalance", confirmedBalance);
         response.put("transactions", transactionsJson);
 
         response.put(WAS_SUCCESS_KEY, 1);
@@ -1350,7 +1399,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             return false;
         }
 
-        final HashSet<HookEvent> hookEvents = new HashSet<HookEvent>();
+        final HashSet<HookEvent> hookEvents = new HashSet<>();
         final Json events = parameters.get("events");
         for (int i = 0; i < events.length(); ++i) {
             final String event = events.getString(i);
@@ -1373,7 +1422,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             final Json addressFilterJson = parameters.getOrNull("addressFilter", Json.Types.JSON);
             if ( (addressFilterJson != null) && addressFilterJson.isArray() ) {
                 final int itemCount = addressFilterJson.length();
-                final ImmutableListBuilder<Address> listBuilder = new ImmutableListBuilder<Address>(itemCount);
+                final ImmutableListBuilder<Address> listBuilder = new ImmutableListBuilder<>(itemCount);
                 for (int i = 0; i < itemCount; ++i) {
                     final String addressString = addressFilterJson.getString(i);
                     final Address address = addressInflater.fromBase58Check(addressString);
@@ -1391,7 +1440,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         synchronized (_eventHooks) {
             for (final HookEvent hookEvent : hookEvents) {
                 if (! _eventHooks.containsKey(hookEvent)) {
-                    _eventHooks.put(hookEvent, new MutableList<HookListener>());
+                    _eventHooks.put(hookEvent, new MutableList<>());
                 }
 
                 final MutableList<HookListener> nodeIpAddresses = _eventHooks.get(hookEvent);
@@ -1840,7 +1889,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
                         if (! jsonSocket.isConnected()) {
                             iterator.remove();
-                            Logger.debug("Dropping HookEvent: " + HookEvent.NEW_BLOCK + " " + jsonSocket.toString());
+                            Logger.debug("Dropping HookEvent: " + HookEvent.NEW_BLOCK + " " + jsonSocket);
                         }
                     }
                 }
@@ -1941,7 +1990,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
                         if (! jsonSocket.isConnected()) {
                             iterator.remove();
-                            Logger.debug("Dropping HookEvent: " + HookEvent.NEW_TRANSACTION + " " + jsonSocket.toString());
+                            Logger.debug("Dropping HookEvent: " + HookEvent.NEW_TRANSACTION + " " + jsonSocket);
                         }
                     }
                 }
@@ -1985,7 +2034,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
                         if (! jsonSocket.isConnected()) {
                             iterator.remove();
-                            Logger.debug("Dropping HookEvent: " + HookEvent.NEW_DOUBLE_SPEND_PROOF + " " + jsonSocket.toString());
+                            Logger.debug("Dropping HookEvent: " + HookEvent.NEW_DOUBLE_SPEND_PROOF + " " + jsonSocket);
                         }
                     }
                 }
@@ -1996,6 +2045,8 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     @Override
     public void run(final JsonSocket socketConnection) {
         socketConnection.setMessageReceivedCallback(new Runnable() {
+            protected final JsonConnectionProperties _jsonConnectionProperties = new JsonConnectionProperties();
+
             @Override
             public void run() {
                 final JsonProtocolMessage protocolMessage = socketConnection.popMessage();
@@ -2009,13 +2060,16 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                 response.put(ERROR_MESSAGE_KEY, null);
 
                 final Json parameters = message.get("parameters");
-                boolean closeConnection = true;
 
                 switch (method.toUpperCase()) {
                     case "GET": {
                         switch (query.toUpperCase()) {
-                            case "BLOCK_HEADERS": {
-                                _getBlockHeaders(parameters, response);
+                            case "BLOCK_HEADERS":
+                            case "BLOCK_HEADERS_BEFORE": {
+                                _getBlockHeaders(parameters, response, DataHandler.Direction.BEFORE);
+                            } break;
+                            case "BLOCK_HEADERS_AFTER": {
+                                _getBlockHeaders(parameters, response, DataHandler.Direction.AFTER);
                             } break;
 
                             case "BLOCK": {
@@ -2136,13 +2190,11 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                             } break;
 
                             case "ADD_HOOK": {
-                                final Boolean keepSocketOpen = _addHook(parameters, response, socketConnection);
-                                closeConnection = (! keepSocketOpen);
+                                _jsonConnectionProperties.keepAliveIsEnabled = _addHook(parameters, response, socketConnection);
                             } break;
 
                             case "UPDATE_HOOK": {
-                                final Boolean keepSocketOpen = _updateHook(parameters, response, socketConnection);
-                                closeConnection = (! keepSocketOpen);
+                                _jsonConnectionProperties.keepAliveIsEnabled = _updateHook(parameters, response, socketConnection);
                             } break;
 
                             case "TRANSACTION": {
@@ -2177,6 +2229,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                                 _clearSlpValidation(parameters, response);
                             } break;
 
+                            case "KEEP_ALIVE": {
+                                _jsonConnectionProperties.keepAliveIsEnabled = parameters.getBoolean("enableKeepAlive");
+                            } break;
+
                             // TODO: Add invalidate-block command (see: feature/invalidate-block/master).
                             // TODO: Add rebuild-UTXO set from block-height command.
 
@@ -2192,9 +2248,9 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                 }
 
                 socketConnection.write(new JsonProtocolMessage(response));
+                socketConnection.flush();
 
-                if (closeConnection) { // TODO: Allow for keeping the connection alive...
-                    socketConnection.flush();
+                if (! _jsonConnectionProperties.keepAliveIsEnabled) {
                     socketConnection.close();
                 }
             }

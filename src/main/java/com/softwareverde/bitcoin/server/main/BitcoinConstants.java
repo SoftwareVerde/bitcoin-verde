@@ -13,7 +13,7 @@ import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
 public class BitcoinConstants {
-    public static final Integer DATABASE_VERSION = 8;
+    public static final Integer DATABASE_VERSION = 9;
 
     public static class Default {
         public final String genesisBlockHash;
@@ -56,7 +56,7 @@ public class BitcoinConstants {
     protected static String USER_AGENT;
     protected static String COINBASE_MESSAGE;
 
-    protected static List<UtxoCommitmentMetadata> UTXO_COMMITMENTS;
+    protected static final List<UtxoCommitmentMetadata> UTXO_COMMITMENTS;
 
     protected static AsertReferenceBlock ASERT_REFERENCE_BLOCK = new AsertReferenceBlock(
         661647L,

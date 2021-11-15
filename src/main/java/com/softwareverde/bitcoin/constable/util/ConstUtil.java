@@ -17,7 +17,7 @@ public class ConstUtil extends com.softwareverde.constable.util.ConstUtil {
     public static <Key, Item> void addToListMap(final Key key, final Item item, final Map<Key, MutableList<Item>> map) {
         MutableList<Item> items = map.get(key);
         if (items == null) {
-            items = new MutableList<Item>();
+            items = new MutableList<>();
             map.put(key, items);
         }
 

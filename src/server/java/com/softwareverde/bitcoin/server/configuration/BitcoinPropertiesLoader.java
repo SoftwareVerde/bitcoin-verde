@@ -10,7 +10,7 @@ import com.softwareverde.util.Util;
 import java.util.Properties;
 
 public class BitcoinPropertiesLoader {
-    public static BitcoinProperties loadBitcoinProperties(final Properties properties) {
+    public static BitcoinProperties loadProperties(final Properties properties) {
         final BitcoinProperties bitcoinProperties = new BitcoinProperties();
         bitcoinProperties._bitcoinPort = Util.parseInt(properties.getProperty("bitcoin.port", null));
         bitcoinProperties._bitcoinRpcPort = Util.parseInt(properties.getProperty("bitcoin.rpcPort", null));
@@ -24,7 +24,7 @@ public class BitcoinPropertiesLoader {
             final String defaultSeedsString = "[\"seed.flowee.cash\", \"seed-bch.bitcoinforks.org\", \"btccash-seeder.bitcoinunlimited.info\", \"seed.bchd.cash\"]";
             final Json seedNodesJson = Json.parse(properties.getProperty("bitcoin.dnsSeeds", defaultSeedsString));
 
-            final MutableList<String> dnsSeeds = new MutableList<String>(seedNodesJson.length());
+            final MutableList<String> dnsSeeds = new MutableList<>(seedNodesJson.length());
             for (int i = 0; i < seedNodesJson.length(); ++i) {
                 final String seedHost = seedNodesJson.getString(i);
                 if (seedHost != null) {
@@ -44,7 +44,7 @@ public class BitcoinPropertiesLoader {
             final String defaultSeedsString = "[\"testnet-seed-bch.bitcoinforks.org\", \"testnet-seed.bchd.cash\"]";
             final Json seedNodesJson = Json.parse(properties.getProperty("bitcoin.testNetDnsSeeds", defaultSeedsString));
 
-            final MutableList<String> dnsSeeds = new MutableList<String>(seedNodesJson.length());
+            final MutableList<String> dnsSeeds = new MutableList<>(seedNodesJson.length());
             for (int i = 0; i < seedNodesJson.length(); ++i) {
                 final String seedHost = seedNodesJson.getString(i);
                 if (seedHost != null) {
@@ -59,8 +59,8 @@ public class BitcoinPropertiesLoader {
             final String defaultBlacklist = "[\".*Bitcoin ABC.*\", \".*Bitcoin SV.*\"]";
             final Json blacklistJson = Json.parse(properties.getProperty("bitcoin.userAgentBlacklist", defaultBlacklist));
 
-            final int itemCount = blacklistJson.length();;
-            final MutableList<String> patterns = new MutableList<String>(itemCount);
+            final int itemCount = blacklistJson.length();
+            final MutableList<String> patterns = new MutableList<>(itemCount);
             for (int i = 0; i < itemCount; ++i) {
                 final String pattern = blacklistJson.getString(i);
                 patterns.add(pattern);

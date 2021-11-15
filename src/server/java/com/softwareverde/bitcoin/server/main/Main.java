@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.server.configuration.BitcoinVerdeDatabaseProperties;
 import com.softwareverde.bitcoin.server.configuration.Configuration;
+import com.softwareverde.bitcoin.server.configuration.ElectrumProperties;
 import com.softwareverde.bitcoin.server.configuration.ExplorerProperties;
 import com.softwareverde.bitcoin.server.configuration.NodeProperties;
 import com.softwareverde.bitcoin.server.configuration.ProxyProperties;
@@ -22,6 +23,7 @@ import com.softwareverde.bitcoin.server.module.explorer.ExplorerModule;
 import com.softwareverde.bitcoin.server.module.node.NodeModule;
 import com.softwareverde.bitcoin.server.module.proxy.ProxyModule;
 import com.softwareverde.bitcoin.server.module.spv.SpvModule;
+import com.softwareverde.bitcoin.server.module.stratum.ElectrumModule;
 import com.softwareverde.bitcoin.server.module.stratum.StratumModule;
 import com.softwareverde.bitcoin.server.module.wallet.WalletModule;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -127,6 +129,14 @@ public class Main {
         _printError("\tDescription: Starts a Stratum server for pooled mining.");
         _printError("\tArgument Description: <Configuration File>");
         _printError("\t\tThe path and filename of the configuration file for running the stratum server.  Ex: conf/server.conf");
+        _printError("\t----------------");
+        _printError("");
+
+        _printError("\tModule: ELECTRUM");
+        _printError("\tArguments: <Configuration File>");
+        _printError("\tDescription: Starts an Electrum server for serving SPV wallets.");
+        _printError("\tArgument Description: <Configuration File>");
+        _printError("\t\tThe path and filename of the configuration file for running the electrum server.  Ex: conf/server.conf");
         _printError("\t----------------");
         _printError("");
 
@@ -286,7 +296,7 @@ public class Main {
                 final Thread loggerFlushThread = _createLoggerFlusher();
                 loggerFlushThread.start();
 
-                final Container<NodeModule> nodeModuleContainer = new Container<NodeModule>();
+                final Container<NodeModule> nodeModuleContainer = new Container<>();
                 final BitcoinVerdeDatabase database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, bitcoinProperties, databaseProperties);
                 if (database == null) {
                     Logger.error("Error initializing database.");
@@ -466,6 +476,25 @@ public class Main {
 
                 final StratumModule stratumModule = new StratumModule(stratumProperties, environment);
                 stratumModule.loop();
+                Logger.flush();
+            } break;
+
+            case "ELECTRUM": {
+                if (_arguments.length != 2) {
+                    _printUsage();
+                    BitcoinUtil.exitFailure();
+                    break;
+                }
+
+                final String configurationFile = _arguments[1];
+
+                final Configuration configuration = _loadConfigurationFile(configurationFile);
+                final ElectrumProperties electrumProperties = configuration.getElectrumProperties();
+
+                Logger.setLogLevel(LogLevel.ON);
+
+                final ElectrumModule electrumModule = new ElectrumModule(electrumProperties);
+                electrumModule.loop();
                 Logger.flush();
             } break;
 

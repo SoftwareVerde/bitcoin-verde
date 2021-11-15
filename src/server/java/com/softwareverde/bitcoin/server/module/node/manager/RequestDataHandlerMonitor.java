@@ -18,7 +18,7 @@ public class RequestDataHandlerMonitor implements BitcoinNode.RequestDataHandler
 
     protected static final Object MUTEX = new Object();
     protected static final MutableBloomFilter PREVIOUS_TRANSACTIONS = MutableBloomFilter.wrap(new MutableByteArray(131072), 3, 0L); // 0.10 false positive rate at 218k items...
-    protected static final WeakHashMap<BitcoinNode, Container<Integer>> NODE_SCORES = new WeakHashMap<BitcoinNode, Container<Integer>>(128);
+    protected static final WeakHashMap<BitcoinNode, Container<Integer>> NODE_SCORES = new WeakHashMap<>(128);
     protected static long FILTER_TRANSACTION_COUNT = 0L;
 
     public static RequestDataHandlerMonitor wrap(final BitcoinNode.RequestDataHandler core) {
@@ -53,7 +53,7 @@ public class RequestDataHandlerMonitor implements BitcoinNode.RequestDataHandler
                 synchronized (MUTEX) {
                     final Boolean transactionWasSeenBefore = PREVIOUS_TRANSACTIONS.containsItem(transactionHash);
                     if (! NODE_SCORES.containsKey(bitcoinNode)) {
-                        NODE_SCORES.put(bitcoinNode, new Container<Integer>(0));
+                        NODE_SCORES.put(bitcoinNode, new Container<>(0));
                     }
 
                     final Container<Integer> nodeScore = NODE_SCORES.get(bitcoinNode);

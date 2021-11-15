@@ -53,7 +53,7 @@ public class NativeSecp256k1 {
     private static final ReentrantReadWriteLock _reentrantReadWriteLock = new ReentrantReadWriteLock();
     private static final Lock _readLock = _reentrantReadWriteLock.readLock();
     private static final Lock _writeLock = _reentrantReadWriteLock.writeLock();
-    private static final ThreadLocal<ByteBuffer> _nativeECDSABuffer = new ThreadLocal<ByteBuffer>();
+    private static final ThreadLocal<ByteBuffer> _nativeECDSABuffer = new ThreadLocal<>();
 
     static {
         boolean isEnabled = true;

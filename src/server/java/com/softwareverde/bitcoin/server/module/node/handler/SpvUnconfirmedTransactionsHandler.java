@@ -22,7 +22,7 @@ public class SpvUnconfirmedTransactionsHandler {
     public void broadcastUnconfirmedTransactions(final BitcoinNode bitcoinNode) {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-            final MutableList<Sha256Hash> matchedTransactionHashes = new MutableList<Sha256Hash>();
+            final MutableList<Sha256Hash> matchedTransactionHashes = new MutableList<>();
 
             final List<TransactionId> transactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
             for (final TransactionId transactionId : transactionIds) {

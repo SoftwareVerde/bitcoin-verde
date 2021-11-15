@@ -22,11 +22,11 @@ import java.util.concurrent.atomic.AtomicLong;
 public class BlockingQueueBatchRunner<T> extends Thread {
 
     protected static <T> BlockingQueueBatchRunner<T> newInstance(final Integer itemCountPerBatch, final Boolean executeAsynchronously, final Queue<T> itemQueue, final BatchRunner.Batch<T> batch) {
-        final BatchRunner<T> batchRunner = new BatchRunner<T>(itemCountPerBatch, executeAsynchronously);
-        final Container<Boolean> threadContinueContainer = new Container<Boolean>(true);
+        final BatchRunner<T> batchRunner = new BatchRunner<>(itemCountPerBatch, executeAsynchronously);
+        final Container<Boolean> threadContinueContainer = new Container<>(true);
         final AtomicLong executionTime = new AtomicLong(0L);
         final AtomicInteger queuedItemCount = new AtomicInteger(0);
-        final Container<Exception> exceptionContainer = new Container<Exception>(null);
+        final Container<Exception> exceptionContainer = new Container<>(null);
 
         final Runnable coreRunnable = new Runnable() {
             @Override
@@ -36,7 +36,7 @@ public class BlockingQueueBatchRunner<T> extends Thread {
 
                 while ( threadContinueContainer.value || (! itemQueue.isEmpty()) ) {
                     int batchItemCount = 0;
-                    final MutableList<T> batchedItems = new MutableList<T>(batchSize);
+                    final MutableList<T> batchedItems = new MutableList<>(batchSize);
                     while (batchItemCount < batchSize) {
                         if (itemQueue.isEmpty()) {
                             try {
@@ -82,7 +82,7 @@ public class BlockingQueueBatchRunner<T> extends Thread {
             }
         };
 
-        return new BlockingQueueBatchRunner<T>(threadContinueContainer, itemQueue, queuedItemCount, batchRunner, coreRunnable, executionTime, exceptionContainer);
+        return new BlockingQueueBatchRunner<>(threadContinueContainer, itemQueue, queuedItemCount, batchRunner, coreRunnable, executionTime, exceptionContainer);
     }
 
     public static <T> BlockingQueueBatchRunner<T> newInstance(final Boolean executeAsynchronously, final BatchRunner.Batch<T> batch) {
@@ -90,12 +90,12 @@ public class BlockingQueueBatchRunner<T> extends Thread {
     }
 
     public static <T> BlockingQueueBatchRunner<T> newInstance(final Integer itemCountPerBatch, final Boolean executeAsynchronously, final BatchRunner.Batch<T> batch) {
-        final ConcurrentLinkedQueue<T> itemQueue = new ConcurrentLinkedQueue<T>();
+        final ConcurrentLinkedQueue<T> itemQueue = new ConcurrentLinkedQueue<>();
         return BlockingQueueBatchRunner.newInstance(itemCountPerBatch, executeAsynchronously, itemQueue, batch);
     }
 
     public static <T> BlockingQueueBatchRunner<T> newSortedInstance(final Integer itemCountPerBatch, final Integer initialCapacity, final Comparator<T> comparator, final Boolean executeAsynchronously, final BatchRunner.Batch<T> batch) {
-        final Queue<T> sortedQueue = new PriorityBlockingQueue<T>(initialCapacity, comparator);
+        final Queue<T> sortedQueue = new PriorityBlockingQueue<>(initialCapacity, comparator);
         return BlockingQueueBatchRunner.newInstance(itemCountPerBatch, executeAsynchronously, sortedQueue, batch);
     }
 

@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.transaction.script;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.address.PayToScriptHashAddress;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.ComparisonOperation;
 import com.softwareverde.bitcoin.transaction.script.opcode.CryptographicOperation;
@@ -13,6 +14,8 @@ import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.cryptography.hash.ripemd160.Ripemd160Hash;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.cryptography.util.HashUtil;
 import com.softwareverde.util.ByteUtil;
@@ -54,26 +57,52 @@ public class ScriptBuilder {
     }
 
     public static LockingScript payToScriptHash(final Script payToScript) {
+        final Ripemd160Hash scriptHash = HashUtil.ripemd160(HashUtil.sha256(payToScript.getBytes()));
+        return ScriptBuilder.payToScriptHash(scriptHash);
+    }
+    public static LockingScript payToScriptHash(final Ripemd160Hash scriptHash) {
         final ScriptBuilder scriptBuilder = new ScriptBuilder();
         scriptBuilder.pushOperation(CryptographicOperation.SHA_256_THEN_RIPEMD_160);
-        scriptBuilder.pushOperation(PushOperation.pushBytes(HashUtil.ripemd160(HashUtil.sha256(payToScript.getBytes()))));
+        scriptBuilder.pushOperation(PushOperation.pushBytes(scriptHash));
         scriptBuilder.pushOperation(ComparisonOperation.IS_EQUAL);
         return scriptBuilder.buildLockingScript();
     }
 
+    /**
+     * Reverse engineers an Address's LockingScript to compute its hash...
+     */
+    public static Sha256Hash computeScriptHash(final Address address) {
+        final LockingScript lockingScript;
+        if (address instanceof PayToScriptHashAddress) {
+            final Ripemd160Hash payToScriptHash = Ripemd160Hash.wrap(address.getBytes());
+            lockingScript = ScriptBuilder.payToScriptHash(payToScriptHash);
+        }
+        else {
+            lockingScript = ScriptBuilder.payToAddress(address);
+        }
+        return HashUtil.sha256(lockingScript.getBytes());
+    }
+
+    public static Sha256Hash computeScriptHash(final LockingScript lockingScript) {
+        if (lockingScript == null) { return null; }
+
+        final ByteArray lockingScriptBytes = lockingScript.getBytes();
+        return HashUtil.sha256(lockingScriptBytes);
+    }
+
     protected void _pushBytes(final ByteArray bytes) {
-        final Integer dataByteCount = bytes.getByteCount();
+        final int dataByteCount = bytes.getByteCount();
 
         if (dataByteCount == 0) {
             // Nothing.
         }
         else if (dataByteCount <= Opcode.PUSH_DATA.getMaxValue()) {
-            _byteArrayBuilder.appendByte((byte) (dataByteCount.intValue()));
+            _byteArrayBuilder.appendByte((byte) ((int) dataByteCount));
             _byteArrayBuilder.appendBytes(bytes, Endian.BIG);
         }
         else if (dataByteCount <= 0xFFL) {
             _byteArrayBuilder.appendByte(Opcode.PUSH_DATA_BYTE.getValue());
-            _byteArrayBuilder.appendByte((byte) (dataByteCount.intValue()));
+            _byteArrayBuilder.appendByte((byte) ((int) dataByteCount));
             _byteArrayBuilder.appendBytes(bytes, Endian.BIG);
         }
         else if (dataByteCount <= 0xFFFFL) {
@@ -92,18 +121,18 @@ public class ScriptBuilder {
     protected final ByteArrayBuilder _byteArrayBuilder = new ByteArrayBuilder();
 
     public ScriptBuilder pushString(final String stringData) {
-        final Integer stringDataByteCount = stringData.length();
+        final int stringDataByteCount = stringData.length();
 
         if (stringDataByteCount == 0) {
             // Nothing.
         }
         else if (stringDataByteCount <= Opcode.PUSH_DATA.getMaxValue()) {
-            _byteArrayBuilder.appendByte((byte) (stringDataByteCount.intValue()));
+            _byteArrayBuilder.appendByte((byte) ((int) stringDataByteCount));
             _byteArrayBuilder.appendBytes(StringUtil.stringToBytes(stringData), Endian.BIG);
         }
         else if (stringDataByteCount <= 0xFFL) {
             _byteArrayBuilder.appendByte(Opcode.PUSH_DATA_BYTE.getValue());
-            _byteArrayBuilder.appendByte((byte) (stringDataByteCount.intValue()));
+            _byteArrayBuilder.appendByte((byte) ((int) stringDataByteCount));
             _byteArrayBuilder.appendBytes(StringUtil.stringToBytes(stringData), Endian.BIG);
         }
         else if (stringDataByteCount <= 0xFFFFL) {

@@ -79,7 +79,7 @@ public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabase
             )
         );
 
-        final ImmutableListBuilder<TransactionId> transactionIds = new ImmutableListBuilder<TransactionId>(rows.size());
+        final ImmutableListBuilder<TransactionId> transactionIds = new ImmutableListBuilder<>(rows.size());
 
         for (final Row row : rows) {
             final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
@@ -148,6 +148,7 @@ public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabase
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         // NOTE: "GREATEST(VALUES(value), value)" is apparently bugged as of 2020-06-19, v10.5.9-p1.  MariaDB bug report not submitted.
+        // NOTE: 2021-10-28: GREATEST(VALUES(value), value) works when ran via the MySQL client, but was not tested via driver.  Using MariaDB v10.5.9-p1, mariadb-java-client v2.7.3
         databaseConnection.executeSql(
             new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = GREATEST(value, ?)")
                 .setParameter(LAST_SLP_VALIDATED_BLOCK_ID_KEY)

@@ -23,8 +23,8 @@ public class BloomFilterTests {
     @Test
     public void should_have_desired_false_positive_values_when_loaded_to_max_item_count() {
         // Setup
-        final Double falsePositiveRate = 0.001D;
-        final Long itemCount = 1024L;
+        final double falsePositiveRate = 0.001D;
+        final long itemCount = 1024L;
         final MutableBloomFilter bloomFilter = new MutableBloomFilter(itemCount, falsePositiveRate);
 
         for (int i = 0; i < itemCount; ++i) {
@@ -41,7 +41,7 @@ public class BloomFilterTests {
             }
         }
 
-        final Float actualFalsePositiveRate = ( ((float) falsePositiveCount) / iterationCount );
+        final float actualFalsePositiveRate = ( ((float) falsePositiveCount) / iterationCount );
         System.out.println("Bloom Filter False Positive Rate: " + falsePositiveCount + " / " + iterationCount + " ("+ (actualFalsePositiveRate * 100F) +"%)");
         Assert.assertEquals(falsePositiveRate, actualFalsePositiveRate, 0.005);
     }
@@ -49,7 +49,7 @@ public class BloomFilterTests {
     @Test
     public void should_calculate_false_positive_rate() {
         // Setup
-        final Long itemCount = (1024L * 32L);
+        final long itemCount = (1024L * 32L);
         final MutableBloomFilter bloomFilter = new MutableBloomFilter(itemCount, 0.01D);
 
         // Action
@@ -131,7 +131,7 @@ public class BloomFilterTests {
         final BloomFilterDeflater bloomFilterDeflater = new BloomFilterDeflater();
         final BloomFilterInflater bloomFilterInflater = new BloomFilterInflater();
 
-        final Long itemCount = (32L * 1024L * 1024L / 256L);
+        final long itemCount = (32L * 1024L * 1024L / 256L);
         final MutableBloomFilter bloomFilter = new MutableBloomFilter(itemCount, 0.01D);
 
         for (int i = 0; i < itemCount; ++i) {
@@ -153,7 +153,7 @@ public class BloomFilterTests {
         final BloomFilterDeflater bloomFilterDeflater = new BloomFilterDeflater();
         final BloomFilterInflater bloomFilterInflater = new BloomFilterInflater();
 
-        final Long itemCount = (32L * 1024L * 1024L / 256L);
+        final long itemCount = (32L * 1024L * 1024L / 256L);
         final MutableBloomFilter bloomFilter = new MutableBloomFilter(itemCount, 0.01D, Long.MAX_VALUE);
 
         for (int i = 0; i < itemCount; ++i) {
@@ -205,12 +205,12 @@ public class BloomFilterTests {
         final MutableBloomFilter mutableBloomFilter = new MutableBloomFilter(500_000_000L, 0.001D, 0L);
 
         // Action
-        final Integer byteCount = mutableBloomFilter.getBytes().getByteCount();
+        final int byteCount = mutableBloomFilter.getBytes().getByteCount();
         final Integer hashFunctionCount = mutableBloomFilter.getHashFunctionCount();
         final Float falsePositiveRate = mutableBloomFilter.getFalsePositiveRate(500_000_000L);
 
         // Assert
-        Assert.assertEquals(898599222, byteCount.intValue());
+        Assert.assertEquals(898599222, (int) byteCount);
         Assert.assertEquals(9, hashFunctionCount.intValue());
         Assert.assertEquals(0.001F, falsePositiveRate, 0.0001F);
     }
@@ -222,10 +222,10 @@ public class BloomFilterTests {
         // NOTE: This test also identified an integer overflow bug BloomFilter.
 
         // Setup
-        final Double FALSE_POSITIVE_RATE = 0.001D;
+        final double FALSE_POSITIVE_RATE = 0.001D;
         final MutableBloomFilter mutableBloomFilter = MutableBloomFilter.newInstance(500_000_000L, FALSE_POSITIVE_RATE, 0L);
 
-        final Integer itemCount = 266770944;
+        final int itemCount = 266770944;
 
         // Action
         for (int i = 0; i < itemCount; ++i) {

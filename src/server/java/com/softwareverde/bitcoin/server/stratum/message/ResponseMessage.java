@@ -18,7 +18,7 @@ public class ResponseMessage implements Jsonable {
         final ResponseMessage responseMessage = new ResponseMessage(id);
 
         {
-            final Boolean isBoolean = (! Json.isJson(json.getString("result")));
+            final boolean isBoolean = (! Json.isJson(json.getString("result")));
             if (isBoolean) {
                 responseMessage._result = (json.getBoolean("result") ? RESULT_TRUE : RESULT_FALSE);
             }
@@ -45,7 +45,7 @@ public class ResponseMessage implements Jsonable {
 
     protected final Integer _id;
     protected Json _result = RESULT_FALSE;
-    protected final MutableList<String> _error = new MutableList<String>();
+    protected final MutableList<String> _error = new MutableList<>();
 
     public ResponseMessage(final Integer id) {
         _id = id;

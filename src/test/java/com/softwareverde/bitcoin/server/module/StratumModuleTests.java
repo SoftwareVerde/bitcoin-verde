@@ -125,7 +125,7 @@ public class StratumModuleTests extends UnitTest {
             coinbaseTransaction = transactionInflater.fromBytes(byteArrayBuilder.build());
         }
 
-        final MutableList<String> merkleBranches = new MutableList<String>();
+        final MutableList<String> merkleBranches = new MutableList<>();
         {
             for (int i = 0; i < merkleBranchesJson.length(); ++i) {
                 merkleBranches.add(merkleBranchesJson.getString(i));
@@ -171,7 +171,7 @@ class BitcoinVerdeStratumServerPartialMock extends BitcoinVerdeStratumServer {
         }
     }
 
-    protected final MutableList<Json> _fakeJsonResponses = new MutableList<Json>();
+    protected final MutableList<Json> _fakeJsonResponses = new MutableList<>();
 
     public BitcoinVerdeStratumServerPartialMock() {
         super(configuration.getStratumProperties(), new CachedThreadPool(1, 1L));

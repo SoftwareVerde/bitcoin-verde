@@ -249,20 +249,20 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         if (blockHeaders.isEmpty()) {
-            return new MutableList<BlockId>(0);
+            return new MutableList<>(0);
         }
 
         if (blockHeaders.getCount() == 1) {
             final BlockHeader blockHeader = blockHeaders.get(0);
             final BlockId blockId = _insertBlockHeader(blockHeader);
-            return new ImmutableList<BlockId>(blockId);
+            return new ImmutableList<>(blockId);
         }
 
-        final MutableList<BlockId> blockIds = new MutableList<BlockId>(blockHeaders.getCount());
+        final MutableList<BlockId> blockIds = new MutableList<>(blockHeaders.getCount());
 
-        final Container<Long> previousBlockHeight = new Container<Long>();
-        final Container<ChainWork> previousChainWork = new Container<ChainWork>();
-        final Container<BlockId> lastInsertedBlockId = new Container<BlockId>();
+        final Container<Long> previousBlockHeight = new Container<>();
+        final Container<ChainWork> previousChainWork = new Container<>();
+        final Container<BlockId> lastInsertedBlockId = new Container<>();
 
         final MutableMedianBlockTime medianTimePast;
         {
@@ -273,7 +273,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
         }
 
         final Integer maxBatchSize = Math.min(1024, _databaseManager.getMaxQueryBatchSize());
-        final BatchRunner<BlockHeader> batchRunner = new BatchRunner<BlockHeader>(maxBatchSize, false);
+        final BatchRunner<BlockHeader> batchRunner = new BatchRunner<>(maxBatchSize, false);
         batchRunner.run(blockHeaders, new BatchRunner.Batch<BlockHeader>() {
             @Override
             public void run(final List<BlockHeader> batchedBlockHeaders) throws Exception {
@@ -367,7 +367,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
         while (batchStartIndex < blockIds.getCount()) {
             final int batchSize = Math.min(blockIds.getCount() - batchStartIndex, maxBatchSize);
 
-            final MutableList<BlockId> blockIdBatch = new MutableList<BlockId>(batchSize);
+            final MutableList<BlockId> blockIdBatch = new MutableList<>(batchSize);
             for (int i = batchStartIndex; i < (batchStartIndex + batchSize); i++) {
                 blockIdBatch.add(blockIds.get(i));
             }
@@ -570,7 +570,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
     @Override
     public List<BlockId> insertBlockHeaders(final List<BlockHeader> blockHeaders) throws DatabaseException {
         if (! Thread.holdsLock(MUTEX)) { throw new RuntimeException("Attempting to storeBlockHeader without obtaining lock."); }
-        if (blockHeaders.isEmpty()) { return new MutableList<BlockId>(0); }
+        if (blockHeaders.isEmpty()) { return new MutableList<>(0); }
 
         return _insertBlockHeadersAndUpdateBlockchainSegments(blockHeaders);
     }
@@ -659,9 +659,9 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
     public Map<BlockId, Long> getBlockHeights(final List<BlockId> blockIds) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final HashMap<BlockId, Long> blockHeights = new HashMap<BlockId, Long>(blockIds.getCount());
+        final HashMap<BlockId, Long> blockHeights = new HashMap<>(blockIds.getCount());
         final Integer batchSize = Math.min(1024, _databaseManager.getMaxQueryBatchSize());
-        final BatchRunner<BlockId> batchRunner = new BatchRunner<BlockId>(batchSize, false);
+        final BatchRunner<BlockId> batchRunner = new BatchRunner<>(batchSize, false);
         batchRunner.run(blockIds, new BatchRunner.Batch<BlockId>() {
             @Override
             public void run(final List<BlockId> blockIds) throws Exception {
@@ -740,7 +740,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
                 .setInClauseParameters(blockIds, ValueExtractor.IDENTIFIER)
         );
 
-        final HashMap<BlockId, Sha256Hash> hashesMap = new HashMap<BlockId, Sha256Hash>(rows.size());
+        final HashMap<BlockId, Sha256Hash> hashesMap = new HashMap<>(rows.size());
         for (final Row row : rows) {
             final BlockId blockId = BlockId.wrap(row.getLong("id"));
             final Sha256Hash blockHash = Sha256Hash.copyOf(row.getBytes("hash"));
@@ -748,7 +748,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
             hashesMap.put(blockId, blockHash);
         }
 
-        final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>(blockIds.getCount());
+        final MutableList<Sha256Hash> blockHashes = new MutableList<>(blockIds.getCount());
         for (final BlockId blockId : blockIds) {
             blockHashes.add(hashesMap.get(blockId));
         }

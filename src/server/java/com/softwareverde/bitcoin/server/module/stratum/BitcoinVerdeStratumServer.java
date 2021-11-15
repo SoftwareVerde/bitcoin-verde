@@ -71,10 +71,10 @@ public class BitcoinVerdeStratumServer implements StratumServer {
     protected final ReentrantReadWriteLock.ReadLock _mineBlockTaskReadLock;
     protected LiveStratumMineBlockTaskBuilderCore _stratumMineBlockTaskBuilder;
     protected StratumMineBlockTask _currentMineBlockTask = null;
-    protected final ConcurrentHashMap<Long, StratumMineBlockTask> _mineBlockTasks = new ConcurrentHashMap<Long, StratumMineBlockTask>();
+    protected final ConcurrentHashMap<Long, StratumMineBlockTask> _mineBlockTasks = new ConcurrentHashMap<>();
 
-    protected MilliTimer _lastTransactionQueueProcessTimer = new MilliTimer();
-    protected final ConcurrentLinkedQueue<TransactionWithFee> _queuedTransactions = new ConcurrentLinkedQueue<TransactionWithFee>();
+    protected final MilliTimer _lastTransactionQueueProcessTimer = new MilliTimer();
+    protected final ConcurrentLinkedQueue<TransactionWithFee> _queuedTransactions = new ConcurrentLinkedQueue<>();
 
     protected final Integer _shareDifficulty = 2048;
 
@@ -86,7 +86,7 @@ public class BitcoinVerdeStratumServer implements StratumServer {
     protected Long _currentBlockStartTime = _systemTime.getCurrentTimeInSeconds();
     protected final AtomicLong _shareCount = new AtomicLong(0L);
 
-    protected final ConcurrentLinkedQueue<JsonSocket> _connections = new ConcurrentLinkedQueue<JsonSocket>();
+    protected final ConcurrentLinkedQueue<JsonSocket> _connections = new ConcurrentLinkedQueue<>();
 
     protected WorkerShareCallback _workerShareCallback;
 
@@ -154,7 +154,7 @@ public class BitcoinVerdeStratumServer implements StratumServer {
         {
             final BlockHeaderInflater blockHeaderInflater = _masterInflater.getBlockHeaderInflater();
             final NodeJsonRpcConnection nodeRpcConnection = _getNodeJsonRpcConnection();
-            final Json blockHeadersResponseJson = nodeRpcConnection.getBlockHeaders(1, true);
+            final Json blockHeadersResponseJson = nodeRpcConnection.getBlockHeadersBeforeHead(1, true);
             final Json blockHeadersJson = blockHeadersResponseJson.get("blockHeaders");
             previousBlockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray(blockHeadersJson.getString(0)));
         }
@@ -186,7 +186,7 @@ public class BitcoinVerdeStratumServer implements StratumServer {
             final Json unconfirmedTransactionsResponseJson = nodeRpcConnection.getUnconfirmedTransactions(true);
             final Json unconfirmedTransactionsJson = unconfirmedTransactionsResponseJson.get("unconfirmedTransactions");
 
-            final ImmutableListBuilder<TransactionWithFee> unconfirmedTransactionsListBuilder = new ImmutableListBuilder<TransactionWithFee>(unconfirmedTransactionsJson.length());
+            final ImmutableListBuilder<TransactionWithFee> unconfirmedTransactionsListBuilder = new ImmutableListBuilder<>(unconfirmedTransactionsJson.length());
 
             for (int i = 0; i < unconfirmedTransactionsJson.length(); ++i) {
                 final Json transactionWithFeeJsonObject = unconfirmedTransactionsJson.get(i);
@@ -330,7 +330,7 @@ public class BitcoinVerdeStratumServer implements StratumServer {
         parametersJson.add(_shareDifficulty); // Difficulty::getDifficultyRatio
         mineBlockMessage.setParameters(parametersJson);
 
-        Logger.debug("Sent: "+ mineBlockMessage.toString());
+        Logger.debug("Sent: "+ mineBlockMessage);
         socketConnection.write(new JsonProtocolMessage(mineBlockMessage));
     }
 
@@ -377,7 +377,7 @@ public class BitcoinVerdeStratumServer implements StratumServer {
             final ResponseMessage responseMessage = new ResponseMessage(requestMessage.getId());
             responseMessage.setResult(ResponseMessage.RESULT_TRUE);
 
-            Logger.debug("Sent: "+ responseMessage.toString());
+            Logger.debug("Sent: "+ responseMessage);
             socketConnection.write(new JsonProtocolMessage(responseMessage));
         }
 
@@ -456,7 +456,7 @@ public class BitcoinVerdeStratumServer implements StratumServer {
 
         final ResponseMessage blockAcceptedMessage = new MinerSubmitBlockResult(requestMessage.getId(), submissionWasAccepted);
 
-        Logger.debug("Sent: "+ blockAcceptedMessage.toString());
+        Logger.debug("Sent: "+ blockAcceptedMessage);
         socketConnection.write(new JsonProtocolMessage(blockAcceptedMessage));
     }
 

@@ -214,7 +214,7 @@ public class DifficultyTests {
         // NOTE: The listed difficulty adjustment on blockchain.info is 1.18.
         //  However, when investigating the actual difficulty, it is 1.182899...
         //  Command To Verify: bitcoin-cli getblockhash 32256 | xargs bitcoin-cli getblock
-        final Float firstDifficultyAdjustment = 1.0F / 1.182899534312841F;
+        final float firstDifficultyAdjustment = 1.0F / 1.182899534312841F;
         final Difficulty expectedDifficulty = Difficulty.decode(ByteArray.fromHexString("1D00D86A"));
 
         // Action

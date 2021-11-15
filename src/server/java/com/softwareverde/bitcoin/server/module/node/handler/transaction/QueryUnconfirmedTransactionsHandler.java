@@ -30,7 +30,7 @@ public class QueryUnconfirmedTransactionsHandler implements BitcoinNode.RequestU
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final List<TransactionId> unconfirmedTransactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
 
-            final ImmutableListBuilder<Sha256Hash> unconfirmedTransactionHashes = new ImmutableListBuilder<Sha256Hash>(unconfirmedTransactionIds.getCount());
+            final ImmutableListBuilder<Sha256Hash> unconfirmedTransactionHashes = new ImmutableListBuilder<>(unconfirmedTransactionIds.getCount());
 
             if (bitcoinNode.hasBloomFilter()) {
                 for (final TransactionId transactionId : unconfirmedTransactionIds) {
