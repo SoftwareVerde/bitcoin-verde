@@ -27,6 +27,7 @@ import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.concurrent.ConcurrentHashSet;
 import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
@@ -57,8 +58,14 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class ElectrumModule {
+    protected static final Long MILLI_SECONDS_PER_TICK = 10000L;
+    protected static final Long MAX_REQUESTS_PER_TICK = 100L;
+    protected static final Long MAX_REQUEST_QUEUE_COUNT = 500L;
+
     public static final String SERVER_VERSION = "Electrum Verde 1.0.0";
     public static final String BANNER = ElectrumModule.SERVER_VERSION;
     public static final String PROTOCOL_VERSION = "1.4";
@@ -293,8 +300,6 @@ public class ElectrumModule {
         return json;
     }
 
-    // TODO: Implement request throttling...
-
     protected final Long _minTransactionFeePerByte;
 
     protected final ElectrumProperties _electrumProperties;
@@ -303,11 +308,15 @@ public class ElectrumModule {
     protected final ElectrumServerSocket _electrumServerSocket;
     protected final ConcurrentHashMap<Long, JsonSocket> _connections = new ConcurrentHashMap<>();
     protected final HashMap<AddressSubscriptionKey, LinkedList<ConnectionAddress>> _connectionAddresses = new HashMap<>();
-    protected final ConcurrentHashMap<Integer, ElectrumPeer> _peers = new ConcurrentHashMap<>();
+    protected final ConcurrentHashMap<Long, ElectrumPeer> _peers = new ConcurrentHashMap<>();
+    protected final ConcurrentHashMap<Long, ConcurrentLinkedDeque<Json>> _overflowRequests = new ConcurrentHashMap<>();
+    protected final ConcurrentHashMap<Long, AtomicLong> _requestsPerTick = new ConcurrentHashMap<>();
+    protected final ConcurrentHashSet<Ip> _bannedConnections = new ConcurrentHashSet<>();
 
     protected final MutableList<BlockHeader> _cachedBlockHeaders = new MutableList<>(0);
     protected Long _chainHeight = 0L;
 
+    protected final Thread _overflowRequestsThread;
     protected final Thread _maintenanceThread;
     protected NodeJsonRpcConnection _nodeNotificationConnection;
 
@@ -1217,7 +1226,6 @@ public class ElectrumModule {
                 final MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
                 for (final TransactionPosition transactionPosition : transactionPositions) {
                     final String statusString = transactionPosition.toString();
-                    Logger.trace(statusString);
                     messageDigest.update(StringUtil.stringToBytes(statusString));
                 }
                 return Sha256Hash.wrap(messageDigest.digest());
@@ -1765,129 +1773,164 @@ public class ElectrumModule {
         jsonSocket.flush();
     }
 
+    protected void _handleMessage(final JsonSocket jsonSocket, final Json jsonMessage) {
+        if (! jsonSocket.isConnected()) { return; }
+
+        final String method = jsonMessage.getString("method");
+        switch (method) {
+            case "server.version": {
+                _handleServerVersionMessage(jsonSocket, jsonMessage);
+            } break;
+            case "server.banner": {
+                _handleBannerMessage(jsonSocket, jsonMessage);
+            } break;
+            case "server.donation_address": {
+                _handleDonationAddressMessage(jsonSocket, jsonMessage);
+            } break;
+            case "server.ping": {
+                _handlePingMessage(jsonSocket, jsonMessage);
+            } break;
+            case "blockchain.relayfee": {
+                _handleMinimumRelayFeeMessage(jsonSocket, jsonMessage);
+            } break;
+            case "blockchain.estimatefee": {
+                _handleEstimateFeeMessage(jsonSocket, jsonMessage);
+            } break;
+            case "blockchain.headers.subscribe": {
+                _handleSubscribeBlockHeadersMessage(jsonSocket, jsonMessage);
+            } break;
+            case "server.peers.subscribe": {
+                _handlePeersMessage(jsonSocket, jsonMessage);
+            } break;
+            case "server.add_peer": {
+                _handleAddPeerMessage(jsonSocket, jsonMessage);
+            } break;
+            case "server.features": {
+                _handlePeerFeaturesMessage(jsonSocket, jsonMessage);
+            } break;
+            case "blockchain.scripthash.subscribe": {
+                _handleSubscribeScriptHashMessage(jsonSocket, jsonMessage);
+            } break;
+            case "blockchain.address.subscribe": {
+                _handleSubscribeAddressMessage(jsonSocket, jsonMessage);
+            } break;
+            case "blockchain.scripthash.unsubscribe": {
+                _handleUnsubscribeScriptHashMessage(jsonSocket, jsonMessage);
+            } break;
+            case "blockchain.scripthash.get_balance": {
+                _handleGetScriptHashBalanceMessage(jsonSocket, jsonMessage);
+            } break;
+            case "blockchain.address.get_balance": {
+                _handleGetAddressBalanceMessage(jsonSocket, jsonMessage);
+            } break;
+            case "blockchain.address.unsubscribe": {
+                _handleUnsubscribeAddressMessage(jsonSocket, jsonMessage);
+            } break;
+            case "blockchain.address.get_history":
+            case "blockchain.scripthash.get_history": {
+                _handleGetAddressHistory(jsonSocket, jsonMessage, true, true, false);
+            } break;
+            case "blockchain.address.get_mempool":
+            case "blockchain.scripthash.get_mempool": {
+                _handleGetAddressHistory(jsonSocket, jsonMessage, false, true, true);
+            } break;
+            case "blockchain.address.listunspent":
+            case "blockchain.scripthash.listunspent": {
+                _handleGetUnspentOutputs(jsonSocket, jsonMessage);
+            } break;
+            case "blockchain.transaction.broadcast": {
+                _handleSubmitTransactionMessage(jsonSocket, jsonMessage);
+            } break;
+            case "blockchain.block.headers": {
+                _handleBlockHeadersMessage(jsonSocket, jsonMessage);
+            } break;
+            case "blockchain.block.header": {
+                _handleBlockHeaderMessage(jsonSocket, jsonMessage);
+            } break;
+            case "blockchain.transaction.get": {
+                _handleGetTransactionMessage(jsonSocket, jsonMessage);
+            } break;
+            case "blockchain.transaction.get_merkle": {
+                _handleGetTransactionMerkleProofMessage(jsonSocket, jsonMessage);
+            } break;
+            case "blockchain.address.get_scripthash": {
+                _handleConvertAddressToScriptHashMessage(jsonSocket, jsonMessage);
+            } break;
+            case "blockchain.transaction.id_from_pos": {
+                _handleGetTransactionFromBlockPositionMessage(jsonSocket, jsonMessage);
+            } break;
+            case "blockchain.utxo.get_info": {
+                _handleGetUtxoInfoMessage(jsonSocket, jsonMessage);
+            } break;
+            case "mempool.get_fee_histogram": {
+                _handleGetMempoolFeesMessage(jsonSocket, jsonMessage);
+            } break;
+            default: {
+                Logger.debug("Received unsupported message: " + jsonMessage);
+            }
+        }
+    }
+
     protected void _onConnect(final JsonSocket jsonSocket) {
-        Logger.info("Electrum Socket Connected: " + jsonSocket.getIp() + ":" + jsonSocket.getPort());
+        Logger.info("Electrum Socket Connected: " + jsonSocket);
+        final Long socketId = jsonSocket.getId();
+
+        final Ip ip = jsonSocket.getIp();
+        if (_bannedConnections.contains(ip)) {
+            Logger.debug("Refusing connection to banned socket: " + jsonSocket);
+            jsonSocket.close();
+            return;
+        }
 
         jsonSocket.setMessageReceivedCallback(new Runnable() {
             @Override
-            public synchronized void run() { // Intentionally allow only one-message at a time to force message FIFO processing.
+            public void run() {
                 final JsonProtocolMessage jsonProtocolMessage = jsonSocket.popMessage();
                 if (jsonProtocolMessage == null) { return; }
 
                 final Json jsonMessage = jsonProtocolMessage.getMessage();
-                Logger.debug("Received: " + jsonMessage);
 
-                final String method = jsonMessage.getString("method");
-                switch (method) {
-                    case "server.version": {
-                        _handleServerVersionMessage(jsonSocket, jsonMessage);
-                    } break;
-                    case "server.banner": {
-                        _handleBannerMessage(jsonSocket, jsonMessage);
-                    } break;
-                    case "server.donation_address": {
-                        _handleDonationAddressMessage(jsonSocket, jsonMessage);
-                    } break;
-                    case "server.ping": {
-                        _handlePingMessage(jsonSocket, jsonMessage);
-                    } break;
-                    case "blockchain.relayfee": {
-                        _handleMinimumRelayFeeMessage(jsonSocket, jsonMessage);
-                    } break;
-                    case "blockchain.estimatefee": {
-                        _handleEstimateFeeMessage(jsonSocket, jsonMessage);
-                    } break;
-                    case "blockchain.headers.subscribe": {
-                        _handleSubscribeBlockHeadersMessage(jsonSocket, jsonMessage);
-                    } break;
-                    case "server.peers.subscribe": {
-                        _handlePeersMessage(jsonSocket, jsonMessage);
-                    } break;
-                    case "server.add_peer": {
-                        _handleAddPeerMessage(jsonSocket, jsonMessage);
-                    } break;
-                    case "server.features": {
-                        _handlePeerFeaturesMessage(jsonSocket, jsonMessage);
-                    } break;
-                    case "blockchain.scripthash.subscribe": {
-                        _handleSubscribeScriptHashMessage(jsonSocket, jsonMessage);
-                    } break;
-                    case "blockchain.address.subscribe": {
-                        _handleSubscribeAddressMessage(jsonSocket, jsonMessage);
-                    } break;
-                    case "blockchain.scripthash.unsubscribe": {
-                        _handleUnsubscribeScriptHashMessage(jsonSocket, jsonMessage);
-                    } break;
-                    case "blockchain.scripthash.get_balance": {
-                        _handleGetScriptHashBalanceMessage(jsonSocket, jsonMessage);
-                    } break;
-                    case "blockchain.address.get_balance": {
-                        _handleGetAddressBalanceMessage(jsonSocket, jsonMessage);
-                    } break;
-                    case "blockchain.address.unsubscribe": {
-                        _handleUnsubscribeAddressMessage(jsonSocket, jsonMessage);
-                    } break;
-                    case "blockchain.address.get_history":
-                    case "blockchain.scripthash.get_history": {
-                        _handleGetAddressHistory(jsonSocket, jsonMessage, true, true, false);
-                    } break;
-                    case "blockchain.address.get_mempool":
-                    case "blockchain.scripthash.get_mempool": {
-                        _handleGetAddressHistory(jsonSocket, jsonMessage, false, true, true);
-                    } break;
-                    case "blockchain.address.listunspent":
-                    case "blockchain.scripthash.listunspent": {
-                        _handleGetUnspentOutputs(jsonSocket, jsonMessage);
-                    } break;
-                    case "blockchain.transaction.broadcast": {
-                        _handleSubmitTransactionMessage(jsonSocket, jsonMessage);
-                    } break;
-                    case "blockchain.block.headers": {
-                        _handleBlockHeadersMessage(jsonSocket, jsonMessage);
-                    } break;
-                    case "blockchain.block.header": {
-                        _handleBlockHeaderMessage(jsonSocket, jsonMessage);
-                    } break;
-                    case "blockchain.transaction.get": {
-                        _handleGetTransactionMessage(jsonSocket, jsonMessage);
-                    } break;
-                    case "blockchain.transaction.get_merkle": {
-                        _handleGetTransactionMerkleProofMessage(jsonSocket, jsonMessage);
-                    } break;
-                    case "blockchain.address.get_scripthash": {
-                        _handleConvertAddressToScriptHashMessage(jsonSocket, jsonMessage);
-                    } break;
-                    case "blockchain.transaction.id_from_pos": {
-                        _handleGetTransactionFromBlockPositionMessage(jsonSocket, jsonMessage);
-                    } break;
-                    case "blockchain.utxo.get_info": {
-                        _handleGetUtxoInfoMessage(jsonSocket, jsonMessage);
-                    } break;
-                    case "mempool.get_fee_histogram": {
-                        _handleGetMempoolFeesMessage(jsonSocket, jsonMessage);
-                    } break;
-                    default: {
-                        Logger.debug("Received unsupported message: " + jsonMessage);
+                final AtomicLong requestCountSinceLastTick = _requestsPerTick.get(socketId);
+                final long requestCount = requestCountSinceLastTick.incrementAndGet();
+                if (requestCount > MAX_REQUESTS_PER_TICK) {
+                    final ConcurrentLinkedDeque<Json> queuedRequests = _overflowRequests.get(socketId);
+                    queuedRequests.add(jsonMessage);
+
+                    final int queuedRequestCount = queuedRequests.size();
+                    Logger.debug("Throttle: " + queuedRequestCount + " / " + MAX_REQUEST_QUEUE_COUNT + " " + jsonSocket);
+                    if (queuedRequestCount >= MAX_REQUEST_QUEUE_COUNT) {
+                        Logger.info("Disconnecting from throttled client.");
+                        _bannedConnections.add(jsonSocket.getIp());
+                        jsonSocket.close();
                     }
+
+                    return;
                 }
+
+                Logger.debug("Received: " + jsonMessage);
+                _handleMessage(jsonSocket, jsonMessage);
             }
         });
 
-        final Long socketId = jsonSocket.getId();
         jsonSocket.setOnClosedCallback(new Runnable() {
             @Override
             public void run() {
-                _connections.remove(socketId);
+                _onDisconnect(jsonSocket);
             }
         });
         _connections.put(socketId, jsonSocket);
+        _overflowRequests.put(socketId, new ConcurrentLinkedDeque<>());
+        _requestsPerTick.put(socketId, new AtomicLong(0L));
 
         jsonSocket.beginListening();
     }
 
     protected void _onDisconnect(final JsonSocket jsonSocket) {
-        Logger.debug("Electrum Socket Disconnected: " + jsonSocket.getIp() + ":" + jsonSocket.getPort());
-        _connections.remove(jsonSocket.getId());
+        final Long socketId = jsonSocket.getId();
+        Logger.info("Electrum Socket Disconnected: " + jsonSocket);
+        _connections.remove(socketId);
+        _overflowRequests.remove(socketId);
+        _requestsPerTick.remove(socketId);
     }
 
     public ElectrumModule(final ElectrumProperties electrumProperties) {
@@ -1919,6 +1962,50 @@ public class ElectrumModule {
             }
         });
 
+        _overflowRequestsThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                final Thread thread = Thread.currentThread();
+                while (! thread.isInterrupted()) {
+                    try {
+                        Thread.sleep(ElectrumModule.MILLI_SECONDS_PER_TICK);
+                    }
+                    catch (final InterruptedException exception) { return; }
+
+                    for (final Map.Entry<Long, ConcurrentLinkedDeque<Json>> entry : _overflowRequests.entrySet()) {
+                        final Long socketId = entry.getKey();
+                        final ConcurrentLinkedDeque<Json> requests = entry.getValue();
+
+                        final JsonSocket jsonSocket = _connections.get(socketId);
+                        if (jsonSocket == null) { continue; }
+
+                        int requestCount = 0;
+                        final Iterator<Json> iterator = requests.iterator();
+                        while (iterator.hasNext()) {
+                            final Json message = iterator.next();
+                            iterator.remove();
+
+                            requestCount += 1;
+
+                            try {
+                                _handleMessage(jsonSocket, message);
+                            }
+                            catch (final Exception exception) {
+                                Logger.debug(exception);
+                            }
+                        }
+
+                        final AtomicLong requestsPerTick = _requestsPerTick.get(socketId);
+                        if (requestsPerTick != null) { // Should only be null when disconnecting...
+                            requestsPerTick.addAndGet(-requestCount);
+                        }
+                    }
+                }
+            }
+        });
+        _overflowRequestsThread.setName("Electrum Throttle Thread");
+        _overflowRequestsThread.setDaemon(true);
+
         _maintenanceThread = new Thread(new Runnable() {
             @Override
             public void run() {
@@ -1928,9 +2015,7 @@ public class ElectrumModule {
                     try {
                         Thread.sleep(15000L);
                     }
-                    catch (final InterruptedException exception) {
-                        return;
-                    }
+                    catch (final InterruptedException exception) { return; }
 
                     iterationsSinceAddressCleanup += 1;
 
@@ -1939,6 +2024,7 @@ public class ElectrumModule {
                             for (final Map.Entry<AddressSubscriptionKey, LinkedList<ConnectionAddress>> entry : _connectionAddresses.entrySet()) {
                                 boolean queueHasActiveSocket = false;
 
+                                final AddressSubscriptionKey addressSubscriptionKey = entry.getKey();
                                 final LinkedList<ConnectionAddress> connectionAddresses = entry.getValue();
                                 final Iterator<ConnectionAddress> iterator = connectionAddresses.iterator();
                                 while (iterator.hasNext()) {
@@ -1956,7 +2042,7 @@ public class ElectrumModule {
                                 }
 
                                 if (! queueHasActiveSocket) {
-                                    _connectionAddresses.remove(entry.getKey());
+                                    _connectionAddresses.remove(addressSubscriptionKey);
                                 }
                             }
                         }
@@ -1991,6 +2077,9 @@ public class ElectrumModule {
             Logger.info("Listening on port: " + tlsPort);
         }
 
+        _maintenanceThread.start();
+        _overflowRequestsThread.start();
+
         while (! mainThread.isInterrupted()) {
             try { Thread.sleep(10000L); } catch (final Exception exception) { }
         }
@@ -2001,6 +2090,14 @@ public class ElectrumModule {
             socket.close();
         }
         _connections.clear();
+        _overflowRequests.clear();
+        _requestsPerTick.clear();
+
+        _overflowRequestsThread.interrupt();
+        try {
+            _overflowRequestsThread.join(30000L);
+        }
+        catch (final Exception exception) { }
 
         _maintenanceThread.interrupt();
         try {
