@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.chain;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockId;
@@ -1205,6 +1207,7 @@ class Void {
     public void Void() throws Exception {
         final AddressInflater addressInflater = new AddressInflater();
         final BlockInflater blockInflater = new BlockInflater();
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
 
         final Block block5 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_5));
         final Block customBlock6 = blockInflater.fromBytes(HexUtil.hexStringToByteArray("01000000FC33F596F822A0A1951FFDBF2A897B095636AD871707BF5D3162729B00000000E04DAA8565BEFFCEF1949AC5582B7DF359A10A2138409503A1B8B8D3C7355D539CC56649FFFF001D4A0CDDD801010000000100000000000000000000000000000000000000000000000000000000000000000000000020184D696E65642076696120426974636F696E2D56657264652E06313134353332FFFFFFFF0100F2052A010000001976A914F1A626E143DCC5E75E8E6BE3F2CE1CF3108FB53D88AC00000000"));
@@ -1247,13 +1250,13 @@ class Void {
             }
             transaction.addTransactionOutput(_createTransactionOutput(addressInflater.fromPrivateKey(privateKey, false)));
 
-            final SignatureContext signatureContext = new SignatureContext(transaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, false), Long.MAX_VALUE);
+            final SignatureContext signatureContext = new SignatureContext(transaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, false), Long.MAX_VALUE, upgradeSchedule);
             signatureContext.setShouldSignInputScript(0, true, outputBeingSpent);
             final TransactionSigner transactionSigner = new TransactionSigner();
             final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
 
             final TransactionInput transactionInput = signedTransaction.getTransactionInputs().get(0);
-            final MutableTransactionContext context = new MutableTransactionContext();
+            final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
             context.setCurrentScript(null);
             context.setTransactionInputIndex(0);
             context.setTransactionInput(transactionInput);
@@ -1261,8 +1264,8 @@ class Void {
             context.setBlockHeight(6L);
             context.setTransactionOutputBeingSpent(outputBeingSpent);
             context.setCurrentScriptLastCodeSeparatorIndex(0);
-            final ScriptRunner scriptRunner = new ScriptRunner();
-            final Boolean outputIsUnlocked = scriptRunner.runScript(outputBeingSpent.getLockingScript(), transactionInput.getUnlockingScript(), context);
+            final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
+            final Boolean outputIsUnlocked = scriptRunner.runScript(outputBeingSpent.getLockingScript(), transactionInput.getUnlockingScript(), context).isValid;
             Assert.assertTrue(outputIsUnlocked);
 
             mutableBlock.addTransaction(signedTransaction);

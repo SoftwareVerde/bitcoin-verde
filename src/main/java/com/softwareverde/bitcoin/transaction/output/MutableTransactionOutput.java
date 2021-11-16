@@ -48,6 +48,7 @@ public class MutableTransactionOutput implements TransactionOutput {
 
     public void setLockingScript(final ByteArray bytes) {
         _lockingScript = new ImmutableLockingScript(bytes);
+        _cachedHashCode = null;
     }
 
     @Override
@@ -67,7 +68,8 @@ public class MutableTransactionOutput implements TransactionOutput {
         if (cachedHashCode != null) { return cachedHashCode; }
 
         final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
-        final Integer hashCode = transactionOutputDeflater.toBytes(this).hashCode();
+        final ByteArray bytes = transactionOutputDeflater.toBytes(this);
+        final int hashCode = bytes.hashCode();
         _cachedHashCode = hashCode;
         return hashCode;
     }

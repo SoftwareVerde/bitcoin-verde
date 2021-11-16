@@ -1,6 +1,9 @@
 package com.softwareverde.bitcoin.transaction.script.runner;
 
+import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
+import com.softwareverde.bitcoin.test.fake.FakeUpgradeSchedule;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
@@ -65,8 +68,9 @@ public class ScriptRunnerTests {
 
         Assert.assertEquals(transactionBytesString01, HexUtil.toHexString(transactionDeflater.toBytes(transaction1).getBytes()));
 
-        final MutableTransactionContext context = new MutableTransactionContext();
-        final ScriptRunner scriptRunner = new ScriptRunner();
+        final UpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
+        final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
+        final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
 
         final TransactionInput transactionInput = transaction1.getTransactionInputs().get(0);
         final TransactionOutput transactionOutput = transactionBeingSpent.getTransactionOutputs().get(0);
@@ -81,7 +85,7 @@ public class ScriptRunnerTests {
         final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
 
         // Action
-        final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
+        final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context).isValid;
 
         // Assert
         Assert.assertTrue(inputIsUnlocked);
@@ -92,7 +96,8 @@ public class ScriptRunnerTests {
         // Setup
         final TransactionInflater transactionInflater = new TransactionInflater();
         final TransactionDeflater transactionDeflater = new TransactionDeflater();
-        final ScriptRunner scriptRunner = new ScriptRunner();
+        final UpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
+        final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
 
         final Transaction transactionBeingSpent = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(
             "01000000015AEFC06AF14A9216350A1F549971E0C8381D69B00B492CA20663CAEB5F191825010000006B4830450220210947BCC472D558BED1A36A573BC3C5E11914BE685E868639A46B330AE1879B022100964512E526759EE915A3178F43520CF53D2C38E18A229062EEAB8E2D544A91990121021B36AF5FEDC577DFBF74D75060B20305F1D9127A3C7A7373EF91BF684F6A0491FFFFFFFF0246FBBB84000000001976A914F6A9D96485D1D45D28E38662F617BA39A6B151BB88AC00093D00000000001976A914D948D7A14685B7B5B528034137AA4C590F84F62988AC00000000"
@@ -103,7 +108,7 @@ public class ScriptRunnerTests {
 
         Assert.assertEquals(transactionHexString, HexUtil.toHexString(transactionDeflater.toBytes(transaction).getBytes()));
 
-        final MutableTransactionContext context = new MutableTransactionContext();
+        final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
         context.setTransaction(transaction);
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
@@ -120,7 +125,7 @@ public class ScriptRunnerTests {
             final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
 
             // Action
-            final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
+            final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context).isValid;
 
             // Assert
             Assert.assertTrue(inputIsUnlocked);
@@ -130,9 +135,10 @@ public class ScriptRunnerTests {
     @Test
     public void should_allow_segwit_recovery_after_20190515HF() {
         // Setup
-        final ScriptRunner scriptRunner = new ScriptRunner();
+        final UpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
+        final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
 
-        final MutableTransactionContext context = new MutableTransactionContext();
+        final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
         context.setBlockHeight(590000L);
 
         final String[] lockingScriptStrings = new String[7];
@@ -174,7 +180,7 @@ public class ScriptRunnerTests {
             final UnlockingScript unlockingScript = new MutableUnlockingScript(ByteArray.fromHexString(unlockingScriptString));
 
             // Action
-            final Boolean outputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
+            final Boolean outputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context).isValid;
 
             // Assert
             Assert.assertTrue(outputIsUnlocked);
@@ -184,9 +190,10 @@ public class ScriptRunnerTests {
     @Test
     public void should_not_allow_invalid_segwit_recovery_after_20190515HF() {
         // Setup
-        final ScriptRunner scriptRunner = new ScriptRunner();
+        final UpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
+        final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
 
-        final MutableTransactionContext context = new MutableTransactionContext();
+        final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
         context.setBlockHeight(590000L);
 
         final String[] lockingScriptStrings = new String[11];
@@ -244,7 +251,7 @@ public class ScriptRunnerTests {
             final UnlockingScript unlockingScript = new MutableUnlockingScript(ByteArray.fromHexString(unlockingScriptString));
 
             // Action
-            final Boolean outputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
+            final Boolean outputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context).isValid;
 
             // Assert
             Assert.assertFalse(outputIsUnlocked);
@@ -261,14 +268,15 @@ public class ScriptRunnerTests {
         final UnlockingScript unlockingScript = UnlockingScript.castFrom(scriptInflater.fromBytes(ByteArray.fromHexString("100102030405060708090A0B0C0D0E0F10767E767E767E767E767E0801020304050607087E020802")));
         final LockingScript lockingScript = LockingScript.castFrom(scriptInflater.fromBytes(ByteArray.fromHexString("80100102030405060708090A0B0C0D0E0F10767E767E767E767E767E0801020304050607087E87")));
 
+        final UpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
         final MutableMedianBlockTime medianBlockTime = new MutableMedianBlockTime();
-        final MutableTransactionContext context = new MutableTransactionContext();
+        final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
         context.setBlockHeight(0L);
         context.setMedianBlockTime(medianBlockTime);
-        final ScriptRunner scriptRunner = new ScriptRunner();
+        final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
 
         // Action
-        final Boolean isValid = scriptRunner.runScript(lockingScript, unlockingScript, context);
+        final Boolean isValid = scriptRunner.runScript(lockingScript, unlockingScript, context).isValid;
 
         // Assert
         Assert.assertTrue(isValid);

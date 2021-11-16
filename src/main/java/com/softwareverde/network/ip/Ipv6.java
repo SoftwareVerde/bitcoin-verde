@@ -26,9 +26,9 @@ public class Ipv6 implements Ip {
     protected static byte[] _parse(final String string) {
         final String trimmedString = string.trim();
 
-        final Boolean matchesIpv4CompatibilityMode = (! StringUtil.pregMatch("^::[fF]{4}:([0-9]+)\\.([0-9]+)\\.([0-9]+)\\.([0-9]+)$", trimmedString).isEmpty());
+        final boolean matchesIpv4CompatibilityMode = (! StringUtil.pregMatch("^::[fF]{4}:([0-9]+)\\.([0-9]+)\\.([0-9]+)\\.([0-9]+)$", trimmedString).isEmpty());
         if (matchesIpv4CompatibilityMode) {
-            final Integer offset = "::FFFF:".length();
+            final int offset = "::FFFF:".length();
             final Ipv4 ipv4 = Ipv4.parse(trimmedString.substring(offset));
             if (ipv4 == null) { return null; }
 
@@ -36,12 +36,12 @@ public class Ipv6 implements Ip {
         }
 
         final String strippedIpString = trimmedString.replaceAll("[^0-9A-Fa-f:]", "");
-        final Boolean stringContainedInvalidCharacters = (strippedIpString.length() != trimmedString.length());
+        final boolean stringContainedInvalidCharacters = (strippedIpString.length() != trimmedString.length());
         if (stringContainedInvalidCharacters) { return null; }
 
         final String[] ipSegmentStrings = new String[8];
         {
-            final Boolean containsShorthandMarker = (strippedIpString.contains("::"));
+            final boolean containsShorthandMarker = (strippedIpString.contains("::"));
             if (containsShorthandMarker) {
                 final String firstHalf;
                 final String secondHalf;
@@ -51,14 +51,14 @@ public class Ipv6 implements Ip {
                     secondHalf = halves[1];
                 }
 
-                final Boolean containsMultipleShorthandMarkers = ( (firstHalf.contains("::")) || (secondHalf.contains("::")) );
+                final boolean containsMultipleShorthandMarkers = ( (firstHalf.contains("::")) || (secondHalf.contains("::")) );
                 if ( containsMultipleShorthandMarkers ) { return null; } // Ipv6 may only have one shorthand-marker.
 
                 {
                     final String[] firstHalfSegments = firstHalf.split(":");
                     final String[] secondHalfSegments = secondHalf.split(":");
 
-                    final Boolean containsTooManySegments = ((firstHalfSegments.length + secondHalfSegments.length) >= 8);
+                    final boolean containsTooManySegments = ((firstHalfSegments.length + secondHalfSegments.length) >= 8);
                     if (containsTooManySegments) { return null; }
 
                     for (int i = 0; i < firstHalfSegments.length; ++i) {
@@ -89,7 +89,7 @@ public class Ipv6 implements Ip {
             final String ipSegmentString;
             {
                 final String originalIpSegmentString = ipSegmentStrings[i];
-                final Integer availableCharCount = originalIpSegmentString.length();
+                final int availableCharCount = originalIpSegmentString.length();
                 final char[] charArray = new char[4];
                 for (int j = 0; j < charArray.length; ++j) {
                     final char c = (j < availableCharCount ? originalIpSegmentString.charAt((availableCharCount - j) - 1) : '0');

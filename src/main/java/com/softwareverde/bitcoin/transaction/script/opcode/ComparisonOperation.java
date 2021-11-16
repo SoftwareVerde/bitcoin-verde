@@ -62,7 +62,7 @@ public class ComparisonOperation extends SubTypedOperation {
         if (! Operation.isWithinIntegerRange(longValue0)) { return null; }
         if (! Operation.isWithinIntegerRange(longValue1)) { return null; }
 
-        return new Tuple<Long, Long>(longValue0, longValue1);
+        return new Tuple<>(longValue0, longValue1);
     }
 
     protected Boolean _opIsEqual(final Stack stack) {

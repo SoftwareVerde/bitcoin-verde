@@ -9,6 +9,10 @@ import com.softwareverde.json.Jsonable;
 
 public interface Script extends Constable<ImmutableScript>, Jsonable {
     Integer MAX_BYTE_COUNT = 0x00100000; // 1 MB
+    Integer MAX_OPERATION_COUNT = 201;
+    Integer MAX_SIGNATURE_OPERATION_COUNT = 3000; // Number of Signature operations allowed per Transaction.
+    Integer MAX_SPENDABLE_SCRIPT_BYTE_COUNT = 10000; // The number of bytes allowed in a script before it becomes unspendable/unredeemable.
+
     Script EMPTY_SCRIPT = new ImmutableScript();
 
     Boolean isValid();

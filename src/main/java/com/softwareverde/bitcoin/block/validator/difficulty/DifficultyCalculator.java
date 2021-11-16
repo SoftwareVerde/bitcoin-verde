@@ -1,8 +1,6 @@
 package com.softwareverde.bitcoin.block.validator.difficulty;
 
-import com.softwareverde.bitcoin.bip.Buip55;
-import com.softwareverde.bitcoin.bip.HF20171113;
-import com.softwareverde.bitcoin.bip.HF20201115;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
@@ -103,7 +101,7 @@ public class DifficultyCalculator {
             return newDifficulty;
         }
 
-        return previousBlockHeader.getDifficulty();
+        return _getParentDifficulty(forBlockHeight);
     }
 
     protected Difficulty _calculateAserti32dBitcoinCashTarget(final Long blockHeight) {
@@ -118,7 +116,7 @@ public class DifficultyCalculator {
         final BlockHeader[] firstBlockHeaders = new BlockHeader[3]; // The oldest BlockHeaders...
         final BlockHeader[] lastBlockHeaders = new BlockHeader[3]; // The newest BlockHeaders...
 
-        final Map<Sha256Hash, Long> blockHeights = new HashMap<Sha256Hash, Long>(6);
+        final Map<Sha256Hash, Long> blockHeights = new HashMap<>(6);
 
         // Set the lastBlockHeaders to be the head blockId, its parent, and its grandparent...
         final long parentBlockHeight = (forBlockHeight - 1L);
@@ -203,16 +201,26 @@ public class DifficultyCalculator {
         return newDifficulty;
     }
 
+    protected Difficulty _getParentDifficulty(final Long blockHeight) {
+        final Long previousBlockHeight = (blockHeight - 1L);
+        final BlockHeader previousBlockHeader = _context.getBlockHeader(previousBlockHeight);
+        return previousBlockHeader.getDifficulty();
+    }
+
     public Difficulty calculateRequiredDifficulty(final Long blockHeight) {
+        final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
+
         final Boolean isFirstBlock = (Util.areEqual(0L, blockHeight));
         if (isFirstBlock) { return Difficulty.BASE_DIFFICULTY; }
 
-        final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(blockHeight);
-        if (HF20201115.isEnabled(medianBlockTime)) {
+        // final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(blockHeight);
+        final MedianBlockTime medianTimePast = _context.getMedianBlockTime(blockHeight - 1L);
+
+        if (upgradeSchedule.isAsertDifficultyAdjustmentAlgorithmEnabled(medianTimePast)) {
             return _calculateAserti32dBitcoinCashTarget(blockHeight);
         }
 
-        if (HF20171113.isEnabled(blockHeight)) {
+        if (upgradeSchedule.isCw144DifficultyAdjustmentAlgorithmEnabled(blockHeight)) {
             return _calculateCw144BitcoinCashTarget(blockHeight);
         }
 
@@ -221,12 +229,10 @@ public class DifficultyCalculator {
             return _calculateNewBitcoinCoreTarget(blockHeight);
         }
 
-        if (Buip55.isEnabled(blockHeight)) {
+        if (upgradeSchedule.isEmergencyDifficultyAdjustmentAlgorithmEnabled(blockHeight)) {
             return _calculateBitcoinCashEmergencyDifficultyAdjustment(blockHeight);
         }
 
-        final Long previousBlockHeight = (blockHeight - 1L);
-        final BlockHeader previousBlockHeader = _context.getBlockHeader(previousBlockHeight);
-        return previousBlockHeader.getDifficulty();
+        return _getParentDifficulty(blockHeight);
     }
 }

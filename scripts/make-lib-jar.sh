@@ -1,8 +1,5 @@
 #!/bin/bash
 
-rm -rf out/bin 2>/dev/null
-mkdir -p out/bin
-
 # Delete old dependencies
 rm -rf build/libs/*
 

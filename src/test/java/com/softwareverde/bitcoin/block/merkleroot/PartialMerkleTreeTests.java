@@ -16,8 +16,7 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
-import com.softwareverde.concurrent.pool.MainThreadPool;
-import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
@@ -51,7 +50,8 @@ public class PartialMerkleTreeTests {
             i += 1;
         }
 
-        final ThreadPool threadPool = new MainThreadPool(1, 1000L);
+        final CachedThreadPool threadPool = new CachedThreadPool(1, 1000L);
+        threadPool.start();
 
         final BitcoinNode bitcoinNode = new BitcoinNode("btc.softwareverde.com", 8333, threadPool, new LocalNodeFeatures() {
             @Override
@@ -75,6 +75,7 @@ public class PartialMerkleTreeTests {
         Thread.sleep(3000L);
 
         bitcoinNode.disconnect();
+        threadPool.stop();
     }
 
     @Test
@@ -118,7 +119,7 @@ public class PartialMerkleTreeTests {
         final String blockData = IoUtil.getResource("/blocks/0000000000000000012F011B29194439757A67186A54C2614978F0D6192570F2");
         final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
 
-        final ImmutableListBuilder<Sha256Hash> merkleHashes = new ImmutableListBuilder<Sha256Hash>(block.getTransactionCount());
+        final ImmutableListBuilder<Sha256Hash> merkleHashes = new ImmutableListBuilder<>(block.getTransactionCount());
         for (final String merkleHashString : new String[]{ "D3BCEB689660BFDB8CE7DCBACBD9884EB6FB41D176FCC61E00C248B496432C6C", "840A2056D8BB045FB9025C8ABC8813ADFCE443B6F4E63AF02E41EE2DA4FB76A1", "9F8FCFFDA780929FE069B445BA302064EB2BC30CCEA0C8B3D46FB37D1A2FB487", "BF8DC762675906E5C862CF607886573E600FD4A7B244D49515C12558CAFD213A", "E73CB816E35F15D1391D7FD27650511A9AF6879EA8F01AA44ED29C08CDCC388F" }) {
             final Sha256Hash merkleHash = Sha256Hash.fromHexString(merkleHashString);
             merkleHashes.add(merkleHash);
@@ -154,7 +155,7 @@ public class PartialMerkleTreeTests {
         // Setup
         final MerkleRoot expectedMerkleRoot = MutableMerkleRoot.fromHexString("352144A8F453171A9024C0B23979D521B0C98A03DB6D08E4BC5B0B9554FCEAFA");
 
-        final MutableList<Sha256Hash> transactionHashes = new MutableList<Sha256Hash>(2);
+        final MutableList<Sha256Hash> transactionHashes = new MutableList<>(2);
         transactionHashes.add(Sha256Hash.fromHexString("1D04683045280CC3046880153EB0CDD9B352A2E110409A3302363218F1628DCA"));
         transactionHashes.add(Sha256Hash.fromHexString("BF80D99DE8E1801C5EC93DCA35E03586151691C461229301EF4C3F278079CBB1"));
 
@@ -185,7 +186,8 @@ public class PartialMerkleTreeTests {
             }
         }
 
-        final ThreadPool threadPool = new MainThreadPool(1, 1000L);
+        final CachedThreadPool threadPool = new CachedThreadPool(1, 1000L);
+        threadPool.start();
 
         final BitcoinNode bitcoinNode = new BitcoinNode("btc.softwareverde.com", 8333, threadPool, new LocalNodeFeatures() {
             @Override
@@ -204,7 +206,7 @@ public class PartialMerkleTreeTests {
         bloomFilterMessage.setBloomFilter(bloomFilter);
         bitcoinNode.queueMessage(bloomFilterMessage);
 
-        final Container<MerkleBlock> merkleBlockContainer = new Container<MerkleBlock>();
+        final Container<MerkleBlock> merkleBlockContainer = new Container<>();
         Thread.sleep(1000L);
         bitcoinNode.requestMerkleBlock(block.getHash(), new BitcoinNode.DownloadMerkleBlockCallback() {
             @Override
@@ -215,6 +217,7 @@ public class PartialMerkleTreeTests {
         Thread.sleep(3000L);
 
         bitcoinNode.disconnect();
+        threadPool.stop();
 
         final List<Sha256Hash> merkleHashes = merkleBlockContainer.value.getPartialMerkleTree().getHashes();
         final ByteArray flags = merkleBlockContainer.value.getPartialMerkleTree().getFlags();

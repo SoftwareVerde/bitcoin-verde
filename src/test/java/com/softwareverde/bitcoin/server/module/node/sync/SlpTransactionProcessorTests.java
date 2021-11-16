@@ -1,11 +1,17 @@
 package com.softwareverde.bitcoin.server.module.node.sync;
 
+import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockInflater;
+import com.softwareverde.bitcoin.context.IndexerCache;
 import com.softwareverde.bitcoin.context.TransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.context.lazy.LazyTransactionOutputIndexerContext;
+import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.indexer.BlockchainIndexerDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
+import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -15,6 +21,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.util.HexUtil;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -34,11 +41,21 @@ public class SlpTransactionProcessorTests extends IntegrationTest {
     @Test
     public void should_index_slp_transaction_validation_results() throws Exception {
         // Setup
-        final TransactionOutputIndexerContext transactionOutputIndexerContext = new LazyTransactionOutputIndexerContext(_fullNodeDatabaseManagerFactory);
+        final IndexerCache indexerCache = new IndexerCache(1);
+        final TransactionOutputIndexerContext transactionOutputIndexerContext = new LazyTransactionOutputIndexerContext(_fullNodeDatabaseManagerFactory, indexerCache);
         final BlockchainIndexer blockchainIndexer = new BlockchainIndexer(transactionOutputIndexerContext, 0);
 
         final List<Transaction> bvtTransactions = BlockchainIndexerTests.inflateBitcoinVerdeTestTokens();
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            // store genesis block
+            final BlockInflater blockInflater = new BlockInflater();
+            final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                final FullNodeBlockDatabaseManager fullNodeBlockDatabaseManager = databaseManager.getBlockDatabaseManager();
+                fullNodeBlockDatabaseManager.storeBlock(genesisBlock);
+            }
+
+            // store transactions
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
             for (final Transaction transaction : bvtTransactions) {
@@ -49,7 +66,7 @@ public class SlpTransactionProcessorTests extends IntegrationTest {
                 transactionDatabaseManager.addToUnconfirmedTransactions(transactionId);
 
                 final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = databaseManager.getBlockchainIndexerDatabaseManager();
-                blockchainIndexerDatabaseManager.queueTransactionsForProcessing(new ImmutableList<TransactionId>(transactionId));
+                blockchainIndexerDatabaseManager.queueTransactionsForProcessing(new ImmutableList<>(transactionId));
             }
         }
 
@@ -94,7 +111,7 @@ public class SlpTransactionProcessorTests extends IntegrationTest {
         // Assert
         final List<TransactionOutputIdentifier> expectedSlpTransactionOutputIdentifiers;
         {
-            final ImmutableListBuilder<TransactionOutputIdentifier> transactionOutputIdentifiers = new ImmutableListBuilder<TransactionOutputIdentifier>();
+            final ImmutableListBuilder<TransactionOutputIdentifier> transactionOutputIdentifiers = new ImmutableListBuilder<>();
             transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("34DD2FE8F0C5BBA8FC4F280C3815C1E46C2F52404F00DA3067D7CE12962F2ED0", new int[] { 0, 1, 2 }));
             transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("97BB8FFE6DC71AC5B263F322056069CF398CDA2677E21951364F00D2D572E887", new int[] { 0, 1, 2 }));
             transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("8572AA67141E5FB6C48557508D036542AAD99C828F22B429612BDCABBAD95373", new int[] { 0, 1, 2 }));
@@ -114,7 +131,7 @@ public class SlpTransactionProcessorTests extends IntegrationTest {
 
         final List<Sha256Hash> expectedInvalidSlpTransactions;
         {
-            final ImmutableListBuilder<Sha256Hash> listBuilder = new ImmutableListBuilder<Sha256Hash>();
+            final ImmutableListBuilder<Sha256Hash> listBuilder = new ImmutableListBuilder<>();
             listBuilder.add(Sha256Hash.fromHexString("9BD457D106B1EECBD43CD6ECA0A993420ABE16075B05012C8A76BB96D1AE16CE"));
             listBuilder.add(Sha256Hash.fromHexString("08937051BA961330600D382A749262753B8A941E9E155BA9798D2922C2CE3842"));
             listBuilder.add(Sha256Hash.fromHexString("9DF13E226887F408207F94E99108706B55149AF8C8EB9D2F36427BA3007DCD64"));

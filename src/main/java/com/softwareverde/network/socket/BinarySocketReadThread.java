@@ -8,28 +8,38 @@ import java.io.IOException;
 import java.io.InputStream;
 
 public class BinarySocketReadThread extends Thread implements Socket.ReadThread {
-    private static final LoggerInstance LOG = Logger.getInstance(BinarySocketReadThread.class);
+    protected static final LoggerInstance LOG = Logger.getInstance(BinarySocketReadThread.class);
 
-    private final PacketBuffer _protocolMessageBuffer;
-    private InputStream _rawInputStream;
-    private Callback _callback;
+    protected final PacketBuffer _packetBuffer;
+    protected InputStream _inputStream;
+    protected Callback _callback;
 
-    private Long _totalBytesReceived = 0L;
+    protected Long _totalBytesReceived = 0L;
+    protected String _socketName;
 
     public BinarySocketReadThread(final Integer bufferPageSize, final Integer maxByteCount, final BinaryPacketFormat binaryPacketFormat) {
-        this.setName("Binary Socket - Read Thread - " + this.getId());
+        this.setName("Binary Socket - Read Thread");
 
-        _protocolMessageBuffer = new PacketBuffer(binaryPacketFormat);
-        _protocolMessageBuffer.setPageByteCount(bufferPageSize);
-        _protocolMessageBuffer.setMaxByteCount(maxByteCount);
+        _packetBuffer = new PacketBuffer(binaryPacketFormat);
+        _packetBuffer.setPageByteCount(bufferPageSize);
+        _packetBuffer.setMaxByteCount(maxByteCount);
+    }
+
+    @Override
+    public void setSocketName(final String socketName) {
+        this.setName("Binary Socket - Read Thread - " + socketName);
+        _socketName = socketName;
     }
 
     @Override
     public void run() {
-        while (true) {
-            try {
-                final byte[] buffer = _protocolMessageBuffer.getRecycledBuffer();
-                final int bytesRead = _rawInputStream.read(buffer);
+        final Thread thread = Thread.currentThread();
+        try {
+            final InputStream inputStream = _inputStream;
+
+            while (! thread.isInterrupted()) {
+                final byte[] buffer = _packetBuffer.getRecycledBuffer();
+                final int bytesRead = inputStream.read(buffer);
 
                 if (bytesRead < 0) {
                     throw new IOException("IO: Remote socket closed the connection.");
@@ -37,20 +47,20 @@ public class BinarySocketReadThread extends Thread implements Socket.ReadThread 
 
                 _totalBytesReceived += bytesRead;
 
-                _protocolMessageBuffer.appendBytes(buffer, bytesRead);
-                _protocolMessageBuffer.evictCorruptedPackets();
+                _packetBuffer.appendBytes(buffer, bytesRead);
+                _packetBuffer.evictCorruptedPackets();
 
-                if (LOG.isDebugEnabled()) {
-                    final int byteCount = _protocolMessageBuffer.getByteCount();
-                    final int bufferPageCount = _protocolMessageBuffer.getPageCount();
-                    final int bufferPageByteCount = _protocolMessageBuffer.getPageByteCount();
+                if (LOG.isTraceEnabled()) {
+                    final int byteCount = _packetBuffer.getByteCount();
+                    final int bufferPageCount = _packetBuffer.getPageCount();
+                    final int bufferPageByteCount = _packetBuffer.getPageByteCount();
                     final float utilizationPercent = ((int) (byteCount / (bufferPageCount * ((float) bufferPageByteCount)) * 100));
-                    LOG.debug("[Received " + bytesRead + " bytes from socket.] (Bytes In Buffer: " + byteCount + ") (Buffer Count: " + bufferPageCount + ") (" + utilizationPercent + "%)");
+                    LOG.trace("Received " + bytesRead + " bytes from socket " + _socketName + ". (Bytes In Buffer: " + byteCount + ") (Buffer Count: " + bufferPageCount + ") (" + utilizationPercent + "%)");
                 }
 
-                while (_protocolMessageBuffer.hasMessage()) {
-                    final ProtocolMessage message = _protocolMessageBuffer.popMessage();
-                    _protocolMessageBuffer.evictCorruptedPackets();
+                while (_packetBuffer.hasMessage()) {
+                    final ProtocolMessage message = _packetBuffer.popMessage();
+                    _packetBuffer.evictCorruptedPackets();
 
                     if (_callback != null) {
                         if (message != null) {
@@ -58,30 +68,30 @@ public class BinarySocketReadThread extends Thread implements Socket.ReadThread 
                         }
                     }
                 }
-
-                if (this.isInterrupted()) { break; }
-            }
-            catch (final Exception exception) {
-                LOG.debug(exception);
-                break;
             }
         }
-
-        if (_callback != null) {
-            _callback.onExit();
+        catch (final Exception exception) {
+            LOG.debug(exception);
+        }
+        finally {
+            final Callback callback = _callback;
+            if (callback != null) {
+                callback.onExit();
+            }
         }
     }
 
     @Override
-    public void setInputStream(final InputStream inputStream) {
-        if (_rawInputStream != null) {
+    public synchronized void setInputStream(final InputStream inputStream) {
+        final InputStream rawInputStream = _inputStream;
+        if (rawInputStream != null) {
             try {
-                _rawInputStream.close();
+                rawInputStream.close();
             }
             catch (final Exception exception) { }
         }
 
-        _rawInputStream = inputStream;
+        _inputStream = inputStream;
     }
 
     @Override
@@ -90,19 +100,37 @@ public class BinarySocketReadThread extends Thread implements Socket.ReadThread 
     }
 
     public void setBufferPageByteCount(final Integer pageSize) {
-        _protocolMessageBuffer.setPageByteCount(pageSize);
+        _packetBuffer.setPageByteCount(pageSize);
     }
 
     public void setBufferMaxByteCount(final Integer bufferSize) {
-        _protocolMessageBuffer.setMaxByteCount(bufferSize);
+        _packetBuffer.setMaxByteCount(bufferSize);
     }
 
-    public PacketBuffer getProtocolMessageBuffer() {
-        return _protocolMessageBuffer;
+    public Integer getBufferPageByteCount() {
+        return _packetBuffer.getPageByteCount();
+    }
+
+    public Integer getBufferMaxByteCount() {
+        return _packetBuffer.getMaxByteCount();
     }
 
     @Override
     public Long getTotalBytesReceived() {
         return _totalBytesReceived;
+    }
+
+    @Override
+    public synchronized void close() {
+        this.interrupt();
+
+        final InputStream rawInputStream = _inputStream;
+        if (rawInputStream != null) {
+            try {
+                rawInputStream.close();
+            }
+            catch (final Exception exception) { }
+        }
+        _inputStream = null;
     }
 }

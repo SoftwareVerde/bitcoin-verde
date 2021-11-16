@@ -9,7 +9,7 @@ import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.test.IntegrationTest;
-import com.softwareverde.concurrent.pool.MainThreadPool;
+import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.HexUtil;
@@ -29,9 +29,10 @@ public class BitcoinNodeDatabaseManagerTests extends IntegrationTest {
         super.after();
     }
 
-    public void _storeAndAssertNodeFeatures(final DatabaseManagerFactory databaseManagerFactory) throws Exception {
+    protected void _storeAndAssertNodeFeatures(final DatabaseManagerFactory databaseManagerFactory) throws Exception {
         // Setup
-        final MainThreadPool mainThreadPool = new MainThreadPool(0, 1000L);
+        final CachedThreadPool mainThreadPool = new CachedThreadPool(0, 1000L);
+        mainThreadPool.start();
 
         final BitcoinNode bitcoinNode = new BitcoinNode("127.0.0.1", 8333, mainThreadPool, new LocalNodeFeatures() {
             @Override
@@ -74,6 +75,8 @@ public class BitcoinNodeDatabaseManagerTests extends IntegrationTest {
         Assert.assertTrue(storedFeatures.isFeatureEnabled(NodeFeatures.Feature.BLOOM_CONNECTIONS_ENABLED));
         Assert.assertTrue(storedFeatures.isFeatureEnabled(NodeFeatures.Feature.SLP_INDEX_ENABLED));
         Assert.assertTrue(storedFeatures.isFeatureEnabled(NodeFeatures.Feature.XTHIN_PROTOCOL_ENABLED));
+
+        mainThreadPool.stop();
     }
 
     @Test

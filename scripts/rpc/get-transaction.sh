@@ -12,5 +12,5 @@ fi
 echo -n "HASH: "
 read HASH
 
-(echo "{\"method\":\"GET\",\"query\":\"TRANSACTION\",\"parameters\":{\"hash\":\"${HASH}\",\"rawFormat\":\"${RAW_FORMAT}\"}}") | nc localhost 8334
+(echo "{\"method\":\"GET\",\"query\":\"TRANSACTION\",\"parameters\":{\"hash\":\"${HASH}\",\"rawFormat\":\"${RAW_FORMAT}\"}}") | curl -s --http0.9 --data-binary @- localhost:8334
 

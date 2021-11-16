@@ -15,7 +15,7 @@ import java.util.HashMap;
 public class BlockInventoryMessageHandlerTests extends UnitTest {
 
     public class FakeBlockIdStore implements BlockInventoryMessageHandlerUtil.BlockIdStore {
-        final HashMap<Sha256Hash, BlockId> _blockIds = new HashMap<Sha256Hash, BlockId>();
+        final HashMap<Sha256Hash, BlockId> _blockIds = new HashMap<>();
 
         @Override
         public BlockId getBlockId(final Sha256Hash blockHash) throws Exception {
@@ -32,7 +32,7 @@ public class BlockInventoryMessageHandlerTests extends UnitTest {
     }
 
     protected static List<Sha256Hash> generateBlockHashes(final Integer blockHashCount, final Long firstUnknownIndex, final FakeBlockIdStore blockIdStore) {
-        final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>(blockHashCount);
+        final MutableList<Sha256Hash> blockHashes = new MutableList<>(blockHashCount);
         for (long i = 0L; i < blockHashCount; ++i) {
             final Sha256Hash blockHash = BlockInventoryMessageHandlerTests.generateBlockHash(i);
             final BlockId blockId = BlockId.wrap(i);

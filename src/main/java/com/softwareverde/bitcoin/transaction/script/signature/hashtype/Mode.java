@@ -7,7 +7,7 @@ public enum Mode {
     SIGNATURE_HASH_NONE((byte) 0x02),
     SIGNATURE_HASH_SINGLE((byte) 0x03);
 
-    public static final byte USED_BITS_MASK = (byte) 0x03; // Bitmask containing the range of bits used to determine the Mode.
+    public static final byte BIT_MASK = (byte) 0x03; // Bitmask containing the range of bits used to determine the Mode.
 
     public static Mode fromByte(final byte value) {
         final byte valueMask = 0x0F;

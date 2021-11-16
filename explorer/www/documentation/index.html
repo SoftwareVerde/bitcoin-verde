@@ -318,10 +318,12 @@
                             <tr><td data-label="Module">bitcoin</td><td data-label="Property">seedNodes</td><td data-label="Default Value">["btc.softwareverde.com", "bitcoinverde.org"]</td><td data-label="Description">The seed nodes which are initially connected to on start.  Currently at least one seed node is required since DNS seeding is not currently supported.  Should not exceed maxPeerCount.  May optionally contain a port (eg: "bitcoinverde.org:8333").</td></tr>
                             <tr><td data-label="Module">bitcoin</td><td data-label="Property">whitelistedNodes</td><td data-label="Default Value">[]</td><td data-label="Description">The list of nodes that are prevented from being banned under any circumstance.</td></tr>
                             <tr><td data-label="Module">bitcoin</td><td data-label="Property">enableBanFilter</td><td data-label="Default Value">1</td><td data-label="Description">If set to zero or false, then nodes will not be banned under any circumstances.  Additionally, any previously banned nodes will be unbanned while disabled.</td></tr>
+                            <tr><td data-label="Module">bitcoin</td><td data-label="Property">enableBlockPruning</td><td data-label="Default Value">0</td><td data-label="Description">If set to 1 or true, then node will only keep the most recent blocks on disk once they are processed, reducing disk footprint.</td></tr>
                             <tr><td data-label="Module">bitcoin</td><td data-label="Property">maxPeerCount</td><td data-label="Default Value">32</td><td data-label="Description">The maximum number of peers that the node will accept.</td></tr>
                             <tr><td data-label="Module">bitcoin</td><td data-label="Property">maxThreadCount</td><td data-label="Default Value">4</td><td data-label="Description">The max number of threads used to validate a block.  Currently, the server will create max(maxPeerCount * 8, 256) threads for network communication; in the future this property will likely claim this label.</td></tr>
                             <tr><td data-label="Module">bitcoin</td><td data-label="Property">trustedBlockHeight</td><td data-label="Default Value">391180</td><td data-label="Description">Blocks prior to this height will not have their transactions validated.</td></tr>
                             <tr><td data-label="Module">bitcoin</td><td data-label="Property">skipNetworking</td><td data-label="Default Value">0</td><td data-label="Description">When set, this property disables networking with other nodes.</td></tr>
+                            <tr><td data-label="Module">bitcoin</td><td data-label="Property">prioritizeNewPeers</td><td data-label="Default Value">0</td><td data-label="Description">Specifies the behaviour when a new connection is received but the node is already at its maxPeerCount.  If unset (the default), the node will prioritize its existing connections and reject the new one. If set, the node will disconnect from a non-preferred peer to make room for the new connection.  Note that enabling this setting may increase the risk of a Sybil attack.</td></tr>
                             <tr><td data-label="Module">bitcoin</td><td data-label="Property">maxUtxoCacheByteCount</td><td data-label="Default Value">536870912</td><td data-label="Description">The max memory used to store Unspent Transaction Outputs in memory.  This properties does nothing if the NativeUnspentTransactionOutputCache library is not loaded.</td></tr>
                             <tr><td data-label="Module">bitcoin</td><td data-label="Property">useTransactionBloomFilter</td><td data-label="Default Value">1</td><td data-label="Description">When set, uses an internal bloom filter to maintain a filter of transactions that have already been seen, greatly reducing the time required to store a block.  When enabled, this setting requires about 1GB of memory.  This property is safe to be toggled on/off between restarts.</td></tr>
                             <tr><td data-label="Module">bitcoin</td><td data-label="Property">trimBlocks</td><td data-label="Default Value">0</td><td data-label="Description">Experimental feature.  When enabled, spent TransactionOutputs that are older than 144 blocks will be deleted from the database.  Enabling this feature disables full-node functionality and will prevent the block explorer from functioning.</td></tr>
@@ -414,10 +416,10 @@
                     <p>
                         An example <tt>VALIDATE_PROTOTYPE_BLOCK</tt> response looks like:
                     </p>
-<pre>{  
+<pre>{
     "wasSuccess":       1,
     "errorMessage":     null,
-    "blockValidation": {  
+    "blockValidation": {
         "isValid":              false,
         "errorMessage":         "Block coinbase does not contain block height.",
         "invalidTransactions":  [

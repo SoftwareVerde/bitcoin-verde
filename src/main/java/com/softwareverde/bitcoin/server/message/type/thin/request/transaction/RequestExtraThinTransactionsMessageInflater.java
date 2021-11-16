@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.message.type.thin.request.transaction;
 
-import com.softwareverde.bitcoin.block.BlockInflater;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
@@ -25,10 +25,10 @@ public class RequestExtraThinTransactionsMessageInflater extends BitcoinProtocol
         final Sha256Hash blockHash = MutableSha256Hash.wrap(byteArrayReader.readBytes(32, Endian.LITTLE));
         requestExtraThinTransactionsMessage.setBlockHash(blockHash);
 
-        final Integer transactionCount = byteArrayReader.readVariableSizedInteger().intValue();
-        if (transactionCount >= BlockInflater.MAX_TRANSACTION_COUNT) { return null; }
+        final int transactionCount = byteArrayReader.readVariableLengthInteger().intValue();
+        if (transactionCount >= BitcoinConstants.getMaxTransactionCountPerBlock()) { return null; }
 
-        final ImmutableListBuilder<ByteArray> transactionShortHashesListBuilder = new ImmutableListBuilder<ByteArray>(transactionCount);
+        final ImmutableListBuilder<ByteArray> transactionShortHashesListBuilder = new ImmutableListBuilder<>(transactionCount);
         for (int i = 0; i < transactionCount; ++i) {
             final ByteArray transactionShortHash = MutableByteArray.wrap(byteArrayReader.readBytes(4, Endian.LITTLE));
             transactionShortHashesListBuilder.add(transactionShortHash);

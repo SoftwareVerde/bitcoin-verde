@@ -33,7 +33,7 @@ public class TransactionOutputDeflater {
         final Script lockingScript = transactionOutput.getLockingScript();
         final Integer scriptByteCount;
         {
-            Integer byteCount = 0;
+            int byteCount = 0;
             byteCount += ByteUtil.variableLengthIntegerToBytes(lockingScript.getByteCount()).length;
             byteCount += lockingScript.getByteCount();
             scriptByteCount = byteCount;

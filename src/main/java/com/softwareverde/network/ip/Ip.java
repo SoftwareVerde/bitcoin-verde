@@ -15,6 +15,8 @@ import java.net.UnknownHostException;
 
 public interface Ip extends Const {
     static Ip fromSocket(final Socket socket) {
+        if (socket == null) { return null; }
+
         final SocketAddress socketAddress = socket.getRemoteSocketAddress();
         if (socketAddress instanceof InetSocketAddress) {
             final InetAddress inetAddress = ((InetSocketAddress) socketAddress).getAddress();
@@ -65,7 +67,7 @@ public interface Ip extends Const {
         try {
             final InetAddress[] inetAddresses = InetAddress.getAllByName(hostName);
 
-            final MutableList<Ip> ipAddresses = new MutableList<Ip>(inetAddresses.length);
+            final MutableList<Ip> ipAddresses = new MutableList<>(inetAddresses.length);
             for (final InetAddress inetAddress : inetAddresses) {
                 final Ip ip;
                 if (inetAddress instanceof Inet4Address) {

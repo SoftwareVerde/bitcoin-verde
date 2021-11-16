@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.handler.block;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessage;
+import com.softwareverde.bitcoin.server.message.type.query.header.RequestBlockHeadersMessage;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -41,7 +41,7 @@ public class RequestBlockHeadersHandler extends AbstractRequestBlocksHandler imp
             boolean sendBatchContinueInventory = false;
 
             Sha256Hash lastBlockHeaderHash = null;
-            final MutableList<BlockHeader> blockHeaders = new MutableList<BlockHeader>();
+            final MutableList<BlockHeader> blockHeaders = new MutableList<>();
             {
                 final List<BlockId> childrenBlockIds = _findBlockChildrenIds(startingBlock.startingBlockId, desiredBlockHash, startingBlock.selectedBlockchainSegmentId, RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT, databaseManager);
                 for (final BlockId blockId : childrenBlockIds) {

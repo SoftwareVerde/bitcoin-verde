@@ -12,7 +12,7 @@ import com.softwareverde.util.bytearray.Endian;
 
 public class RequestExtraThinTransactionsMessage extends BitcoinProtocolMessage {
     protected Sha256Hash _blockHash = Sha256Hash.EMPTY_HASH;
-    protected List<ByteArray> _transactionShortHashes = new MutableList<ByteArray>(0);
+    protected List<ByteArray> _transactionShortHashes = new MutableList<>(0);
 
     public RequestExtraThinTransactionsMessage() {
         super(MessageType.REQUEST_EXTRA_THIN_TRANSACTIONS);

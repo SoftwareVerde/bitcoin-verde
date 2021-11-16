@@ -38,7 +38,7 @@ public class TransactionDatabaseManagerTests extends IntegrationTest {
             // Action
             final TransactionId transactionId0 = transactionDatabaseManager.storeTransactionHash(transaction);
             final TransactionId transactionId1 = transactionDatabaseManager.storeTransactionHash(transaction);
-            final List<TransactionId> transactionIds = transactionDatabaseManager.storeTransactionHashes(new ImmutableList<Transaction>(transaction, transaction));
+            final List<TransactionId> transactionIds = transactionDatabaseManager.storeTransactionHashes(new ImmutableList<>(transaction, transaction));
 
             // Assert
             Assert.assertEquals(transactionId0, transactionId1);

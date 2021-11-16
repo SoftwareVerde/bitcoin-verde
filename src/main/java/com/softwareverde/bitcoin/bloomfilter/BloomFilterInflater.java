@@ -10,10 +10,10 @@ public class BloomFilterInflater {
     public static final Integer MAX_BYTE_COUNT = (32 * 1024 * 1024);
 
     protected MutableBloomFilter _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
-        final Integer bloomFilterByteCount = byteArrayReader.readVariableSizedInteger().intValue();
+        final int bloomFilterByteCount = byteArrayReader.readVariableLengthInteger().intValue();
         if (bloomFilterByteCount > MAX_BYTE_COUNT) { return null; }
 
-        final Integer bloomFilterBitCount = (bloomFilterByteCount * 8);
+        final int bloomFilterBitCount = (bloomFilterByteCount * 8);
         final ByteArray bytes = MutableByteArray.wrap(byteArrayReader.readBytes(bloomFilterByteCount, Endian.BIG));
         final Integer hashFunctionCount = byteArrayReader.readInteger(4, Endian.LITTLE);
         final Long nonce = byteArrayReader.readLong(4, Endian.LITTLE);

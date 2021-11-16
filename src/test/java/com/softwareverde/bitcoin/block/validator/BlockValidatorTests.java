@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.block.validator;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
@@ -90,6 +92,7 @@ public class BlockValidatorTests extends UnitTest {
     protected static void assertCoinbaseIsInvalid(final CoinbaseTransaction invalidCoinbase) throws Exception {
         // Setup
         final BlockInflater blockInflater = new BlockInflater();
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
 
         final Block genesisBlock = inflateBlock(blockInflater, BlockData.MainChain.GENESIS_BLOCK);
 
@@ -108,7 +111,7 @@ public class BlockValidatorTests extends UnitTest {
 
         modifiedBlock01.replaceTransaction(0, invalidCoinbase);
 
-        final FakeBlockValidatorContext blockValidatorContext = new FakeBlockValidatorContext(NetworkTime.MAX_VALUE);
+        final FakeBlockValidatorContext blockValidatorContext = new FakeBlockValidatorContext(NetworkTime.MAX_VALUE, upgradeSchedule);
         final BlockValidator blockValidator = new BlockValidator(blockValidatorContext);
         blockValidatorContext.addBlock(genesisBlock, 0L);
         blockValidatorContext.addBlock(modifiedBlock01, 1L);
@@ -134,9 +137,10 @@ public class BlockValidatorTests extends UnitTest {
     public void should_validate_block_that_contains_transaction_that_spends_outputs_in_same_block() {
         // Setup
         final BlockInflater blockInflater = new BlockInflater();
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
 
         final NetworkTime networkTime = NetworkTime.MAX_VALUE;
-        final FakeBlockValidatorContext blockValidatorContext = new FakeBlockValidatorContext(networkTime);
+        final FakeBlockValidatorContext blockValidatorContext = new FakeBlockValidatorContext(networkTime, upgradeSchedule);
 
         final BlockValidator blockValidator = new BlockValidator(blockValidatorContext);
 
@@ -164,6 +168,7 @@ public class BlockValidatorTests extends UnitTest {
     public void should_not_validate_block_that_spends_its_own_coinbase() {
         // Setup
         final BlockInflater blockInflater = new BlockInflater();
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
 
         final Block genesisBlock = inflateBlock(blockInflater, BlockData.MainChain.GENESIS_BLOCK);
 
@@ -181,7 +186,7 @@ public class BlockValidatorTests extends UnitTest {
         };
 
         { // Assert the Block is valid without the Transaction spending its coinbase...
-            final FakeBlockValidatorContext blockValidatorContext = new FakeBlockValidatorContext(NetworkTime.MAX_VALUE);
+            final FakeBlockValidatorContext blockValidatorContext = new FakeBlockValidatorContext(NetworkTime.MAX_VALUE, upgradeSchedule);
             final BlockValidator blockValidator = new BlockValidator(blockValidatorContext);
             blockValidatorContext.addBlock(genesisBlock, 0L);
             blockValidatorContext.addBlock(modifiedBlock01, 1L);
@@ -214,7 +219,7 @@ public class BlockValidatorTests extends UnitTest {
             { // Sign the transaction...
                 Transaction partiallySignedTransaction = unsignedTransaction;
                 final TransactionSigner transactionSigner = new TransactionSigner();
-                final SignatureContext signatureContext = new SignatureContext(partiallySignedTransaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, false)); // BCH is not enabled at this block height...
+                final SignatureContext signatureContext = new SignatureContext(partiallySignedTransaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, false), upgradeSchedule); // BCH is not enabled at this block height...
 
                 int inputIndex = 0;
                 final List<TransactionInput> transactionInputs = unsignedTransaction.getTransactionInputs();
@@ -233,7 +238,7 @@ public class BlockValidatorTests extends UnitTest {
 
         modifiedBlock01.addTransaction(signedTransaction);
 
-        final FakeBlockValidatorContext blockValidatorContext = new FakeBlockValidatorContext(NetworkTime.MAX_VALUE);
+        final FakeBlockValidatorContext blockValidatorContext = new FakeBlockValidatorContext(NetworkTime.MAX_VALUE, upgradeSchedule);
         final BlockValidator blockValidator = new BlockValidator(blockValidatorContext);
         blockValidatorContext.addBlock(genesisBlock, 0L);
         blockValidatorContext.addBlock(modifiedBlock01, 1L);
@@ -259,10 +264,11 @@ public class BlockValidatorTests extends UnitTest {
     @Test
     public void difficulty_should_be_recalculated_every_2016th_block() throws Exception {
         // Setup
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
         final BlockInflater blockInflater = new BlockInflater();
 
-        final FakeBlockValidatorContext blockValidatorContext = new FakeBlockValidatorContext(NetworkTime.MAX_VALUE);
+        final FakeBlockValidatorContext blockValidatorContext = new FakeBlockValidatorContext(NetworkTime.MAX_VALUE, upgradeSchedule);
         final BlockValidator blockValidator = new BlockValidator(blockValidatorContext);
 
         final Block genesisBlock = inflateBlock(blockInflater, BlockData.MainChain.GENESIS_BLOCK);
@@ -295,7 +301,7 @@ public class BlockValidatorTests extends UnitTest {
             Assert.assertEquals(Difficulty.BASE_DIFFICULTY, blockDifficulty);
         }
 
-        blockValidatorContext.addBlockHeader(inflateBlockHeader(blockHeaderInflater, "0100000049C1DAAB3B6536FF1B2633C3A316A6E06EC287676CDEEC4CA7BAAE6B00000000AC10B36B8F354B3353207DE15940A5EDBC05BB8364AF75B4B5409E7823F2B48923EC3A4BFFFF001DBD5FA412"), 32255L);
+        blockValidatorContext.addBlockHeader(inflateBlockHeader(blockHeaderInflater, "0100000049C1DAAB3B6536FF1B2633C3A316A6E06EC287676CDEEC4CA7BAAE6B00000000AC10B36B8F354B3353207DE15940A5EDBC05BB8364AF75B4B5409E7823F2B48923EC3A4BFFFF001DBD5FA412"), 32255L, MedianBlockTime.fromSeconds(1262150129L), null);
 
         final Difficulty expectedDifficulty = new ImmutableDifficulty(ByteArray.fromHexString("00D86A"), Difficulty.BASE_DIFFICULTY_EXPONENT);
         final float expectedDifficultyRatio = 1.18F;
@@ -327,10 +333,11 @@ public class BlockValidatorTests extends UnitTest {
     @Test
     public void should_not_validate_block_that_contains_a_duplicate_transaction() throws Exception {
         // Setup
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
         final BlockInflater blockInflater = new BlockInflater();
         final AddressInflater addressInflater = new AddressInflater();
 
-        final FakeBlockValidatorContext blockValidatorContext = new FakeBlockValidatorContext(NetworkTime.MAX_VALUE);
+        final FakeBlockValidatorContext blockValidatorContext = new FakeBlockValidatorContext(NetworkTime.MAX_VALUE, upgradeSchedule);
         final BlockValidator blockValidator = new BlockValidator(blockValidatorContext);
 
         final HashMapTransactionOutputRepository transactionOutputRepository = new HashMapTransactionOutputRepository();
@@ -402,7 +409,7 @@ public class BlockValidatorTests extends UnitTest {
             { // Sign the transaction...
                 Transaction partiallySignedTransaction = unsignedTransaction;
                 final TransactionSigner transactionSigner = new TransactionSigner();
-                final SignatureContext signatureContext = new SignatureContext(partiallySignedTransaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, false)); // BCH is not enabled at this block height...
+                final SignatureContext signatureContext = new SignatureContext(partiallySignedTransaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, false), upgradeSchedule); // BCH is not enabled at this block height...
 
                 int inputIndex = 0;
                 final List<TransactionInput> transactionInputs = unsignedTransaction.getTransactionInputs();

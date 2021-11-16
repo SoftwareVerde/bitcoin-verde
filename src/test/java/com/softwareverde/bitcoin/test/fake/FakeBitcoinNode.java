@@ -3,14 +3,14 @@ package com.softwareverde.bitcoin.test.fake;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
-import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.socket.BinarySocket;
 
 public class FakeBitcoinNode extends BitcoinNode {
-    protected final MutableList<ProtocolMessage> _outboundMessageQueue = new MutableList<ProtocolMessage>();
+    protected final MutableList<ProtocolMessage> _outboundMessageQueue = new MutableList<>();
 
     @Override
     protected void _initConnection() {

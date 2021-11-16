@@ -10,10 +10,12 @@ import com.softwareverde.bitcoin.server.module.node.sync.BlockFinderHashesBuilde
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.RequestId;
 import com.softwareverde.concurrent.Pin;
-import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Util;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -34,17 +36,21 @@ public class BitcoinNodeHeadBlockFinder {
     }
 
     public void determineHeadBlock(final BitcoinNode bitcoinNode, final Callback callback) {
-        final List<Sha256Hash> blockHashes;
+        final MutableList<Sha256Hash> blockHashes = new MutableList<>();
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BlockFinderHashesBuilder blockFinderHashesBuilder = new BlockFinderHashesBuilder(databaseManager);
-            blockHashes = blockFinderHashesBuilder.createBlockHeaderFinderBlockHashes(1);
+            blockHashes.addAll(blockFinderHashesBuilder.createBlockHeaderFinderBlockHashes(1));
+
+            if (blockHashes.isEmpty()) {
+                blockHashes.add(BlockHeader.GENESIS_BLOCK_HASH);
+            }
         }
         catch (final Exception exception) {
             callback.onFailure();
             return;
         }
 
-        final Long bitcoinNodePing = bitcoinNode.getAveragePing();
+        final Long bitcoinNodePing = Util.coalesce(bitcoinNode.getAveragePing(), 1000L);
         final Long maxTimeout = Math.min(Math.max(1000L, bitcoinNodePing), 5000L);
         final AtomicBoolean didRespond = new AtomicBoolean(false);
         final Pin pin = new Pin();

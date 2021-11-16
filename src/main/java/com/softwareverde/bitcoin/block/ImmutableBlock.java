@@ -31,13 +31,14 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
     protected Integer _cachedHashCode = null;
     protected Sha256Hash _cachedHash = null;
     protected Integer _cachedByteCount = null;
+    protected Boolean _cachedValidity = null;
 
     protected Integer _calculateByteCount() {
         return _blockDeflater.getByteCount(this);
     }
 
     protected void _buildMerkleTree() {
-        final MutableMerkleTree<Transaction> merkleTree = new MerkleTreeNode<Transaction>();
+        final MutableMerkleTree<Transaction> merkleTree = new MerkleTreeNode<>();
         for (final Transaction transaction : _transactions) {
             merkleTree.addItem(transaction);
         }
@@ -51,7 +52,7 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
     protected ImmutableBlock(final BlockHeader blockHeader, final List<Transaction> transactions, final BlockDeflater blockDeflater, final AddressInflater addressInflater) {
         super(blockHeader);
 
-        final ImmutableListBuilder<Transaction> immutableListBuilder = new ImmutableListBuilder<Transaction>(transactions.getCount());
+        final ImmutableListBuilder<Transaction> immutableListBuilder = new ImmutableListBuilder<>(transactions.getCount());
         for (final Transaction transaction : transactions) {
             immutableListBuilder.add(transaction.asConst());
         }
@@ -80,16 +81,20 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
 
     @Override
     public Boolean isValid() {
-        final Boolean superIsValid = super.isValid();
-        if (! superIsValid) { return false; }
-
-        if (_transactions.isEmpty()) { return false; }
+        final Boolean cachedValidity = _cachedValidity;
+        if (cachedValidity != null) { return cachedValidity; }
 
         if (_merkleTree == null) {
             _buildMerkleTree();
         }
+
+        boolean isValid = (! _transactions.isEmpty());
+        isValid = (isValid && super.isValid());
+
         final MerkleRoot calculatedMerkleRoot = _merkleTree.getMerkleRoot();
-        return (calculatedMerkleRoot.equals(_merkleRoot));
+        isValid = (isValid && Util.areEqual(calculatedMerkleRoot, _merkleRoot));
+        _cachedValidity = isValid;
+        return isValid;
     }
 
     @Override
@@ -99,7 +104,7 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
 
     @Override
     public List<Transaction> getTransactions(final BloomFilter bloomFilter) {
-        final ImmutableListBuilder<Transaction> matchedTransactions = new ImmutableListBuilder<Transaction>();
+        final ImmutableListBuilder<Transaction> matchedTransactions = new ImmutableListBuilder<>();
         for (final Transaction transaction : _transactions) {
             if (transaction.matches(bloomFilter)) {
                 matchedTransactions.add(transaction);

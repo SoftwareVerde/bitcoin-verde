@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.message.header;
 
-import com.softwareverde.bitcoin.block.BlockInflater;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.server.message.type.MessageTypeInflater;
@@ -59,7 +59,7 @@ public class BitcoinProtocolMessageHeaderInflater implements ProtocolMessageHead
 
             final MessageType messageType = bitcoinProtocolMessageHeader.command;
             if ( (messageType != null) && messageType.isLargeMessage() ) {
-                return (2 * BlockInflater.MAX_BYTE_COUNT);
+                return (2 * BitcoinConstants.getBlockMaxByteCount());
             }
         }
 

@@ -1,8 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.manager;
 
-import com.softwareverde.async.ConcurrentHashSet;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
-import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
@@ -16,9 +15,13 @@ import com.softwareverde.bitcoin.server.module.node.sync.inventory.BitcoinNodeHe
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.server.node.BitcoinNodeObserver;
+import com.softwareverde.bitcoin.server.node.RequestPriority;
+import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProofWithTransactions;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
-import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.concurrent.ConcurrentHashSet;
+import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -36,6 +39,7 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -74,6 +78,7 @@ public class BitcoinNodeManager {
     public static class Context {
         public Integer minNodeCount;
         public Integer maxNodeCount;
+        public Boolean shouldPrioritizeNewConnections;
         public DatabaseManagerFactory databaseManagerFactory;
         public BitcoinNodeFactory nodeFactory;
         public MutableNetworkTime networkTime;
@@ -118,7 +123,7 @@ public class BitcoinNodeManager {
 
     protected final ConcurrentHashMap<NodeId, BitcoinNode> _preferredNodes;
     protected final ConcurrentHashMap<NodeId, BitcoinNode> _otherNodes;
-    protected ConcurrentHashMap<NodeId, BitcoinNode> _pendingNodes = new ConcurrentHashMap<>(); // Nodes that have been added but have not yet completed their handshake.
+    protected final ConcurrentHashMap<NodeId, BitcoinNode> _pendingNodes = new ConcurrentHashMap<>(); // Nodes that have been added but have not yet completed their handshake.
 
     // _connectedNodeAddresses contains NodeIpAddresses that are either currently-connected, are pending handshake, or are about to be connected to.
     // All methods about to connect to a node should ensure the node will not be a duplicate by checking _connectedNodeAddresses for an existing entry.
@@ -131,9 +136,10 @@ public class BitcoinNodeManager {
     protected Integer _minNodeCount;
     protected Integer _maxNodeCount;
     protected Boolean _shouldOnlyConnectToSeedNodes = false;
+    protected Boolean _shouldPrioritizeNewConnections = false;
     protected volatile Boolean _isShuttingDown = false;
 
-    protected Integer _defaultExternalPort = BitcoinProperties.PORT;
+    protected Integer _defaultExternalPort = BitcoinConstants.getDefaultNetworkPort();
     protected NodeIpAddress _localNodeIpAddress = null;
 
     protected final DatabaseManagerFactory _databaseManagerFactory;
@@ -142,7 +148,7 @@ public class BitcoinNodeManager {
     protected final MemoryPoolEnquirer _memoryPoolEnquirer;
     protected final SynchronizationStatus _synchronizationStatusHandler;
     protected final BitcoinNodeHeadBlockFinder _bitcoinNodeHeadBlockFinder;
-    protected final MutableList<String> _dnsSeeds = new MutableList<String>(0);
+    protected final MutableList<String> _dnsSeeds = new MutableList<>(0);
 
     protected final Object _threadMutex = new Object();
     protected Thread _nodeMaintenanceThread;
@@ -271,8 +277,8 @@ public class BitcoinNodeManager {
     protected void _connectToNewPreferredNodes() {
         final Integer defaultPort = _defaultExternalPort;
 
-        final HashSet<String> excludeSet = new HashSet<String>();
-        final MutableList<NodeIpAddress> nodeIpAddresses = new MutableList<NodeIpAddress>();
+        final HashSet<String> excludeSet = new HashSet<>();
+        final MutableList<NodeIpAddress> nodeIpAddresses = new MutableList<>();
 
         { // Add the node's own IP to the exclude set.
             final NodeIpAddress localNodeIpAddress = _localNodeIpAddress;
@@ -321,7 +327,7 @@ public class BitcoinNodeManager {
 
                     final List<BitcoinNodeIpAddress> foundNodeIpAddresses;
                     { // Look for nodes that would be good preferred nodes, falling back to unknown nodes if there aren't enough available.
-                        final MutableList<NodeFeatures.Feature> requiredFeatures = new MutableList<NodeFeatures.Feature>();
+                        final MutableList<NodeFeatures.Feature> requiredFeatures = new MutableList<>();
                         {
                             requiredFeatures.add(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
                             requiredFeatures.add(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
@@ -336,7 +342,7 @@ public class BitcoinNodeManager {
                             final int missingDesiredNodeCount = (numberOfNodesToAttemptConnectionsTo - possiblePreferredNodes.getCount());
                             final List<BitcoinNodeIpAddress> unknownBitcoinNodeIpAddresses = nodeDatabaseManager.findNodes(minSecondsSinceLastConnectionAttempt, missingDesiredNodeCount);
 
-                            final MutableList<BitcoinNodeIpAddress> newBitcoinNodeIpAddresses = new MutableList<BitcoinNodeIpAddress>();
+                            final MutableList<BitcoinNodeIpAddress> newBitcoinNodeIpAddresses = new MutableList<>();
                             newBitcoinNodeIpAddresses.addAll(possiblePreferredNodes);
                             newBitcoinNodeIpAddresses.addAll(unknownBitcoinNodeIpAddresses);
                             foundNodeIpAddresses = newBitcoinNodeIpAddresses;
@@ -403,7 +409,7 @@ public class BitcoinNodeManager {
 
     protected Map<NodeId, BitcoinNode> _getAllHandshakedNodes() {
         final int totalConnectedNodeCount = (_otherNodes.size() + _preferredNodes.size());
-        final HashMap<NodeId, BitcoinNode> allConnectedNodes = new HashMap<NodeId, BitcoinNode>(totalConnectedNodeCount);
+        final HashMap<NodeId, BitcoinNode> allConnectedNodes = new HashMap<>(totalConnectedNodeCount);
         allConnectedNodes.putAll(_preferredNodes);
         allConnectedNodes.putAll(_otherNodes);
         return allConnectedNodes;
@@ -414,7 +420,7 @@ public class BitcoinNodeManager {
     }
 
     protected List<BitcoinNode> _filterNodes(final Map<?, BitcoinNode> nodes, final Integer requestedNodeCount, final NodeFilter nodeFilter) {
-        final java.util.ArrayList<BitcoinNode> filteredNodes = new java.util.ArrayList<BitcoinNode>(requestedNodeCount);
+        final java.util.ArrayList<BitcoinNode> filteredNodes = new java.util.ArrayList<>(requestedNodeCount);
         for (final BitcoinNode node : nodes.values()) {
             if (nodeFilter.meetsCriteria(node)) {
                 filteredNodes.add(node);
@@ -631,7 +637,7 @@ public class BitcoinNodeManager {
     protected void _configureNode(final BitcoinNode bitcoinNode) {
         bitcoinNode.enableTransactionRelay(_transactionRelayIsEnabled);
 
-        final Container<Boolean> nodeDidConnect = new Container<Boolean>(null);
+        final Container<Boolean> nodeDidConnect = new Container<>(null);
 
         final Runnable timeoutRunnable = new Runnable() {
             @Override
@@ -751,14 +757,14 @@ public class BitcoinNodeManager {
         bitcoinNode.connect();
         bitcoinNode.handshake();
 
-        _threadPool.execute(timeoutRunnable);
+        _threadPool.execute(timeoutRunnable); // TODO: Make the timeouts handled by a single managed thread.
     }
 
     protected void _pingIdleNodes() {
         final Long now = _systemTime.getCurrentTimeInMilliSeconds();
 
         final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
-        final MutableList<BitcoinNode> idleNodes = new MutableList<BitcoinNode>();
+        final MutableList<BitcoinNode> idleNodes = new MutableList<>();
         for (final BitcoinNode node : allNodes.values()) {
             final Long lastMessageTime = node.getLastMessageReceivedTimestamp();
             final long idleDuration = (now - lastMessageTime); // NOTE: Race conditions could result in a negative value...
@@ -785,7 +791,7 @@ public class BitcoinNodeManager {
     }
 
     protected void _removeDisconnectedNodes() {
-        final MutableList<BitcoinNode> purgeableNodes = new MutableList<BitcoinNode>();
+        final MutableList<BitcoinNode> purgeableNodes = new MutableList<>();
 
         final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
         for (final BitcoinNode node : allNodes.values()) {
@@ -803,7 +809,7 @@ public class BitcoinNodeManager {
     }
 
     protected void _removeHighLatencyNodes() {
-        final MutableList<BitcoinNode> purgeableNodes = new MutableList<BitcoinNode>();
+        final MutableList<BitcoinNode> purgeableNodes = new MutableList<>();
 
         final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
         for (final BitcoinNode node : allNodes.values()) {
@@ -838,8 +844,31 @@ public class BitcoinNodeManager {
 
         // Ensure the NodeManager does not exceed maxNodeCount.
         if ((allNodes.size() + _pendingNodes.size()) >= _maxNodeCount) {
-            bitcoinNode.disconnect();
-            return;
+            final MutableList<BitcoinNode> otherNodes = new MutableList<>(_otherNodes.values()); // NOTE: List is copied before isEmpty evaluation to avoid race condition due to concurrent modification of _otherNodes.
+            final boolean hasNonPreferredPeers = (! otherNodes.isEmpty());
+            if (_shouldPrioritizeNewConnections && hasNonPreferredPeers) {
+                // find oldest non-preferred peer and disconnect before continuing
+                synchronized (_performanceStatistics) {
+                    otherNodes.sort(new Comparator<BitcoinNode>() {
+                        @Override
+                        public int compare(final BitcoinNode node0, final BitcoinNode node1) {
+                            final NodePerformance nodePerformance0 = _performanceStatistics.get(node0);
+                            final NodePerformance nodePerformance1 = _performanceStatistics.get(node1);
+                            final Long nodeTimestamp0 = nodePerformance0 != null ? nodePerformance0.connectionTimestampMs : Long.MAX_VALUE;
+                            final Long nodeTimestamp1 = nodePerformance1 != null ? nodePerformance1.connectionTimestampMs : Long.MAX_VALUE;
+                            return nodeTimestamp0.compareTo(nodeTimestamp1);
+                        }
+                    });
+                }
+
+                final BitcoinNode nodeToDisconnect = otherNodes.get(0);
+                nodeToDisconnect.disconnect();
+            }
+            else {
+                // prioritizing existing connections, disconnect from this new node and bail out
+                bitcoinNode.disconnect();
+                return;
+            }
         }
 
         final NodeIpAddress nodeIpAddress = bitcoinNode.getRemoteNodeIpAddress();
@@ -983,7 +1012,7 @@ public class BitcoinNodeManager {
 
     public List<NodeId> getNodeIds() {
         final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
-        return new ImmutableList<NodeId>(allNodes.keySet());
+        return new ImmutableList<>(allNodes.keySet());
     }
 
     public BitcoinNode getNode(final NodeId nodeId) {
@@ -994,16 +1023,16 @@ public class BitcoinNodeManager {
     public BitcoinNode getNode(final NodeFilter nodeFilter) {
         final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
         final List<BitcoinNode> filteredNodes = _filterNodes(allNodes, nodeFilter);
-        if (filteredNodes == null) { return null; }
+        if ( (filteredNodes == null) || filteredNodes.isEmpty() ) { return null; }
         return filteredNodes.get(0);
     }
 
     public List<BitcoinNode> getPreferredNodes() {
-        return new ImmutableList<BitcoinNode>(_preferredNodes.values());
+        return new ImmutableList<>(_preferredNodes.values());
     }
 
     public List<BitcoinNode> getUnpreferredNodes() {
-        return new ImmutableList<BitcoinNode>(_otherNodes.values());
+        return new ImmutableList<>(_otherNodes.values());
     }
 
     public List<BitcoinNode> getPreferredNodes(final NodeFilter nodeFilter) {
@@ -1012,7 +1041,7 @@ public class BitcoinNodeManager {
 
     public List<BitcoinNode> getNodes() {
         final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
-        return new ImmutableList<BitcoinNode>(allNodes.values());
+        return new ImmutableList<>(allNodes.values());
     }
 
     public List<BitcoinNode> getNodes(final NodeFilter nodeFilter) {
@@ -1049,8 +1078,20 @@ public class BitcoinNodeManager {
         return _maxNodeCount;
     }
 
+    public void setShouldPrioritizeNewConnections(final Boolean shouldPrioritizeNewConnections) {
+        _shouldPrioritizeNewConnections = shouldPrioritizeNewConnections;
+    }
+
+    public Boolean shouldPrioritizeNewConnections() {
+        return _shouldPrioritizeNewConnections;
+    }
+
     public void setShouldOnlyConnectToSeedNodes(final Boolean shouldOnlyConnectToSeedNodes) {
         _shouldOnlyConnectToSeedNodes = shouldOnlyConnectToSeedNodes;
+    }
+
+    public Boolean shouldOnlyConnectToSeedNodes() {
+        return _shouldOnlyConnectToSeedNodes;
     }
 
     public void shutdown() {
@@ -1069,7 +1110,7 @@ public class BitcoinNodeManager {
         }
 
         final Map<NodeId, BitcoinNode> allHandshakedNodes = _getAllHandshakedNodes();
-        final MutableList<BitcoinNode> allNodes = new MutableList<BitcoinNode>(allHandshakedNodes.values());
+        final MutableList<BitcoinNode> allNodes = new MutableList<>(allHandshakedNodes.values());
         allNodes.addAll(_pendingNodes.values());
 
         for (final BitcoinNode bitcoinNode : allNodes) {
@@ -1079,8 +1120,8 @@ public class BitcoinNodeManager {
 
     public BitcoinNodeManager(final Context context) {
         _systemTime = context.systemTime;
-        _preferredNodes = new ConcurrentHashMap<NodeId, BitcoinNode>(context.maxNodeCount);
-        _otherNodes = new ConcurrentHashMap<NodeId, BitcoinNode>(context.maxNodeCount);
+        _preferredNodes = new ConcurrentHashMap<>(context.maxNodeCount);
+        _otherNodes = new ConcurrentHashMap<>(context.maxNodeCount);
 
         _minNodeCount = context.minNodeCount;
         _maxNodeCount = context.maxNodeCount;
@@ -1089,7 +1130,7 @@ public class BitcoinNodeManager {
         _threadPool = context.threadPool;
 
         _bitcoinNodeObserver = new BitcoinNodeObserver() {
-            protected final List<MessageType> _trackedMessageResponseTypes = new ImmutableList<MessageType>(
+            protected final List<MessageType> _trackedMessageResponseTypes = new ImmutableList<>(
                 MessageType.BLOCK,
                 MessageType.TRANSACTION
             );
@@ -1108,6 +1149,12 @@ public class BitcoinNodeManager {
                     _performanceStatistics.put(bitcoinNode, nodePerformance);
                     return nodePerformance;
                 }
+            }
+
+            @Override
+            public void onHandshakeComplete(final BitcoinNode bitcoinNode) {
+                // ensure node performance is created
+                _getNodePerformance(bitcoinNode);
             }
 
             @Override
@@ -1136,8 +1183,8 @@ public class BitcoinNodeManager {
             }
 
             @Override
-            public void onFailedRequest(final BitcoinNode bitcoinNode, final MessageType expectedResponseType) {
-                if (_isTrackedResponseType(expectedResponseType)) {
+            public void onFailedRequest(final BitcoinNode bitcoinNode, final MessageType expectedResponseType, final RequestPriority requestPriority) {
+                if (_isTrackedResponseType(expectedResponseType) && requestPriority.getPriority() > 0) {
                     final NodePerformance nodePerformance = _getNodePerformance(bitcoinNode);
                     nodePerformance.failedRequestCount.incrementAndGet();
                 }
@@ -1151,6 +1198,27 @@ public class BitcoinNodeManager {
         _synchronizationStatusHandler = context.synchronizationStatusHandler;
 
         _bitcoinNodeHeadBlockFinder = new BitcoinNodeHeadBlockFinder(_databaseManagerFactory, _threadPool, _banFilter);
+    }
+
+    public void broadcastDoubleSpendProof(final DoubleSpendProofWithTransactions doubleSpendProof) {
+        final Sha256Hash doubleSpendProofHash = doubleSpendProof.getHash();
+        final Boolean isExtendedDoubleSpendProof = doubleSpendProof.usesExtendedFormat();
+
+        final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
+        for (BitcoinNode bitcoinNode : allNodes.values()) {
+            if (isExtendedDoubleSpendProof) {
+                final Boolean nodeSupportsExtendedDoubleSpendProofs = bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.EXTENDED_DOUBLE_SPEND_PROOFS_ENABLED);
+                if (! nodeSupportsExtendedDoubleSpendProofs) { continue; }
+            }
+
+            final Transaction firstSeenTransaction = doubleSpendProof.getTransaction0();
+            final Transaction doubleSpendTransaction = doubleSpendProof.getTransaction1();
+
+            final boolean matchesFilter = (bitcoinNode.matchesFilter(firstSeenTransaction) || bitcoinNode.matchesFilter(doubleSpendTransaction));
+            if (matchesFilter) {
+                bitcoinNode.transmitDoubleSpendProofHash(doubleSpendProofHash);
+            }
+        }
     }
 
     public Boolean hasBloomFilter() {
@@ -1170,7 +1238,7 @@ public class BitcoinNodeManager {
         _banFilter.banIp(ip);
 
         // Disconnect all currently-connected nodes at that ip...
-        final MutableList<BitcoinNode> droppedNodes = new MutableList<BitcoinNode>();
+        final MutableList<BitcoinNode> droppedNodes = new MutableList<>();
 
         final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
         for (final BitcoinNode bitcoinNode : allNodes.values()) {

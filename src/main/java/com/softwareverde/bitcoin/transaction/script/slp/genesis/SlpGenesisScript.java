@@ -8,6 +8,8 @@ import com.softwareverde.json.Json;
 import com.softwareverde.json.Jsonable;
 import com.softwareverde.util.Util;
 
+import java.math.BigInteger;
+
 public interface SlpGenesisScript extends SlpScript, Jsonable, Constable<ImmutableSlpGenesisScript> {
     Integer RECEIVER_TRANSACTION_OUTPUT_INDEX = 1;
 
@@ -17,7 +19,7 @@ public interface SlpGenesisScript extends SlpScript, Jsonable, Constable<Immutab
     Sha256Hash getDocumentHash();
     Integer getDecimalCount();
     Integer getBatonOutputIndex();
-    Long getTokenCount();
+    BigInteger getTokenCount();
 
     @Override
     ImmutableSlpGenesisScript asConst();
@@ -30,7 +32,7 @@ abstract class SlpGenesisScriptCore implements SlpGenesisScript {
     protected Sha256Hash _documentHash = null;
     protected Integer _decimalCount = 8;
     protected Integer _batonOutputIndex;
-    protected Long _tokenCount = 21000000L;
+    protected BigInteger _tokenCount = BigInteger.valueOf(21000000L);
 
     public SlpGenesisScriptCore() { }
 
@@ -85,7 +87,7 @@ abstract class SlpGenesisScriptCore implements SlpGenesisScript {
     }
 
     @Override
-    public Long getTokenCount() {
+    public BigInteger getTokenCount() {
         return _tokenCount;
     }
 
@@ -99,7 +101,7 @@ abstract class SlpGenesisScriptCore implements SlpGenesisScript {
         json.put("documentHash", _documentHash);
         json.put("decimalCount", _decimalCount);
         json.put("batonIndex", _batonOutputIndex);
-        json.put("tokenCount", _tokenCount);
+        json.put("tokenCount", _tokenCount.toString());
 
         return json;
     }
@@ -128,7 +130,7 @@ abstract class SlpGenesisScriptCore implements SlpGenesisScript {
         hashCode += Util.coalesce(_documentHash, Sha256Hash.EMPTY_HASH).hashCode();
         hashCode += Util.coalesce(_decimalCount).hashCode();
         hashCode += Util.coalesce(_batonOutputIndex).hashCode();
-        hashCode += Util.coalesce(_tokenCount).hashCode();
+        hashCode += Util.coalesce(_tokenCount, BigInteger.ZERO).hashCode();
         return hashCode;
     }
 }

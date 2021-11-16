@@ -15,7 +15,7 @@ import com.softwareverde.util.StringUtil;
 public class SignatureModule {
     protected static SeedPhraseGenerator getSeedPhraseGenerator() {
         final String seedWords = IoUtil.getResource("/seed_words/seed_words_english.txt");
-        final ImmutableListBuilder<String> seedWordsBuilder = new ImmutableListBuilder<String>(2048);
+        final ImmutableListBuilder<String> seedWordsBuilder = new ImmutableListBuilder<>(2048);
         for (final String seedWord : seedWords.split("\n")) {
             seedWordsBuilder.add(seedWord.trim());
         }
@@ -100,4 +100,6 @@ public class SignatureModule {
         System.out.println("------------");
         System.out.println("Is Valid:   " + (signatureIsValid ? "1" : "0"));
     }
+
+    protected SignatureModule() { }
 }

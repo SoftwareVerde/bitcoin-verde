@@ -30,12 +30,12 @@ public class AsertDifficultyCalculator {
         final BigInteger heightDifferenceWithOffset = heightDiff.add(BigInteger.ONE);
         final BigInteger desiredHeight = BigInteger.valueOf(TARGET_BLOCK_SPACING).multiply(heightDifferenceWithOffset);
 
-        final int shiftCount;
+        final long shiftCount;
         final BigInteger exponent;
         {
             final BigInteger halfLifeBigInteger = _getHalfLife();
             final BigInteger value = (((BigInteger.valueOf(blockTimeDifferenceInSeconds).subtract(desiredHeight)).shiftLeft(shiftBitCount)).divide(halfLifeBigInteger));
-            shiftCount = (value.shiftRight(shiftBitCount)).intValue();
+            shiftCount = (value.shiftRight(shiftBitCount)).longValue();
             exponent = value.subtract(BigInteger.valueOf(shiftCount << shiftBitCount));
         }
 
@@ -56,10 +56,10 @@ public class AsertDifficultyCalculator {
 
             final BigInteger shiftedTargetDifficulty;
             if (shiftCount < 0) {
-                shiftedTargetDifficulty = unshiftedTargetDifficulty.shiftRight(Math.abs(shiftCount));
+                shiftedTargetDifficulty = unshiftedTargetDifficulty.shiftRight(Math.abs((int) shiftCount));
             }
             else {
-                shiftedTargetDifficulty = unshiftedTargetDifficulty.shiftLeft(shiftCount);
+                shiftedTargetDifficulty = unshiftedTargetDifficulty.shiftLeft((int) shiftCount);
             }
 
             target = shiftedTargetDifficulty.shiftRight(shiftBitCount);

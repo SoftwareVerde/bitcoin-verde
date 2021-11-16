@@ -1,5 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node;
 
+import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockId;
@@ -12,7 +14,6 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.context.core.BlockProcessorContext;
 import com.softwareverde.bitcoin.context.core.BlockchainBuilderContext;
 import com.softwareverde.bitcoin.context.core.MutableUnspentTransactionOutputSet;
-import com.softwareverde.bitcoin.context.core.PendingBlockLoaderContext;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -22,31 +23,36 @@ import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabase
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManagerCore;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.CommitAsyncMode;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilderTests;
-import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
 import com.softwareverde.bitcoin.test.BlockData;
-import com.softwareverde.bitcoin.test.FakeBlockStore;
 import com.softwareverde.bitcoin.test.IntegrationTest;
+import com.softwareverde.bitcoin.test.MockBlockStore;
 import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.script.locking.MutableLockingScript;
+import com.softwareverde.bitcoin.transaction.script.opcode.ControlOperation;
+import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
+import com.softwareverde.bitcoin.transaction.script.runner.context.TransactionContext;
+import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
-import com.softwareverde.bitcoin.util.IoUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -58,6 +64,8 @@ import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.LogLevel;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.MutableNetworkTime;
+import com.softwareverde.util.IoUtil;
+import com.softwareverde.util.type.time.SystemTime;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -97,7 +105,7 @@ public class BlockProcessorTests extends IntegrationTest {
 
     protected static class FakeBlockInflaters implements BlockInflaters {
         protected final BlockDeflater _blockDeflater = new BlockDeflater();
-        protected final ConcurrentHashMap<Sha256Hash, Sha256Hash> _hashMap = new ConcurrentHashMap<Sha256Hash, Sha256Hash>();
+        protected final ConcurrentHashMap<Sha256Hash, Sha256Hash> _hashMap = new ConcurrentHashMap<>();
 
         public void defineBlockHash(final Sha256Hash invalidHash, final Sha256Hash validHash) {
             _hashMap.put(invalidHash, validHash);
@@ -154,7 +162,7 @@ public class BlockProcessorTests extends IntegrationTest {
 
     protected static Boolean utxoExistsInCommittedUtxoSet(final Transaction transaction, final DatabaseConnection databaseConnection) throws DatabaseException {
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT 1 FROM committed_unspent_transaction_outputs WHERE transaction_hash = ? AND `index` = 0 AND is_spent = 0 LIMIT 1")
+            new Query("SELECT 1 FROM committed_unspent_transaction_outputs WHERE transaction_hash = ? AND `index` = 0 AND amount > 0 LIMIT 1")
                 .setParameter(transaction.getHash())
         );
         return (! rows.isEmpty());
@@ -164,8 +172,9 @@ public class BlockProcessorTests extends IntegrationTest {
         public final BlockInflater blockInflater = _masterInflater.getBlockInflater();
         public final MutableNetworkTime networkTime = new MutableNetworkTime();
         public final FakeUnspentTransactionOutputContext unspentTransactionOutputSet = new FakeUnspentTransactionOutputContext();
+        public final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
 
-        public final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(_masterInflater, _masterInflater, _blockStore, _fullNodeDatabaseManagerFactory, this.networkTime, _synchronizationStatus, _transactionValidatorFactory) {
+        public final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(_masterInflater, _masterInflater, _blockStore, _fullNodeDatabaseManagerFactory, this.networkTime, _synchronizationStatus, _difficultyCalculatorFactory, _transactionValidatorFactory, this.upgradeSchedule) {
             @Override
             public TransactionValidator getTransactionValidator(final BlockOutputs blockOutputs, final TransactionValidator.Context transactionValidatorContext) {
                 return new TransactionValidatorCore(blockOutputs, transactionValidatorContext) {
@@ -363,7 +372,7 @@ public class BlockProcessorTests extends IntegrationTest {
             final Long blockHeightStep1 = harness.processBlock(forkChainBlock01);
             final TransactionId transactionId = transactionDatabaseManager.storeUnconfirmedTransaction(transaction);
             transactionDatabaseManager.addToUnconfirmedTransactions(transactionId);
-            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, true); // Commit the UTXO set with outputs that will then be invalidated during a reorg...
+            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE); // Commit the UTXO set with outputs that will then be invalidated during a reorg...
             Assert.assertTrue(BlockProcessorTests.utxoExistsInCommittedUtxoSet(forkChainCoinbaseTransaction, databaseConnection)); // Ensure the UTXO was actually committed...
 
             final Long blockHeightStep2 = harness.processBlock(mainChainBlock01);
@@ -376,7 +385,7 @@ public class BlockProcessorTests extends IntegrationTest {
             final TransactionOutput oldTransactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(invalidTransactionOutputIdentifier);
             Assert.assertNull(oldTransactionOutput);
 
-            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, true);
+            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
 
             // Ensure the invalid UTXO isn't left within the on-disk UTXO set...
             Assert.assertFalse(BlockProcessorTests.utxoExistsInCommittedUtxoSet(forkChainCoinbaseTransaction, databaseConnection));
@@ -489,7 +498,7 @@ public class BlockProcessorTests extends IntegrationTest {
             }
 
             // Commit the UTXO Set
-            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, true);
+            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
 
             { // Ensure the UTXO (that will later be removed) exists within the UTXO set...
                 final TransactionOutput culledTransactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(culledTransactionOutputIdentifier);
@@ -504,7 +513,7 @@ public class BlockProcessorTests extends IntegrationTest {
             Assert.assertEquals(forkChain2Block04.getHash(), blockHeaderDatabaseManager.getHeadBlockHeaderHash());
 
             // Re-Commit the UTXO set after the reorg
-            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, true);
+            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
 
             // Assert
             Assert.assertEquals(Long.valueOf(1L), blockHeightStep1);
@@ -618,7 +627,12 @@ public class BlockProcessorTests extends IntegrationTest {
         blockchainBuilder.stop();
     }
 
-    protected void _addRequiredUtxos(final Block block, final MutableList<TransactionOutputIdentifier> utxoSet, final Boolean shouldRemoveGeneratedOutputs) {
+    protected void _addRequiredUtxos(final Block block, final MutableList<TransactionOutputIdentifier> transactionOutputIdentifiers, final MutableList<TransactionOutput> transactionOutputs, final Boolean shouldRemoveGeneratedOutputs) {
+        final MutableLockingScript lockingScript = new MutableLockingScript();
+        {
+            lockingScript.addOperation(ControlOperation.VERIFY);
+        }
+
         final List<Transaction> transactions = block.getTransactions();
         boolean isCoinbase = true;
         for (final Transaction transaction : transactions) {
@@ -629,15 +643,24 @@ public class BlockProcessorTests extends IntegrationTest {
 
             for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
                 final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-                utxoSet.add(transactionOutputIdentifier);
+                final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
+                {
+                    transactionOutput.setIndex(transactionOutputIdentifier.getOutputIndex());
+                    transactionOutput.setAmount(100000L * Transaction.SATOSHIS_PER_BITCOIN); // Some arbitrarily large number that likely won't overflow with an arbitrary number of inputs.
+                    transactionOutput.setLockingScript(lockingScript);
+                }
+
+                transactionOutputIdentifiers.add(transactionOutputIdentifier);
+                transactionOutputs.add(transactionOutput);
             }
 
             if (shouldRemoveGeneratedOutputs) {
                 final List<TransactionOutputIdentifier> transactionOutputIdentifiersCreated = TransactionOutputIdentifier.fromTransactionOutputs(transaction);
                 for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiersCreated) {
-                    final int index = utxoSet.indexOf(transactionOutputIdentifier);
+                    final int index = transactionOutputIdentifiers.indexOf(transactionOutputIdentifier);
                     if (index >= 0) {
-                        utxoSet.remove(index);
+                        transactionOutputIdentifiers.remove(index);
+                        transactionOutputs.remove(index);
                     }
                 }
             }
@@ -651,12 +674,13 @@ public class BlockProcessorTests extends IntegrationTest {
         //  head blockHeader with multiple blocks (and headers) available after the reorg (2+).
         //  BlockHeight: 663750
 
+        final SystemTime systemTime = new SystemTime();
         final BlockInflater blockInflater = _masterInflater.getBlockInflater();
         final BlockHeaderInflater blockHeaderInflater = _masterInflater.getBlockHeaderInflater();
         final TransactionInflaters transactionInflaters = _masterInflater;
         final FakeBlockInflaters blockInflaters = new FakeBlockInflaters();
 
-        final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(_databaseConnectionFactory, _database.getMaxQueryBatchSize(), _blockStore, _masterInflater, _checkpointConfiguration) {
+        final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(_databaseConnectionFactory, _database.getMaxQueryBatchSize(), _blockStore, _utxoCommitmentStore, _masterInflater, _checkpointConfiguration) {
             protected final HashMap<Sha256Hash, TransactionId> _transactionIds = new HashMap<>();
             protected final HashMap<TransactionId, Transaction> _transactions = new HashMap<>();
 
@@ -682,7 +706,7 @@ public class BlockProcessorTests extends IntegrationTest {
             @Override
             public FullNodeDatabaseManager newDatabaseManager() throws DatabaseException {
                 final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection();
-                return new FullNodeDatabaseManager(databaseConnection, _maxQueryBatchSize, _blockStore, _masterInflater, _checkpointConfiguration, _maxUtxoCount, _utxoPurgePercent) {{
+                return new FullNodeDatabaseManager(databaseConnection, _maxQueryBatchSize, _blockStore, _utxoCommitmentStore, _masterInflater, _checkpointConfiguration, _maxUtxoCount, _utxoPurgePercent) {{
                     _transactionDatabaseManager = new FullNodeTransactionDatabaseManagerCore(this, _blockStore, _masterInflater) {
                         @Override
                         public TransactionId getTransactionId(final Sha256Hash transactionHash) throws DatabaseException {
@@ -778,16 +802,33 @@ public class BlockProcessorTests extends IntegrationTest {
             blockInflaters.defineBlockHash(block663749ShimBlock.getInvalidHash(), block663749ShimBlock.getHash());
         }
 
-        final FakeBlockStore blockStore = new FakeBlockStore();
+        final MockBlockStore blockStore = new MockBlockStore();
         final BlockchainBuilderTests.FakeBitcoinNodeManager bitcoinNodeManager = new BlockchainBuilderTests.FakeBitcoinNodeManager();
 
-        final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(blockInflaters, transactionInflaters, blockStore, databaseManagerFactory, new MutableNetworkTime(), _synchronizationStatus, _transactionValidatorFactory);
-        final PendingBlockLoaderContext pendingBlockLoaderContext = new PendingBlockLoaderContext(blockInflaters, databaseManagerFactory, _threadPool);
-        final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, databaseManagerFactory, bitcoinNodeManager, _threadPool);
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(blockInflaters, transactionInflaters, blockStore, databaseManagerFactory, new MutableNetworkTime(), _synchronizationStatus, _difficultyCalculatorFactory, _transactionValidatorFactory, upgradeSchedule) {
+            @Override
+            public TransactionValidator getTransactionValidator(final BlockOutputs blockOutputs, final TransactionValidator.Context transactionValidatorContext) {
+                return new TransactionValidatorCore(blockOutputs, transactionValidatorContext) {
+                    @Override
+                    protected Long _getCoinbaseMaturity() { return 0L; }
+
+                    @Override
+                    protected ScriptRunner _getScriptRunner(final UpgradeSchedule upgradeSchedule) {
+                        return new ScriptRunner(upgradeSchedule) {
+                            @Override
+                            public ScriptRunnerResult runScript(final LockingScript lockingScript, final UnlockingScript unlockingScript, final TransactionContext transactionContext) {
+                                return ScriptRunnerResult.valid(transactionContext);
+                            }
+                        };
+                    }
+                };
+            }
+        };
+        final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, databaseManagerFactory, bitcoinNodeManager, systemTime, _threadPool);
 
         final BlockProcessor blockProcessor = new BlockProcessor(blockProcessorContext);
         blockProcessor.setMaxThreadCount(8);
-        final PendingBlockLoader pendingBlockLoader = new PendingBlockLoader(pendingBlockLoaderContext, 4);
 
         try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
@@ -839,41 +880,51 @@ public class BlockProcessorTests extends IntegrationTest {
 
             { // Populate the required UTXOs for validation...
                 final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
-                final MutableList<TransactionOutputIdentifier> requiredUtxos = new MutableList<>();
+                final MutableList<TransactionOutputIdentifier> requiredTransactionOutputIdentifiers = new MutableList<>();
+                final MutableList<TransactionOutput> requiredTransactionOutputs = new MutableList<>();
 
                 // UTXOs that are required are processed in reverse-order so that UTXOs generated by the respective blocks are only made available once that block has been processed.
-                _addRequiredUtxos(block663752_B, requiredUtxos, false);
-                _addRequiredUtxos(block663751_B, requiredUtxos, true);
-                _addRequiredUtxos(block663750_B, requiredUtxos, true);
-                _addRequiredUtxos(block663750_A, requiredUtxos, false);
+                _addRequiredUtxos(block663752_B, requiredTransactionOutputIdentifiers, requiredTransactionOutputs, false);
+                _addRequiredUtxos(block663751_B, requiredTransactionOutputIdentifiers, requiredTransactionOutputs, true);
+                _addRequiredUtxos(block663750_B, requiredTransactionOutputIdentifiers, requiredTransactionOutputs, true);
+                _addRequiredUtxos(block663750_A, requiredTransactionOutputIdentifiers, requiredTransactionOutputs, false);
 
-                unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(requiredUtxos, 663749L);
+                unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(requiredTransactionOutputIdentifiers, requiredTransactionOutputs, 663749L, null);
                 unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(663749L);
-                unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory);
+                unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory, CommitAsyncMode.BLOCK_IF_BUSY);
             }
         }
 
         try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
             final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-            final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
-            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
-            final BlockchainBuilder blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, pendingBlockLoader, BlockchainBuilderTests.FAKE_DOWNLOAD_STATUS_MONITOR, BlockchainBuilderTests.FAKE_BLOCK_DOWNLOAD_REQUESTER);
+            final BlockchainBuilder blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, blockStore, BlockchainBuilderTests.FAKE_DOWNLOAD_STATUS_MONITOR);
 
             for (final Block block : new Block[]{ block663750_A }) {
-                pendingBlockDatabaseManager.storeBlock(block);
+                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                    blockHeaderDatabaseManager.storeBlockHeader(block);
+                }
+                blockStore.storePendingBlock(block);
             }
 
-            // Process 750A normally.
-            _runBlockchainBuilder(blockchainBuilder);
+            { // Process 750A normally.
+                // Temporarily mark the main chain as invalid so the blockchainBuilder is forced to process the shorter chain...
+                blockHeaderDatabaseManager.markBlockAsInvalid(block663750_B.getHash(), BlockHeaderDatabaseManager.INVALID_PROCESS_THRESHOLD);
 
-            Assert.assertTrue(blockDatabaseManager.hasTransactions(block663750_A.getHash()));
+                // Process 750A normally.
+                _runBlockchainBuilder(blockchainBuilder);
+                Assert.assertTrue(blockDatabaseManager.hasTransactions(block663750_A.getHash()));
+
+                // Unmark the main chain as invalid...
+                blockHeaderDatabaseManager.clearBlockAsInvalid(block663750_B.getHash(), Integer.MAX_VALUE);
+            }
 
             // Action
 
             // Make 750B, 751B, 752B available for processing.
             for (final Block block : new Block[]{ block663750_B, block663751_B, block663752_B }) {
-                pendingBlockDatabaseManager.storeBlock(block);
+                blockStore.storePendingBlock(block);
             }
 
             // Process 750B, 751B, and 752B normally.

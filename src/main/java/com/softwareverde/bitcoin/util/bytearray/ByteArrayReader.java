@@ -5,35 +5,46 @@ import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.bytearray.Endian;
 
 public class ByteArrayReader extends com.softwareverde.util.bytearray.ByteArrayReader {
-    public static class VariableSizedInteger {
+    public static class CompactVariableLengthInteger {
         public final long value;
         public final int bytesConsumedCount;
 
-        public VariableSizedInteger(final long value, final int byteCount) {
+        public CompactVariableLengthInteger(final long value, final int byteCount) {
             this.value = value;
             this.bytesConsumedCount = byteCount;
         }
     }
 
-    protected VariableSizedInteger _peakVariableSizedInteger(final int index) {
-        final int prefix = ByteUtil.byteToInteger(_getByte(index));
+    public static CompactVariableLengthInteger peakVariableLengthInteger(final com.softwareverde.util.bytearray.ByteArrayReader byteArrayReader) {
+        final int prefix = ByteUtil.byteToInteger(byteArrayReader.peakByte());
 
         if (prefix < 0xFD) {
-            return new VariableSizedInteger(prefix, 1);
+            return new CompactVariableLengthInteger(prefix, 1);
         }
 
-        if (prefix < 0xFE) {
-            final long value = ByteUtil.bytesToLong(_getBytes(index+1, 2, Endian.LITTLE));
-            return new VariableSizedInteger(value, 3);
+        final int intByteCount;
+        {
+            if (prefix < 0xFE) {
+                intByteCount = 2;
+            }
+            else if (prefix < 0xFF) {
+                intByteCount = 4;
+            }
+            else {
+                intByteCount = 8;
+            }
+        }
+        final int byteCountWithPrefix = (intByteCount + 1);
+
+        final long value;
+        {
+            final byte[] rawBytesWithPrefix = byteArrayReader.peakBytes(byteCountWithPrefix);
+            final byte[] intBytes = ByteUtil.getTailBytes(rawBytesWithPrefix, intByteCount);
+            final byte[] intBytesLittleEndian = ByteUtil.reverseEndian(intBytes);
+            value = ByteUtil.bytesToLong(intBytesLittleEndian);
         }
 
-        if (prefix < 0xFF) {
-            final long value = ByteUtil.bytesToLong(_getBytes(index+1, 4, Endian.LITTLE));
-            return new VariableSizedInteger(value, 5);
-        }
-
-        final long value = ByteUtil.bytesToLong(_getBytes(index+1, 8, Endian.LITTLE));
-        return new VariableSizedInteger(value, 9);
+        return new CompactVariableLengthInteger(value, byteCountWithPrefix);
     }
 
     public ByteArrayReader(final byte[] bytes) {
@@ -44,18 +55,30 @@ public class ByteArrayReader extends com.softwareverde.util.bytearray.ByteArrayR
         super(byteArray);
     }
 
+    // For compatibility with libraries built against older versions of bitcoin-verde
+    @Deprecated
     public Long readVariableSizedInteger() {
-        final VariableSizedInteger variableSizedInteger = _peakVariableSizedInteger(_index);
-        _index += variableSizedInteger.bytesConsumedCount;
-        return variableSizedInteger.value;
+        return readVariableLengthInteger();
     }
 
-    public VariableSizedInteger peakVariableSizedInteger() {
-        return _peakVariableSizedInteger(_index);
+    public Long readVariableLengthInteger() {
+        final CompactVariableLengthInteger variableLengthInteger = ByteArrayReader.peakVariableLengthInteger(this);
+        _index += variableLengthInteger.bytesConsumedCount;
+        return variableLengthInteger.value;
+    }
+
+    public CompactVariableLengthInteger peakVariableLengthInteger() {
+        return ByteArrayReader.peakVariableLengthInteger(this);
+    }
+
+    // For compatibility with projects libraries built against older versions of bitcoin-verde
+    @Deprecated
+    public String readVariableSizedString() {
+        return readVariableLengthString();
     }
 
     public String readVariableLengthString() {
-        final VariableSizedInteger stringByteCount = _peakVariableSizedInteger(_index);
+        final CompactVariableLengthInteger stringByteCount = ByteArrayReader.peakVariableLengthInteger(this);
         _index += stringByteCount.bytesConsumedCount;
 
         if (stringByteCount.value > Integer.MAX_VALUE) { return ""; }

@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.test.fake;
 
-import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
@@ -9,7 +9,7 @@ import com.softwareverde.network.p2p.node.NodeConnection;
 public class FakeNodeConnection extends NodeConnection {
     public final FakeBinarySocket fakeBinarySocket;
 
-    protected final MutableList<ProtocolMessage> _outboundMessageQueue = new MutableList<ProtocolMessage>();
+    protected final MutableList<ProtocolMessage> _outboundMessageQueue = new MutableList<>();
 
     public FakeNodeConnection(final FakeBinarySocket fakeBinarySocket, final ThreadPool threadPool) {
         super(fakeBinarySocket, threadPool);

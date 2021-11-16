@@ -294,6 +294,17 @@ class Ui {
         }
         $(".amount", transactionOutputUi).text((transactionOutput.amount || 0).toLocaleString());
 
+        if (transactionOutput.spentByTransaction) {
+            const transactionLink = $(".spent-by .value", transactionOutputUi);
+            transactionLink.text(transactionOutput.spentByTransaction);
+            Ui.makeHashCopyable(transactionLink);
+            transactionLink.on("click", Ui._makeNavigateToTransactionEvent(transactionOutput.spentByTransaction));
+        }
+        else {
+            $(".is-spent", transactionOutputUi).remove();
+            $(".spent-by", transactionOutputUi).remove();
+        }
+
         const lockingScript = transactionOutput.lockingScript;
         $(".locking-script .type .value", transactionOutputUi).text(lockingScript.scriptType);
         const operationsContainer = $(".locking-script .script .value", transactionOutputUi);
@@ -609,6 +620,7 @@ class Ui {
 
         const slpGenesisContainer = $(".slp-genesis", transactionUi);
         const slpAttributeContainer = $(".slp", transactionUi);
+        const memoContainer = $(".memo", transactionUi);
         if (transaction.slp) {
             const slpAttributeValue = $(".slp .value", transactionUi);
             const slpAttributeLabel = $(".slp label", transactionUi);
@@ -652,10 +664,58 @@ class Ui {
 
             $(".token-count .value", slpGenesisContainer).text((transaction.slp.tokenCount || 0).toLocaleString());
             $(".decimal-count .value", slpGenesisContainer).text(transaction.slp.decimalCount);
+
+            memoContainer.remove();
+        }
+        else if (transaction.memo && transaction.memo.length) {
+            const memo = transaction.memo[0];
+            const memoActionUi = $(".memo .type", transactionUi);
+            const memoTransactionHashUi = $(".memo .transaction-hash", transactionUi);
+            const memoTopicUi = $(".memo .topic", transactionUi);
+            const memoContentUi = $(".memo .content", transactionUi);
+            const memoAddressUi = $(".memo .address", transactionUi);
+
+            $(".value", memoActionUi).text(memo.type);
+
+            if (memo.transactionHash) {
+                $(".value", memoTransactionHashUi).text(memo.transactionHash);
+            }
+            else {
+                memoTransactionHashUi.toggle(false);
+            }
+
+            if (memo.topic) {
+                $(".value", memoTopicUi).text(memo.topic);
+            }
+            else {
+               memoTopicUi.toggle(false);
+            }
+
+            if (memo.content) {
+                $(".value", memoContentUi).text(memo.content);
+            }
+            else {
+                memoContentUi.toggle(false);
+            }
+
+            if (memo.address) {
+                const addressString = (Ui.displayCashAddressFormat ? memo.cashAddress : memo.address);
+                $(".value", memoAddressUi).text(addressString || "[CUSTOM SCRIPT]");
+                if (addressString) {
+                    Ui.makeHashCopyable($(".value", memoAddressUi));
+                }
+            }
+            else {
+                memoAddressUi.toggle(false);
+            }
+
+            slpAttributeContainer.remove();
+            slpGenesisContainer.remove();
         }
         else {
             slpAttributeContainer.remove();
             slpGenesisContainer.remove();
+            memoContainer.remove();
         }
 
         const blocks = (transaction.blocks || []);
@@ -666,6 +726,14 @@ class Ui {
             Ui.makeHashCopyable(blockLink);
             blockLink.on("click", Ui._makeNavigateToBlockEvent(blockHash));
             $(".block-hashes .values", transactionUi).append(blockLink);
+        }
+
+        const doubleSpendWarning = $(".double-spend-warning", transactionUi);
+        if (transaction.wasDoubleSpent) {
+            doubleSpendWarning.toggle(true);
+        }
+        else {
+            doubleSpendWarning.toggle(false);
         }
 
         const lockTime = (transaction.lockTime || { type:"", value: "", bytes: "" });
@@ -694,14 +762,15 @@ class Ui {
         return transactionUi;
     }
 
-    static inflateAddress(addressObject) {
+    static inflateAddress(addressMetaObject) {
         const templates = $("#templates");
         const addressTemplate = $("> .address", templates);
         const addressUi = addressTemplate.clone();
 
+        const addressObject = addressMetaObject.address;
         const addressString = ((Ui.displayCashAddressFormat ? addressObject.base32CheckEncoded : addressObject.base58CheckEncoded) || addressObject.base58CheckEncoded || "");
-        const addressBalance = (addressObject.balance || 0);
-        const addressTransactions = addressObject.transactions;
+        const addressBalance = (addressMetaObject.balance || 0);
+        const addressTransactions = addressMetaObject.transactions;
 
         const qrCodeElement = window.ninja.qrCode.createCanvas(addressString, 4);
 

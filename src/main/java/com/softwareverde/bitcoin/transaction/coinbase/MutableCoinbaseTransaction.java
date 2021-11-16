@@ -42,18 +42,19 @@ public class MutableCoinbaseTransaction extends MutableTransaction implements Co
             return;
         }
 
-        final TransactionOutput transactionOutput = _transactionOutputs.get(0);
-        final MutableTransactionOutput mutableTransactionOutput = new MutableTransactionOutput(transactionOutput);
-        mutableTransactionOutput.setAmount(satoshis);
-        _transactionOutputs.set(0, mutableTransactionOutput);
+        for (int i = 0; i < _transactionOutputs.getCount(); ++i) {
+            final TransactionOutput transactionOutput = _transactionOutputs.get(i);
+            final MutableTransactionOutput mutableTransactionOutput = new MutableTransactionOutput(transactionOutput);
+            mutableTransactionOutput.setAmount((i == 0) ? satoshis : 0L);
+            _transactionOutputs.set(i, mutableTransactionOutput);
+        }
     }
 
     @Override
     public Long getBlockReward() {
         if (_transactionOutputs.isEmpty()) { return null; }
 
-        final TransactionOutput transactionOutput = _transactionOutputs.get(0);
-        return transactionOutput.getAmount();
+        return this.getTotalOutputValue();
     }
 
     @Override

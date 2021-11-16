@@ -1,10 +1,10 @@
 package com.softwareverde.bitcoin.server.message.type.thin.block;
 
-import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.inflater.BlockHeaderInflaters;
 import com.softwareverde.bitcoin.inflater.TransactionInflaters;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
@@ -37,21 +37,21 @@ public class ExtraThinBlockMessageInflater extends BitcoinProtocolMessageInflate
         final BlockHeader blockHeader = blockHeaderInflater.fromBytes(byteArrayReader);
         extraThinBlockMessage.setBlockHeader(blockHeader);
 
-        final int transactionCount = byteArrayReader.readVariableSizedInteger().intValue();
-        if (transactionCount > BlockInflater.MAX_TRANSACTION_COUNT) { return null; }
+        final int transactionCount = byteArrayReader.readVariableLengthInteger().intValue();
+        if (transactionCount > BitcoinConstants.getMaxTransactionCountPerBlock()) { return null; }
 
-        final ImmutableListBuilder<ByteArray> transactionShortHashesListBuilder = new ImmutableListBuilder<ByteArray>(transactionCount);
+        final ImmutableListBuilder<ByteArray> transactionShortHashesListBuilder = new ImmutableListBuilder<>(transactionCount);
         for (int i = 0; i < transactionCount; ++i) {
             final ByteArray transactionShortHash = MutableByteArray.wrap(byteArrayReader.readBytes(4, Endian.LITTLE));
             transactionShortHashesListBuilder.add(transactionShortHash);
         }
         extraThinBlockMessage.setTransactionHashes(transactionShortHashesListBuilder.build());
 
-        final int missingTransactionCount = byteArrayReader.readVariableSizedInteger().intValue();
+        final int missingTransactionCount = byteArrayReader.readVariableLengthInteger().intValue();
         if (missingTransactionCount > transactionCount) { return null; }
 
         final TransactionInflater transactionInflater = _transactionInflaters.getTransactionInflater();
-        final ImmutableListBuilder<Transaction> missingTransactionsListBuilder = new ImmutableListBuilder<Transaction>(missingTransactionCount);
+        final ImmutableListBuilder<Transaction> missingTransactionsListBuilder = new ImmutableListBuilder<>(missingTransactionCount);
         for (int i = 0; i < missingTransactionCount; ++i) {
             final Transaction transaction = transactionInflater.fromBytes(byteArrayReader);
             if (transaction == null) { return null; }

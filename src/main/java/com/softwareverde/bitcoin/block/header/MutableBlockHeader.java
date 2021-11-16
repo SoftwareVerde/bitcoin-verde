@@ -9,6 +9,13 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 public class MutableBlockHeader extends BlockHeaderCore {
     protected Sha256Hash _cachedHash = null;
     protected Integer _cachedHashCode = null;
+    protected Boolean _cachedValidity = null;
+
+    protected void _invalidateCachedProperties() {
+        _cachedHashCode = null;
+        _cachedHash = null;
+        _cachedValidity = null;
+    }
 
     public MutableBlockHeader() { }
 
@@ -22,38 +29,38 @@ public class MutableBlockHeader extends BlockHeaderCore {
 
     public void setVersion(final Long version) {
         _version = version;
-        _cachedHashCode = null;
-        _cachedHash = null;
+
+        _invalidateCachedProperties();
     }
 
     public void setPreviousBlockHash(final Sha256Hash previousBlockHash) {
         _previousBlockHash = (Sha256Hash) ConstUtil.asConstOrNull(previousBlockHash);
-        _cachedHashCode = null;
-        _cachedHash = null;
+
+        _invalidateCachedProperties();
     }
 
     public void setMerkleRoot(final MerkleRoot merkleRoot) {
         _merkleRoot = (MerkleRoot) ConstUtil.asConstOrNull(merkleRoot);
-        _cachedHashCode = null;
-        _cachedHash = null;
+
+        _invalidateCachedProperties();
     }
 
     public void setTimestamp(final Long timestamp) {
         _timestamp = timestamp;
-        _cachedHashCode = null;
-        _cachedHash = null;
+
+        _invalidateCachedProperties();
     }
 
     public void setDifficulty(final Difficulty difficulty) {
         _difficulty = ConstUtil.asConstOrNull(difficulty);
-        _cachedHashCode = null;
-        _cachedHash = null;
+
+        _invalidateCachedProperties();
     }
 
     public void setNonce(final Long nonce) {
         _nonce = nonce;
-        _cachedHashCode = null;
-        _cachedHash = null;
+
+        _invalidateCachedProperties();
     }
 
     @Override
@@ -67,6 +74,16 @@ public class MutableBlockHeader extends BlockHeaderCore {
     }
 
     @Override
+    public Boolean isValid() {
+        final Boolean cachedValidity = _cachedValidity;
+        if (cachedValidity != null) { return cachedValidity; }
+
+        final Boolean isValid = super.isValid();
+        _cachedValidity = isValid;
+        return isValid;
+    }
+
+    @Override
     public int hashCode() {
         final Integer cachedHashCode = _cachedHashCode;
         if (cachedHashCode != null) { return cachedHashCode; }
@@ -74,5 +91,10 @@ public class MutableBlockHeader extends BlockHeaderCore {
         final int hashCode = super.hashCode();
         _cachedHashCode = hashCode;
         return hashCode;
+    }
+
+    @Override
+    public boolean equals(final Object object) {
+        return super.equals(object);
     }
 }

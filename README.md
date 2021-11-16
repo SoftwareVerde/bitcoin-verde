@@ -131,7 +131,7 @@ Review the `out/conf/server.conf` and change the node's settings as desired.
 The default configuration requires ~6GB ram at its peak, and a 300GB SSD to perform optimally.  Best performance is
 achieved by increasing the `bitcoin.database.maxMemoryByteCount` and by running on an NVME drive.
 
-For more detailed instructions, please refer to https://bitcoinverde.org/documentation/
+For more detailed instructions, please refer to https://explorer.bitcoinverde.org/documentation/
 
 
 ## Upgrading to v2.0.0 from v1.+

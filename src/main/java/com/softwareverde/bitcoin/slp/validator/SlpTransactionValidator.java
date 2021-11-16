@@ -20,6 +20,7 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
+import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -39,7 +40,7 @@ public class SlpTransactionValidator {
     }
 
     protected Map<Sha256Hash, Transaction> _getTransactions(final List<TransactionInput> transactionInputs, final Boolean allowUnconfirmedTransactions) {
-        final ImmutableListBuilder<Sha256Hash> transactionHashes = new ImmutableListBuilder<Sha256Hash>(transactionInputs.getCount());
+        final ImmutableListBuilder<Sha256Hash> transactionHashes = new ImmutableListBuilder<>(transactionInputs.getCount());
         for (final TransactionInput transactionInput : transactionInputs) {
             final Sha256Hash transactionHash = transactionInput.getPreviousOutputTransactionHash();
             transactionHashes.add(transactionHash);
@@ -163,7 +164,7 @@ public class SlpTransactionValidator {
         final Map<Sha256Hash, Transaction> previousTransactions = _getTransactions(transactionInputs, _allowUnconfirmedTransactions);
         if (previousTransactions == null) { return false; }
 
-        final HashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new HashMap<SlpScriptType, MutableList<Transaction>>();
+        final HashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new HashMap<>();
 
         boolean hasBaton = false;
 
@@ -187,9 +188,13 @@ public class SlpTransactionValidator {
 
                 final SlpGenesisScript slpGenesisScript = (SlpGenesisScript) previousTransactionSlpScript;
                 if (Util.areEqual(previousTransactionOutputIndex, slpGenesisScript.getBatonOutputIndex())) {
-                    hasBaton = true;
                     ConstUtil.addToListMap(SlpScriptType.GENESIS, previousTransaction, recursiveTransactionsToValidate);
-                    break;
+                    final Boolean isValid = _validateRecursiveTransactions(recursiveTransactionsToValidate, recursionDepth + 1);
+                    recursiveTransactionsToValidate.clear();
+                    if (isValid) {
+                        hasBaton = true;
+                        break;
+                    }
                 }
             }
             else if (slpScriptType == SlpScriptType.MINT) {
@@ -197,9 +202,13 @@ public class SlpTransactionValidator {
                 if (! Util.areEqual(slpTokenId, previousSlpMintScript.getTokenId())) { continue; }
 
                 if (Util.areEqual(previousTransactionOutputIndex, previousSlpMintScript.getBatonOutputIndex())) {
-                    hasBaton = true;
                     ConstUtil.addToListMap(SlpScriptType.MINT, previousTransaction, recursiveTransactionsToValidate);
-                    break;
+                    final Boolean isValid = _validateRecursiveTransactions(recursiveTransactionsToValidate, recursionDepth + 1);
+                    recursiveTransactionsToValidate.clear();
+                    if (isValid) {
+                        hasBaton = true;
+                        break;
+                    }
                 }
             }
             else if (slpScriptType == SlpScriptType.SEND) {
@@ -210,9 +219,7 @@ public class SlpTransactionValidator {
             }
         }
 
-        if (! hasBaton) { return false; }
-
-        return _validateRecursiveTransactions(recursiveTransactionsToValidate, recursionDepth);
+        return hasBaton;
     }
 
     protected Boolean _validateSlpSendTransaction(final Transaction transaction, final SlpSendScript nullableSlpSendScript, final Integer recursionDepth) {
@@ -220,11 +227,11 @@ public class SlpTransactionValidator {
         final SlpSendScript slpSendScript = ((nullableSlpSendScript != null) ? nullableSlpSendScript : ((SlpSendScript) _getSlpScript(transaction)));
         final SlpTokenId slpTokenId = slpSendScript.getTokenId();
 
-        final Long totalSendAmount = slpSendScript.getTotalAmount();
+        final BigInteger totalSendAmount = slpSendScript.getTotalAmount();
         final Map<Sha256Hash, Transaction> previousTransactions = _getTransactions(transactionInputs, _allowUnconfirmedTransactions);
         if (previousTransactions == null) { return false; }
 
-        long totalSlpAmountReceived = 0L;
+        BigInteger totalSlpAmountReceived = BigInteger.ZERO;
         for (final TransactionInput transactionInput : transactionInputs) {
             final Integer previousTransactionOutputIndex = transactionInput.getPreviousOutputIndex();
             final Sha256Hash previousTransactionHash = transactionInput.getPreviousOutputTransactionHash();
@@ -248,14 +255,14 @@ public class SlpTransactionValidator {
 
                     final Boolean isValid;
                     {
-                        final HashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new HashMap<SlpScriptType, MutableList<Transaction>>();
+                        final HashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new HashMap<>();
                         ConstUtil.addToListMap(SlpScriptType.GENESIS, previousTransaction, recursiveTransactionsToValidate);
                         isValid = _validateRecursiveTransactions(recursiveTransactionsToValidate, (recursionDepth + 1));
                         recursiveTransactionsToValidate.clear();
                     }
 
                     if (isValid) {
-                        totalSlpAmountReceived += slpGenesisScript.getTokenCount();
+                        totalSlpAmountReceived = totalSlpAmountReceived.add(slpGenesisScript.getTokenCount());
                     }
                 }
             }
@@ -266,14 +273,14 @@ public class SlpTransactionValidator {
                 if (Util.areEqual(previousTransactionOutputIndex, SlpMintScript.RECEIVER_TRANSACTION_OUTPUT_INDEX)) {
                     final Boolean isValid;
                     {
-                        final HashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new HashMap<SlpScriptType, MutableList<Transaction>>();
+                        final HashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new HashMap<>();
                         ConstUtil.addToListMap(SlpScriptType.MINT, previousTransaction, recursiveTransactionsToValidate);
                         isValid = _validateRecursiveTransactions(recursiveTransactionsToValidate, (recursionDepth + 1));
                         recursiveTransactionsToValidate.clear();
                     }
 
                     if (isValid) {
-                        totalSlpAmountReceived += slpMintScript.getTokenCount();
+                        totalSlpAmountReceived = totalSlpAmountReceived.add(slpMintScript.getTokenCount());
                     }
                 }
             }
@@ -283,14 +290,17 @@ public class SlpTransactionValidator {
 
                 final Boolean isValid;
                 {
-                    final HashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new HashMap<SlpScriptType, MutableList<Transaction>>();
+                    final HashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new HashMap<>();
                     ConstUtil.addToListMap(SlpScriptType.SEND, previousTransaction, recursiveTransactionsToValidate);
                     isValid = _validateRecursiveTransactions(recursiveTransactionsToValidate, (recursionDepth + 1));
                     recursiveTransactionsToValidate.clear();
                 }
 
                 if (isValid) {
-                    totalSlpAmountReceived += Util.coalesce(previousTransactionSlpSendScript.getAmount(previousTransactionOutputIndex));
+                    final BigInteger inputAmount = previousTransactionSlpSendScript.getAmount(previousTransactionOutputIndex);
+                    if (inputAmount != null) {
+                        totalSlpAmountReceived = totalSlpAmountReceived.add(inputAmount);
+                    }
                 }
             }
             else if (slpScriptType == SlpScriptType.COMMIT) {
@@ -298,7 +308,7 @@ public class SlpTransactionValidator {
             }
         }
 
-        final boolean isValid = (totalSlpAmountReceived >= totalSendAmount);
+        final boolean isValid = (totalSlpAmountReceived.compareTo(totalSendAmount) >= 0);
         _validationCache.setIsValid(transaction.getHash(), isValid);
         return isValid;
     }

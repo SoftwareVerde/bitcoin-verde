@@ -13,6 +13,8 @@ import com.softwareverde.bitcoin.server.message.type.bloomfilter.update.UpdateTr
 import com.softwareverde.bitcoin.server.message.type.bloomfilter.update.UpdateTransactionBloomFilterMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.compact.EnableCompactBlocksMessage;
 import com.softwareverde.bitcoin.server.message.type.compact.EnableCompactBlocksMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.dsproof.DoubleSpendProofMessage;
+import com.softwareverde.bitcoin.server.message.type.dsproof.DoubleSpendProofMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.error.ErrorMessage;
 import com.softwareverde.bitcoin.server.message.type.error.ErrorMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddressMessage;
@@ -27,10 +29,14 @@ import com.softwareverde.bitcoin.server.message.type.node.ping.BitcoinPingMessag
 import com.softwareverde.bitcoin.server.message.type.node.ping.BitcoinPingMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.node.pong.BitcoinPongMessage;
 import com.softwareverde.bitcoin.server.message.type.node.pong.BitcoinPongMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.query.RequestDataMessage;
+import com.softwareverde.bitcoin.server.message.type.query.RequestDataMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.address.QueryAddressBlocksMessage;
 import com.softwareverde.bitcoin.server.message.type.query.address.QueryAddressBlocksMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessage;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.query.header.RequestBlockHeadersMessage;
+import com.softwareverde.bitcoin.server.message.type.query.header.RequestBlockHeadersMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.mempool.QueryUnconfirmedTransactionsMessage;
 import com.softwareverde.bitcoin.server.message.type.query.mempool.QueryUnconfirmedTransactionsMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.response.InventoryMessage;
@@ -45,12 +51,13 @@ import com.softwareverde.bitcoin.server.message.type.query.response.error.NotFou
 import com.softwareverde.bitcoin.server.message.type.query.response.error.NotFoundResponseMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.response.transaction.TransactionMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.transaction.TransactionMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.query.response.utxo.UtxoCommitmentMessage;
+import com.softwareverde.bitcoin.server.message.type.query.response.utxo.UtxoCommitmentMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.slp.QuerySlpStatusMessage;
 import com.softwareverde.bitcoin.server.message.type.query.slp.QuerySlpStatusMessageInflater;
-import com.softwareverde.bitcoin.server.message.type.request.RequestDataMessage;
-import com.softwareverde.bitcoin.server.message.type.request.RequestDataMessageInflater;
-import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessage;
-import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.query.utxo.QueryUtxoCommitmentsMessage;
+import com.softwareverde.bitcoin.server.message.type.query.utxo.QueryUtxoCommitmentsMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.query.utxo.UtxoCommitmentsMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.slp.EnableSlpTransactionsMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.thin.block.ExtraThinBlockMessage;
 import com.softwareverde.bitcoin.server.message.type.thin.block.ExtraThinBlockMessageInflater;
@@ -72,9 +79,9 @@ import com.softwareverde.util.HexUtil;
 import java.util.HashMap;
 import java.util.Map;
 
-public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory {
+public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory<BitcoinProtocolMessage> {
     protected final BitcoinProtocolMessageHeaderInflater _protocolMessageHeaderParser;
-    protected final Map<MessageType, BitcoinProtocolMessageInflater> _commandInflaterMap = new HashMap<MessageType, BitcoinProtocolMessageInflater>();
+    protected final Map<MessageType, BitcoinProtocolMessageInflater> _commandInflaterMap = new HashMap<>();
 
     protected final MasterInflater _masterInflater;
 
@@ -106,10 +113,14 @@ public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory {
         _commandInflaterMap.put(MessageType.SET_TRANSACTION_BLOOM_FILTER, new SetTransactionBloomFilterMessageInflater(_masterInflater));
         _commandInflaterMap.put(MessageType.UPDATE_TRANSACTION_BLOOM_FILTER, new UpdateTransactionBloomFilterMessageInflater());
         _commandInflaterMap.put(MessageType.CLEAR_TRANSACTION_BLOOM_FILTER, new ClearTransactionBloomFilterMessageInflater());
+        _commandInflaterMap.put(MessageType.DOUBLE_SPEND_PROOF, new DoubleSpendProofMessageInflater());
         // Bitcoin Verde Messages
         _commandInflaterMap.put(MessageType.QUERY_ADDRESS_BLOCKS, new QueryAddressBlocksMessageInflater(_masterInflater));
         _commandInflaterMap.put(MessageType.ENABLE_SLP_TRANSACTIONS, new EnableSlpTransactionsMessageInflater());
         _commandInflaterMap.put(MessageType.QUERY_SLP_STATUS, new QuerySlpStatusMessageInflater());
+        _commandInflaterMap.put(MessageType.QUERY_UTXO_COMMITMENTS, new QueryUtxoCommitmentsMessageInflater());
+        _commandInflaterMap.put(MessageType.UTXO_COMMITMENTS, new UtxoCommitmentsMessageInflater());
+        _commandInflaterMap.put(MessageType.UTXO_COMMITMENT, new UtxoCommitmentMessageInflater());
     }
 
     @Override
@@ -196,6 +207,10 @@ public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory {
         return new TransactionMessage(_masterInflater);
     }
 
+    public DoubleSpendProofMessage newDoubleSpendProofMessage() {
+        return new DoubleSpendProofMessage();
+    }
+
     public MerkleBlockMessage newMerkleBlockMessage() {
         return new MerkleBlockMessage(_masterInflater, _masterInflater);
     }
@@ -206,6 +221,14 @@ public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory {
 
     public RequestDataMessage newRequestDataMessage() {
         return new RequestDataMessage();
+    }
+
+    public QueryUtxoCommitmentsMessage newQueryUtxoCommitmentsMessage() {
+        return new QueryUtxoCommitmentsMessage();
+    }
+
+    public UtxoCommitmentMessage newUtxoCommitmentMessage() {
+        return new UtxoCommitmentMessage();
     }
 
     public EnableCompactBlocksMessage newEnableCompactBlocksMessage() {

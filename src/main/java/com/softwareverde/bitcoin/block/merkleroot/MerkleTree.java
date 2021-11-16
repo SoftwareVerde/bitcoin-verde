@@ -16,6 +16,6 @@ public interface MerkleTree<T extends Hashable> {
     boolean isEmpty();
 
     MerkleRoot getMerkleRoot();
-    List<Sha256Hash> getPartialTree(int transactionIndex);
+    List<Sha256Hash> getPartialTree(int itemIndex);
     PartialMerkleTree getPartialTree(Filter<T> filter);
 }

@@ -14,6 +14,7 @@ import com.softwareverde.bitcoin.server.stratum.message.RequestMessage;
 import com.softwareverde.bitcoin.server.stratum.message.ResponseMessage;
 import com.softwareverde.bitcoin.server.stratum.message.server.MinerSubmitBlockResult;
 import com.softwareverde.bitcoin.server.stratum.socket.StratumServerSocket;
+import com.softwareverde.bitcoin.server.stratum.task.LiveStratumMineBlockTaskBuilderCore;
 import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTask;
 import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTaskBuilderCore;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -21,7 +22,7 @@ import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.TransactionWithFee;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.concurrent.pool.MainThreadPool;
+import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
@@ -62,7 +63,7 @@ public class TestBlockDataStratumMiner {
 
         final Transaction coinbaseTransaction = transactionInflater.createCoinbaseTransactionWithExtraNonce(blockHeight, coinbaseMessage, StratumMiner.totalExtraNonceByteCount, address, BlockHeader.calculateBlockReward(blockHeight));
 
-        final MutableList<Transaction> transactions = new MutableList<Transaction>();
+        final MutableList<Transaction> transactions = new MutableList<>();
 
 //        {
 //            final PrivateKey prevoutPrivateKey = ???;
@@ -134,7 +135,7 @@ class StratumMiner {
     public static final Integer totalExtraNonceByteCount = (extraNonceByteCount + extraNonce2ByteCount);
 
     protected final StratumServerSocket _stratumServerSocket;
-    protected final MainThreadPool _threadPool = new MainThreadPool(256, 60000L);
+    protected final CachedThreadPool _threadPool = new CachedThreadPool(256, 60000L);
 
     protected final ByteArray _extraNonce;
 
@@ -171,7 +172,7 @@ class StratumMiner {
     }
 
     protected void _buildMiningTask() {
-        final StratumMineBlockTaskBuilderCore stratumMineBlockTaskBuilder = new StratumMineBlockTaskBuilderCore(totalExtraNonceByteCount, new TransactionDeflater());
+        final LiveStratumMineBlockTaskBuilderCore stratumMineBlockTaskBuilder = new LiveStratumMineBlockTaskBuilderCore(totalExtraNonceByteCount, new TransactionDeflater());
 
         stratumMineBlockTaskBuilder.setBlockVersion(_blockConfiguration.blockVersion);
         stratumMineBlockTaskBuilder.setPreviousBlockHash(_blockConfiguration.previousBlockHash);
@@ -203,7 +204,7 @@ class StratumMiner {
         parametersJson.add(_shareDifficulty); // Difficulty::getDifficultyRatio
         mineBlockMessage.setParameters(parametersJson);
 
-        Logger.info("Sent: "+ mineBlockMessage.toString());
+        Logger.info("Sent: "+ mineBlockMessage);
         socketConnection.write(new JsonProtocolMessage(mineBlockMessage));
     }
 
@@ -243,7 +244,7 @@ class StratumMiner {
             final ResponseMessage responseMessage = new ResponseMessage(requestMessage.getId());
             responseMessage.setResult(ResponseMessage.RESULT_TRUE);
 
-            Logger.info("Sent: "+ responseMessage.toString());
+            Logger.info("Sent: "+ responseMessage);
             socketConnection.write(new JsonProtocolMessage(responseMessage));
         }
 
@@ -260,7 +261,7 @@ class StratumMiner {
         final String stratumExtraNonce2 = messageParameters.getString(2);
         final String stratumTimestamp = messageParameters.getString(3);
 
-        Boolean submissionWasAccepted = true;
+        boolean submissionWasAccepted = true;
 
         final Long taskIdLong = ByteUtil.bytesToLong(taskId.getBytes());
         final StratumMineBlockTask mineBlockTask = _currentMineBlockTask;
@@ -268,7 +269,7 @@ class StratumMiner {
             submissionWasAccepted = false;
         }
 
-        Boolean shouldExit = false;
+        boolean shouldExit = false;
 
         if (mineBlockTask != null) {
             final Difficulty shareDifficulty = Difficulty.BASE_DIFFICULTY.divideBy(_shareDifficulty);
@@ -302,7 +303,7 @@ class StratumMiner {
 
         final ResponseMessage blockAcceptedMessage = new MinerSubmitBlockResult(requestMessage.getId(), submissionWasAccepted);
 
-        Logger.info("Sent: "+ blockAcceptedMessage.toString());
+        Logger.info("Sent: "+ blockAcceptedMessage);
         socketConnection.write(new JsonProtocolMessage(blockAcceptedMessage));
 
         if (shouldExit) {
@@ -379,6 +380,7 @@ class StratumMiner {
 
     public void loop() {
         _mainThread = Thread.currentThread();
+        _threadPool.start();
 
         _buildMiningTask();
 
@@ -391,5 +393,6 @@ class StratumMiner {
         }
 
         _stratumServerSocket.stop();
+        _threadPool.stop();
     }
 }

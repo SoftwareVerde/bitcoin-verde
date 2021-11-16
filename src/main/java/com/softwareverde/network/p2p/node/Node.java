@@ -1,7 +1,7 @@
 package com.softwareverde.network.p2p.node;
 
-import com.softwareverde.concurrent.pool.ThreadPool;
-import com.softwareverde.concurrent.pool.ThreadPoolThrottle;
+import com.softwareverde.concurrent.threadpool.ThreadPool;
+import com.softwareverde.concurrent.threadpool.ThreadPoolThrottle;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
@@ -41,7 +41,7 @@ public abstract class Node {
         }
     }
 
-    protected static final RotatingQueue<Long> LOCAL_SYNCHRONIZATION_NONCES = new RotatingQueue<Long>(32);
+    protected static final RotatingQueue<Long> LOCAL_SYNCHRONIZATION_NONCES = new RotatingQueue<>(32);
 
     private static final Object NODE_ID_MUTEX = new Object();
     private static Long _nextId = 0L;
@@ -53,30 +53,34 @@ public abstract class Node {
 
     protected final SystemTime _systemTime;
 
+    protected final Object _synchronizationMutex = new Object();
+    protected volatile Boolean _acknowledgeVersionMessageReceived = false;
+    protected volatile Boolean _acknowledgeVersionMessageSent = false;
+    protected volatile Boolean _handshakeIsComplete = false;
+
     protected NodeIpAddress _localNodeIpAddress = null;
     protected final AtomicBoolean _handshakeHasBeenInvoked = new AtomicBoolean(false);
     protected final AtomicBoolean _synchronizeVersionMessageHasBeenSent = new AtomicBoolean(false);
-    protected Boolean _handshakeIsComplete = false;
     protected Long _lastMessageReceivedTimestamp = 0L;
-    protected final ConcurrentLinkedQueue<ProtocolMessage> _postHandshakeMessageQueue = new ConcurrentLinkedQueue<ProtocolMessage>();
+    protected final ConcurrentLinkedQueue<ProtocolMessage> _postHandshakeMessageQueue = new ConcurrentLinkedQueue<>();
     protected Long _networkTimeOffset; // This field is an offset (in milliseconds) that should be added to the local time in order to adjust local SystemTime to this node's NetworkTime...
     protected final AtomicBoolean _hasBeenDisconnected = new AtomicBoolean(false);
 
-    protected final ConcurrentHashMap<Long, PingRequest> _pingRequests = new ConcurrentHashMap<Long, PingRequest>();
+    protected final ConcurrentHashMap<Long, PingRequest> _pingRequests = new ConcurrentHashMap<>();
 
     protected NodeAddressesReceivedCallback _nodeAddressesReceivedCallback = null;
     protected NodeConnectedCallback _nodeConnectedCallback = null;
     protected HandshakeCompleteCallback _handshakeCompleteCallback = null;
     protected DisconnectedCallback _nodeDisconnectedCallback = null;
 
-    protected final ConcurrentLinkedQueue<Runnable> _postConnectQueue = new ConcurrentLinkedQueue<Runnable>();
+    protected final ConcurrentLinkedQueue<Runnable> _postConnectQueue = new ConcurrentLinkedQueue<>();
 
     protected final ThreadPool _threadPool;
 
     /**
      * Latencies in milliseconds...
      */
-    protected final CircleBuffer<Long> _latenciesMs = new CircleBuffer<Long>(32);
+    protected final CircleBuffer<Long> _latenciesMs = new CircleBuffer<>(32);
 
     protected abstract PingMessage _createPingMessage();
     protected abstract PongMessage _createPongMessage(final PingMessage pingMessage);
@@ -87,11 +91,33 @@ public abstract class Node {
     protected final ReentrantReadWriteLock.ReadLock _sendSingleMessageLock;
     protected final ReentrantReadWriteLock.WriteLock _sendMultiMessageLock;
 
-    protected void _queueMessage(final ProtocolMessage message) {
+
+
+    protected void _writeQueuedPostHandshakeMessages() {
         try {
             _sendSingleMessageLock.lockInterruptibly();
         }
         catch (final InterruptedException exception) { return; }
+
+        try {
+            ProtocolMessage protocolMessage;
+            while ((protocolMessage = _postHandshakeMessageQueue.poll()) != null) {
+                _connection.queueMessage(protocolMessage);
+            }
+        }
+        finally {
+            _sendSingleMessageLock.unlock();
+        }
+    }
+
+    protected void _queueMessage(final ProtocolMessage message) {
+        try {
+            _sendSingleMessageLock.lockInterruptibly();
+        }
+        catch (final InterruptedException exception) {
+            Logger.trace("Dropped message due to interrupt: " + message.getClass());
+            return;
+        }
 
         try {
             if (_handshakeIsComplete) {
@@ -113,7 +139,15 @@ public abstract class Node {
         try {
             _sendMultiMessageLock.lockInterruptibly();
         }
-        catch (final InterruptedException exception) { return; }
+        catch (final InterruptedException exception) {
+            // Log that a message was dropped due to interrupt...
+            if (Logger.isTraceEnabled()) {
+                for (final ProtocolMessage message : messages) {
+                    Logger.trace("Dropped message due to interrupt: " + message.getClass());
+                }
+            }
+            return;
+        }
 
         try {
             if (_handshakeIsComplete) {
@@ -145,6 +179,8 @@ public abstract class Node {
         _nodeDisconnectedCallback = null;
 
         _handshakeIsComplete = false;
+        _acknowledgeVersionMessageReceived = false;
+        _acknowledgeVersionMessageSent = false;
         _postHandshakeMessageQueue.clear();
 
         _pingRequests.clear();
@@ -210,6 +246,21 @@ public abstract class Node {
                 }
             }
         }
+    }
+
+    protected void _onHandshakeComplete() {
+        _threadPool.execute(new Runnable() {
+            @Override
+            public void run() {
+                final HandshakeCompleteCallback callback = _handshakeCompleteCallback;
+                if (callback != null) {
+                    callback.onHandshakeComplete();
+                }
+            }
+        });
+
+        _writeQueuedPostHandshakeMessages();
+        _handshakeIsComplete = true;
     }
 
     protected void _onConnect() {
@@ -312,25 +363,24 @@ public abstract class Node {
 
             final AcknowledgeVersionMessage acknowledgeVersionMessage = _createAcknowledgeVersionMessage(synchronizeVersionMessage);
             _connection.queueMessage(acknowledgeVersionMessage);
+
+            synchronized (_synchronizationMutex) {
+                _acknowledgeVersionMessageSent = true;
+
+                if (_acknowledgeVersionMessageReceived) {
+                    _onHandshakeComplete();
+                }
+            }
         }
     }
 
     protected void _onAcknowledgeVersionMessageReceived(final AcknowledgeVersionMessage acknowledgeVersionMessage) {
-        _handshakeIsComplete = true;
+        synchronized (_synchronizationMutex) {
+            _acknowledgeVersionMessageReceived = true;
 
-        _threadPool.execute(new Runnable() {
-            @Override
-            public void run() {
-                final HandshakeCompleteCallback callback = _handshakeCompleteCallback;
-                if (callback != null) {
-                    callback.onHandshakeComplete();
-                }
+            if (_acknowledgeVersionMessageSent) {
+                _onHandshakeComplete();
             }
-        });
-
-        ProtocolMessage protocolMessage;
-        while ((protocolMessage = _postHandshakeMessageQueue.poll()) != null) {
-            _queueMessage(protocolMessage);
         }
     }
 
@@ -376,7 +426,7 @@ public abstract class Node {
             sum += value;
             count += 1L;
         }
-        if (count == 0L) { return Long.MAX_VALUE; }
+        if (count == 0L) { return null; }
 
         return (sum / count);
     }

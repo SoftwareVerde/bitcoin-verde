@@ -10,7 +10,7 @@ import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.MedianBlockTimeDatabaseManagerUtil;
-import com.softwareverde.bitcoin.server.module.node.database.block.header.fullnode.FullNodeBlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.fullnode.BlockHeaderDatabaseManagerCore;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
@@ -19,7 +19,7 @@ import java.util.Map;
 
 public interface FakeBlockHeaderDatabaseManager extends BlockHeaderDatabaseManager {
     static MutableMedianBlockTime newInitializedMedianBlockTime(final BlockHeaderDatabaseManager blockDatabaseManager, final Sha256Hash headBlockHash) throws DatabaseException {
-        return FakeFullNodeBlockHeaderDatabaseManager.newInitializedMedianBlockTime(blockDatabaseManager, headBlockHash);
+        return FakeBlockHeaderDatabaseManagerCore.newInitializedMedianBlockTime(blockDatabaseManager, headBlockHash);
     }
 
     @Override
@@ -152,12 +152,12 @@ public interface FakeBlockHeaderDatabaseManager extends BlockHeaderDatabaseManag
     }
 }
 
-class FakeFullNodeBlockHeaderDatabaseManager extends FullNodeBlockHeaderDatabaseManager {
+class FakeBlockHeaderDatabaseManagerCore extends BlockHeaderDatabaseManagerCore {
     public static MutableMedianBlockTime newInitializedMedianBlockTime(final BlockHeaderDatabaseManager blockDatabaseManager, final Sha256Hash headBlockHash) throws DatabaseException {
         return MedianBlockTimeDatabaseManagerUtil.calculateMedianBlockTime(blockDatabaseManager, headBlockHash);
     }
 
-    public FakeFullNodeBlockHeaderDatabaseManager(final DatabaseManager databaseManager, final CheckpointConfiguration checkpointConfiguration) {
+    public FakeBlockHeaderDatabaseManagerCore(final DatabaseManager databaseManager, final CheckpointConfiguration checkpointConfiguration) {
         super(databaseManager, checkpointConfiguration);
     }
 }

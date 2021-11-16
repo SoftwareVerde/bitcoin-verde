@@ -8,7 +8,7 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 public class MessageTypeInflater {
     protected static final List<MessageType> MESSAGE_TYPES;
     static {
-        final ImmutableListBuilder<MessageType> messageTypes = new ImmutableListBuilder<MessageType>();
+        final ImmutableListBuilder<MessageType> messageTypes = new ImmutableListBuilder<>();
         messageTypes.add(MessageType.SYNCHRONIZE_VERSION);
         messageTypes.add(MessageType.ACKNOWLEDGE_VERSION);
         messageTypes.add(MessageType.PING);
@@ -37,10 +37,14 @@ public class MessageTypeInflater {
         messageTypes.add(MessageType.SET_TRANSACTION_BLOOM_FILTER);
         messageTypes.add(MessageType.UPDATE_TRANSACTION_BLOOM_FILTER);
         messageTypes.add(MessageType.CLEAR_TRANSACTION_BLOOM_FILTER);
+        messageTypes.add(MessageType.DOUBLE_SPEND_PROOF);
         // Bitcoin Verde Messages
         messageTypes.add(MessageType.QUERY_ADDRESS_BLOCKS);
         messageTypes.add(MessageType.ENABLE_SLP_TRANSACTIONS);
         messageTypes.add(MessageType.QUERY_SLP_STATUS);
+        messageTypes.add(MessageType.QUERY_UTXO_COMMITMENTS);
+        messageTypes.add(MessageType.UTXO_COMMITMENTS);
+        messageTypes.add(MessageType.UTXO_COMMITMENT);
 
         MESSAGE_TYPES = messageTypes.build();
     }

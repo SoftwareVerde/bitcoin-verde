@@ -22,7 +22,7 @@ import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolPro
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolWorkerApi;
 import com.softwareverde.bitcoin.server.module.stratum.database.AccountDatabaseManager;
 import com.softwareverde.bitcoin.server.module.stratum.rpc.StratumRpcServer;
-import com.softwareverde.concurrent.pool.MainThreadPool;
+import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.http.server.HttpServer;
 import com.softwareverde.http.server.endpoint.Endpoint;
@@ -42,8 +42,8 @@ public class StratumModule {
     protected final StratumRpcServer _stratumRpcServer;
     protected final HttpServer _apiServer = new HttpServer();
 
-    protected final MainThreadPool _stratumThreadPool = new MainThreadPool(256, 60000L);
-    protected final MainThreadPool _rpcThreadPool = new MainThreadPool(256, 60000L);
+    protected final CachedThreadPool _stratumThreadPool = new CachedThreadPool(256, 60000L);
+    protected final CachedThreadPool _rpcThreadPool = new CachedThreadPool(256, 60000L);
 
     protected <T extends Servlet> void _assignEndpoint(final String path, final T servlet) {
         final Endpoint endpoint = new Endpoint(servlet);
@@ -54,14 +54,24 @@ public class StratumModule {
     }
 
     public StratumModule(final StratumProperties stratumProperties, final Environment environment) {
+        this(stratumProperties, environment, true);
+    }
+
+    public StratumModule(final StratumProperties stratumProperties, final Environment environment, final Boolean useBitcoinCoreStratumServer) {
         _stratumProperties = stratumProperties;
         _environment = environment;
 
         final Database database = _environment.getDatabase();
         final DatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
 
-        _stratumServer = new StratumServer(_stratumProperties, _stratumThreadPool);
-        _stratumServer.setWorkerShareCallback(new StratumServer.WorkerShareCallback() {
+        if (useBitcoinCoreStratumServer) {
+            _stratumServer = new BitcoinCoreStratumServer(_stratumProperties, _stratumThreadPool);
+        }
+        else {
+            _stratumServer = new BitcoinVerdeStratumServer(_stratumProperties, _stratumThreadPool);
+        }
+
+        _stratumServer.setWorkerShareCallback(new WorkerShareCallback() {
             @Override
             public void onNewWorkerShare(final String workerUsername, final Integer shareDifficulty) {
                 try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
@@ -111,9 +121,9 @@ public class StratumModule {
                 final Long shareCount = _stratumServer.getShareCount();
 
                 final Long now = _systemTime.getCurrentTimeInSeconds();
-                final Long duration = (now - startTimeInSeconds);
+                final long duration = (now - startTimeInSeconds);
 
-                return (long) (shareDifficulty * hashesPerSecondMultiplier * (shareCount / duration.doubleValue()));
+                return (long) (shareDifficulty * hashesPerSecondMultiplier * (shareCount / (double) duration));
             }
         };
 
@@ -148,6 +158,9 @@ public class StratumModule {
     }
 
     public void loop() {
+        _rpcThreadPool.start();
+        _stratumThreadPool.start();
+
         _stratumRpcServer.start();
         _stratumServer.start();
         _apiServer.start();
@@ -159,5 +172,8 @@ public class StratumModule {
         _apiServer.stop();
         _stratumServer.stop();
         _stratumRpcServer.stop();
+
+        _stratumThreadPool.stop();
+        _rpcThreadPool.stop();
     }
 }

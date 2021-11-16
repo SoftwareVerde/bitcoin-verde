@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
-import com.softwareverde.bitcoin.bip.Bip112;
-import com.softwareverde.bitcoin.bip.Bip65;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
@@ -34,9 +33,12 @@ public class LockTimeOperation extends SubTypedOperation {
 
     @Override
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableTransactionContext context) {
+        final UpgradeSchedule upgradeSchedule = context.getUpgradeSchedule();
+        final Long blockHeight = context.getBlockHeight();
+
         switch (_opcode) {
             case CHECK_LOCK_TIME_THEN_VERIFY: {
-                final Boolean operationIsEnabled = Bip65.isEnabled(context.getBlockHeight());
+                final Boolean operationIsEnabled = upgradeSchedule.isCheckLockTimeOperationEnabled(blockHeight);
                 if (! operationIsEnabled) {
                     return true; // NOTE: Before Bip65, CHECK_LOCK_TIME_THEN_VERIFY performed as a NOP...
                 }
@@ -69,7 +71,7 @@ public class LockTimeOperation extends SubTypedOperation {
             }
 
             case CHECK_SEQUENCE_NUMBER_THEN_VERIFY: {
-                final Boolean operationIsEnabled = (Bip112.isEnabled(context.getBlockHeight()));
+                final Boolean operationIsEnabled = (upgradeSchedule.isCheckSequenceNumberOperationEnabled(blockHeight));
                 if (! operationIsEnabled) {
                     return true; // NOTE: Before Bip112, the operation is considered a NOP...
                 }

@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.node;
 
-import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.Util;
 
@@ -37,7 +37,7 @@ public class BitcoinNodeUtil {
         synchronized (destinationMap) {
             Set<S> destinationSet = destinationMap.get(key);
             if (destinationSet == null) {
-                destinationSet = new HashSet<S>();
+                destinationSet = new HashSet<>();
                 destinationMap.put(key, destinationSet);
             }
             destinationSet.add(value);
@@ -48,7 +48,7 @@ public class BitcoinNodeUtil {
         synchronized (destinationList) {
             MutableList<S> destinationSet = destinationList.get(key);
             if (destinationSet == null) {
-                destinationSet = new MutableList<S>();
+                destinationSet = new MutableList<>();
                 destinationList.put(key, destinationSet);
             }
             destinationSet.add(value);

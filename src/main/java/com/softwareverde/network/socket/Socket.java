@@ -1,6 +1,6 @@
 package com.softwareverde.network.socket;
 
-import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
@@ -11,16 +11,19 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
-public abstract class Socket {
-    private static final Object _nextIdMutex = new Object();
-    private static Long _nextId = 0L;
+public abstract class Socket implements AutoCloseable {
+    protected static final AtomicLong NEXT_SOCKET_ID = new AtomicLong(1L);
 
-    protected interface ReadThread {
+    protected interface ReadThread extends AutoCloseable {
         interface Callback {
             void onNewMessage(ProtocolMessage protocolMessage);
             void onExit();
         }
+
+        default void setSocketName(final String socketName) { }
 
         void setInputStream(InputStream inputStream);
         void setCallback(Callback callback);
@@ -30,18 +33,46 @@ public abstract class Socket {
         void start();
 
         Long getTotalBytesReceived();
+
+        @Override
+        void close();
+    }
+
+    protected interface WriteThread extends AutoCloseable {
+        interface Callback {
+            void onExit();
+        }
+
+        default void setSocketName(final String socketName) { }
+
+        void setOutputStream(OutputStream outputStream);
+        void setCallback(Callback callback);
+        void interrupt();
+        void join() throws InterruptedException;
+        void join(long timeout) throws InterruptedException;
+        void start();
+
+        Boolean write(ByteArray bytes);
+        void flush();
+
+        Long getTotalBytesWritten();
+        Long getTotalBytesDroppedCount();
+
+        @Override
+        void close();
     }
 
     protected final Long _id;
     protected final java.net.Socket _socket;
-    protected final ConcurrentLinkedQueue<ProtocolMessage> _messages = new ConcurrentLinkedQueue<ProtocolMessage>();
-    protected Boolean _isClosed = false;
+    protected final ConcurrentLinkedQueue<ProtocolMessage> _messages = new ConcurrentLinkedQueue<>();
+    protected final AtomicBoolean _isClosed = new AtomicBoolean(false);
 
     protected Runnable _messageReceivedCallback;
     protected Runnable _socketClosedCallback;
-    protected Boolean _isListening = false;
+    protected final AtomicBoolean _listenThreadWasStarted = new AtomicBoolean(false);
+    protected final AtomicBoolean _writeThreadWasStarted = new AtomicBoolean(false);
     protected final ReadThread _readThread;
-    protected Long _totalBytesSent = 0L;
+    protected final WriteThread _writeThread;
     protected String _cachedHost = null;
 
     protected final OutputStream _rawOutputStream;
@@ -49,11 +80,9 @@ public abstract class Socket {
 
     protected final ThreadPool _threadPool;
 
-    protected final Object _rawOutputStreamWriteMutex = new Object();
-
     protected String _getHost() {
         if (_cachedHost == null) {
-            Logger.info("INFO: Performing ip lookup for: " + _socket.getRemoteSocketAddress());
+            Logger.debug("Performing ip lookup for: " + _socket.getRemoteSocketAddress());
             final InetAddress inetAddress = _socket.getInetAddress();
             _cachedHost = (inetAddress != null ? inetAddress.getHostName() : null);
         }
@@ -87,13 +116,13 @@ public abstract class Socket {
     }
 
     protected void _closeSocket() {
+        final boolean wasOpen = _isClosed.compareAndSet(false, true);
+        if (! wasOpen) { return; }
+
         Logger.debug("Closing socket. Thread Id: " + Thread.currentThread().getId() + " " + _socket.getRemoteSocketAddress());
 
-        final Boolean wasClosed = _isClosed;
-
-        _isClosed = true;
-
-        _readThread.interrupt();
+        _readThread.close();
+        _writeThread.close();
 
         try {
             _rawInputStream.close();
@@ -111,6 +140,11 @@ public abstract class Socket {
         catch (final Exception exception) { }
 
         try {
+            _writeThread.join(5000L);
+        }
+        catch (final Exception exception) { }
+
+        try {
             _socket.close();
         }
         catch (final Exception exception) { }
@@ -122,17 +156,18 @@ public abstract class Socket {
             _threadPool.execute(onCloseCallback);
         }
 
-        if (! wasClosed) {
-            _onSocketClosed();
-        }
+        _onSocketClosed();
     }
 
-    protected Socket(final java.net.Socket socket, final ReadThread readThread, final ThreadPool threadPool) {
-        synchronized (_nextIdMutex) {
-            _id = _nextId;
-            _nextId += 1;
-        }
+    protected void _startWriteThreadIfNotStarted() {
+        final boolean wasNotStarted = _writeThreadWasStarted.compareAndSet(false, true);
+        if (! wasNotStarted) { return; }
 
+        _writeThread.start();
+    }
+
+    protected Socket(final java.net.Socket socket, final ReadThread readThread, final WriteThread writeThread, final ThreadPool threadPool) {
+        _id = NEXT_SOCKET_ID.getAndIncrement();
         _socket = socket;
 
         InputStream inputStream = null;
@@ -147,8 +182,10 @@ public abstract class Socket {
         _rawOutputStream = outputStream;
         _rawInputStream = inputStream;
 
+        final String socketName = (Ip.fromSocket(socket) + ":" + _getPort());
+
         _readThread = readThread;
-        _readThread.setInputStream(_rawInputStream);
+        _readThread.setInputStream(inputStream);
         _readThread.setCallback(new ReadThread.Callback() {
             @Override
             public void onNewMessage(final ProtocolMessage message) {
@@ -158,19 +195,37 @@ public abstract class Socket {
 
             @Override
             public void onExit() {
-                if (! _isClosed) {
-                    _closeSocket();
-                }
+                _closeSocket();
             }
         });
+        _readThread.setSocketName(socketName);
+
+        _writeThread = writeThread;
+        _writeThread.setOutputStream(outputStream);
+        _writeThread.setCallback(new WriteThread.Callback() {
+            @Override
+            public void onExit() {
+                _closeSocket();
+            }
+        });
+        _writeThread.setSocketName(socketName);
 
         _threadPool = threadPool;
     }
 
-    public synchronized void beginListening() {
-        if (_isListening) { return; }
+    public void enableTcpDelay(final Boolean enableTcpDelay) {
+        try {
+            _socket.setTcpNoDelay(! enableTcpDelay);
+        }
+        catch (final Exception exception) {
+            Logger.debug(exception);
+        }
+    }
 
-        _isListening = true;
+    public void beginListening() {
+        final boolean wasNotStarted = _listenThreadWasStarted.compareAndSet(false, true);
+        if (! wasNotStarted) { return; }
+
         _readThread.start();
     }
 
@@ -183,23 +238,17 @@ public abstract class Socket {
     }
 
     public Boolean write(final ProtocolMessage outboundMessage) {
+        if (_isClosed.get()) { return false; }
+
+        _startWriteThreadIfNotStarted();
+
         final ByteArray bytes = outboundMessage.getBytes();
-        _totalBytesSent += bytes.getByteCount();
+        return _writeThread.write(bytes);
+    }
 
-        try {
-            synchronized (_rawOutputStreamWriteMutex) {
-                _rawOutputStream.write(bytes.getBytes());
-                _rawOutputStream.flush();
-
-                return true;
-            }
-        }
-        catch (final Exception exception) {
-            Logger.debug(exception);
-            _closeSocket();
-        }
-
-        return false;
+    public void flush() {
+        if (_isClosed.get()) { return; }
+        _writeThread.flush();
     }
 
     /**
@@ -208,6 +257,10 @@ public abstract class Socket {
      */
     public ProtocolMessage popMessage() {
         return _messages.poll();
+    }
+
+    public Long getId() {
+        return _id;
     }
 
     /**
@@ -229,6 +282,7 @@ public abstract class Socket {
      * Ceases all reads, and closes the socket.
      *  Invoking any write functions after this call throws a runtime exception.
      */
+    @Override
     public void close() {
         _closeSocket();
     }
@@ -237,28 +291,33 @@ public abstract class Socket {
      * Returns false if this instance has had its close() function invoked or the socket is no longer connected.
      */
     public Boolean isConnected() {
-        return ( (! _isClosed) && (! _socket.isClosed()) );
+        if (_isClosed.get()) { return false; }
+        return (! _socket.isClosed());
     }
 
     public Long getTotalBytesSentCount() {
-        return _totalBytesSent;
+        return _writeThread.getTotalBytesWritten();
     }
 
     public Long getTotalBytesReceivedCount() {
         return _readThread.getTotalBytesReceived();
     }
 
+    public Long getTotalBytesDroppedCount() {
+        return _writeThread.getTotalBytesDroppedCount();
+    }
+
     @Override
     public int hashCode() {
-        return (BinarySocket.class.getSimpleName().hashCode() + _id.hashCode());
+        return (Socket.class.getSimpleName().hashCode() + _id.hashCode());
     }
 
     @Override
     public boolean equals(final Object object) {
         if (object == null) { return false; }
-        if (! (object instanceof BinarySocket)) { return false; }
+        if (! (object instanceof Socket)) { return false; }
 
-        final BinarySocket socketConnectionObject = (BinarySocket) object;
+        final Socket socketConnectionObject = (Socket) object;
         return _id.equals(socketConnectionObject._id);
     }
 

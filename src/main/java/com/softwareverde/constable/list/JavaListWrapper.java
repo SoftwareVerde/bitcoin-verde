@@ -12,7 +12,7 @@ public class JavaListWrapper<T> implements List<T> {
             return (List<T>) javaIterable;
         }
 
-        return new JavaListWrapper<T>(javaIterable);
+        return new JavaListWrapper<>(javaIterable);
     }
 
     protected final Iterable<T> _javaUtilIterable;
@@ -76,7 +76,7 @@ public class JavaListWrapper<T> implements List<T> {
 
     @Override
     public ImmutableList<T> asConst() {
-        final ImmutableListBuilder<T> immutableListBuilder = new ImmutableListBuilder<T>();
+        final ImmutableListBuilder<T> immutableListBuilder = new ImmutableListBuilder<>();
         for (final T item : _javaUtilIterable) {
             immutableListBuilder.add(item);
         }
@@ -85,6 +85,6 @@ public class JavaListWrapper<T> implements List<T> {
 
     @Override
     public Iterator<T> iterator() {
-        return new ImmutableJavaUtilListIterator<T>(_javaUtilIterable);
+        return new ImmutableJavaUtilListIterator<>(_javaUtilIterable);
     }
 }

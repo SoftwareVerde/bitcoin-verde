@@ -1,5 +1,8 @@
 package com.softwareverde.bitcoin.transaction.signer;
 
+import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
+import com.softwareverde.bitcoin.test.fake.FakeUpgradeSchedule;
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -57,8 +60,9 @@ public class TransactionSignerTests {
         transaction.addTransactionOutput(transactionOutput);
         transaction.setLockTime(new ImmutableLockTime(LockTime.MIN_TIMESTAMP));
 
+        final UpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
         final TransactionSigner transactionSigner = new TransactionSigner();
-        final SignatureContext signatureContext = new SignatureContext(transaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, false), 0L);
+        final SignatureContext signatureContext = new SignatureContext(transaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, false), 0L, upgradeSchedule);
         signatureContext.setShouldSignInputScript(0, true, transactionOutputBeingSpent);
         signatureContext.setCurrentScript(transactionOutputBeingSpent.getLockingScript());
 
@@ -78,8 +82,9 @@ public class TransactionSignerTests {
         final Transaction transactionBeingSpent = transactionInflater.fromBytes(HexUtil.hexStringToByteArray("010000000175DB462B20DD144DD143F5314270569C0A61191F1378C164CE4262E9BFF1B079000000008B4830450221008F906B9FE728CB17C81DECCD6704F664ED1AC920223BB2ECA918F066269C703302203B1C496FD4C3FA5071262B98447FBCA5E3ED7A52EFE3DA26AA58F738BD342D31014104BCA69C59DC7A6D8EF4D3043BDCB626E9E29837B9BEB143168938AE8165848BFC788D6FF4CDF1EF843E6A9CCDA988B323D12A367DD758261DD27A63F18F56CE77FFFFFFFF0133F50100000000001976A914DD6CCE9F255A8CC17BDA8BA0373DF8E861CB866E88AC00000000"));
         final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray("0100000001BE66E10DA854E7AEA9338C1F91CD489768D1D6D7189F586D7A3613F2A24D5396000000008B483045022100DA43201760BDA697222002F56266BF65023FEF2094519E13077F777BAED553B102205CE35D05EABDA58CD50A67977A65706347CC25EF43153E309FF210A134722E9E0141042DAA93315EEBBE2CB9B5C3505DF4C6FB6CACA8B756786098567550D4820C09DB988FE9997D049D687292F815CCD6E7FB5C1B1A91137999818D17C73D0F80AEF9FFFFFFFF0123CE0100000000001976A9142BC89C2702E0E618DB7D59EB5CE2F0F147B4075488AC00000000"));
 
-        final ScriptRunner scriptRunner = new ScriptRunner();
-        final MutableTransactionContext context = new MutableTransactionContext();
+        final UpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
+        final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
+        final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
         context.setTransaction(transaction);
         context.setBlockHeight(0L);
 
@@ -96,7 +101,7 @@ public class TransactionSignerTests {
             final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
 
             // Action
-            final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
+            final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context).isValid;
 
             // Assert
             Assert.assertTrue(inputIsUnlocked);

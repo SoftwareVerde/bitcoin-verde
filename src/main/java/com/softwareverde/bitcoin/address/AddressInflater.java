@@ -263,10 +263,12 @@ public class AddressInflater {
     }
 
     public Address fromPublicKey(final PublicKey publicKey) {
+        if (! publicKey.isValid()) { return null; }
         return _fromPublicKey(publicKey, publicKey.isCompressed());
     }
 
     public Address fromPublicKey(final PublicKey publicKey, final Boolean asCompressed) {
+        if (! publicKey.isValid()) { return null; }
         return _fromPublicKey(publicKey, asCompressed);
     }
 

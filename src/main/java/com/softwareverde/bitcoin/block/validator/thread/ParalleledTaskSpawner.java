@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.block.validator.thread;
 
-import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 
@@ -24,7 +24,7 @@ public class ParalleledTaskSpawner<T, S> {
         final int threadCount = Math.min(maxThreadCount, Math.max(1, (totalItemCount / maxThreadCount)));
         final int itemsPerThread = (totalItemCount / threadCount);
 
-        final ImmutableListBuilder<ValidationTask<T, S>> listBuilder = new ImmutableListBuilder<ValidationTask<T, S>>(threadCount);
+        final ImmutableListBuilder<ValidationTask<T, S>> listBuilder = new ImmutableListBuilder<>(threadCount);
 
         for (int i = 0; i < threadCount; ++i) {
             final int startIndex = i * itemsPerThread;
@@ -32,7 +32,7 @@ public class ParalleledTaskSpawner<T, S> {
             final int itemCount = ( (i < (threadCount - 1)) ? Math.min(itemsPerThread, remainingItems) : remainingItems);
             if (itemCount < 1) { break; }
 
-            final ValidationTask<T, S> validationTask = new ValidationTask<T, S>(_name, items, _taskHandlerFactory.newInstance());
+            final ValidationTask<T, S> validationTask = new ValidationTask<>(_name, items, _taskHandlerFactory.newInstance());
             validationTask.setStartIndex(startIndex);
             validationTask.setItemCount(itemCount);
             validationTask.enqueueTo(_threadPool);
@@ -43,7 +43,7 @@ public class ParalleledTaskSpawner<T, S> {
     }
 
     public List<S> waitForResults() {
-        final ImmutableListBuilder<S> listBuilder = new ImmutableListBuilder<S>();
+        final ImmutableListBuilder<S> listBuilder = new ImmutableListBuilder<>();
 
         for (int i = 0; i < _validationTasks.getCount(); ++i) {
             final ValidationTask<T, S> validationTask = _validationTasks.get(i);

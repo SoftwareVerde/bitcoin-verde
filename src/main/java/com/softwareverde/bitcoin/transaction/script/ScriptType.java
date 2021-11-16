@@ -9,7 +9,8 @@ public enum ScriptType {
     SLP_GENESIS_SCRIPT(6L),
     SLP_SEND_SCRIPT(7L),
     SLP_MINT_SCRIPT(8L),
-    SLP_COMMIT_SCRIPT(9L);
+    SLP_COMMIT_SCRIPT(9L),
+    MEMO_SCRIPT(10L);
 
     public static Boolean isSlpScriptType(final ScriptType scriptType) {
         if (scriptType == null) { return false; }

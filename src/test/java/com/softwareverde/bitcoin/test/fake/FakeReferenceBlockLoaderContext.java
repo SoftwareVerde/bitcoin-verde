@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.test.fake;
 
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
@@ -13,14 +14,19 @@ import com.softwareverde.util.Util;
 import java.util.HashMap;
 
 public class FakeReferenceBlockLoaderContext implements AsertReferenceBlockLoader.ReferenceBlockLoaderContext {
-    protected final HashMap<BlockchainSegmentId, BlockId> _headBlockIds = new HashMap<BlockchainSegmentId, BlockId>();
-    protected final HashMap<BlockId, MedianBlockTime> _medianBlockTimes = new HashMap<BlockId, MedianBlockTime>();
-    protected final HashMap<BlockId, Long> _blockTimestamps = new HashMap<BlockId, Long>();
-    protected final HashMap<BlockId, Long> _blockHeights = new HashMap<BlockId, Long>();
-    protected final HashMap<BlockId, Difficulty> _difficulties = new HashMap<BlockId, Difficulty>();
+    protected final HashMap<BlockchainSegmentId, BlockId> _headBlockIds = new HashMap<>();
+    protected final HashMap<BlockId, MedianBlockTime> _medianBlockTimes = new HashMap<>();
+    protected final HashMap<BlockId, Long> _blockTimestamps = new HashMap<>();
+    protected final HashMap<BlockId, Long> _blockHeights = new HashMap<>();
+    protected final HashMap<BlockId, Difficulty> _difficulties = new HashMap<>();
+    protected final UpgradeSchedule _upgradeSchedule;
 
     protected Integer _lookupCount = 0;
     protected Integer _medianTimePastCalculationCount = 0;
+
+    public FakeReferenceBlockLoaderContext(final UpgradeSchedule upgradeSchedule) {
+        _upgradeSchedule = upgradeSchedule;
+    }
 
     public void setBlockHeader(final BlockchainSegmentId blockchainSegmentId, final BlockId blockId, final Long blockHeight, final MedianBlockTime medianBlockTime, final Long blockTimestamp, final Difficulty difficulty) {
         final BlockId currentHeadBlockId = _headBlockIds.get(blockchainSegmentId);
@@ -114,5 +120,10 @@ public class FakeReferenceBlockLoaderContext implements AsertReferenceBlockLoade
         }
 
         return difficulty;
+    }
+
+    @Override
+    public UpgradeSchedule getUpgradeSchedule() {
+        return _upgradeSchedule;
     }
 }

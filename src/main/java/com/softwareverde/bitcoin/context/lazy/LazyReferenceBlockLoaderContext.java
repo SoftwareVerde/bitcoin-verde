@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.context.lazy;
 
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
@@ -13,10 +14,12 @@ import com.softwareverde.bitcoin.server.module.node.database.blockchain.Blockcha
 import com.softwareverde.database.DatabaseException;
 
 public class LazyReferenceBlockLoaderContext implements AsertReferenceBlockLoader.ReferenceBlockLoaderContext {
+    protected final UpgradeSchedule _upgradeSchedule;
     protected final BlockchainDatabaseManager _blockchainDatabaseManager;
     protected final BlockHeaderDatabaseManager _blockHeaderDatabaseManager;
 
-    public LazyReferenceBlockLoaderContext(final DatabaseManager databaseManager) {
+    public LazyReferenceBlockLoaderContext(final DatabaseManager databaseManager, final UpgradeSchedule upgradeSchedule) {
+        _upgradeSchedule = upgradeSchedule;
         _blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
         _blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
     }
@@ -82,5 +85,10 @@ public class LazyReferenceBlockLoaderContext implements AsertReferenceBlockLoade
         catch (final DatabaseException exception) {
             throw new ContextException(exception);
         }
+    }
+
+    @Override
+    public UpgradeSchedule getUpgradeSchedule() {
+        return _upgradeSchedule;
     }
 }

@@ -1,9 +1,9 @@
 package com.softwareverde.bitcoin.server.module.explorer.api;
 
+import com.softwareverde.bitcoin.rpc.NodeJsonRpcConnection;
 import com.softwareverde.bitcoin.server.configuration.ExplorerProperties;
-import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
 import com.softwareverde.bitcoin.server.module.stratum.rpc.StratumJsonRpcConnection;
-import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.logging.Logger;
 
 import java.net.Socket;

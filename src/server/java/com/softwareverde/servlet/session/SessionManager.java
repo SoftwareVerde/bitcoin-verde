@@ -42,9 +42,11 @@ public class SessionManager {
     }
 
     protected final String _cookiesDirectory;
+    protected final Boolean _enableSecureCookies;
 
-    public SessionManager(final String cookiesDirectory) {
+    public SessionManager(final String cookiesDirectory, final Boolean enableSecureCookies) {
         _cookiesDirectory = cookiesDirectory;
+        _enableSecureCookies = enableSecureCookies;
     }
 
     public Session getSession(final Request request) {
@@ -68,6 +70,9 @@ public class SessionManager {
         IoUtil.putFileContents(_cookiesDirectory + session.getSessionId(), StringUtil.stringToBytes(sessionData.toString()));
 
         final Cookie sessionCookie = SessionManager.createSecureCookie(SESSION_COOKIE_KEY, authenticationToken.toString());
+        if (! _enableSecureCookies) {
+            sessionCookie.setIsSecure(false);
+        }
 
         response.addCookie(sessionCookie);
 

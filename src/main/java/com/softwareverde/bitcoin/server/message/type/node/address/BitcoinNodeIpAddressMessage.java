@@ -14,7 +14,7 @@ import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
 public class BitcoinNodeIpAddressMessage extends BitcoinProtocolMessage implements NodeIpAddressMessage {
-    protected final MutableList<BitcoinNodeIpAddress> _nodeIpAddresses = new MutableList<BitcoinNodeIpAddress>();
+    protected final MutableList<BitcoinNodeIpAddress> _nodeIpAddresses = new MutableList<>();
 
     public BitcoinNodeIpAddressMessage() {
         super(MessageType.NODE_ADDRESSES);
@@ -44,7 +44,7 @@ public class BitcoinNodeIpAddressMessage extends BitcoinProtocolMessage implemen
         final byte[] networkAddressesBytes = new byte[networkAddressCount * networkAddressByteCount];
 
         int addressesByteCount = 0;
-        final MutableList<byte[]> addressesBytes = new MutableList<byte[]>(networkAddressCount);
+        final MutableList<byte[]> addressesBytes = new MutableList<>(networkAddressCount);
         for (final BitcoinNodeIpAddress nodeIpAddress : _nodeIpAddresses) {
             final byte[] networkAddressBytes = nodeIpAddress.getBytesWithTimestamp();
             addressesBytes.add(networkAddressBytes);

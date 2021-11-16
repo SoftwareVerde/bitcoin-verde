@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
-import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
@@ -18,7 +18,7 @@ import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 public class FakeNode extends BitcoinNode {
     protected static long _nextNonce = 0L;
 
-    protected Long _lastMessageReceivedTimestamp = 0L;
+    protected final Long _lastMessageReceivedTimestamp = 0L;
 
     public FakeNode(final String host, final ThreadPool threadPool) {
         super(host, 0, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, threadPool, new LocalNodeFeatures() {

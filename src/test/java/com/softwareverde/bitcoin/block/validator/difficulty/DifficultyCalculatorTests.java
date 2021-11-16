@@ -1,5 +1,7 @@
 package com.softwareverde.bitcoin.block.validator.difficulty;
 
+import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
@@ -10,6 +12,8 @@ import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
+import com.softwareverde.bitcoin.context.DifficultyCalculatorFactory;
 import com.softwareverde.bitcoin.context.lazy.LazyDifficultyCalculatorContext;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
@@ -31,8 +35,14 @@ import org.junit.Test;
 
 public class DifficultyCalculatorTests extends IntegrationTest {
     public static class LazyDifficultyCalculatorContextWithBlockTimeFallback extends LazyDifficultyCalculatorContext {
-        public LazyDifficultyCalculatorContextWithBlockTimeFallback(final BlockchainSegmentId blockchainSegmentId, final DatabaseManager databaseManager) {
-            super(blockchainSegmentId, databaseManager);
+        public LazyDifficultyCalculatorContextWithBlockTimeFallback(final BlockchainSegmentId blockchainSegmentId, final DatabaseManager databaseManager, final UpgradeSchedule upgradeSchedule) {
+            super(blockchainSegmentId, databaseManager, new DifficultyCalculatorFactory() {
+                @Override
+                public DifficultyCalculator newDifficultyCalculator(final DifficultyCalculatorContext context) {
+                    return new DifficultyCalculator(context);
+                }
+            },
+            upgradeSchedule);
         }
 
         @Override
@@ -49,7 +59,8 @@ public class DifficultyCalculatorTests extends IntegrationTest {
                 return MedianBlockTime.fromSeconds(MedianBlockTime.GENESIS_BLOCK_TIMESTAMP);
             }
         }
-    };
+    }
+
     protected BlockHeader[] _initBlocks(final Long stopBeforeBlockHeight, final DatabaseManager databaseManager) throws DatabaseException {
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
@@ -286,7 +297,9 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
-            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContextWithBlockTimeFallback(null, databaseManager);
+            final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+
+            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContextWithBlockTimeFallback(null, databaseManager, upgradeSchedule);
             final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
 
             final BlockInflater blockInflater = new BlockInflater();
@@ -313,6 +326,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
             final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
+            final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
 
             final BlockHeader[] blockHeaders;
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
@@ -342,7 +356,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
              */
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContextWithBlockTimeFallback(blockchainSegmentId, databaseManager);
+            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContextWithBlockTimeFallback(blockchainSegmentId, databaseManager, upgradeSchedule);
             final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
 
             final Long blockHeight;
@@ -369,6 +383,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
             final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
+            final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
 
             final BlockHeader[] blockHeaders;
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
@@ -381,7 +396,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             Assert.assertEquals(blockHeaders[0].getDifficulty(), blockHeader.getDifficulty());
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContextWithBlockTimeFallback(blockchainSegmentId, databaseManager);
+            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContextWithBlockTimeFallback(blockchainSegmentId, databaseManager, upgradeSchedule);
             final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
 
             final Long blockHeight;
@@ -408,6 +423,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
             final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
+            final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
 
             final BlockHeader[] blockHeaders;
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
@@ -420,7 +436,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             Assert.assertNotEquals(blockHeaders[0].getDifficulty(), blockHeader.getDifficulty());
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContextWithBlockTimeFallback(blockchainSegmentId, databaseManager);
+            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContextWithBlockTimeFallback(blockchainSegmentId, databaseManager, upgradeSchedule);
             final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
 
             final Long blockHeight;
@@ -449,6 +465,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
             final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
+            final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
 
             {
                 final BlockInflater blockInflater = new BlockInflater();
@@ -559,7 +576,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             Assert.assertEquals(block504031.getHash(), blockHeader.getPreviousBlockHash());
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContextWithBlockTimeFallback(blockchainSegmentId, databaseManager);
+            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContextWithBlockTimeFallback(blockchainSegmentId, databaseManager, upgradeSchedule);
             final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
 
             final Long validationBlockHeight;
@@ -587,6 +604,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
+            final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
             final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
             final BlockHeader block503884 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0000002040EF75F1B365B5679D53CC70C66C0D84D9F2DA5057BC3504000000000000000064BE673E5FFCAE00F3E9543B6A29D9D9BFD99D917815E00F5DACDE20AD7EE759EE83085AF56A0818E6D5820C"));
@@ -705,7 +723,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             Assert.assertEquals(block504032.getHash(), blockHeader.getPreviousBlockHash());
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContextWithBlockTimeFallback(blockchainSegmentId, databaseManager);
+            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContextWithBlockTimeFallback(blockchainSegmentId, databaseManager, upgradeSchedule);
             final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
 
             final Long validationBlockHeight;
@@ -733,6 +751,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
+            final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
             final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
             final BlockHeader block504940 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000207F96BFA443BB1ED083E8091972AE62EE4656B1D34A741A0100000000000000005D96B2D6A485A654581DE98D0650DA22839288172F050BE7A081AD414E6D6D8F0F68125A10160618008E4ADB"));
@@ -839,7 +858,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             Assert.assertEquals(block505089.getHash(), blockHeader.getPreviousBlockHash());
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContextWithBlockTimeFallback(blockchainSegmentId, databaseManager);
+            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContextWithBlockTimeFallback(blockchainSegmentId, databaseManager, upgradeSchedule);
             final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
 
             final Long validationBlockHeight;
@@ -866,6 +885,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
+            final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
             final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
             final Long blockHeight = 547204L;
@@ -928,7 +948,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             }
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContextWithBlockTimeFallback(blockchainSegmentId, databaseManager);
+            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContextWithBlockTimeFallback(blockchainSegmentId, databaseManager, upgradeSchedule);
             final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
 
             // Action

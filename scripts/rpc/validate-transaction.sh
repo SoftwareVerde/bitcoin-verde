@@ -12,5 +12,5 @@ else
     ENABLE_SLP_VALIDATION=0
 fi
 
-(echo "{\"method\":\"POST\",\"query\":\"VALIDATE_TRANSACTION\",\"parameters\":{\"transactionData\":\"${TRANSACTION_DATA}\",\"enableSlpValidation\":\"${ENABLE_SLP_VALIDATION}\"}}") | nc localhost 8334
+(echo "{\"method\":\"POST\",\"query\":\"VALIDATE_TRANSACTION\",\"parameters\":{\"transactionData\":\"${TRANSACTION_DATA}\",\"enableSlpValidation\":\"${ENABLE_SLP_VALIDATION}\"}}") | curl -s --http0.9 --data-binary @- localhost:8334
 

@@ -6,7 +6,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.inflater.BlockHeaderInflaters;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
-import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessage;
+import com.softwareverde.bitcoin.server.message.type.query.header.RequestBlockHeadersMessage;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
@@ -15,7 +15,7 @@ import com.softwareverde.util.bytearray.ByteArrayBuilder;
 
 public class BlockHeadersMessage extends BitcoinProtocolMessage {
     protected final BlockHeaderInflaters _blockHeaderInflaters;
-    protected final MutableList<BlockHeader> _blockHeaders = new MutableList<BlockHeader>();
+    protected final MutableList<BlockHeader> _blockHeaders = new MutableList<>();
 
     public BlockHeadersMessage(final BlockHeaderInflaters blockHeaderInflaters) {
         super(MessageType.BLOCK_HEADERS);

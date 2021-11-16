@@ -1,6 +1,8 @@
 package com.softwareverde.bitcoin.wallet;
 
 import com.softwareverde.bitcoin.CoreInflater;
+import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
@@ -49,6 +51,7 @@ public class IntegratedWalletTests extends UnitTest {
         final FakeUnspentTransactionOutputContext unspentTransactionOutputContext = new FakeUnspentTransactionOutputContext();
 
         final MasterInflater masterInflater = new CoreInflater();
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
         final TransactionInflater transactionInflater = masterInflater.getTransactionInflater();
         for (final String transactionString : transactionHexStrings) {
             final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(transactionString));
@@ -59,7 +62,7 @@ public class IntegratedWalletTests extends UnitTest {
         final Transaction transaction = transactionInflater.fromBytes(transactionBytes);
 
         final MedianBlockTimeContext medianBlockTimeContext = new FakeStaticMedianBlockTimeContext(ImmutableMedianBlockTime.fromSeconds(1557325160L));
-        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(masterInflater, new MutableNetworkTime(), medianBlockTimeContext, unspentTransactionOutputContext);
+        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(masterInflater, new MutableNetworkTime(), medianBlockTimeContext, unspentTransactionOutputContext, upgradeSchedule);
         final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
         final TransactionValidationResult transactionValidationResult = transactionValidator.validateTransaction(581678L, transaction);

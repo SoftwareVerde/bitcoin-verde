@@ -7,7 +7,7 @@ import com.softwareverde.bitcoin.inflater.ExtendedBlockHeaderInflaters;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
-import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessage;
+import com.softwareverde.bitcoin.server.message.type.query.header.RequestBlockHeadersMessage;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.logging.Logger;
 
@@ -27,7 +27,7 @@ public class BlockHeadersMessageInflater extends BitcoinProtocolMessageInflater 
         final BitcoinProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, MessageType.BLOCK_HEADERS);
         if (protocolMessageHeader == null) { return null; }
 
-        final Integer blockHeaderCount = byteArrayReader.readVariableSizedInteger().intValue();
+        final int blockHeaderCount = byteArrayReader.readVariableLengthInteger().intValue();
         if (blockHeaderCount > RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT) {
             Logger.debug("Block Header Count Exceeded: " + blockHeaderCount);
             return null;

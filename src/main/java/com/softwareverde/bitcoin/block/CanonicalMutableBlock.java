@@ -21,7 +21,7 @@ public class CanonicalMutableBlock extends MutableBlock {
 
     protected static List<Transaction> sortTransactions(final List<Transaction> transactions) {
         final int transactionCount = transactions.getCount();
-        final MutableList<Transaction> _transactions = new MutableList<Transaction>(transactionCount);
+        final MutableList<Transaction> _transactions = new MutableList<>(transactionCount);
         if (transactions.isEmpty()) { return _transactions; }
 
         for (int i = 1; i < transactionCount; ++i) { // Excludes coinbase...

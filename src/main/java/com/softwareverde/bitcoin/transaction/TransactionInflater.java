@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.transaction;
 
 import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputInflater;
@@ -10,14 +11,10 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputInflater;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.bytearray.Endian;
 
 public class TransactionInflater {
-    public static final Integer MIN_BYTE_COUNT = 100;
-    public static final Integer MAX_BYTE_COUNT = (int) (2L * ByteUtil.Unit.Si.MEGABYTES);
-
     protected MutableTransaction _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
         // NOTE: The min Transaction size rule was activated on HF20181115 and therefore cannot be enforced here.
 
@@ -26,7 +23,7 @@ public class TransactionInflater {
         transaction._version = byteArrayReader.readLong(4, Endian.LITTLE);
 
         final TransactionInputInflater transactionInputInflater = new TransactionInputInflater();
-        final Long transactionInputCount = byteArrayReader.readVariableSizedInteger();
+        final Long transactionInputCount = byteArrayReader.readVariableLengthInteger();
         for (int i = 0; i < transactionInputCount; ++i) {
             if (byteArrayReader.remainingByteCount() < 1) { return null; }
             final MutableTransactionInput transactionInput = transactionInputInflater.fromBytes(byteArrayReader);
@@ -35,7 +32,7 @@ public class TransactionInflater {
         }
 
         final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
-        final Long transactionOutputCount = byteArrayReader.readVariableSizedInteger();
+        final Long transactionOutputCount = byteArrayReader.readVariableLengthInteger();
         for (int i = 0; i < transactionOutputCount; ++i) {
             if (byteArrayReader.remainingByteCount() < 1) { return null; }
             final MutableTransactionOutput transactionOutput = transactionOutputInflater.fromBytes(i, byteArrayReader);
@@ -55,7 +52,7 @@ public class TransactionInflater {
             // NOTE: At this point, the bytes are already in memory and limited by the PacketBuffer max size, so incremental checks are not performed.
             final Integer endPosition = byteArrayReader.getPosition();
             totalByteCount = (endPosition - startPosition);
-            if (totalByteCount > TransactionInflater.MAX_BYTE_COUNT) { return null; }
+            if (totalByteCount > BitcoinConstants.getTransactionMaxByteCount()) { return null; }
         }
 
         transaction.cacheByteCount(totalByteCount);
@@ -67,7 +64,7 @@ public class TransactionInflater {
         System.out.println("Version: " + HexUtil.toHexString(byteArrayReader.readBytes(4)));
 
         {
-            final ByteArrayReader.VariableSizedInteger inputCount = byteArrayReader.peakVariableSizedInteger();
+            final ByteArrayReader.CompactVariableLengthInteger inputCount = byteArrayReader.peakVariableLengthInteger();
             System.out.println("Tx Input Count: " + HexUtil.toHexString(byteArrayReader.readBytes(inputCount.bytesConsumedCount)));
 
             final TransactionInputInflater transactionInputInflater = new TransactionInputInflater();
@@ -77,7 +74,7 @@ public class TransactionInflater {
         }
 
         {
-            final ByteArrayReader.VariableSizedInteger outputCount = byteArrayReader.peakVariableSizedInteger();
+            final ByteArrayReader.CompactVariableLengthInteger outputCount = byteArrayReader.peakVariableLengthInteger();
             System.out.println("Tx Output Count: " + HexUtil.toHexString(byteArrayReader.readBytes(outputCount.bytesConsumedCount)));
             final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
             for (int i = 0; i < outputCount.value; ++i) {

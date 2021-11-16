@@ -3,6 +3,8 @@ package com.softwareverde.bitcoin.transaction.script;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.script.memo.MemoScriptInflater;
+import com.softwareverde.bitcoin.transaction.script.memo.MemoScriptType;
 import com.softwareverde.bitcoin.transaction.script.opcode.ControlOperation;
 import com.softwareverde.bitcoin.transaction.script.opcode.Opcode;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
@@ -22,7 +24,7 @@ import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 public class ScriptPatternMatcher {
     protected static final List<Opcode> PAY_TO_PUBLIC_KEY_PATTERN;
     static {
-        final ImmutableListBuilder<Opcode> listBuilder = new ImmutableListBuilder<Opcode>(3);
+        final ImmutableListBuilder<Opcode> listBuilder = new ImmutableListBuilder<>(3);
 
         listBuilder.add(Opcode.PUSH_DATA);
         listBuilder.add(Opcode.CHECK_SIGNATURE);
@@ -32,7 +34,7 @@ public class ScriptPatternMatcher {
 
     protected static final List<Opcode> PAY_TO_PUBLIC_KEY_HASH_PATTERN;
     static {
-        final ImmutableListBuilder<Opcode> listBuilder = new ImmutableListBuilder<Opcode>(3);
+        final ImmutableListBuilder<Opcode> listBuilder = new ImmutableListBuilder<>(3);
 
         listBuilder.add(Opcode.COPY_1ST);
         listBuilder.add(Opcode.SHA_256_THEN_RIPEMD_160);
@@ -45,7 +47,7 @@ public class ScriptPatternMatcher {
 
     protected static final List<Opcode> PAY_TO_SCRIPT_HASH_PATTERN;
     static {
-        final ImmutableListBuilder<Opcode> listBuilder = new ImmutableListBuilder<Opcode>(3);
+        final ImmutableListBuilder<Opcode> listBuilder = new ImmutableListBuilder<>(3);
 
         listBuilder.add(Opcode.SHA_256_THEN_RIPEMD_160);
         listBuilder.add(Opcode.PUSH_DATA);
@@ -138,6 +140,7 @@ public class ScriptPatternMatcher {
     protected Address _extractAddressFromPayToPublicKey(final Script lockingScript) {
         final PublicKey publicKey = _extractPublicKeyFromPayToPublicKey(lockingScript);
         if (publicKey == null) { return null; }
+        if (! publicKey.isValid()) { return null; }
 
         final AddressInflater addressInflater = new AddressInflater();
         return addressInflater.fromPublicKey(publicKey);
@@ -289,6 +292,11 @@ public class ScriptPatternMatcher {
             }
         }
 
+        final MemoScriptType memoScriptType = MemoScriptInflater.getScriptType(lockingScript);
+        if (memoScriptType != null) {
+            return ScriptType.MEMO_SCRIPT;
+        }
+
         return ScriptType.CUSTOM_SCRIPT;
     }
 
@@ -331,6 +339,9 @@ public class ScriptPatternMatcher {
         // Since this function is used repeatedly during UTXO caching to determine eligibility, this optimization
         //  warrants the code complexity.
         if (lockingScript instanceof ImmutableScript) {
+            final int scriptByteCount = lockingScript.getByteCount();
+            if (scriptByteCount > Script.MAX_SPENDABLE_SCRIPT_BYTE_COUNT) { return true; }
+
             final ByteArray byteArray = lockingScript.getBytes();
             if (byteArray.isEmpty()) { return false; }
 
@@ -345,7 +356,12 @@ public class ScriptPatternMatcher {
             if (operation.getType() != Operation.Type.OP_CONTROL) { return false; }
 
             final ControlOperation controlOperation = (ControlOperation) operation;
-            return Opcode.RETURN.matchesByte(controlOperation.getOpcodeByte());
+            final boolean isOpReturn = Opcode.RETURN.matchesByte(controlOperation.getOpcodeByte());
+            if (isOpReturn) { return true; }
+
+            // ByteCount is checked last since MutableLockingScript::getByteCount may be an expensive operation.
+            final int scriptByteCount = lockingScript.getByteCount();
+            return (scriptByteCount > Script.MAX_SPENDABLE_SCRIPT_BYTE_COUNT);
         }
     }
 }

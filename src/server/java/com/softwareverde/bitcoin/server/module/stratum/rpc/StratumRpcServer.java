@@ -6,7 +6,7 @@ import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumDataHandler;
-import com.softwareverde.concurrent.pool.MainThreadPool;
+import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.json.Json;
 import com.softwareverde.network.socket.JsonProtocolMessage;
@@ -18,7 +18,7 @@ public class StratumRpcServer {
     protected static final String WAS_SUCCESS_KEY = "wasSuccess";
 
     protected final JsonSocketServer _jsonRpcSocketServer;
-    protected final MainThreadPool _rpcThreadPool;
+    protected final ThreadPool _rpcThreadPool;
     protected final StratumDataHandler _stratumDataHandler;
     protected final BlockInflaters _blockInflaters;
 
@@ -48,7 +48,7 @@ public class StratumRpcServer {
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
-    public StratumRpcServer(final StratumProperties stratumProperties, final StratumDataHandler stratumDataHandler, final MainThreadPool rpcThreadPool) {
+    public StratumRpcServer(final StratumProperties stratumProperties, final StratumDataHandler stratumDataHandler, final ThreadPool rpcThreadPool) {
         this(
             stratumProperties,
             stratumDataHandler,
@@ -57,7 +57,7 @@ public class StratumRpcServer {
         );
     }
 
-    public StratumRpcServer(final StratumProperties stratumProperties, final StratumDataHandler stratumDataHandler, final MainThreadPool rpcThreadPool, final BlockInflaters blockInflaters) {
+    public StratumRpcServer(final StratumProperties stratumProperties, final StratumDataHandler stratumDataHandler, final ThreadPool rpcThreadPool, final BlockInflaters blockInflaters) {
         _rpcThreadPool = rpcThreadPool;
         _stratumDataHandler = stratumDataHandler;
         _blockInflaters = blockInflaters;
@@ -82,7 +82,7 @@ public class StratumRpcServer {
                             response.put(ERROR_MESSAGE_KEY, null);
 
                             final Json parameters = message.get("parameters");
-                            Boolean closeConnection = true;
+                            boolean closeConnection = true;
 
                             switch (method.toUpperCase()) {
                                 case "GET": {

@@ -1,7 +1,8 @@
 package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.concurrent.Pin;
-import com.softwareverde.concurrent.pool.MainThreadPool;
+import com.softwareverde.concurrent.threadpool.CachedThreadPool;
+import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
@@ -16,11 +17,23 @@ public class BatchRunner<T> {
     protected final Boolean _asynchronousExecutionIsEnabled;
     protected final Integer _maxItemCountPerBatch;
     protected final Integer _maxConcurrentThreadCount;
+    protected final ThreadPool _threadPool;
 
     protected void _executeAsynchronously(final Runnable[] runnables, final Container<Exception> exceptionContainer) throws DatabaseException {
         final int batchCount = runnables.length;
         final int threadCount = Math.min(runnables.length, _maxConcurrentThreadCount);
-        final MainThreadPool threadPool = new MainThreadPool(threadCount, 0L);
+
+        final CachedThreadPool createdThreadPool;
+        final ThreadPool threadPool;
+        if (_threadPool == null) {
+            createdThreadPool = new CachedThreadPool(threadCount, 0L);
+            createdThreadPool.start();
+            threadPool = createdThreadPool;
+        }
+        else {
+            createdThreadPool = null;
+            threadPool = _threadPool;
+        }
 
         try {
             final Pin[] pins = new Pin[batchCount];
@@ -54,7 +67,9 @@ public class BatchRunner<T> {
             throw new DatabaseException(exception);
         }
         finally {
-            threadPool.stop();
+            if (createdThreadPool != null) {
+                createdThreadPool.stop();
+            }
         }
     }
 
@@ -65,10 +80,19 @@ public class BatchRunner<T> {
     public BatchRunner(final Integer maxItemCountPerBatch, final Boolean executeAsynchronously) {
         this(maxItemCountPerBatch, executeAsynchronously, null);
     }
+
     public BatchRunner(final Integer maxItemCountPerBatch, final Boolean executeAsynchronously, final Integer maxConcurrentThreadCount) {
         _maxItemCountPerBatch = maxItemCountPerBatch;
         _asynchronousExecutionIsEnabled = executeAsynchronously;
         _maxConcurrentThreadCount = Util.coalesce(maxConcurrentThreadCount, Integer.MAX_VALUE);
+        _threadPool = null;
+    }
+
+    public BatchRunner(final Integer maxItemCountPerBatch, final ThreadPool threadPool) {
+        _maxItemCountPerBatch = maxItemCountPerBatch;
+        _asynchronousExecutionIsEnabled = true;
+        _maxConcurrentThreadCount = Integer.MAX_VALUE;
+        _threadPool = threadPool;
     }
 
     public void run(final List<T> totalCollection, final Batch<T> batch) throws DatabaseException {
@@ -86,13 +110,13 @@ public class BatchRunner<T> {
         }
 
         final Runnable[] runnables = new Runnable[batchCount];
-        final Container<Exception> exceptionContainer = new Container<Exception>();
+        final Container<Exception> exceptionContainer = new Container<>();
         for (int i = 0; i < batchCount; ++i) {
             final int batchId = i;
             final Runnable runnable = new Runnable() {
                 @Override
                 public void run() {
-                    final MutableList<T> bathedItems = new MutableList<T>(itemCountPerBatch);
+                    final MutableList<T> bathedItems = new MutableList<>(itemCountPerBatch);
                     for (int j = 0; j < itemCountPerBatch; ++j) {
                         final int index = ((batchId * itemCountPerBatch) + j);
                         if (index >= totalItemCount) { break; }

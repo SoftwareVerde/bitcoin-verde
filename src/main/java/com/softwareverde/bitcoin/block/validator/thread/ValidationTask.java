@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.block.validator.thread;
 
-import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Container;
@@ -11,9 +11,9 @@ class ValidationTask<T, S> implements Runnable {
     protected final TaskHandler<T, S> _taskHandler;
     protected final List<T> _list;
 
-    protected final Container<Boolean> _shouldAbort = new Container<Boolean>(false);
-    protected final Container<Boolean> _isFinished = new Container<Boolean>(false);
-    protected final Container<Boolean> _didEncounterError = new Container<Boolean>(false);
+    protected final Container<Boolean> _shouldAbort = new Container<>(false);
+    protected final Container<Boolean> _isFinished = new Container<>(false);
+    protected final Container<Boolean> _didEncounterError = new Container<>(false);
 
     protected int _startIndex;
     protected int _itemCount;

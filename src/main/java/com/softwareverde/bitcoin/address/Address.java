@@ -14,6 +14,7 @@ public class Address extends ImmutableByteArray {
     public static final byte BASE_32_PREFIX = 0x00;
     public static final String BASE_32_BCH_LABEL = "bitcoincash";
     public static final String BASE_32_SLP_LABEL = "simpleledger";
+    public static final String BASE_32_TESTNET_BCH_LABEL = "bchtest";
 
     protected static final Integer PREFIX_BYTE_COUNT = 1;
     protected static final Integer CHECKSUM_BYTE_COUNT = 4;

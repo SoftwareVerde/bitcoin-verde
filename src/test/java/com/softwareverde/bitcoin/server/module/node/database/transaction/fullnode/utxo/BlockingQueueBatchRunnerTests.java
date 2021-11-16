@@ -15,7 +15,7 @@ public class BlockingQueueBatchRunnerTests extends UnitTest {
     @Test
     public void should_include_all_items_when_less_than_the_batch_size() throws Exception {
         // Setup
-        final ConcurrentLinkedDeque<TransactionOutputIdentifier> executedItems = new ConcurrentLinkedDeque<TransactionOutputIdentifier>();
+        final ConcurrentLinkedDeque<TransactionOutputIdentifier> executedItems = new ConcurrentLinkedDeque<>();
 
         final BlockingQueueBatchRunner<TransactionOutputIdentifier> blockingQueueBatchRunner = BlockingQueueBatchRunner.newInstance(true,
             new BatchRunner.Batch<TransactionOutputIdentifier>() {
@@ -57,7 +57,7 @@ public class BlockingQueueBatchRunnerTests extends UnitTest {
     @Test
     public void UtxoQueryBatchGroupedByBlockHeight_should_include_all_items_when_less_than_the_batch_size() throws Exception {
         // Setup
-        final ConcurrentLinkedDeque<TransactionOutputIdentifier> executedItems = new ConcurrentLinkedDeque<TransactionOutputIdentifier>();
+        final ConcurrentLinkedDeque<TransactionOutputIdentifier> executedItems = new ConcurrentLinkedDeque<>();
 
         final BlockingQueueBatchRunner<TransactionOutputIdentifier> blockingQueueBatchRunner = BlockingQueueBatchRunner.newInstance(true,
             new BatchRunner.Batch<TransactionOutputIdentifier>() {
@@ -98,7 +98,7 @@ public class BlockingQueueBatchRunnerTests extends UnitTest {
     @Test
     public void UtxoQueryBatchGroupedByBlockHeight_should_run_both_entries_when_last_entry_has_unique_block_height() throws Exception {
         // Setup
-        final ConcurrentLinkedDeque<TransactionOutputIdentifier> executedItems = new ConcurrentLinkedDeque<TransactionOutputIdentifier>();
+        final ConcurrentLinkedDeque<TransactionOutputIdentifier> executedItems = new ConcurrentLinkedDeque<>();
 
         final BlockingQueueBatchRunner<TransactionOutputIdentifier> blockingQueueBatchRunner = BlockingQueueBatchRunner.newInstance(true,
             new BatchRunner.Batch<TransactionOutputIdentifier>() {

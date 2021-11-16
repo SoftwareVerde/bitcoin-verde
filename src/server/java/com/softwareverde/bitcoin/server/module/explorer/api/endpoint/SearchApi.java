@@ -10,14 +10,15 @@ import com.softwareverde.json.Jsonable;
 public class SearchApi extends ExplorerApiEndpoint {
     public static class SearchResult extends ApiResult {
         public enum ObjectType {
-            BLOCK, BLOCK_HEADER, TRANSACTION, ADDRESS
+            BLOCK, BLOCK_HEADER, TRANSACTION, ADDRESS, RAW_BLOCK, RAW_TRANSACTION
         }
 
         private ObjectType _objectType;
         public void setObjectType(final ObjectType objectType) { _objectType = objectType; }
 
-        private Jsonable _object;
+        private Object _object;
         public void setObject(final Jsonable object) { _object = object; }
+        public void setRawObject(final String rawObject) { _object = rawObject; }
 
         @Override
         public Json toJson() {
@@ -26,12 +27,6 @@ public class SearchApi extends ExplorerApiEndpoint {
             json.put("object", _object);
             return json;
         }
-    }
-
-    public static Json makeRawObjectJson(final String hexData) {
-        final Json object = new Json(false);
-        object.put("data", hexData);
-        return object;
     }
 
     public SearchApi(final String apiPrePath, final Environment environment) {

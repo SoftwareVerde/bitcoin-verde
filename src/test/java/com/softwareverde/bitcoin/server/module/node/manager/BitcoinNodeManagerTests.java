@@ -7,9 +7,9 @@ import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilterC
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.test.IntegrationTest;
-import com.softwareverde.concurrent.pool.MainThreadPool;
-import com.softwareverde.concurrent.pool.ThreadPool;
-import com.softwareverde.concurrent.pool.ThreadPoolFactory;
+import com.softwareverde.concurrent.threadpool.CachedThreadPool;
+import com.softwareverde.concurrent.threadpool.ThreadPool;
+import com.softwareverde.concurrent.threadpool.ThreadPoolFactory;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.time.MutableNetworkTime;
@@ -33,7 +33,9 @@ public class BitcoinNodeManagerTests extends IntegrationTest {
     @Test
     public void should_ban_node_after_multiple_failed_inbound_connections() throws Exception {
         // Setup
-        final MainThreadPool threadPool = new MainThreadPool(32, 1L);
+        final CachedThreadPool threadPool = new CachedThreadPool(32, 1L);
+        threadPool.start();
+
         final ThreadPoolFactory nodeThreadPoolFactory = new ThreadPoolFactory() {
             @Override
             public ThreadPool newThreadPool() {
@@ -69,7 +71,7 @@ public class BitcoinNodeManagerTests extends IntegrationTest {
         final BitcoinNodeManager.Context bitcoinNodeContext = new BitcoinNodeManager.Context();
         bitcoinNodeContext.maxNodeCount = 1;
         bitcoinNodeContext.databaseManagerFactory = _fullNodeDatabaseManagerFactory;
-        bitcoinNodeContext.nodeFactory = new BitcoinNodeFactory(BitcoinProtocolMessage.BINARY_PACKET_FORMAT, nodeThreadPoolFactory, localNodeFeatures);;
+        bitcoinNodeContext.nodeFactory = new BitcoinNodeFactory(BitcoinProtocolMessage.BINARY_PACKET_FORMAT, nodeThreadPoolFactory, localNodeFeatures);
         bitcoinNodeContext.networkTime = new MutableNetworkTime();
         bitcoinNodeContext.nodeInitializer = nodeInitializer;
         bitcoinNodeContext.banFilter = banFilter;
@@ -83,7 +85,7 @@ public class BitcoinNodeManagerTests extends IntegrationTest {
         final String host = "127.0.0.1";
         final Ip ip = Ip.fromString(host);
 
-        final MutableList<BitcoinNode> bitcoinNodes = new MutableList<BitcoinNode>();
+        final MutableList<BitcoinNode> bitcoinNodes = new MutableList<>();
 
         // Action
         // Spam the NodeManager with 10 connections that never handshake.

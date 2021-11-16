@@ -40,37 +40,40 @@ repositories {
 }
 
 dependencies {
-    // Library
-    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    // implementation fileTree(dir: 'libs', include: ['*.jar'])
 
-    implementation  group: 'org.bouncycastle',          name: 'bcprov-jdk15on',         version: '1.64'
-
-    api             group: 'com.github.softwareverde',  name: 'java-logging',           version: 'v2.2.0'
-    api             group: 'com.github.softwareverde',  name: 'java-logging-slf4j',     version: 'v1.0.0'
-    api             group: 'com.github.softwareverde',  name: 'java-util',              version: 'v2.6.1'
-    api             group: 'com.github.softwareverde',  name: 'java-async',             version: 'v0.3.0'
-    api             group: 'com.github.softwareverde',  name: 'java-cryptography',      version: 'v3.0.0'
+    // SPV Library
+    api             group: 'com.github.softwareverde',  name: 'java-util',              version: 'v2.7.3'
+    api             group: 'com.github.softwareverde',  name: 'java-concurrent',        version: 'v1.0.1'
+    api             group: 'com.github.softwareverde',  name: 'java-cryptography',      version: 'v3.2.1'
     api             group: 'com.github.softwareverde',  name: 'json',                   version: 'v2.0.0'
-    implementation  group: 'com.github.softwareverde',  name: 'java-db',                version: 'v3.2.5'
-    implementation  group: 'com.github.softwareverde',  name: 'java-db-mysql',          version: 'v4.0.8'
+    api             group: 'com.github.softwareverde',  name: 'java-db',                version: 'v3.3.0'
+
+    implementation  group: 'com.github.softwareverde',  name: 'java-logging',           version: 'v2.2.0'
+    implementation  group: 'com.github.softwareverde',  name: 'java-logging-slf4j',     version: 'v1.0.1'
+
+    // Bitcoin Core RPC compatibility
+    api            (group: 'com.github.softwareverde',  name: 'java-http-client',       version: 'v2.2.5', force: true)
+    api             group: 'com.github.softwareverde',  name: 'http-servlet',           version: 'v3.2.0'
+    implementation  group: 'org.zeromq',                name: 'jeromq',                 version: '0.5.2'
+
+    implementation  group: 'org.bouncycastle',          name: 'bcprov-jdk15on',         version: '1.68'
 
     // Server
-    serverImplementation group: 'com.github.softwareverde',     name: 'http-servlet',           version: 'v3.2.0'
-    serverImplementation group: 'com.github.softwareverde',     name: 'java-db-mysql-embedded', version: 'v2.1.6'
-    serverImplementation(group: 'com.zaxxer',                   name: 'HikariCP',               version: '3.4.5') {
-        exclude group: 'io.micrometer',             module: '*'
-        exclude group: 'org.javassist ',            module: '*'
-        exclude group: 'org.slf4j',                 module: '*'
-        exclude group: 'io.dropwizard.metrics',     module: '*'
-        exclude group: 'io.prometheus',             module: '*'
-        exclude group: 'org.hibernate',             module: '*'
-    }
+    serverImplementation group: 'com.github.softwareverde',     name: 'java-db-mysql',          version: 'v4.2.2'
+    serverImplementation group: 'com.github.softwareverde',     name: 'java-db-mysql-embedded', version: 'v3.0.2'
+    serverImplementation group: 'org.mariadb.jdbc',             name: 'mariadb-java-client',    version: '2.7.3'
 
-    serverImplementation group: 'org.jocl',                  name: 'jocl',                   version: '2.0.1'
+    serverImplementation group: 'com.github.softwareverde',     name: 'java-mariadb-osx',       version: 'v10.5.9-p1'
+    serverImplementation group: 'com.github.softwareverde',     name: 'java-mariadb-linux',     version: 'v10.5.9'
+    serverImplementation group: 'com.github.softwareverde',     name: 'java-mariadb-windows',   version: 'v10.5.9'
+    serverImplementation group: 'org.apache.commons',           name: 'commons-dbcp2',          version: '2.8.0'
+
+    serverImplementation group: 'org.slf4j',                    name: 'slf4j-api',              version: '1.7.30'
+    serverImplementation group: 'org.jocl',                     name: 'jocl',                   version: '2.0.1'
 
     // Testing
-    testImplementation group: 'junit',                     name: 'junit',                  version: '4.11'
-    testImplementation group: 'com.github.softwareverde',  name: 'java-mock',              version: 'v2.0.0'
+    testImplementation group: 'junit',                     name: 'junit',               version: '4.11'
 }
 
 // configurations.all {

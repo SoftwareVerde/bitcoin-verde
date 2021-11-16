@@ -13,7 +13,9 @@ public class NodeFeatures {
         BITCOIN_CASH_ENABLED                            ((long) (0x01 << 0x05)),
         BLOCKCHAIN_INDEX_ENABLED                        ((long) (0x01 << 0x07)), // BitcoinVerde 2019-05-20
         SLP_INDEX_ENABLED                               ((long) (0x01 << 0x08)), // BitcoinVerde 2019-10-24
-        MINIMUM_OF_TWO_DAYS_BLOCKCHAIN_ENABLED          ((long) (0x01 << 0x0A));
+        MINIMUM_OF_TWO_DAYS_BLOCKCHAIN_ENABLED          ((long) (0x01 << 0x0A)),
+        EXTENDED_DOUBLE_SPEND_PROOFS_ENABLED            ((long) (0x01 << 0x0C)), // BitcoinVerde 2021-04-27
+        UTXO_COMMITMENTS_ENABLED                        ((long) (0x01 << 0x0D)); // BitcoinVerde 2021-05-26
 
         public final Long value;
 
@@ -72,5 +74,10 @@ public class NodeFeatures {
 
     public void clear() {
         _value = Feature.NONE.value;
+    }
+
+    @Override
+    public String toString() {
+        return String.valueOf(_value);
     }
 }

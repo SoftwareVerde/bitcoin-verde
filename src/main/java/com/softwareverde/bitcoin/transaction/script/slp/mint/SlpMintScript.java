@@ -6,12 +6,14 @@ import com.softwareverde.bitcoin.transaction.script.slp.SlpScriptType;
 import com.softwareverde.constable.Constable;
 import com.softwareverde.util.Util;
 
+import java.math.BigInteger;
+
 public interface SlpMintScript extends SlpScript, Constable<ImmutableSlpMintScript> {
     Integer RECEIVER_TRANSACTION_OUTPUT_INDEX = 1;
 
     SlpTokenId getTokenId();
     Integer getBatonOutputIndex();
-    Long getTokenCount();
+    BigInteger getTokenCount();
 
     @Override
     ImmutableSlpMintScript asConst();
@@ -20,7 +22,7 @@ public interface SlpMintScript extends SlpScript, Constable<ImmutableSlpMintScri
 abstract class SlpMintScriptCore implements SlpMintScript {
     protected SlpTokenId _tokenId;
     protected Integer _batonOutputIndex;
-    protected Long _tokenCount;
+    protected BigInteger _tokenCount;
 
     public SlpMintScriptCore() { }
 
@@ -51,7 +53,7 @@ abstract class SlpMintScriptCore implements SlpMintScript {
     }
 
     @Override
-    public Long getTokenCount() {
+    public BigInteger getTokenCount() {
         return _tokenCount;
     }
 }

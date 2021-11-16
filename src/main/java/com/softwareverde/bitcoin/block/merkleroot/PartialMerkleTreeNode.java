@@ -16,7 +16,7 @@ public class PartialMerkleTreeNode<T> {
 
     public static <T> PartialMerkleTreeNode<T> newRootNode(final int itemCount) {
         final int maxDepth = PartialMerkleTreeNode.calculateMaxDepth(itemCount);
-        return new PartialMerkleTreeNode<T>(0, maxDepth);
+        return new PartialMerkleTreeNode<>(0, maxDepth);
     }
 
     protected PartialMerkleTreeNode(final int depth, final int maxDepth) {
@@ -37,14 +37,14 @@ public class PartialMerkleTreeNode<T> {
     public boolean include = true;
     public T object = null;
 
-    public PartialMerkleTreeNode newLeftNode() {
-        this.left = new PartialMerkleTreeNode<T>(depth + 1, this.maxDepth);
+    public PartialMerkleTreeNode<T> newLeftNode() {
+        this.left = new PartialMerkleTreeNode<>(depth + 1, this.maxDepth);
         this.left.parent = this;
         return this.left;
     }
 
-    public PartialMerkleTreeNode newRightNode() {
-        this.right = new PartialMerkleTreeNode<T>(depth + 1, this.maxDepth);
+    public PartialMerkleTreeNode<T> newRightNode() {
+        this.right = new PartialMerkleTreeNode<>(depth + 1, this.maxDepth);
         this.right.parent = this;
         return this.right;
     }

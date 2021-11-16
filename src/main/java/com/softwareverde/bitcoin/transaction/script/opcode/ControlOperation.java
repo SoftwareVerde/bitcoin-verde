@@ -68,12 +68,12 @@ public class ControlOperation extends SubTypedOperation {
 
             case IF:
             case NOT_IF: {
-                final Boolean condition;
+                final boolean condition;
                 if (controlState.shouldExecute()) {
                     final Value value = stack.pop();
                     final Boolean booleanValue = value.asBoolean();
 
-                    final Boolean notIf = (_opcode == Opcode.NOT_IF);
+                    final boolean notIf = (_opcode == Opcode.NOT_IF);
                     condition = ( notIf ? (! booleanValue) : (booleanValue) );
                 }
                 else {
@@ -87,13 +87,13 @@ public class ControlOperation extends SubTypedOperation {
 
             case IF_VERSION:
             case IF_NOT_VERSION: {
-                final Boolean condition;
+                final boolean condition;
                 if (controlState.shouldExecute()) {
                     final Value value = stack.pop();
                     final String userAgent = value.asString();
-                    final Boolean booleanValue = (BitcoinConstants.getUserAgent().equalsIgnoreCase(userAgent));
+                    final boolean booleanValue = (BitcoinConstants.getUserAgent().equalsIgnoreCase(userAgent));
 
-                    final Boolean notIf = (_opcode == Opcode.IF_NOT_VERSION);
+                    final boolean notIf = (_opcode == Opcode.IF_NOT_VERSION);
                     condition = ( notIf ? (! booleanValue) : (booleanValue) );
                 }
                 else {

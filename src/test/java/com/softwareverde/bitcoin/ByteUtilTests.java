@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin;
 
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import org.junit.Assert;
@@ -48,5 +49,43 @@ public class ByteUtilTests {
 
         ByteUtil.setBytes(destination, sha256Hash, 16);
         Assert.assertEquals(Sha256Hash.fromHexString("00000000000000000000000000000000000000000019D6689C085AE165831E93"), destination);
+    }
+
+    @Test
+    public void lex_byte_compare() {
+        {
+            final ByteArray aByteArray = ByteArray.fromHexString("00000000");
+            final ByteArray bByteArray = ByteArray.fromHexString("00000000");
+            Assert.assertEquals(0, ByteUtil.compareByteArrayLexicographically(aByteArray, bByteArray));
+            Assert.assertEquals(0, ByteUtil.compareByteArrayLexicographically(bByteArray, aByteArray));
+        }
+
+        {
+            final ByteArray aByteArray = ByteArray.fromHexString("00000000");
+            final ByteArray bByteArray = ByteArray.fromHexString("00000001");
+            Assert.assertEquals(-1, ByteUtil.compareByteArrayLexicographically(aByteArray, bByteArray));
+            Assert.assertEquals(1, ByteUtil.compareByteArrayLexicographically(bByteArray, aByteArray));
+        }
+
+        {
+            final ByteArray aByteArray = ByteArray.fromHexString("00000001");
+            final ByteArray bByteArray = ByteArray.fromHexString("00000000");
+            Assert.assertEquals(1, ByteUtil.compareByteArrayLexicographically(aByteArray, bByteArray));
+            Assert.assertEquals(-1, ByteUtil.compareByteArrayLexicographically(bByteArray, aByteArray));
+        }
+
+        {
+            final ByteArray aByteArray = ByteArray.fromHexString("0000000000");
+            final ByteArray bByteArray = ByteArray.fromHexString("00000001");
+            Assert.assertEquals(-1, ByteUtil.compareByteArrayLexicographically(aByteArray, bByteArray));
+            Assert.assertEquals(1, ByteUtil.compareByteArrayLexicographically(bByteArray, aByteArray));
+        }
+
+        {
+            final ByteArray aByteArray = ByteArray.fromHexString("0000000001");
+            final ByteArray bByteArray = ByteArray.fromHexString("00000000");
+            Assert.assertEquals(1, ByteUtil.compareByteArrayLexicographically(aByteArray, bByteArray));
+            Assert.assertEquals(-1, ByteUtil.compareByteArrayLexicographically(bByteArray, aByteArray));
+        }
     }
 }
