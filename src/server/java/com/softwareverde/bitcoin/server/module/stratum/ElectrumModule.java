@@ -64,7 +64,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class ElectrumModule {
     protected static final Long MILLI_SECONDS_PER_TICK = 2500L;
     protected static final Long MAX_REQUESTS_PER_TICK = 250L;
-    protected static final Long MAX_REQUEST_QUEUE_COUNT = 1000L;
+    protected static final Long MAX_REQUEST_QUEUE_COUNT = 5000L;
 
     public static final String SERVER_VERSION = "Electrum Verde 1.0.1";
     public static final String BANNER = ElectrumModule.SERVER_VERSION;
@@ -2013,13 +2013,17 @@ public class ElectrumModule {
                             final Json message = iterator.next();
                             iterator.remove();
 
-                            requestCount += 1;
-
                             try {
                                 _handleMessage(jsonSocket, message);
                             }
                             catch (final Exception exception) {
                                 Logger.debug(exception);
+                            }
+
+                            requestCount += 1;
+
+                            if (requestCount >= ElectrumModule.MAX_REQUESTS_PER_TICK) {
+                                break;
                             }
                         }
 
