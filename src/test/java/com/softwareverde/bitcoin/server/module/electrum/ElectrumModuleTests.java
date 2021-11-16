@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.stratum;
+package com.softwareverde.bitcoin.server.module.electrum;
 
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.merkleroot.MerkleTree;

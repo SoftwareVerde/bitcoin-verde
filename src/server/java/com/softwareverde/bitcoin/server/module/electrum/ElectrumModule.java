@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.stratum;
+package com.softwareverde.bitcoin.server.module.electrum;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
@@ -58,14 +58,8 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class ElectrumModule {
-    protected static final Long MILLI_SECONDS_PER_TICK = 2500L;
-    protected static final Long MAX_REQUESTS_PER_TICK = 250L;
-    protected static final Long MAX_REQUEST_QUEUE_COUNT = 5000L;
-
     public static final String SERVER_VERSION = "Electrum Verde 1.0.1";
     public static final String BANNER = ElectrumModule.SERVER_VERSION;
     public static final String PROTOCOL_VERSION = "1.4.4";
@@ -318,14 +312,12 @@ public class ElectrumModule {
     protected final ConcurrentHashMap<Long, JsonSocket> _connections = new ConcurrentHashMap<>();
     protected final HashMap<AddressSubscriptionKey, LinkedList<ConnectionAddress>> _connectionAddresses = new HashMap<>();
     protected final ConcurrentHashMap<Long, ElectrumPeer> _peers = new ConcurrentHashMap<>();
-    protected final ConcurrentHashMap<Long, ConcurrentLinkedDeque<Json>> _overflowRequests = new ConcurrentHashMap<>();
-    protected final ConcurrentHashMap<Long, AtomicLong> _requestsPerTick = new ConcurrentHashMap<>();
     protected final ConcurrentHashSet<Ip> _bannedConnections = new ConcurrentHashSet<>();
+    protected final ConcurrentHashMap<Ip, WorkerThread> _workerThreads = new ConcurrentHashMap<>();
 
     protected final MutableList<BlockHeader> _cachedBlockHeaders = new MutableList<>(0);
     protected Long _chainHeight = 0L;
 
-    protected final Thread _overflowRequestsThread;
     protected final Thread _maintenanceThread;
     protected NodeJsonRpcConnection _nodeNotificationConnection;
 
@@ -1801,7 +1793,7 @@ public class ElectrumModule {
         jsonSocket.flush();
     }
 
-    protected void _handleMessage(final JsonSocket jsonSocket, final Json jsonMessage) {
+    protected void _handleMessage(final Json jsonMessage, final JsonSocket jsonSocket) {
         if (! jsonSocket.isConnected()) { return; }
 
         final String method = jsonMessage.getString("method");
@@ -1910,6 +1902,26 @@ public class ElectrumModule {
             return;
         }
 
+        _connections.put(socketId, jsonSocket);
+        final WorkerThread workerThread;
+        synchronized (_workerThreads) {
+            if (_workerThreads.containsKey(ip)) {
+                workerThread = _workerThreads.get(ip);
+            }
+            else {
+                workerThread = new WorkerThread(new WorkerThread.RequestHandler() {
+                    @Override
+                    public void handleRequest(final Json json, final JsonSocket jsonSocket) {
+                        _handleMessage(json, jsonSocket);
+                    }
+                });
+                workerThread.start();
+                _workerThreads.put(ip, workerThread);
+            }
+
+            workerThread.addSocket(jsonSocket);
+        }
+
         jsonSocket.setMessageReceivedCallback(new Runnable() {
             @Override
             public void run() {
@@ -1917,26 +1929,7 @@ public class ElectrumModule {
                 if (jsonProtocolMessage == null) { return; }
 
                 final Json jsonMessage = jsonProtocolMessage.getMessage();
-
-                final AtomicLong requestCountSinceLastTick = _requestsPerTick.get(socketId);
-                final long requestCount = requestCountSinceLastTick.incrementAndGet();
-                if (requestCount > MAX_REQUESTS_PER_TICK) {
-                    final ConcurrentLinkedDeque<Json> queuedRequests = _overflowRequests.get(socketId);
-                    queuedRequests.add(jsonMessage);
-
-                    final int queuedRequestCount = queuedRequests.size();
-                    Logger.debug("Throttle: " + queuedRequestCount + " / " + MAX_REQUEST_QUEUE_COUNT + " " + jsonSocket);
-                    if (queuedRequestCount >= MAX_REQUEST_QUEUE_COUNT) {
-                        Logger.info("Disconnecting from throttled client.");
-                        _bannedConnections.add(jsonSocket.getIp());
-                        jsonSocket.close();
-                    }
-
-                    return;
-                }
-
-                Logger.debug("Received: " + jsonMessage);
-                _handleMessage(jsonSocket, jsonMessage);
+                workerThread.enqueue(jsonMessage, jsonSocket);
             }
         });
 
@@ -1946,19 +1939,26 @@ public class ElectrumModule {
                 _onDisconnect(jsonSocket);
             }
         });
-        _connections.put(socketId, jsonSocket);
-        _overflowRequests.put(socketId, new ConcurrentLinkedDeque<>());
-        _requestsPerTick.put(socketId, new AtomicLong(0L));
 
         jsonSocket.beginListening();
     }
 
     protected void _onDisconnect(final JsonSocket jsonSocket) {
         final Long socketId = jsonSocket.getId();
+        final Ip ip = jsonSocket.getIp();
         Logger.info("Electrum Socket Disconnected: " + jsonSocket);
         _connections.remove(socketId);
-        _overflowRequests.remove(socketId);
-        _requestsPerTick.remove(socketId);
+
+        synchronized (_workerThreads) {
+            final WorkerThread workerThread = _workerThreads.get(ip);
+            if (workerThread != null) {
+                workerThread.removeSocket(jsonSocket);
+                if (! workerThread.hasActiveSockets()) {
+                    _workerThreads.remove(ip);
+                    workerThread.interrupt();
+                }
+            }
+        }
     }
 
     public ElectrumModule(final ElectrumProperties electrumProperties) {
@@ -1989,54 +1989,6 @@ public class ElectrumModule {
                 _onDisconnect(socketConnection);
             }
         });
-
-        _overflowRequestsThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                final Thread thread = Thread.currentThread();
-                while (! thread.isInterrupted()) {
-                    try {
-                        Thread.sleep(ElectrumModule.MILLI_SECONDS_PER_TICK);
-                    }
-                    catch (final InterruptedException exception) { return; }
-
-                    for (final Map.Entry<Long, ConcurrentLinkedDeque<Json>> entry : _overflowRequests.entrySet()) {
-                        final Long socketId = entry.getKey();
-                        final ConcurrentLinkedDeque<Json> requests = entry.getValue();
-
-                        final JsonSocket jsonSocket = _connections.get(socketId);
-                        if (jsonSocket == null) { continue; }
-
-                        int requestCount = 0;
-                        final Iterator<Json> iterator = requests.iterator();
-                        while (iterator.hasNext()) {
-                            final Json message = iterator.next();
-                            iterator.remove();
-
-                            try {
-                                _handleMessage(jsonSocket, message);
-                            }
-                            catch (final Exception exception) {
-                                Logger.debug(exception);
-                            }
-
-                            requestCount += 1;
-
-                            if (requestCount >= ElectrumModule.MAX_REQUESTS_PER_TICK) {
-                                break;
-                            }
-                        }
-
-                        final AtomicLong requestsPerTick = _requestsPerTick.get(socketId);
-                        if (requestsPerTick != null) { // Should only be null when disconnecting...
-                            requestsPerTick.addAndGet(-requestCount);
-                        }
-                    }
-                }
-            }
-        });
-        _overflowRequestsThread.setName("Electrum Throttle Thread");
-        _overflowRequestsThread.setDaemon(true);
 
         _maintenanceThread = new Thread(new Runnable() {
             @Override
@@ -2115,7 +2067,6 @@ public class ElectrumModule {
         }
 
         _maintenanceThread.start();
-        _overflowRequestsThread.start();
 
         while (! mainThread.isInterrupted()) {
             try { Thread.sleep(10000L); } catch (final Exception exception) { }
@@ -2127,14 +2078,6 @@ public class ElectrumModule {
             socket.close();
         }
         _connections.clear();
-        _overflowRequests.clear();
-        _requestsPerTick.clear();
-
-        _overflowRequestsThread.interrupt();
-        try {
-            _overflowRequestsThread.join(30000L);
-        }
-        catch (final Exception exception) { }
 
         _maintenanceThread.interrupt();
         try {
