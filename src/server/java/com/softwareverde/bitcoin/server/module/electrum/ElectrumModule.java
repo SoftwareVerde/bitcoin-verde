@@ -321,6 +321,18 @@ public class ElectrumModule {
     protected final Thread _maintenanceThread;
     protected NodeJsonRpcConnection _nodeNotificationConnection;
 
+    protected void _debugWriteMessage(final JsonSocket jsonSocket, final Json json) {
+        if (Logger.isDebugEnabled()) {
+            Logger.debug("[To " + jsonSocket + "] " + json);
+        }
+    }
+
+    protected void _debugReceivedMessage(final JsonSocket jsonSocket, final Json json) {
+        if (Logger.isDebugEnabled()) {
+            Logger.debug("[From " + jsonSocket + "] " + json);
+        }
+    }
+
     protected NodeJsonRpcConnection _getNodeConnection(final Boolean retryIsEnabled) {
         final String nodeHost = _electrumProperties.getBitcoinRpcUrl();
         final Integer nodePort = _electrumProperties.getBitcoinRpcPort();
@@ -582,8 +594,9 @@ public class ElectrumModule {
         json.put("id", id);
         json.put("result", resultJson);
         jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-        Logger.debug("Wrote: " + json);
         jsonSocket.flush();
+
+        _debugWriteMessage(jsonSocket, json);
     }
 
     protected void _handleBannerMessage(final JsonSocket jsonSocket, final Json message) {
@@ -594,20 +607,24 @@ public class ElectrumModule {
         json.put("id", id);
         json.put("result", ElectrumModule.BANNER);
         jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-        Logger.debug("Wrote: " + json);
         jsonSocket.flush();
+
+        _debugWriteMessage(jsonSocket, json);
     }
 
     protected void _handleDonationAddressMessage(final JsonSocket jsonSocket, final Json message) {
         final Object id = ElectrumModule.getRequestId(message);
 
+        final Address donationAddress = _electrumProperties.getDonationAddress();
+
         final Json json = new ElectrumJson(false);
 
         json.put("id", id);
-        json.put("result", "qqverdefl9xtryyx8y52m6va5j8s2s4eq59fjdn97e");
+        json.put("result", donationAddress.toBase32CheckEncoded());
         jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-        Logger.debug("Wrote: " + json);
         jsonSocket.flush();
+
+        _debugWriteMessage(jsonSocket, json);
     }
 
     protected void _handlePingMessage(final JsonSocket jsonSocket, final Json message) {
@@ -618,8 +635,9 @@ public class ElectrumModule {
         json.put("id", id);
         json.put("result", null);
         jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-        Logger.debug("Wrote: " + json);
         jsonSocket.flush();
+
+        _debugWriteMessage(jsonSocket, json);
     }
 
     protected void _handleMinimumRelayFeeMessage(final JsonSocket jsonSocket, final Json message) {
@@ -632,8 +650,9 @@ public class ElectrumModule {
         json.put("id", id);
         json.put("result", minRelayFee); // Float; in Bitcoins, not Satoshis...
         jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-        Logger.debug("Wrote: " + json);
         jsonSocket.flush();
+
+        _debugWriteMessage(jsonSocket, json);
     }
 
     protected void _handleEstimateFeeMessage(final JsonSocket jsonSocket, final Json message) {
@@ -651,8 +670,9 @@ public class ElectrumModule {
         json.put("id", id);
         json.put("result", minRelayFee); // Float; in Bitcoins, not Satoshis...
         jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-        Logger.debug("Wrote: " + json);
         jsonSocket.flush();
+
+        _debugWriteMessage(jsonSocket, json);
     }
 
     protected void _notifyBlockHeader(final JsonSocket jsonSocket, final BlockHeader blockHeader, final Long blockHeight) {
@@ -670,8 +690,9 @@ public class ElectrumModule {
         json.put("method", "blockchain.headers.subscribe");
         json.put("params", paramsJson);
         jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-        Logger.debug("Wrote: " + json);
         jsonSocket.flush();
+
+        _debugWriteMessage(jsonSocket, json);
     }
 
     protected void _handleSubscribeBlockHeadersMessage(final JsonSocket jsonSocket, final Json message) {
@@ -702,8 +723,9 @@ public class ElectrumModule {
         json.put("id", id);
         json.put("result", blockHeaderJson);
         jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-        Logger.debug("Wrote: " + json);
         jsonSocket.flush();
+
+        _debugWriteMessage(jsonSocket, json);
     }
 
     protected static class GetBlockHeadersResult {
@@ -794,7 +816,7 @@ public class ElectrumModule {
             if (transaction == null) {
                 final Json json = ElectrumModule.createErrorJson(id, "Invalid Transaction hex.", null);
                 jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-                Logger.debug("Wrote: " + json);
+                _debugWriteMessage(jsonSocket, json);
                 return;
             }
         }
@@ -809,7 +831,7 @@ public class ElectrumModule {
         json.put("id", id);
         json.put("result", transactionHash);
         jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-        Logger.debug("Wrote: " + json);
+        _debugWriteMessage(jsonSocket, json);
         jsonSocket.flush();
     }
 
@@ -847,8 +869,9 @@ public class ElectrumModule {
         json.put("id", id);
         json.put("result", resultJson);
         jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-        Logger.debug("Wrote: " + json);
         jsonSocket.flush();
+
+        _debugWriteMessage(jsonSocket, json);
     }
 
     protected void _handleBlockHeaderMessage(final JsonSocket jsonSocket, final Json message) {
@@ -884,8 +907,9 @@ public class ElectrumModule {
         }
 
         jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-        Logger.debug("Wrote: " + json);
         jsonSocket.flush();
+
+        _debugWriteMessage(jsonSocket, json);
     }
 
     protected void _handleGetTransactionMessage(final JsonSocket jsonSocket, final Json message) {
@@ -901,7 +925,9 @@ public class ElectrumModule {
                 final String errorMessage = "Invalid Transaction Hash: " + transactionHashString;
                 final Json json = ElectrumModule.createErrorJson(id, errorMessage, null);
                 jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-                Logger.debug("Wrote: " + json);
+                jsonSocket.flush();
+
+                _debugWriteMessage(jsonSocket, json);
                 return;
             }
 
@@ -909,7 +935,9 @@ public class ElectrumModule {
             if (verboseFormat) {
                 final Json json = ElectrumModule.createErrorJson(id, "Unsupported Get-Transaction mode.", null);
                 jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-                Logger.debug("Wrote: " + json);
+                jsonSocket.flush();
+
+                _debugWriteMessage(jsonSocket, json);
                 return;
             }
         }
@@ -926,10 +954,10 @@ public class ElectrumModule {
 
         json.put("result", transactionHexString);
 
-
         jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-        Logger.debug("Wrote: " + json);
         jsonSocket.flush();
+
+        _debugWriteMessage(jsonSocket, json);
     }
 
     protected void _handleGetTransactionMerkleProofMessage(final JsonSocket jsonSocket, final Json message) {
@@ -945,7 +973,9 @@ public class ElectrumModule {
                 final String errorMessage = "Invalid Transaction Hash: " + transactionHashString;
                 final Json json = ElectrumModule.createErrorJson(id, errorMessage, null);
                 jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-                Logger.debug("Wrote: " + json);
+                jsonSocket.flush();
+
+                _debugWriteMessage(jsonSocket, json);
                 return;
             }
 
@@ -965,7 +995,9 @@ public class ElectrumModule {
                 final String errorMessage = "Transaction not found: " + transactionHash + ":" + blockHeight;
                 final Json json = ElectrumModule.createErrorJson(id, errorMessage, null);
                 jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-                Logger.debug("Wrote: " + json);
+                jsonSocket.flush();
+
+                _debugWriteMessage(jsonSocket, json);
                 return;
             }
 
@@ -990,8 +1022,9 @@ public class ElectrumModule {
 
 
         jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-        Logger.debug("Wrote: " + json);
         jsonSocket.flush();
+
+        _debugWriteMessage(jsonSocket, json);
     }
 
     protected void _handleConvertAddressToScriptHashMessage(final JsonSocket jsonSocket, final Json message) {
@@ -1008,7 +1041,9 @@ public class ElectrumModule {
                 final String errorMessage = "Invalid address.";
                 final Json json = ElectrumModule.createErrorJson(id, errorMessage, null);
                 jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-                Logger.debug("Wrote: " + json);
+                jsonSocket.flush();
+
+                _debugWriteMessage(jsonSocket, json);
                 return;
             }
         }
@@ -1019,8 +1054,9 @@ public class ElectrumModule {
         json.put("id", id);
         json.put("result", addressKey.scriptHash);
         jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-        Logger.debug("Wrote: " + json);
         jsonSocket.flush();
+
+        _debugWriteMessage(jsonSocket, json);
     }
 
     protected void _handleGetTransactionFromBlockPositionMessage(final JsonSocket jsonSocket, final Json message) {
@@ -1041,7 +1077,9 @@ public class ElectrumModule {
                 final String errorMessage = "Invalid block position.";
                 final Json json = ElectrumModule.createErrorJson(id, errorMessage, null);
                 jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-                Logger.debug("Wrote: " + json);
+                jsonSocket.flush();
+
+                _debugWriteMessage(jsonSocket, json);
                 return;
             }
         }
@@ -1057,7 +1095,9 @@ public class ElectrumModule {
                 final String errorMessage = "Invalid block position.";
                 final Json json = ElectrumModule.createErrorJson(id, errorMessage, null);
                 jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-                Logger.debug("Wrote: " + json);
+                jsonSocket.flush();
+
+                _debugWriteMessage(jsonSocket, json);
                 return;
             }
 
@@ -1088,8 +1128,9 @@ public class ElectrumModule {
         }
 
         jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-        Logger.debug("Wrote: " + json);
         jsonSocket.flush();
+
+        _debugWriteMessage(jsonSocket, json);
     }
 
     protected void _handleGetUtxoInfoMessage(final JsonSocket jsonSocket, final Json message) {
@@ -1105,7 +1146,9 @@ public class ElectrumModule {
                 final String errorMessage = "Invalid transaction output.";
                 final Json json = ElectrumModule.createErrorJson(id, errorMessage, null);
                 jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-                Logger.debug("Wrote: " + json);
+                jsonSocket.flush();
+
+                _debugWriteMessage(jsonSocket, json);
                 return;
             }
         }
@@ -1124,7 +1167,9 @@ public class ElectrumModule {
                 final String errorMessage = "Invalid outputIndex: " + transactionHash + ":" + transactionOutputIndex;
                 final Json json = ElectrumModule.createErrorJson(id, errorMessage, null);
                 jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-                Logger.debug("Wrote: " + json);
+                jsonSocket.flush();
+
+                _debugWriteMessage(jsonSocket, json);
                 return;
             }
 
@@ -1174,9 +1219,9 @@ public class ElectrumModule {
         json.put("result", resultJson);
 
         jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-        Logger.debug("Wrote: " + json);
         jsonSocket.flush();
 
+        _debugWriteMessage(jsonSocket, json);
     }
 
     protected void _handleGetMempoolFeesMessage(final JsonSocket jsonSocket, final Json message) {
@@ -1189,8 +1234,9 @@ public class ElectrumModule {
         json.put("id", id);
         json.put("result", feeHistogramJson);
         jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-        Logger.debug("Wrote: " + json);
         jsonSocket.flush();
+
+        _debugWriteMessage(jsonSocket, json);
     }
 
     protected Sha256Hash _getCachedAddressStatus(final AddressSubscriptionKey addressKey) {
@@ -1269,12 +1315,13 @@ public class ElectrumModule {
         responseJson.add(addressString);
         responseJson.add(addressStatus);
 
-        final Json notificationJson = new ElectrumJson(false);
-        notificationJson.put("method", "blockchain.scripthash.subscribe");
-        notificationJson.put("params", responseJson);
-        jsonSocket.write(new ElectrumJsonProtocolMessage(notificationJson));
-        Logger.debug("Wrote: " + notificationJson);
+        final Json json = new ElectrumJson(false);
+        json.put("method", "blockchain.scripthash.subscribe");
+        json.put("params", responseJson);
+        jsonSocket.write(new ElectrumJsonProtocolMessage(json));
         jsonSocket.flush();
+
+        _debugWriteMessage(jsonSocket, json);
     }
 
     protected void _notifyAddressStatus(final JsonSocket jsonSocket, final AddressSubscriptionKey addressKey) {
@@ -1289,12 +1336,13 @@ public class ElectrumModule {
         responseJson.add(addressString);
         responseJson.add(addressStatus);
 
-        final Json notificationJson = new ElectrumJson(false);
-        notificationJson.put("method", "blockchain.address.subscribe");
-        notificationJson.put("params", responseJson);
-        jsonSocket.write(new ElectrumJsonProtocolMessage(notificationJson));
-        Logger.debug("Wrote: " + notificationJson);
+        final Json json = new ElectrumJson(false);
+        json.put("method", "blockchain.address.subscribe");
+        json.put("params", responseJson);
+        jsonSocket.write(new ElectrumJsonProtocolMessage(json));
         jsonSocket.flush();
+
+        _debugWriteMessage(jsonSocket, json);
     }
 
     protected void _addAddressSubscription(final AddressSubscriptionKey addressKey, final JsonSocket jsonSocket, final Sha256Hash addressStatus) {
@@ -1360,7 +1408,9 @@ public class ElectrumModule {
             final String errorMessage = "Invalid Address hash: " + addressHashString;
             final Json json = ElectrumModule.createErrorJson(id, errorMessage, null);
             jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-            Logger.debug("Wrote: " + json);
+            jsonSocket.flush();
+
+            _debugWriteMessage(jsonSocket, json);
             return;
         }
 
@@ -1378,15 +1428,14 @@ public class ElectrumModule {
 
         _addAddressSubscription(addressKey, jsonSocket, addressStatus);
 
-        {
-            final Json json = new ElectrumJson(false);
-            json.put("id", id);
-            json.put("result", addressStatus);
+        final Json json = new ElectrumJson(false);
+        json.put("id", id);
+        json.put("result", addressStatus);
 
-            jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-            Logger.debug("Wrote: " + json);
-            jsonSocket.flush();
-        }
+        jsonSocket.write(new ElectrumJsonProtocolMessage(json));
+        jsonSocket.flush();
+
+        _debugWriteMessage(jsonSocket, json);
     }
 
     protected void _handleUnsubscribeScriptHashMessage(final JsonSocket jsonSocket, final Json message) {
@@ -1399,7 +1448,9 @@ public class ElectrumModule {
             final String errorMessage = "Invalid Address hash: " + addressHashString;
             final Json json = ElectrumModule.createErrorJson(id, errorMessage, null);
             jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-            Logger.debug("Wrote: " + json);
+            jsonSocket.flush();
+
+            _debugWriteMessage(jsonSocket, json);
             return;
         }
 
@@ -1412,8 +1463,9 @@ public class ElectrumModule {
             json.put("result", addressExisted);
 
             jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-            Logger.debug("Wrote: " + json);
             jsonSocket.flush();
+
+            _debugWriteMessage(jsonSocket, json);
         }
     }
 
@@ -1429,7 +1481,9 @@ public class ElectrumModule {
             final String errorMessage = "Invalid address: " + addressString;
             final Json json = ElectrumModule.createErrorJson(id, errorMessage, null);
             jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-            Logger.debug("Wrote: " + json);
+            jsonSocket.flush();
+
+            _debugWriteMessage(jsonSocket, json);
             return;
         }
 
@@ -1453,8 +1507,9 @@ public class ElectrumModule {
             json.put("result", addressStatus);
 
             jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-            Logger.debug("Wrote: " + json);
             jsonSocket.flush();
+
+            _debugWriteMessage(jsonSocket, json);
         }
     }
 
@@ -1471,17 +1526,14 @@ public class ElectrumModule {
         balanceJson.put("confirmed", confirmedBalance);
         balanceJson.put("unconfirmed", unconfirmedBalance);
 
-        {
-            final Json json = new ElectrumJson(false);
-            json.put("id", requestId);
-            json.put("result", balanceJson);
+        final Json json = new ElectrumJson(false);
+        json.put("id", requestId);
+        json.put("result", balanceJson);
 
-            jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-            Logger.debug("Wrote: " + json);
-            jsonSocket.flush();
-        }
-
+        jsonSocket.write(new ElectrumJsonProtocolMessage(json));
         jsonSocket.flush();
+
+        _debugWriteMessage(jsonSocket, json);
     }
 
     protected void _handleGetScriptHashBalanceMessage(final JsonSocket jsonSocket, final Json message) {
@@ -1494,7 +1546,9 @@ public class ElectrumModule {
             final String errorMessage = "Invalid Address hash: " + addressHashString;
             final Json json = ElectrumModule.createErrorJson(id, errorMessage, null);
             jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-            Logger.debug("Wrote: " + json);
+            jsonSocket.flush();
+
+            _debugWriteMessage(jsonSocket, json);
             return;
         }
 
@@ -1514,7 +1568,9 @@ public class ElectrumModule {
             final String errorMessage = "Invalid address: " + addressString;
             final Json json = ElectrumModule.createErrorJson(id, errorMessage, null);
             jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-            Logger.debug("Wrote: " + json);
+            jsonSocket.flush();
+
+            _debugWriteMessage(jsonSocket, json);
             return;
         }
 
@@ -1534,7 +1590,9 @@ public class ElectrumModule {
             final String errorMessage = "Invalid address: " + addressString;
             final Json json = ElectrumModule.createErrorJson(id, errorMessage, null);
             jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-            Logger.debug("Wrote: " + json);
+            jsonSocket.flush();
+
+            _debugWriteMessage(jsonSocket, json);
             return;
         }
 
@@ -1547,7 +1605,9 @@ public class ElectrumModule {
             json.put("result", addressExisted);
 
             jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-            Logger.debug("Wrote: " + json);
+            jsonSocket.flush();
+
+            _debugWriteMessage(jsonSocket, json);
             jsonSocket.flush();
         }
     }
@@ -1569,7 +1629,9 @@ public class ElectrumModule {
                 final String errorMessage = "Invalid Address/Hash: " + addressString;
                 final Json json = ElectrumModule.createErrorJson(id, errorMessage, null);
                 jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-                Logger.debug("Wrote: " + json);
+                jsonSocket.flush();
+
+                _debugWriteMessage(jsonSocket, json);
                 return;
             }
         }
@@ -1621,16 +1683,14 @@ public class ElectrumModule {
             }
         }
 
-        {
-            final Json json = new ElectrumJson(false);
-            json.put("id", id);
-            json.put("result", resultJson);
+        final Json json = new ElectrumJson(false);
+        json.put("id", id);
+        json.put("result", resultJson);
 
-            jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-            Logger.debug("Wrote: " + json);
-            jsonSocket.flush();
-        }
+        jsonSocket.write(new ElectrumJsonProtocolMessage(json));
         jsonSocket.flush();
+
+        _debugWriteMessage(jsonSocket, json);
     }
 
     protected void _handleGetUnspentOutputs(final JsonSocket jsonSocket, final Json message) {
@@ -1653,7 +1713,9 @@ public class ElectrumModule {
                     final String errorMessage = "Invalid Address/Hash: " + addressString;
                     final Json json = ElectrumModule.createErrorJson(id, errorMessage, null);
                     jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-                    Logger.debug("Wrote: " + json);
+                    jsonSocket.flush();
+
+                    _debugWriteMessage(jsonSocket, json);
                     return;
                 }
             }
@@ -1726,16 +1788,14 @@ public class ElectrumModule {
             }
         }
 
-        {
-            final Json json = new ElectrumJson(false);
-            json.put("id", id);
-            json.put("result", resultJson);
+        final Json json = new ElectrumJson(false);
+        json.put("id", id);
+        json.put("result", resultJson);
 
-            jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-            Logger.debug("Wrote: " + json);
-            jsonSocket.flush();
-        }
+        jsonSocket.write(new ElectrumJsonProtocolMessage(json));
         jsonSocket.flush();
+
+        _debugWriteMessage(jsonSocket, json);
     }
 
     protected void _handlePeersMessage(final JsonSocket jsonSocket, final Json message) {
@@ -1747,9 +1807,11 @@ public class ElectrumModule {
         final Json json = new ElectrumJson(false);
         json.put("id", id);
         json.put("result", peerListJson);
+
         jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-        Logger.debug("Wrote: " + json);
         jsonSocket.flush();
+
+        _debugWriteMessage(jsonSocket, json);
     }
 
     protected void _handleAddPeerMessage(final JsonSocket jsonSocket, final Json message) {
@@ -1758,9 +1820,11 @@ public class ElectrumModule {
         final Json json = new ElectrumJson(true);
         json.put("id", id);
         json.put("result", true); // P2P unsupported.
+
         jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-        Logger.debug("Wrote: " + json);
         jsonSocket.flush();
+
+        _debugWriteMessage(jsonSocket, json);
     }
 
     protected void _handlePeerFeaturesMessage(final JsonSocket jsonSocket, final Json message) {
@@ -1771,9 +1835,11 @@ public class ElectrumModule {
         final Json json = new ElectrumJson(false);
         json.put("id", id);
         json.put("result", resultJson);
+
         jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-        Logger.debug("Wrote: " + json);
         jsonSocket.flush();
+
+        _debugWriteMessage(jsonSocket, json);
     }
 
     protected void _sendAddPeerMessage(final JsonSocket jsonSocket) {
@@ -1788,13 +1854,17 @@ public class ElectrumModule {
         final Json json = new ElectrumJson(false);
         json.put("method", "server.add_peer");
         json.put("params", paramsJson);
+
         jsonSocket.write(new ElectrumJsonProtocolMessage(json));
-        Logger.debug("Wrote: " + json);
         jsonSocket.flush();
+
+        _debugWriteMessage(jsonSocket, json);
     }
 
     protected void _handleMessage(final Json jsonMessage, final JsonSocket jsonSocket) {
         if (! jsonSocket.isConnected()) { return; }
+
+        _debugReceivedMessage(jsonSocket, jsonMessage);
 
         final String method = jsonMessage.getString("method");
         switch (method) {

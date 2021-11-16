@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.configuration;
 
+import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.rpc.RpcCredentials;
 
 public class ElectrumProperties {
@@ -14,6 +15,8 @@ public class ElectrumProperties {
     protected Integer _tlsPort;
     protected String _tlsKeyFile;
     protected String _tlsCertificateFile;
+
+    protected Address _donationAddress;
 
     public String getBitcoinRpcUrl() {
         return _bitcoinRpcUrl;
@@ -41,5 +44,9 @@ public class ElectrumProperties {
 
     public String getTlsCertificateFile() {
         return _tlsCertificateFile;
+    }
+
+    public Address getDonationAddress() {
+        return _donationAddress;
     }
 }

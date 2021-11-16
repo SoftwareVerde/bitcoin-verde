@@ -1,6 +1,9 @@
 package com.softwareverde.bitcoin.server.configuration;
 
+import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.rpc.RpcCredentials;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
 import java.util.Properties;
@@ -16,6 +19,17 @@ public class ElectrumPropertiesLoader {
         final String tlsKeyFile = properties.getProperty("electrum.tlsKeyFile", "");
         final String tlsCertificateFile = properties.getProperty("electrum.tlsCertificateFile", "");
 
+        final Address donationAddress;
+        {
+            final AddressInflater addressInflater = new AddressInflater();
+            final String donationAddressString = properties.getProperty("electrum.donationAddress");
+            donationAddress = Util.coalesce(addressInflater.fromBase58Check(donationAddressString), addressInflater.fromBase32Check(donationAddressString));
+
+            if ( (donationAddress == null) && (! Util.isBlank(donationAddressString))) {
+                Logger.info("Unable to parse donation address: " + donationAddressString);
+            }
+        }
+
         final ElectrumProperties electrumProperties = new ElectrumProperties();
         electrumProperties._bitcoinRpcUrl = bitcoinRpcUrl;
         electrumProperties._bitcoinRpcPort = bitcoinRpcPort;
@@ -25,6 +39,8 @@ public class ElectrumPropertiesLoader {
         electrumProperties._tlsPort = tlsPort;
         electrumProperties._tlsKeyFile = (tlsKeyFile.isEmpty() ? null : tlsKeyFile);
         electrumProperties._tlsCertificateFile = (tlsCertificateFile.isEmpty() ? null : tlsCertificateFile);
+
+        electrumProperties._donationAddress = donationAddress;
 
         return electrumProperties;
     }
