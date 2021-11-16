@@ -1984,6 +1984,16 @@ public class ElectrumModule {
                     public void handleRequest(final Json json, final JsonSocket jsonSocket) {
                         _handleMessage(json, jsonSocket);
                     }
+
+                    @Override
+                    public void handleError(final Json json, final JsonSocket jsonSocket) {
+                        final Object requestId = ElectrumModule.getRequestId(json);
+
+                        final Json errorJson = ElectrumModule.createErrorJson(requestId, "Internal error.", null);
+                        jsonSocket.write(new ElectrumJsonProtocolMessage(errorJson));
+
+                        _debugWriteMessage(jsonSocket, errorJson);
+                    }
                 });
                 workerThread.start();
                 _workerThreads.put(ip, workerThread);

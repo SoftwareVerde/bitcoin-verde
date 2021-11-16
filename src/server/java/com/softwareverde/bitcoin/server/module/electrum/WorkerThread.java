@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module.electrum;
 
 import com.softwareverde.json.Json;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.socket.JsonSocket;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.Tuple;
@@ -15,6 +16,7 @@ public class WorkerThread extends Thread {
 
     public interface RequestHandler {
         void handleRequest(Json json, JsonSocket jsonSocket);
+        void handleError(Json json, JsonSocket jsonSocket);
     }
 
     protected final RequestHandler _requestHandler;
@@ -78,7 +80,14 @@ public class WorkerThread extends Thread {
                 _pendingRequestByteCount.getAndAdd(-byteCount);
                 _pendingRequestCount.getAndDecrement();
 
-                _requestHandler.handleRequest(tuple.first, tuple.second);
+                try {
+                    _requestHandler.handleRequest(tuple.first, tuple.second);
+                }
+                catch (final Exception exception) {
+                    Logger.debug(exception);
+
+                    _requestHandler.handleError(tuple.first, tuple.second);
+                }
             }
         }
     }
