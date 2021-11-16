@@ -490,8 +490,12 @@ public class Main {
 
                 final Configuration configuration = _loadConfigurationFile(configurationFile);
                 final ElectrumProperties electrumProperties = configuration.getElectrumProperties();
+                final BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
 
-                Logger.setLogLevel(LogLevel.ON);
+                final LogLevel logLevel = bitcoinProperties.getLogLevel();
+                if (logLevel != null) {
+                    Logger.setLogLevel(logLevel);
+                }
 
                 final ElectrumModule electrumModule = new ElectrumModule(electrumProperties);
                 electrumModule.loop();
