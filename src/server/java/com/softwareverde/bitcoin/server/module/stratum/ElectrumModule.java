@@ -320,10 +320,29 @@ public class ElectrumModule {
     protected final Thread _maintenanceThread;
     protected NodeJsonRpcConnection _nodeNotificationConnection;
 
-    protected NodeJsonRpcConnection _getNodeConnection() {
+    protected NodeJsonRpcConnection _getNodeConnection(final Boolean retryIsEnabled) {
         final String nodeHost = _electrumProperties.getBitcoinRpcUrl();
         final Integer nodePort = _electrumProperties.getBitcoinRpcPort();
-        return new NodeJsonRpcConnection(nodeHost, nodePort, _threadPool);
+        final NodeJsonRpcConnection nodeConnection = new NodeJsonRpcConnection(nodeHost, nodePort, _threadPool);
+
+        if ( (nodeConnection != null) && nodeConnection.isConnected() ) {
+            return nodeConnection;
+        }
+
+        if (retryIsEnabled) {
+            try {
+                Thread.sleep(1000L);
+            }
+            catch (final Exception exception) { }
+
+            return _getNodeConnection(false);
+        }
+
+        throw new RuntimeException("Unable to connect to node.");
+    }
+
+    protected NodeJsonRpcConnection _getNodeConnection() {
+        return _getNodeConnection(true);
     }
 
     protected void _createNodeNotificationConnection() {
@@ -2021,6 +2040,7 @@ public class ElectrumModule {
 
                     if (iterationsSinceAddressCleanup >= 20) {
                         synchronized (_connectionAddresses) {
+                            final HashSet<AddressSubscriptionKey> connectionsToRemove = new HashSet<>();
                             for (final Map.Entry<AddressSubscriptionKey, LinkedList<ConnectionAddress>> entry : _connectionAddresses.entrySet()) {
                                 boolean queueHasActiveSocket = false;
 
@@ -2042,8 +2062,12 @@ public class ElectrumModule {
                                 }
 
                                 if (! queueHasActiveSocket) {
-                                    _connectionAddresses.remove(addressSubscriptionKey);
+                                    connectionsToRemove.add(addressSubscriptionKey);
                                 }
+                            }
+
+                            for (final AddressSubscriptionKey addressSubscriptionKey : connectionsToRemove) {
+                                _connectionAddresses.remove(addressSubscriptionKey);
                             }
                         }
 

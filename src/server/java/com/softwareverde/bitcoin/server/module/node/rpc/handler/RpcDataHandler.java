@@ -343,6 +343,8 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
             final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
             final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+            if (blockId == null) { return null; }
+
             final Boolean isConnectedToMainChain = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, headBlockchainSegmentId, BlockRelationship.ANY);
 
             return (! isConnectedToMainChain);
