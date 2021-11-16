@@ -62,11 +62,11 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class ElectrumModule {
-    protected static final Long MILLI_SECONDS_PER_TICK = 10000L;
-    protected static final Long MAX_REQUESTS_PER_TICK = 100L;
-    protected static final Long MAX_REQUEST_QUEUE_COUNT = 500L;
+    protected static final Long MILLI_SECONDS_PER_TICK = 2500L;
+    protected static final Long MAX_REQUESTS_PER_TICK = 250L;
+    protected static final Long MAX_REQUEST_QUEUE_COUNT = 1000L;
 
-    public static final String SERVER_VERSION = "Electrum Verde 1.0.0";
+    public static final String SERVER_VERSION = "Electrum Verde 1.0.1";
     public static final String BANNER = ElectrumModule.SERVER_VERSION;
     public static final String PROTOCOL_VERSION = "1.4.4";
 
@@ -287,7 +287,7 @@ public class ElectrumModule {
         }
     }
 
-    protected static Json createErrorJson(final Integer requestId, final String errorMessage, final Integer errorCode) {
+    protected static Json createErrorJson(final Object requestId, final String errorMessage, final Integer errorCode) {
         final Json errorJson = new ElectrumJson(false);
         errorJson.put("message", errorMessage);
         errorJson.put("code", errorCode);
@@ -298,6 +298,15 @@ public class ElectrumModule {
         json.put("error", errorJson);
 
         return json;
+    }
+
+    protected static Object getRequestId(final Json json) {
+        final String idString = json.getOrNull("id", Json.Types.STRING);
+        if (Util.isInt(idString)) {
+            return Util.parseInt(idString);
+        }
+
+        return idString;
     }
 
     protected final Long _minTransactionFeePerByte;
@@ -571,7 +580,7 @@ public class ElectrumModule {
     }
 
     protected void _handleServerVersionMessage(final JsonSocket jsonSocket, final Json message) {
-        final Integer id = message.getInteger("id");
+        final Object id = ElectrumModule.getRequestId(message);
 
         final Json json = new ElectrumJson(false);
         final Json resultJson = new ElectrumJson(true);
@@ -586,7 +595,7 @@ public class ElectrumModule {
     }
 
     protected void _handleBannerMessage(final JsonSocket jsonSocket, final Json message) {
-        final Integer id = message.getInteger("id");
+        final Object id = ElectrumModule.getRequestId(message);
 
         final Json json = new ElectrumJson(false);
 
@@ -598,7 +607,7 @@ public class ElectrumModule {
     }
 
     protected void _handleDonationAddressMessage(final JsonSocket jsonSocket, final Json message) {
-        final Integer id = message.getInteger("id");
+        final Object id = ElectrumModule.getRequestId(message);
 
         final Json json = new ElectrumJson(false);
 
@@ -610,7 +619,7 @@ public class ElectrumModule {
     }
 
     protected void _handlePingMessage(final JsonSocket jsonSocket, final Json message) {
-        final Integer id = message.getInteger("id");
+        final Object id = ElectrumModule.getRequestId(message);
 
         final Json json = new ElectrumJson(false);
 
@@ -622,7 +631,7 @@ public class ElectrumModule {
     }
 
     protected void _handleMinimumRelayFeeMessage(final JsonSocket jsonSocket, final Json message) {
-        final Integer id = message.getInteger("id");
+        final Object id = ElectrumModule.getRequestId(message);
 
         final Json json = new ElectrumJson(false);
 
@@ -636,7 +645,7 @@ public class ElectrumModule {
     }
 
     protected void _handleEstimateFeeMessage(final JsonSocket jsonSocket, final Json message) {
-        final Integer id = message.getInteger("id");
+        final Object id = ElectrumModule.getRequestId(message);
 
         final Long blockCount;
         {
@@ -674,7 +683,7 @@ public class ElectrumModule {
     }
 
     protected void _handleSubscribeBlockHeadersMessage(final JsonSocket jsonSocket, final Json message) {
-        final Integer id = message.getInteger("id");
+        final Object id = ElectrumModule.getRequestId(message);
 
         final ByteArray blockHeaderBytes;
         final Long blockHeight;
@@ -782,7 +791,7 @@ public class ElectrumModule {
 
     protected void _handleSubmitTransactionMessage(final JsonSocket jsonSocket, final Json message) {
         final TransactionInflater transactionInflater = new TransactionInflater();
-        final Integer id = message.getInteger("id");
+        final Object id = ElectrumModule.getRequestId(message);
 
         final Transaction transaction;
         {
@@ -813,7 +822,7 @@ public class ElectrumModule {
     }
 
     protected void _handleBlockHeadersMessage(final JsonSocket jsonSocket, final Json message) {
-        final Integer id = message.getInteger("id");
+        final Object id = ElectrumModule.getRequestId(message);
 
         final Long requestedBlockHeight;
         final int requestedBlockCount;
@@ -851,7 +860,7 @@ public class ElectrumModule {
     }
 
     protected void _handleBlockHeaderMessage(final JsonSocket jsonSocket, final Json message) {
-        final Integer id = message.getInteger("id");
+        final Object id = ElectrumModule.getRequestId(message);
 
         final Long requestedBlockHeight;
         final Long checkpointBlockHeight;
@@ -888,7 +897,7 @@ public class ElectrumModule {
     }
 
     protected void _handleGetTransactionMessage(final JsonSocket jsonSocket, final Json message) {
-        final Integer id = message.getInteger("id");
+        final Object id = ElectrumModule.getRequestId(message);
 
         final Boolean verboseFormat;
         final Sha256Hash transactionHash;
@@ -932,7 +941,7 @@ public class ElectrumModule {
     }
 
     protected void _handleGetTransactionMerkleProofMessage(final JsonSocket jsonSocket, final Json message) {
-        final Integer id = message.getInteger("id");
+        final Object id = ElectrumModule.getRequestId(message);
 
         final Long blockHeight;
         final Sha256Hash transactionHash;
@@ -996,7 +1005,7 @@ public class ElectrumModule {
     protected void _handleConvertAddressToScriptHashMessage(final JsonSocket jsonSocket, final Json message) {
         final AddressInflater addressInflater = new AddressInflater();
 
-        final Integer id = message.getInteger("id");
+        final Object id = ElectrumModule.getRequestId(message);
         final Json paramsJson = message.get("params");
 
         final Address address;
@@ -1025,7 +1034,7 @@ public class ElectrumModule {
     protected void _handleGetTransactionFromBlockPositionMessage(final JsonSocket jsonSocket, final Json message) {
         final BlockInflater blockInflater = new BlockInflater();
 
-        final Integer id = message.getInteger("id");
+        final Object id = ElectrumModule.getRequestId(message);
         final Json paramsJson = message.get("params");
 
         final Sha256Hash blockHash;
@@ -1092,7 +1101,7 @@ public class ElectrumModule {
     }
 
     protected void _handleGetUtxoInfoMessage(final JsonSocket jsonSocket, final Json message) {
-        final Integer id = message.getInteger("id");
+        final Object id = ElectrumModule.getRequestId(message);
         final Json paramsJson = message.get("params");
 
         final Sha256Hash transactionHash;
@@ -1179,7 +1188,7 @@ public class ElectrumModule {
     }
 
     protected void _handleGetMempoolFeesMessage(final JsonSocket jsonSocket, final Json message) {
-        final Integer id = message.getInteger("id");
+        final Object id = ElectrumModule.getRequestId(message);
 
         final Json feeHistogramJson = new ElectrumJson(true);
         // TODO
@@ -1350,7 +1359,7 @@ public class ElectrumModule {
     }
 
     protected void _handleSubscribeScriptHashMessage(final JsonSocket jsonSocket, final Json message) {
-        final Integer id = message.getInteger("id");
+        final Object id = ElectrumModule.getRequestId(message);
         final Json paramsJson = message.get("params");
 
         final String addressHashString = paramsJson.getString(0);
@@ -1389,7 +1398,7 @@ public class ElectrumModule {
     }
 
     protected void _handleUnsubscribeScriptHashMessage(final JsonSocket jsonSocket, final Json message) {
-        final Integer id = message.getInteger("id");
+        final Object id = ElectrumModule.getRequestId(message);
         final Json paramsJson = message.get("params");
 
         final String addressHashString = paramsJson.getString(0);
@@ -1419,7 +1428,7 @@ public class ElectrumModule {
     protected void _handleSubscribeAddressMessage(final JsonSocket jsonSocket, final Json message) {
         final AddressInflater addressInflater = new AddressInflater();
 
-        final Integer id = message.getInteger("id");
+        final Object id = ElectrumModule.getRequestId(message);
         final Json paramsJson = message.get("params");
 
         final String addressString = paramsJson.getString(0);
@@ -1457,7 +1466,7 @@ public class ElectrumModule {
         }
     }
 
-    protected void _handleGetBalanceMessage(final JsonSocket jsonSocket, final AddressSubscriptionKey addressKey, final Integer requestId) {
+    protected void _handleGetBalanceMessage(final JsonSocket jsonSocket, final AddressSubscriptionKey addressKey, final Object requestId) {
         final Long confirmedBalance;
         final Long unconfirmedBalance;
         try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
@@ -1484,7 +1493,7 @@ public class ElectrumModule {
     }
 
     protected void _handleGetScriptHashBalanceMessage(final JsonSocket jsonSocket, final Json message) {
-        final Integer id = message.getInteger("id");
+        final Object id = ElectrumModule.getRequestId(message);
         final Json paramsJson = message.get("params");
 
         final String addressHashString = paramsJson.getString(0);
@@ -1504,7 +1513,7 @@ public class ElectrumModule {
     protected void _handleGetAddressBalanceMessage(final JsonSocket jsonSocket, final Json message) {
         final AddressInflater addressInflater = new AddressInflater();
 
-        final Integer id = message.getInteger("id");
+        final Object id = ElectrumModule.getRequestId(message);
         final Json paramsJson = message.get("params");
 
         final String addressString = paramsJson.getString(0);
@@ -1524,7 +1533,7 @@ public class ElectrumModule {
     protected void _handleUnsubscribeAddressMessage(final JsonSocket jsonSocket, final Json message) {
         final AddressInflater addressInflater = new AddressInflater();
 
-        final Integer id = message.getInteger("id");
+        final Object id = ElectrumModule.getRequestId(message);
         final Json paramsJson = message.get("params");
 
         final String addressString = paramsJson.getString(0);
@@ -1555,7 +1564,7 @@ public class ElectrumModule {
         final TransactionInflater transactionInflater = new TransactionInflater();
         final AddressInflater addressInflater = new AddressInflater();
 
-        final Integer id = message.getInteger("id");
+        final Object id = ElectrumModule.getRequestId(message);
         final Json paramsJson = message.get("params");
 
         final Sha256Hash scriptHash;
@@ -1635,7 +1644,7 @@ public class ElectrumModule {
     protected void _handleGetUnspentOutputs(final JsonSocket jsonSocket, final Json message) {
         final AddressInflater addressInflater = new AddressInflater();
 
-        final Integer id = message.getInteger("id");
+        final Object id = ElectrumModule.getRequestId(message);
         final Json paramsJson = message.get("params");
 
         final Sha256Hash scriptHash;
@@ -1738,7 +1747,7 @@ public class ElectrumModule {
     }
 
     protected void _handlePeersMessage(final JsonSocket jsonSocket, final Json message) {
-        final Integer id = message.getInteger("id");
+        final Object id = ElectrumModule.getRequestId(message);
 
         final Json peerListJson = new ElectrumJson(true);
         // P2P unsupported.
@@ -1752,7 +1761,7 @@ public class ElectrumModule {
     }
 
     protected void _handleAddPeerMessage(final JsonSocket jsonSocket, final Json message) {
-        final Integer id = message.getInteger("id");
+        final Object id = ElectrumModule.getRequestId(message);
 
         final Json json = new ElectrumJson(true);
         json.put("id", id);
@@ -1763,7 +1772,7 @@ public class ElectrumModule {
     }
 
     protected void _handlePeerFeaturesMessage(final JsonSocket jsonSocket, final Json message) {
-        final Integer id = message.getInteger("id");
+        final Object id = ElectrumModule.getRequestId(message);
 
         final Json resultJson = _createFeaturesJson();
 
