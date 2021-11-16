@@ -68,7 +68,7 @@ public class ElectrumModule {
 
     public static final String SERVER_VERSION = "Electrum Verde 1.0.0";
     public static final String BANNER = ElectrumModule.SERVER_VERSION;
-    public static final String PROTOCOL_VERSION = "1.4";
+    public static final String PROTOCOL_VERSION = "1.4.4";
 
     protected static class AddressSubscriptionKey {
         public final Sha256Hash scriptHash;
