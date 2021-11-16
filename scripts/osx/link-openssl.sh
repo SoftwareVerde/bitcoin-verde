@@ -1,6 +1,7 @@
 #!/bin/bash
 
 system_dir='/usr/lib'
+alternate_dir='/usr/local/opt/openssl@1.0/lib' # if installed via: brew install rbenv/tap/openssl@1.0
 openssl_dir='/usr/local/opt/openssl/lib'
 
 cat << EOF
@@ -20,8 +21,13 @@ if [[ "${confirm}" != 'y' && "${confirm}" != 'Y' ]]; then
 fi
 
 if [[ ! -f "${system_dir}/libssl.dylib" || ! -f "${system_dir}/libcrypto.dylib" ]]; then
-    echo "Cannot create symlink. Is openssl installed at ${system_dir}?"
-    exit 1
+    if [[ -f "${alternate_dir}/libssl.dylib" || ! "${alternate_dir}/libcrypto.dylib" ]]; then
+        echo "Found openssl at alternate directory: ${alternate_dir}"
+        system_dir="${alternate_dir}"
+    else
+        echo "Cannot create symlink. Is openssl installed at ${system_dir}?"
+        exit 1
+    fi
 fi
 
 if [ ! -f "${openssl_dir}/libssl.1.0.0.dylib" ]; then 

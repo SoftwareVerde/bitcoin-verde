@@ -1,6 +1,26 @@
-# Bitcoin Verde v2.0.0
+# Bitcoin Verde v2.1.0
 
 ## Patch Notes
+
+**v2.1.0**
+- FastSync support and UTXO Commitment generation.
+- Implemented Electrum protocol server/support.
+- Enabled Testnet configuration.
+- Now supports configurable Block size.
+- Double Spend Proof support.
+- ECIES encrypt/decrypt module.
+- Prototype block validation / BitBalancer support.
+- Memo support for explorer/indexer.
+- SPV mode.
+- Fixed validation of SLP transactions with excessive SLP amounts.
+- Added support for preferred node peers.
+- Improved Block download logic/optimizations.
+- RPC now supports HTTP (i.e. Bitcoin Core) request format.
+
+**v2.0.1**
+- Minor bug fixes.
+- Minor performance improvements.
+  - Updated for ASERT reference block.
 
 **v2.0.0**
 - Non-Indexing Module

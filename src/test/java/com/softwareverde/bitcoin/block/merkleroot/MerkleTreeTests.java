@@ -123,11 +123,9 @@ public class MerkleTreeTests {
         // Setup
         final Item newItem = new Item(-1);
 
-        final MutableList<Item> items = new MutableList<>(itemCount);
         final MutableMerkleTree<Item> merkleTree = new MerkleTreeNode<>();
         for (int i = 0; i < itemCount; ++i) {
             final Item item = new Item(i);
-            items.add(item);
             merkleTree.addItem(item);
         }
 
@@ -407,7 +405,19 @@ public class MerkleTreeTests {
 
     @Test
     public void should_create_partial_tree_for_coinbase_transaction_with_item_count_1() {
-        _should_create_partial_tree_for_missing_transaction_N_with_item_count_M(0, 1, 0);
+        // Setup
+        final Item item = new Item(0);
+        final MutableMerkleTree<Item> merkleTree = new MerkleTreeNode<>();
+        merkleTree.addItem(item);
+
+        // Action
+        final List<Sha256Hash> partialMerkleTree = merkleTree.getPartialTree(0);
+
+        // Assert
+        Assert.assertEquals(1, partialMerkleTree.getCount());
+        final MerkleRoot expectedMerkleRoot = merkleTree.getMerkleRoot();
+
+        Assert.assertEquals(expectedMerkleRoot, item.getHash());
     }
 
     @Test
