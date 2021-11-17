@@ -47,6 +47,7 @@ import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.timer.NanoTimer;
 
 import java.io.InputStream;
 import java.lang.ref.WeakReference;
@@ -57,7 +58,10 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class ElectrumModule {
     public static final String SERVER_VERSION = "Electrum Verde 1.0.1";
@@ -333,29 +337,69 @@ public class ElectrumModule {
         }
     }
 
-    protected NodeJsonRpcConnection _getNodeConnection(final Boolean retryIsEnabled) {
-        final String nodeHost = _electrumProperties.getBitcoinRpcUrl();
-        final Integer nodePort = _electrumProperties.getBitcoinRpcPort();
-        final NodeJsonRpcConnection nodeConnection = new NodeJsonRpcConnection(nodeHost, nodePort, _threadPool);
+    protected final ConcurrentHashMap<Sha256Hash, Json> _cachedTransactionBlockHeights = new ConcurrentHashMap<>();
+    protected Json _getTransactionBlockHeight(final Sha256Hash transactionHash, final NodeJsonRpcConnection nodeConnection) {
+        final Json cachedTransactionBlockHeight = _cachedTransactionBlockHeights.get(transactionHash);
+        if (cachedTransactionBlockHeight != null) { return cachedTransactionBlockHeight; }
 
-        if ( (nodeConnection != null) && nodeConnection.isConnected() ) {
-            return nodeConnection;
-        }
+        final Json transactionBlockHeightJson = nodeConnection.getTransactionBlockHeight(transactionHash);
+        if (transactionBlockHeightJson == null) { return null; }
 
-        if (retryIsEnabled) {
-            try {
-                Thread.sleep(1000L);
+        _cachedTransactionBlockHeights.put(transactionHash, transactionBlockHeightJson);
+        if (_cachedTransactionBlockHeights.size() > (1024 * 2)) {
+            // NOTE: From testing, removing items via the EntrySet Iterator appears to remove the items in FIFO order...
+            final Set<Map.Entry<Sha256Hash, Json>> entrySet = _cachedTransactionBlockHeights.entrySet();
+            final Iterator<Map.Entry<Sha256Hash, Json>> iterator = entrySet.iterator();
+
+            for (int i = 0; i < 128; ++i) {
+                if (! iterator.hasNext()) { break; }
+
+                iterator.next();
+                iterator.remove();
             }
-            catch (final Exception exception) { }
-
-            return _getNodeConnection(false);
         }
 
-        throw new RuntimeException("Unable to connect to node.");
+        return transactionBlockHeightJson;
     }
 
+    protected final AtomicInteger _cachedConnectionCount = new AtomicInteger(0);
+    protected final ConcurrentLinkedDeque<CachedNodeJsonRpcConnection> _cachedConnections = new ConcurrentLinkedDeque<>();
     protected NodeJsonRpcConnection _getNodeConnection() {
-        return _getNodeConnection(true);
+        while (true) { // Attempt to serve a cached connection...
+            final CachedNodeJsonRpcConnection cachedConnection = _cachedConnections.pollFirst();
+            if (cachedConnection == null) { break; }
+
+            _cachedConnectionCount.getAndDecrement();
+            if (! cachedConnection.isConnected()) {
+                cachedConnection.superClose();
+                continue;
+            }
+
+            return cachedConnection;
+        }
+
+        final String nodeHost = _electrumProperties.getBitcoinRpcUrl();
+        final Integer nodePort = _electrumProperties.getBitcoinRpcPort();
+        final CachedNodeJsonRpcConnection nodeConnection = new CachedNodeJsonRpcConnection(nodeHost, nodePort, _threadPool);
+        nodeConnection.enableKeepAlive(true);
+        nodeConnection.setOnCloseCallback(new Runnable() {
+            @Override
+            public void run() {
+                if ( nodeConnection.isConnected() && (_cachedConnectionCount.get() < 32) ) {
+                    _cachedConnections.add(nodeConnection);
+                    _cachedConnectionCount.getAndIncrement();
+                }
+                else {
+                    nodeConnection.superClose();
+                }
+            }
+        });
+
+        if (! nodeConnection.isConnected()) {
+            throw new RuntimeException("Unable to connect to node.");
+        }
+
+        return nodeConnection;
     }
 
     protected void _createNodeNotificationConnection() {
@@ -503,7 +547,7 @@ public class ElectrumModule {
     protected void _cacheBlockHeaders() {
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
         try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
-            nodeConnection.enableKeepAlive(true);
+            // nodeConnection.enableKeepAlive(true);
 
             final Json blockHeightJson = nodeConnection.getBlockHeight();
             _chainHeight = blockHeightJson.getLong("blockHeight");
@@ -545,7 +589,7 @@ public class ElectrumModule {
         }
 
         try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
-            nodeConnection.enableKeepAlive(true);
+            // nodeConnection.enableKeepAlive(true);
 
             while (blockHeight <= maxBlockHeight) {
                 final Json blockHeadersJson = nodeConnection.getBlockHeadersAfter(blockHeight, RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT, true);
@@ -701,7 +745,7 @@ public class ElectrumModule {
         final ByteArray blockHeaderBytes;
         final Long blockHeight;
         try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
-            nodeConnection.enableKeepAlive(true);
+            // nodeConnection.enableKeepAlive(true);
 
             final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
@@ -984,9 +1028,9 @@ public class ElectrumModule {
 
         final Json resultJson = new ElectrumJson(false);
         try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
-            nodeConnection.enableKeepAlive(true);
+            // nodeConnection.enableKeepAlive(true);
 
-            final Json transactionBlockHeightJson = nodeConnection.getTransactionBlockHeight(transactionHash);
+            final Json transactionBlockHeightJson = _getTransactionBlockHeight(transactionHash, nodeConnection);
             final Long actualBlockHeight = transactionBlockHeightJson.getOrNull("blockHeight", Json.Types.LONG);
             final Integer transactionIndex = transactionBlockHeightJson.getOrNull("transactionIndex", Json.Types.INTEGER);
             final Boolean hasUnconfirmedInputs = transactionBlockHeightJson.getBoolean("hasUnconfirmedInputs");
@@ -1158,7 +1202,7 @@ public class ElectrumModule {
         final Sha256Hash scriptHash;
         final Address address;
         try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
-            nodeConnection.enableKeepAlive(true);
+            // nodeConnection.enableKeepAlive(true);
 
             final Json getTransactionJson = nodeConnection.getTransaction(transactionHash, false);
             final Json transactionJson = getTransactionJson.get("transaction");
@@ -1257,12 +1301,11 @@ public class ElectrumModule {
 
     protected Sha256Hash _calculateAddressStatus(final AddressSubscriptionKey addressKey) {
         try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
-            nodeConnection.enableKeepAlive(true);
+            // nodeConnection.enableKeepAlive(true);
 
             final MutableList<TransactionPosition> transactionPositions;
             {
-                final TransactionInflater transactionInflater = new TransactionInflater();
-                final Json addressTransaction = nodeConnection.getAddressTransactions(addressKey.scriptHash, true);
+                final Json addressTransaction = nodeConnection.getAddressTransactionHashes(addressKey.scriptHash);
                 final Json transactionsArray = addressTransaction.get("transactions");
                 final Integer transactionCount = transactionsArray.length();
                 if (transactionCount < 1) { return null; }
@@ -1270,14 +1313,12 @@ public class ElectrumModule {
                 transactionPositions = new MutableList<>(transactionCount);
                 for (int i = 0; i < transactionCount; ++i) {
                     final Sha256Hash transactionHash;
-                    final Transaction transaction;
                     {
-                        final String transactionHex = transactionsArray.getString(i);
-                        transaction = transactionInflater.fromBytes(ByteArray.fromHexString((transactionHex)));
-                        transactionHash = transaction.getHash();
+                        final String transactionHashString = transactionsArray.getString(i);
+                        transactionHash = Sha256Hash.fromHexString(transactionHashString);
                     }
 
-                    final Json transactionBlockHeightJson = nodeConnection.getTransactionBlockHeight(transactionHash);
+                    final Json transactionBlockHeightJson = _getTransactionBlockHeight(transactionHash, nodeConnection);
                     final Long blockHeight = transactionBlockHeightJson.getOrNull("blockHeight", Json.Types.LONG);
                     final Integer transactionIndex = transactionBlockHeightJson.getOrNull("transactionIndex", Json.Types.INTEGER);
                     final Boolean hasUnconfirmedInputs = transactionBlockHeightJson.getBoolean("hasUnconfirmedInputs");
@@ -1638,25 +1679,24 @@ public class ElectrumModule {
 
         final Json resultJson = new ElectrumJson(true);
         try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
-            nodeConnection.enableKeepAlive(true);
+            // nodeConnection.enableKeepAlive(true);
 
             final Json addressTransactionsJson;
             if (address != null) {
-                addressTransactionsJson = nodeConnection.getAddressTransactions(address, true);
+                addressTransactionsJson = nodeConnection.getAddressTransactionHashes(address);
             }
             else {
-                addressTransactionsJson = nodeConnection.getAddressTransactions(scriptHash, true);
+                addressTransactionsJson = nodeConnection.getAddressTransactionHashes(scriptHash);
             }
 
             final Json transactionsJson = addressTransactionsJson.get("transactions");
             final int transactionCount = transactionsJson.length();
             final MutableList<TransactionPosition> transactionPositions = new MutableList<>(transactionCount);
             for (int i = 0; i < transactionCount; ++i) {
-                final String transactionHex = transactionsJson.getString(i);
-                final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString(transactionHex));
-                final Sha256Hash transactionHash = transaction.getHash();
+                final String transactionHashString = transactionsJson.getString(i);
+                final Sha256Hash transactionHash = Sha256Hash.fromHexString(transactionHashString);
 
-                final Json transactionBlockHeightJson = nodeConnection.getTransactionBlockHeight(transactionHash);
+                final Json transactionBlockHeightJson = _getTransactionBlockHeight(transactionHash, nodeConnection);
                 final Long blockHeight = transactionBlockHeightJson.getOrNull("blockHeight", Json.Types.LONG);
                 final Integer transactionIndex = transactionBlockHeightJson.getOrNull("transactionIndex", Json.Types.INTEGER);
                 final Boolean hasUnconfirmedInputs = transactionBlockHeightJson.getBoolean("hasUnconfirmedInputs");
@@ -1723,7 +1763,7 @@ public class ElectrumModule {
 
         final Json resultJson = new ElectrumJson(true);
         try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
-            nodeConnection.enableKeepAlive(true);
+            // nodeConnection.enableKeepAlive(true);
 
             final Json addressTransactionsJson;
             if (address != null) {
@@ -1741,7 +1781,7 @@ public class ElectrumModule {
                 final Json transactionJson = transactionsJson.get(i);
                 final Sha256Hash transactionHash = Sha256Hash.fromHexString(transactionJson.getString("hash"));
 
-                final Json transactionBlockHeightJson = nodeConnection.getTransactionBlockHeight(transactionHash);
+                final Json transactionBlockHeightJson = _getTransactionBlockHeight(transactionHash, nodeConnection);
                 final Long blockHeight = transactionBlockHeightJson.getOrNull("blockHeight", Json.Types.LONG);
                 final Integer transactionIndex = transactionBlockHeightJson.getOrNull("transactionIndex", Json.Types.INTEGER);
                 final Boolean hasUnconfirmedInputs = transactionBlockHeightJson.getBoolean("hasUnconfirmedInputs");
@@ -1859,6 +1899,38 @@ public class ElectrumModule {
         jsonSocket.flush();
 
         _debugWriteMessage(jsonSocket, json);
+    }
+
+    protected final CachedThreadPool _requestBooster = new CachedThreadPool(10, 30000L);
+    protected void _handleRequest(final Json json, final JsonSocket jsonSocket) {
+        final Integer idleThreadCount = _requestBooster.getIdleThreadCount();
+        if (idleThreadCount > 0) {
+            _requestBooster.execute(new Runnable() {
+                @Override
+                public void run() {
+                    if (! jsonSocket.isConnected()) { return; }
+
+                    final NanoTimer nanoTimer = new NanoTimer();
+                    nanoTimer.start();
+
+                    _handleMessage(json, jsonSocket);
+
+                    nanoTimer.stop();
+                    Logger.trace("Executed boosted request in: " + nanoTimer.getMillisecondsElapsed() + "ms.");
+                }
+            });
+        }
+        else {
+            if (! jsonSocket.isConnected()) { return; }
+
+            final NanoTimer nanoTimer = new NanoTimer();
+            nanoTimer.start();
+
+            _handleMessage(json, jsonSocket);
+
+            nanoTimer.stop();
+            Logger.trace("Executed request in: " + nanoTimer.getMillisecondsElapsed() + "ms.");
+        }
     }
 
     protected void _handleMessage(final Json jsonMessage, final JsonSocket jsonSocket) {
@@ -1982,7 +2054,7 @@ public class ElectrumModule {
                 workerThread = new WorkerThread(new WorkerThread.RequestHandler() {
                     @Override
                     public void handleRequest(final Json json, final JsonSocket jsonSocket) {
-                        _handleMessage(json, jsonSocket);
+                        _handleRequest(json, jsonSocket);
                     }
 
                     @Override
@@ -2133,6 +2205,7 @@ public class ElectrumModule {
         final Thread mainThread = Thread.currentThread();
 
         _threadPool.start();
+        _requestBooster.start();
 
         _cacheBlockHeaders();
         _createNodeNotificationConnection();
@@ -2171,5 +2244,6 @@ public class ElectrumModule {
         }
 
         _threadPool.stop();
+        _requestBooster.stop();
     }
 }

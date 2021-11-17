@@ -89,6 +89,8 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         Long getBalance(Sha256Hash scriptHash, Boolean includeUnconfirmedTransactions);
         List<Transaction> getAddressTransactions(Address address);
         List<Transaction> getAddressTransactions(Sha256Hash scriptHash);
+        List<Sha256Hash> getAddressTransactionHashes(Address address);
+        List<Sha256Hash> getAddressTransactionHashes(Sha256Hash scriptHash);
     }
 
     public interface ThreadPoolInquisitor {
@@ -1068,7 +1070,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
-    // Requires GET: <address|scriptHash>
+    // Requires GET: <address|scriptHash>, <rawFormat|transactionHashesOnly>
     protected void _queryAddressTransactions(final Json parameters, final Json response) {
         final QueryAddressHandler queryAddressHandler = _queryAddressHandler;
         if (queryAddressHandler == null) {
@@ -1081,10 +1083,20 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             return;
         }
 
-        final boolean rawFormat = (parameters.hasKey("rawFormat") ? parameters.getBoolean("rawFormat") : false);
+        final boolean shouldReturnTransactionHashesOnly = (parameters.hasKey("transactionHashesOnly") ? parameters.getBoolean("transactionHashesOnly") : false);
+        final boolean rawFormat;
+        {
+            if (shouldReturnTransactionHashesOnly) {
+                rawFormat = true;
+            }
+            else {
+                rawFormat = (parameters.hasKey("rawFormat") ? parameters.getBoolean("rawFormat") : false);
+            }
+        }
 
         final Json addressJson = new Json(false);
         final List<Transaction> addressTransactions;
+        final List<Sha256Hash> addressTransactionHashes;
         final Long balance;
         final Long confirmedBalance;
         if (parameters.hasKey("address")) {
@@ -1102,9 +1114,19 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                 return;
             }
 
-            addressTransactions = queryAddressHandler.getAddressTransactions(address);
-            balance = queryAddressHandler.getBalance(address, true);
-            confirmedBalance = queryAddressHandler.getBalance(address, false);
+            if (shouldReturnTransactionHashesOnly) {
+                addressTransactionHashes = queryAddressHandler.getAddressTransactionHashes(address);
+                addressTransactions = null;
+                balance = null;
+                confirmedBalance = null;
+            }
+            else {
+                addressTransactionHashes = null;
+                addressTransactions = queryAddressHandler.getAddressTransactions(address);
+                balance = queryAddressHandler.getBalance(address, true);
+                confirmedBalance = queryAddressHandler.getBalance(address, false);
+            }
+
             addressJson.put("base32CheckEncoded", address.toBase32CheckEncoded(true));
             addressJson.put("base58CheckEncoded", address.toBase58CheckEncoded());
         }
@@ -1117,19 +1139,34 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                 return;
             }
 
-            addressTransactions = queryAddressHandler.getAddressTransactions(scriptHash);
-            balance = queryAddressHandler.getBalance(scriptHash, true);
-            confirmedBalance = queryAddressHandler.getBalance(scriptHash, false);
+            if (shouldReturnTransactionHashesOnly) {
+                addressTransactionHashes = queryAddressHandler.getAddressTransactionHashes(scriptHash);
+                addressTransactions = null;
+                balance = null;
+                confirmedBalance = null;
+            }
+            else {
+                addressTransactionHashes = null;
+                addressTransactions = queryAddressHandler.getAddressTransactions(scriptHash);
+                balance = queryAddressHandler.getBalance(scriptHash, true);
+                confirmedBalance = queryAddressHandler.getBalance(scriptHash, false);
+            }
             addressJson.put("scriptHash", scriptHash);
         }
 
-        if (addressTransactions == null) {
+        if ( (addressTransactions == null) && (addressTransactionHashes == null) ) {
             response.put(ERROR_MESSAGE_KEY, "Unable to determine address transactions.");
             return;
         }
 
         final Json transactionsJson = new Json(true);
-        if (rawFormat) {
+        if (shouldReturnTransactionHashesOnly) {
+            for (final Sha256Hash transactionHash : addressTransactionHashes) {
+                if (transactionHash == null) { continue; }
+                transactionsJson.add(transactionHash);
+            }
+        }
+        else if (rawFormat) {
             final TransactionDeflater transactionDeflater = _masterInflater.getTransactionDeflater();
             for (final Transaction transaction : addressTransactions) {
                 if (transaction == null) { continue; }

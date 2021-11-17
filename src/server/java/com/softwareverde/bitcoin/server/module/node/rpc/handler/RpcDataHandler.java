@@ -71,6 +71,11 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 import com.softwareverde.util.type.time.SystemTime;
 
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
 public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     protected final Integer _extraNonceByteCount = 4;
     protected final Integer _extraNonce2ByteCount = 4;
@@ -87,6 +92,32 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     protected final BlockDownloader _blockDownloader;
     protected final BlockchainBuilder _blockchainBuilder;
     protected final DoubleSpendProofStore _doubleSpendProofStore;
+
+    protected final ConcurrentHashMap<Sha256Hash, TransactionId> _cachedTransactionIds = new ConcurrentHashMap<>();
+    protected TransactionId _getTransactionId(final Sha256Hash transactionHash, final DatabaseManager databaseManager) throws DatabaseException {
+        final TransactionId cachedTransactionId = _cachedTransactionIds.get(transactionHash);
+        if (cachedTransactionId != null) { return cachedTransactionId; }
+
+        final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+        final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
+        if (transactionId == null) { return null; }
+
+        _cachedTransactionIds.put(transactionHash, transactionId);
+        if (_cachedTransactionIds.size() > (1024 * 32)) {
+            // NOTE: From testing, removing items via the EntrySet Iterator appears to remove the items in FIFO order...
+            final Set<Map.Entry<Sha256Hash, TransactionId>> entrySet = _cachedTransactionIds.entrySet();
+            final Iterator<Map.Entry<Sha256Hash, TransactionId>> iterator = entrySet.iterator();
+
+            for (int i = 0; i < 128; ++i) {
+                if (! iterator.hasNext()) { break; }
+
+                iterator.next();
+                iterator.remove();
+            }
+        }
+
+        return transactionId;
+    }
 
     protected Block _getBlock(final BlockId blockId, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         if (blockId == null) { return null; }
@@ -439,7 +470,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
-            final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
+            final TransactionId transactionId = _getTransactionId(transactionHash, databaseManager);
             if (transactionId == null) { return null; }
 
             return transactionDatabaseManager.getTransaction(transactionId);
@@ -459,7 +490,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
-            final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
+            final TransactionId transactionId = _getTransactionId(transactionHash, databaseManager);
             if (transactionId == null) { return null; }
 
             final BlockId blockId = transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId);
@@ -480,7 +511,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
-            final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
+            final TransactionId transactionId = _getTransactionId(transactionHash, databaseManager);
             if (transactionId == null) { return null; }
 
             final BlockId blockId = transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId);
@@ -497,14 +528,14 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
-            final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
+            final TransactionId transactionId = _getTransactionId(transactionHash, databaseManager);
             if (transactionId == null) { return null; }
 
             final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
             final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
             for (final TransactionInput transactionInput : transactionInputs) {
                 final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
-                final TransactionId previousOutputTransactionId = transactionDatabaseManager.getTransactionId(previousOutputTransactionHash);
+                final TransactionId previousOutputTransactionId = _getTransactionId(previousOutputTransactionHash, databaseManager);
 
                 final Boolean isUnconfirmedTransaction = transactionDatabaseManager.isUnconfirmedTransaction(previousOutputTransactionId);
                 if (isUnconfirmedTransaction) { return true; }
@@ -647,10 +678,9 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     @Override
     public Boolean isValidSlpTransaction(final Sha256Hash transactionHash) {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final SlpTransactionDatabaseManager slpTransactionDatabaseManager = databaseManager.getSlpTransactionDatabaseManager();
 
-            final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
+            final TransactionId transactionId = _getTransactionId(transactionHash, databaseManager);
             if (transactionId == null) { return false; }
 
             return slpTransactionDatabaseManager.getSlpTransactionValidationResult(transactionId);

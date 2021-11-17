@@ -243,7 +243,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return _executeJsonRequest(rpcRequestJson);
     }
 
-    protected Json _getAddressTransactions(final Address address, final Sha256Hash scriptHash, final Boolean hexFormat) {
+    protected Json _getAddressTransactions(final Address address, final Sha256Hash scriptHash, final Boolean hexFormat, final Boolean shouldReturnTransactionHashes) {
         if (_jsonSocket == null) { return null; } // Socket was unable to connect.
 
         final Json rpcParametersJson = new Json();
@@ -253,7 +253,10 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         else {
             rpcParametersJson.put("scriptHash", scriptHash);
         }
-        if (hexFormat != null) {
+        if (shouldReturnTransactionHashes != null) {
+            rpcParametersJson.put("transactionHashesOnly", (shouldReturnTransactionHashes ? 1 : 0));
+        }
+        else if (hexFormat != null) {
             rpcParametersJson.put("rawFormat", (hexFormat ? 1 : 0));
         }
 
@@ -450,11 +453,19 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json getAddressTransactions(final Address address, final Boolean hexFormat) {
-        return _getAddressTransactions(address, null, hexFormat);
+        return _getAddressTransactions(address, null, hexFormat, false);
     }
 
     public Json getAddressTransactions(final Sha256Hash scriptHash, final Boolean hexFormat) {
-        return _getAddressTransactions(null, scriptHash, hexFormat);
+        return _getAddressTransactions(null, scriptHash, hexFormat, false);
+    }
+
+    public Json getAddressTransactionHashes(final Address address) {
+        return _getAddressTransactions(address, null, null, true);
+    }
+
+    public Json getAddressTransactionHashes(final Sha256Hash scriptHash) {
+        return _getAddressTransactions(null, scriptHash, null, true);
     }
 
     public Json getAddressBalance(final Address address) {
