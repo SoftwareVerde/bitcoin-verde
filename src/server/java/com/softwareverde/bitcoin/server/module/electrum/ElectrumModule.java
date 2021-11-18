@@ -62,6 +62,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class ElectrumModule {
     public static final String SERVER_VERSION = "Electrum Verde 1.0.1";
@@ -319,6 +320,8 @@ public class ElectrumModule {
     protected final ConcurrentHashSet<Ip> _bannedConnections = new ConcurrentHashSet<>();
     protected final ConcurrentHashMap<Ip, WorkerThread> _workerThreads = new ConcurrentHashMap<>();
 
+    protected final ReentrantReadWriteLock.WriteLock _blockHeaderCacheWriteLock;
+    protected final ReentrantReadWriteLock.ReadLock _blockHeaderCacheReadLock;
     protected final MutableList<BlockHeader> _cachedBlockHeaders = new MutableList<>(0);
     protected Long _chainHeight = 0L;
 
@@ -546,9 +549,8 @@ public class ElectrumModule {
 
     protected void _cacheBlockHeaders() {
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
+        _blockHeaderCacheWriteLock.lock();
         try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
-            // nodeConnection.enableKeepAlive(true);
-
             final Json blockHeightJson = nodeConnection.getBlockHeight();
             _chainHeight = blockHeightJson.getLong("blockHeight");
             _cachedBlockHeaders.clear();
@@ -570,39 +572,62 @@ public class ElectrumModule {
                 }
             }
         }
+        finally {
+            _blockHeaderCacheWriteLock.unlock();
+        }
     }
 
-    protected MerkleTree<BlockHeader> _calculateCheckpointMerkle(final Long maxBlockHeight) {
+    protected MerkleTree<BlockHeader> _calculateBlockHeadersMerkle() {
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
         final MutableMerkleTree<BlockHeader> blockHeaderMerkleTree = new MerkleTreeNode<>();
         long blockHeight;
         {
             blockHeight = 0L;
-            while (blockHeight < maxBlockHeight) {
-                if (blockHeight >= _cachedBlockHeaders.getCount()) { break; }
-
-                final BlockHeader blockHeader = _cachedBlockHeaders.get((int) blockHeight);
-                blockHeaderMerkleTree.addItem(blockHeader);
-                blockHeight += 1L;
+            _blockHeaderCacheReadLock.lock();
+            try {
+                while (blockHeight < _cachedBlockHeaders.getCount()) {
+                    final BlockHeader blockHeader = _cachedBlockHeaders.get((int) blockHeight);
+                    blockHeaderMerkleTree.addItem(blockHeader);
+                    blockHeight += 1L;
+                }
+            }
+            finally {
+                _blockHeaderCacheReadLock.unlock();
             }
         }
 
         try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
-            // nodeConnection.enableKeepAlive(true);
+            final Long chainHeight;
+            {
+                final Json blockHeightJson = nodeConnection.getBlockHeight();
+                chainHeight = blockHeightJson.getLong("blockHeight");
+            }
 
-            while (blockHeight <= maxBlockHeight) {
+            while (blockHeight <= chainHeight) {
                 final Json blockHeadersJson = nodeConnection.getBlockHeadersAfter(blockHeight, RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT, true);
                 final Json blockHeadersArray = blockHeadersJson.get("blockHeaders");
                 final int blockHeaderCount = blockHeadersArray.length();
-                Logger.debug("Received " + blockHeaderCount + " headers, starting at: " + blockHeight + " max=" + maxBlockHeight);
+                Logger.debug("Received " + blockHeaderCount + " headers, starting at: " + blockHeight);
+                if (blockHeaderCount < 1) { break; }
+
                 for (int i = 0; i < blockHeaderCount; ++i) {
                     final String blockHeaderString = blockHeadersArray.getString(i);
                     final BlockHeader blockHeader = blockHeaderInflater.fromBytes(ByteArray.fromHexString(blockHeaderString));
                     blockHeaderMerkleTree.addItem(blockHeader);
-                    blockHeight += 1L;
 
-                    if (blockHeight > maxBlockHeight) { break; } // Include the maxBlockHeight block...
+                    // Keep the cache up-to-date...
+                    if (blockHeight < (chainHeight - RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT)) {
+                        _blockHeaderCacheWriteLock.lock();
+                        try {
+                            _cachedBlockHeaders.add(blockHeader);
+                        }
+                        finally {
+                            _blockHeaderCacheWriteLock.unlock();
+                        }
+                    }
+
+                    blockHeight += 1L;
                 }
             }
         }
@@ -745,8 +770,6 @@ public class ElectrumModule {
         final ByteArray blockHeaderBytes;
         final Long blockHeight;
         try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
-            // nodeConnection.enableKeepAlive(true);
-
             final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
             final Json blockHeadersJson = nodeConnection.getBlockHeadersBeforeHead(1, true);
@@ -832,7 +855,7 @@ public class ElectrumModule {
         final MerkleRoot merkleRoot;
         final List<Sha256Hash> partialMerkleTree;
         if (checkpointBlockHeight > 0L) {
-            final MerkleTree<BlockHeader> blockHeaderMerkleTree = _calculateCheckpointMerkle(checkpointBlockHeight);
+            final MerkleTree<BlockHeader> blockHeaderMerkleTree = _calculateBlockHeadersMerkle();
             final int headerIndex = (blockHeaderMerkleTree.getItemCount() - 1);
 
             merkleRoot = blockHeaderMerkleTree.getMerkleRoot();
@@ -1028,8 +1051,6 @@ public class ElectrumModule {
 
         final Json resultJson = new ElectrumJson(false);
         try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
-            // nodeConnection.enableKeepAlive(true);
-
             final Json transactionBlockHeightJson = _getTransactionBlockHeight(transactionHash, nodeConnection);
             final Long actualBlockHeight = transactionBlockHeightJson.getOrNull("blockHeight", Json.Types.LONG);
             final Integer transactionIndex = transactionBlockHeightJson.getOrNull("transactionIndex", Json.Types.INTEGER);
@@ -1202,8 +1223,6 @@ public class ElectrumModule {
         final Sha256Hash scriptHash;
         final Address address;
         try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
-            // nodeConnection.enableKeepAlive(true);
-
             final Json getTransactionJson = nodeConnection.getTransaction(transactionHash, false);
             final Json transactionJson = getTransactionJson.get("transaction");
             final Json transactionOutputsJson = transactionJson.get("outputs");
@@ -1301,8 +1320,6 @@ public class ElectrumModule {
 
     protected Sha256Hash _calculateAddressStatus(final AddressSubscriptionKey addressKey) {
         try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
-            // nodeConnection.enableKeepAlive(true);
-
             final MutableList<TransactionPosition> transactionPositions;
             {
                 final Json addressTransaction = nodeConnection.getAddressTransactionHashes(addressKey.scriptHash);
@@ -1654,7 +1671,6 @@ public class ElectrumModule {
     }
 
     protected void _handleGetAddressHistory(final JsonSocket jsonSocket, final Json message, final Boolean includeConfirmedTransactions, final Boolean includeUnconfirmedTransactions, final Boolean includeTransactionFees) {
-        final TransactionInflater transactionInflater = new TransactionInflater();
         final AddressInflater addressInflater = new AddressInflater();
 
         final Object id = ElectrumModule.getRequestId(message);
@@ -1679,8 +1695,6 @@ public class ElectrumModule {
 
         final Json resultJson = new ElectrumJson(true);
         try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
-            // nodeConnection.enableKeepAlive(true);
-
             final Json addressTransactionsJson;
             if (address != null) {
                 addressTransactionsJson = nodeConnection.getAddressTransactionHashes(address);
@@ -1763,8 +1777,6 @@ public class ElectrumModule {
 
         final Json resultJson = new ElectrumJson(true);
         try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
-            // nodeConnection.enableKeepAlive(true);
-
             final Json addressTransactionsJson;
             if (address != null) {
                 addressTransactionsJson = nodeConnection.getAddressTransactions(address, false);
@@ -2116,6 +2128,12 @@ public class ElectrumModule {
     public ElectrumModule(final ElectrumProperties electrumProperties) {
         _electrumProperties = electrumProperties;
         _threadPool = new CachedThreadPool(1024, 30000L);
+
+        {
+            final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
+            _blockHeaderCacheWriteLock = readWriteLock.writeLock();
+            _blockHeaderCacheReadLock = readWriteLock.readLock();
+        }
 
         _minTransactionFeePerByte = 1L;
 
