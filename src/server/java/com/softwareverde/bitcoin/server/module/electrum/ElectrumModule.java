@@ -577,7 +577,7 @@ public class ElectrumModule {
         }
     }
 
-    protected MerkleTree<BlockHeader> _calculateBlockHeadersMerkle() {
+    protected MerkleTree<BlockHeader> _calculateBlockHeadersMerkle(final Long checkpointBlockHeight) {
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
         final MutableMerkleTree<BlockHeader> blockHeaderMerkleTree = new MerkleTreeNode<>();
@@ -586,7 +586,7 @@ public class ElectrumModule {
             blockHeight = 0L;
             _blockHeaderCacheReadLock.lock();
             try {
-                while (blockHeight < _cachedBlockHeaders.getCount()) {
+                while ( (blockHeight < _cachedBlockHeaders.getCount()) && (blockHeight <= checkpointBlockHeight) ) {
                     final BlockHeader blockHeader = _cachedBlockHeaders.get((int) blockHeight);
                     blockHeaderMerkleTree.addItem(blockHeader);
                     blockHeight += 1L;
@@ -604,7 +604,7 @@ public class ElectrumModule {
                 chainHeight = blockHeightJson.getLong("blockHeight");
             }
 
-            while (blockHeight <= chainHeight) {
+            while ( (blockHeight <= chainHeight) && (blockHeight <= checkpointBlockHeight) ) {
                 final Json blockHeadersJson = nodeConnection.getBlockHeadersAfter(blockHeight, RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT, true);
                 final Json blockHeadersArray = blockHeadersJson.get("blockHeaders");
                 final int blockHeaderCount = blockHeadersArray.length();
@@ -614,7 +614,9 @@ public class ElectrumModule {
                 for (int i = 0; i < blockHeaderCount; ++i) {
                     final String blockHeaderString = blockHeadersArray.getString(i);
                     final BlockHeader blockHeader = blockHeaderInflater.fromBytes(ByteArray.fromHexString(blockHeaderString));
-                    blockHeaderMerkleTree.addItem(blockHeader);
+                    if (blockHeight <= checkpointBlockHeight) {
+                        blockHeaderMerkleTree.addItem(blockHeader);
+                    }
 
                     // Keep the cache up-to-date...
                     if (blockHeight < (chainHeight - RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT)) {
@@ -855,7 +857,7 @@ public class ElectrumModule {
         final MerkleRoot merkleRoot;
         final List<Sha256Hash> partialMerkleTree;
         if (checkpointBlockHeight > 0L) {
-            final MerkleTree<BlockHeader> blockHeaderMerkleTree = _calculateBlockHeadersMerkle();
+            final MerkleTree<BlockHeader> blockHeaderMerkleTree = _calculateBlockHeadersMerkle(checkpointBlockHeight);
             final int headerIndex = (blockHeaderMerkleTree.getItemCount() - 1);
 
             merkleRoot = blockHeaderMerkleTree.getMerkleRoot();
