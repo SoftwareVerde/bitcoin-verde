@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.configuration;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.rpc.RpcCredentials;
+import com.softwareverde.logging.LogLevel;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
@@ -18,6 +19,7 @@ public class ElectrumPropertiesLoader {
         final Integer tlsPort = Util.parseInt(properties.getProperty("electrum.tlsPort", String.valueOf(ElectrumProperties.TLS_PORT)));
         final String tlsKeyFile = properties.getProperty("electrum.tlsKeyFile", "");
         final String tlsCertificateFile = properties.getProperty("electrum.tlsCertificateFile", "");
+        final LogLevel logLevel = LogLevel.fromString(properties.getProperty("electrum.logLevel", "INFO"));
 
         final Address donationAddress;
         {
@@ -41,6 +43,7 @@ public class ElectrumPropertiesLoader {
         electrumProperties._tlsCertificateFile = (tlsCertificateFile.isEmpty() ? null : tlsCertificateFile);
 
         electrumProperties._donationAddress = donationAddress;
+        electrumProperties._logLevel = logLevel;
 
         return electrumProperties;
     }

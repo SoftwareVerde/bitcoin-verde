@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.configuration;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.rpc.RpcCredentials;
+import com.softwareverde.logging.LogLevel;
 
 public class ElectrumProperties {
     public static final Integer HTTP_PORT = 50001;
@@ -10,6 +11,7 @@ public class ElectrumProperties {
     protected String _bitcoinRpcUrl;
     protected Integer _bitcoinRpcPort;
     protected RpcCredentials _rpcCredentials;
+    protected LogLevel _logLevel;
 
     protected Integer _httpPort;
     protected Integer _tlsPort;
@@ -48,5 +50,9 @@ public class ElectrumProperties {
 
     public Address getDonationAddress() {
         return _donationAddress;
+    }
+
+    public LogLevel getLogLevel() {
+        return _logLevel;
     }
 }
