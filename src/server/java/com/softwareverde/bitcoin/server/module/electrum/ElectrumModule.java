@@ -32,27 +32,22 @@ import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.http.tls.TlsCertificate;
 import com.softwareverde.http.tls.TlsFactory;
 import com.softwareverde.json.Json;
-import com.softwareverde.json.Jsonable;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.socket.JsonProtocolMessage;
 import com.softwareverde.network.socket.JsonSocket;
 import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.StringUtil;
-import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 
 import java.io.InputStream;
-import java.lang.ref.WeakReference;
 import java.security.MessageDigest;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -65,226 +60,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class ElectrumModule {
-    public static final String SERVER_VERSION = "Electrum Verde 1.0.1";
+    public static final String SERVER_VERSION = "Electrum Verde 1.0.2";
     public static final String BANNER = ElectrumModule.SERVER_VERSION;
     public static final String PROTOCOL_VERSION = "1.4.4";
-
-    protected static class AddressSubscriptionKey {
-        public final Sha256Hash scriptHash;
-        public final String subscriptionString;
-        public final Boolean isScriptHash;
-
-        public AddressSubscriptionKey(final Address address, final String subscriptionString) {
-            this.scriptHash = ScriptBuilder.computeScriptHash(address);
-            this.subscriptionString = subscriptionString;
-            this.isScriptHash = false;
-        }
-
-        public AddressSubscriptionKey(final Sha256Hash scriptHash, final String subscriptionString) {
-            this.scriptHash = scriptHash;
-            this.subscriptionString = subscriptionString;
-            this.isScriptHash = true;
-        }
-
-        @Override
-        public boolean equals(final Object object) {
-            if (! (object instanceof AddressSubscriptionKey)) { return false; }
-            final AddressSubscriptionKey addressSubscriptionKey = (AddressSubscriptionKey) object;
-            return Util.areEqual(this.scriptHash, addressSubscriptionKey.scriptHash);
-        }
-
-        @Override
-        public int hashCode() {
-            return this.scriptHash.hashCode();
-        }
-
-        @Override
-        public String toString() {
-            return this.scriptHash + ":" + (this.isScriptHash ? "Hash" : "Address");
-        }
-    }
-
-    protected static class ConnectionAddress {
-        public final AddressSubscriptionKey subscriptionKey;
-        public final WeakReference<JsonSocket> connection;
-        public Sha256Hash status;
-
-        public ConnectionAddress(final AddressSubscriptionKey subscriptionKey, final JsonSocket jsonSocket) {
-            this.subscriptionKey = subscriptionKey;
-            this.connection = new WeakReference<>(jsonSocket);
-        }
-
-        @Override
-        public String toString() {
-            return this.subscriptionKey + ":" + this.status;
-        }
-    }
-
-    protected static class TransactionPosition implements Comparable<TransactionPosition>, Jsonable {
-        public static final Comparator<TransactionPosition> COMPARATOR = new Comparator<TransactionPosition>() {
-            @Override
-            public int compare(final TransactionPosition transactionPosition0, final TransactionPosition transactionPosition1) {
-                if (transactionPosition0.isUnconfirmedTransaction()) {
-                    return (transactionPosition1.isUnconfirmedTransaction() ? 0 : 1);
-                }
-                else if (transactionPosition1.isUnconfirmedTransaction()) {
-                    return -1;
-                }
-
-                final int blockHeightCompare = transactionPosition0.blockHeight.compareTo(transactionPosition1.blockHeight);
-                if (blockHeightCompare != 0) { return blockHeightCompare; }
-                return transactionPosition0.transactionIndex.compareTo(transactionPosition1.transactionIndex);
-            }
-        };
-
-        public final Long blockHeight;
-        public final Integer transactionIndex;
-        public final Sha256Hash transactionHash;
-        public final Boolean hasUnconfirmedInputs;
-        public Long transactionFee;
-
-        protected Long _getBlockHeight() {
-            if (this.isUnconfirmedTransaction()) {
-                return (this.hasUnconfirmedInputs ? -1L : 0L);
-            }
-
-            return this.blockHeight;
-        }
-
-        public TransactionPosition(final Long blockHeight, final Integer transactionIndex, final Boolean hasUnconfirmedInputs, final Sha256Hash transactionHash) {
-            this.blockHeight = blockHeight;
-            this.transactionIndex = transactionIndex;
-            this.transactionHash = transactionHash;
-            this.hasUnconfirmedInputs = hasUnconfirmedInputs;
-        }
-
-        public Boolean isUnconfirmedTransaction() {
-            return (this.blockHeight == null);
-        }
-
-        @Override
-        public boolean equals(final Object object) {
-            if (! (object instanceof TransactionPosition)) { return false; }
-            final TransactionPosition transactionPosition = (TransactionPosition) object;
-
-            if (! Util.areEqual(this.blockHeight, transactionPosition.blockHeight)) { return false; }
-            if (! Util.areEqual(this.transactionIndex, transactionPosition.transactionIndex)) { return false; }
-            return true;
-        }
-
-        @Override
-        public int compareTo(final TransactionPosition transactionPosition) {
-            return TransactionPosition.COMPARATOR.compare(this, transactionPosition);
-        }
-
-        @Override
-        public int hashCode() {
-            final Long blockHeight = _getBlockHeight();
-            return Long.hashCode(blockHeight);
-        }
-
-        @Override
-        public String toString() {
-            final StringBuilder stringBuilder = new StringBuilder();
-            final String transactionHashString = this.transactionHash.toString();
-            final String transactionHashLowerCaseString = transactionHashString.toLowerCase();
-            final Long blockHeight = _getBlockHeight();
-
-            stringBuilder.append(transactionHashLowerCaseString);
-            stringBuilder.append(":");
-            stringBuilder.append(blockHeight);
-            stringBuilder.append(":");
-            return stringBuilder.toString();
-        }
-
-        @Override
-        public Json toJson() {
-            final Long blockHeight = _getBlockHeight();
-            final Long transactionFee = this.transactionFee;
-
-            final Json json = new ElectrumJson(false);
-            json.put("height", blockHeight);
-            json.put("tx_hash", this.transactionHash);
-            if (transactionFee != null) {
-                json.put("fee", transactionFee);
-            }
-            return json;
-        }
-    }
-
-    protected static class ElectrumPeer implements Jsonable {
-        public final Ip ip;
-        public final String host;
-        public final Integer tcpPort;
-        public final Integer tlsPort;
-        public final List<String> otherFeatures;
-
-        protected static Tuple<Integer, Integer> parsePorts(final List<String> features) {
-            final Tuple<Integer, Integer> ports = new Tuple<>();
-            for (final String feature : features) {
-                if (feature.startsWith("t")) {
-                    ports.first = Util.parseInt(feature.substring(1));
-                }
-                else if (feature.startsWith("s")) {
-                    ports.second = Util.parseInt(feature.substring(1));
-                }
-            }
-            return ports;
-        }
-
-        protected static List<String> excludePortFeatures(final List<String> features) {
-            final ImmutableListBuilder<String> listBuilder = new ImmutableListBuilder<>();
-            for (final String feature : features) {
-                if (feature.startsWith("t") || feature.startsWith("s")) { continue; }
-                listBuilder.add(feature);
-            }
-            return listBuilder.build();
-        }
-
-        public ElectrumPeer(final Ip ip, final String host, final List<String> features) {
-            this.ip = ip;
-            this.host = host;
-            this.otherFeatures = ElectrumPeer.excludePortFeatures(features.asConst());
-
-            final Tuple<Integer, Integer> ports = ElectrumPeer.parsePorts(features);
-            this.tcpPort = ports.first;
-            this.tlsPort = ports.second;
-        }
-
-        public ElectrumPeer(final Ip ip, final String host, final String protocolVersion, final Integer port, final Integer tlsPort) {
-            this.ip = ip;
-            this.host = host;
-            this.tcpPort = port;
-            this.tlsPort = tlsPort;
-
-            final ImmutableListBuilder<String> features = new ImmutableListBuilder<>();
-            if (protocolVersion != null) {
-                features.add("v" + protocolVersion);
-            }
-            this.otherFeatures = features.build();
-        }
-
-        @Override
-        public Json toJson() {
-            final Json json = new ElectrumJson(true);
-            json.add(this.ip);
-            json.add(this.host);
-
-            final Json featuresJson = new ElectrumJson(true);
-            for (final String feature : this.otherFeatures) {
-                featuresJson.add(feature);
-            }
-            if (this.tcpPort != null) {
-                featuresJson.add("t" + this.tcpPort);
-            }
-            if (this.tlsPort != null) {
-                featuresJson.add("s" + this.tlsPort);
-            }
-            json.add(featuresJson);
-
-            return json;
-        }
-    }
 
     protected static Json createErrorJson(final Object requestId, final String errorMessage, final Integer errorCode) {
         final Json errorJson = new ElectrumJson(false);
@@ -442,17 +220,42 @@ public class ElectrumModule {
             _notifyBlockHeader(socket, blockHeader, blockHeight);
         }
 
+        // Invalidate cached transaction heights...
+        try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
+            final BlockInflater blockInflater = new BlockInflater();
+            final Json blockJson = nodeConnection.getBlock(blockHash, true);
+            final String blockHexString = blockJson.getString("block");
+
+            final Block block = blockInflater.fromBytes(ByteArray.fromHexString(blockHexString));
+            if (block == null) {
+                _cachedTransactionBlockHeights.clear();
+                Logger.info("Unable to inflate new block; clearing cache.");
+            }
+            else {
+                for (final Transaction transaction : block.getTransactions()) {
+                    final Sha256Hash transactionHash = transaction.getHash();
+                    _cachedTransactionBlockHeights.remove(transactionHash);
+                }
+            }
+
+        }
+
         synchronized (_connectionAddresses) {
             for (final Map.Entry<AddressSubscriptionKey, LinkedList<ConnectionAddress>> entry : _connectionAddresses.entrySet()) {
                 for (final ConnectionAddress connectionAddress : entry.getValue()) {
                     final JsonSocket jsonSocket = connectionAddress.connection.get();
                     final boolean isConnected = ((jsonSocket != null) && jsonSocket.isConnected());
-                    if (! isConnected) { continue; }
+                    if (! isConnected) {
+                        connectionAddress.status = null;
+                        continue;
+                    }
+
+                    Logger.trace(connectionAddress.subscriptionKey + " = " + connectionAddress.status);
 
                     final Sha256Hash addressStatus = _calculateAddressStatus(connectionAddress.subscriptionKey);
                     if (! Util.areEqual(addressStatus, connectionAddress.status)) {
                         connectionAddress.status = addressStatus;
-                        Logger.debug("Updated Status: " + connectionAddress);
+                        Logger.debug("Updated Status: " + connectionAddress.subscriptionKey + " = " + connectionAddress.status);
 
                         if (connectionAddress.subscriptionKey.isScriptHash) {
                             _notifyScriptHashStatus(jsonSocket, connectionAddress.subscriptionKey, addressStatus);
