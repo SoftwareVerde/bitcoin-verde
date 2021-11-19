@@ -122,8 +122,8 @@ public class StringOperation extends SubTypedOperation {
 
                 final Value value = stack.pop();
 
+                if (! Operation.isWithinLongIntegerRange(value)) { return false; }
                 final Long valueInteger = value.asLong();
-                if (! Operation.isWithinIntegerRange(valueInteger)) { return false; }
 
                 stack.push(Value.fromInteger(valueInteger));
 

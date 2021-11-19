@@ -160,8 +160,10 @@ public abstract class Operation implements Const {
         }
     }
 
-    protected static Boolean isWithinIntegerRange(final Long value) {
-        return ( (value <= Integer.MAX_VALUE) && (value > Integer.MIN_VALUE) ); // MIP-Encoding -2147483648 requires 5 bytes...
+    protected static Boolean isWithinLongIntegerRange(final Value value) {
+        if (value.getByteCount() > 8) { return false; }
+        final Long longValue = value.asLong();
+        return (longValue > Long.MIN_VALUE); // Min of -9223372036854775807 due to script numbers encoding +0 and -0.
     }
 
     protected static Boolean isMinimallyEncoded(final ByteArray littleEndianByteArray) {

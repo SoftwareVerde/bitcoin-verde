@@ -87,7 +87,7 @@ public enum Opcode {
     NOT                                 (0x91),
     ADD                                 (0x93),
     SUBTRACT                            (0x94),
-    MULTIPLY                            (0x95, false, true),
+    MULTIPLY                            (0x95),
     DIVIDE                              (0x96),
     MODULUS                             (0x97),
     MIN                                 (0xA3),

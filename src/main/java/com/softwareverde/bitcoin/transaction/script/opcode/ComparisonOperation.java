@@ -57,10 +57,10 @@ public class ComparisonOperation extends SubTypedOperation {
 
         if (stack.didOverflow()) { return null; }
 
+        if (! Operation.isWithinLongIntegerRange(value0)) { return null; }
         final Long longValue0 = value0.asLong();
+        if (! Operation.isWithinLongIntegerRange(value1)) { return null; }
         final Long longValue1 = value1.asLong();
-        if (! Operation.isWithinIntegerRange(longValue0)) { return null; }
-        if (! Operation.isWithinIntegerRange(longValue1)) { return null; }
 
         return new Tuple<>(longValue0, longValue1);
     }
@@ -199,13 +199,13 @@ public class ComparisonOperation extends SubTypedOperation {
                 if (! Operation.validateMinimalEncoding(valueMin, context)) { return false; }
                 if (! Operation.validateMinimalEncoding(value, context)) { return false; }
 
+                if (! Operation.isWithinLongIntegerRange(valueMax)) { return false; }
                 final Long longMax = valueMax.asLong();
+                if (! Operation.isWithinLongIntegerRange(valueMin)) { return false; }
                 final Long longMin = valueMin.asLong();
+                if (! Operation.isWithinLongIntegerRange(value)) { return false; }
                 final Long longValue = value.asLong();
 
-                if (! Operation.isWithinIntegerRange(longMax)) { return false; }
-                if (! Operation.isWithinIntegerRange(longMin)) { return false; }
-                if (! Operation.isWithinIntegerRange(longValue)) { return false; }
 
                 final Boolean resultValue = ((longValue >= longMin) && (longValue < longMax));
                 stack.push(Value.fromBoolean(resultValue));

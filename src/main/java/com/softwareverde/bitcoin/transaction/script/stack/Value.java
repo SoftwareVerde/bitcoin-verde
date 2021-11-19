@@ -86,8 +86,9 @@ public class Value extends ImmutableByteArray implements Const {
     // The returned byte array is little-endian.
     protected static byte[] _longToBytes(final Long value) {
         if (value == 0L) { return new byte[0]; }
+        if (value == Long.MIN_VALUE) { return new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, (byte) 0x80, (byte) 0x80}; }
 
-        final boolean isNegative = (value < 0);
+        final boolean isNegative = (value < 0L);
 
         final long absValue = Math.abs(value);
         final int unsignedByteCount = ( (BitcoinUtil.log2((int) absValue) / 8) + 1 );
