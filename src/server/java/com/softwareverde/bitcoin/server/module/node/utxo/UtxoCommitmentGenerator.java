@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -33,6 +34,7 @@ import com.softwareverde.cryptography.secp256k1.EcMultiset;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.cryptography.util.HashUtil;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.query.parameter.InClauseParameter;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
@@ -472,8 +474,25 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
 
     protected void _deleteOldUtxoCommitments(final DatabaseConnection databaseConnection) throws DatabaseException {
         final HashSet<UtxoCommitmentId> commitmentsToKeep = new HashSet<>(_maxCommitmentsToKeep);
-        {
+        { // Select old UTXO commitments...
             final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT utxo_commitments.id FROM utxo_commitments INNER JOIN blocks ON blocks.id = utxo_commitments.block_id ORDER BY blocks.block_height DESC LIMIT " + _maxCommitmentsToKeep));
+            for (final Row row : rows) {
+                final UtxoCommitmentId utxoCommitmentId = UtxoCommitmentId.wrap(row.getLong("id"));
+                commitmentsToKeep.add(utxoCommitmentId);
+            }
+        }
+
+        { // Keep the "trusted" UTXO commitments from that recent versions of Bitcoin Verde nodes are expected to download.
+            final List<UtxoCommitmentMetadata> utxoCommitmentMetadataList = BitcoinConstants.getUtxoCommitments();
+            final java.util.List<Row> rows = databaseConnection.query(
+                new Query("SELECT id FROM utxo_commitments WHERE public_key IN (?)")
+                    .setInClauseParameters(utxoCommitmentMetadataList, new ValueExtractor<UtxoCommitmentMetadata>() {
+                        @Override
+                        public InClauseParameter extractValues(final UtxoCommitmentMetadata value) {
+                            return ValueExtractor.BYTE_ARRAY.extractValues(value.publicKey);
+                        }
+                    })
+            );
             for (final Row row : rows) {
                 final UtxoCommitmentId utxoCommitmentId = UtxoCommitmentId.wrap(row.getLong("id"));
                 commitmentsToKeep.add(utxoCommitmentId);

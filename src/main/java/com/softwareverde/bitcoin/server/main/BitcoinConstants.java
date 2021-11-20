@@ -95,10 +95,11 @@ public class BitcoinConstants {
         final String defaultUserAgent = "/Bitcoin Verde:2.1.0/";
         final String coinbaseMessage = "/pool.bitcoinverde.org/VERDE/";
 
-        // NOTE: This UTXO Commitments were generated with storing the blockHeight in the 7th bit, not 0th bit; were calculated with off-by-one blockHeight.
+        // SELECT blocks.hash, blocks.block_height, utxo_commitments.public_key, SUM(utxo_commitment_files.byte_count) AS byte_count FROM blocks INNER JOIN utxo_commitments ON utxo_commitments.block_id = blocks.id INNER JOIN utxo_commitment_buckets ON utxo_commitment_buckets.utxo_commitment_id = utxo_commitments.id INNER JOIN utxo_commitment_files ON utxo_commitment_files.utxo_commitment_bucket_id = utxo_commitment_buckets.id GROUP BY utxo_commitments.id ORDER BY blocks.block_height ASC;
         final String utxoCommitmentsString =
-            "00000000000000000040B37F904A9CBBA25A6D37AA313D4AE8C4C46589CF4C6E,680000,030B9820CB8174C850FD89A208193C45370AD190F3E80578A1D5243051A4F86A07,3757025712;" +
-            "000000000000000001993116A3D4D6431759CCECCE0E4F4C47E907E20D2BC535,690000,03F9B516ED2FEC0D9C8440918994989D8B8C62C800C40B721EC006D592517E9E82,4283387782";
+            // Sha256Hash blockHash, Long blockHeight, PublicKey multisetPublicKey, Long byteCount
+            "000000000000000003D908BA7463FD154902EDA89AC015A2E2630F4130674E77,700000,02641B76C7FF28490545ACE8745C88AA9ECC5C62C6901A1935FCCCDC77945F1223,4292677194;" +
+            "00000000000000000259AD550B5420E5418CDFC14873D6985BCF1DFA261DBC9C,710000,0386C0DF8BEF2E4C1D65CBF721E0699648F142415415F738D544FE649B9C5C7C47,4575578354";
 
         GENESIS_BLOCK_HASH = System.getProperty("GENESIS_BLOCK_HASH", MainNet.genesisBlockHash);
         GENESIS_BLOCK_TIMESTAMP = Util.parseLong(System.getProperty("GENESIS_BLOCK_TIMESTAMP", String.valueOf(MainNet.genesisBlockTimestamp)));
