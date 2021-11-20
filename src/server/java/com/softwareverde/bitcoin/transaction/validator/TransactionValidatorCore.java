@@ -45,7 +45,7 @@ public class TransactionValidatorCore implements TransactionValidator {
         final TransactionInputDeflater transactionInputDeflater = new TransactionInputDeflater();
         final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
 
-        final TransactionOutput outputToSpend = transactionContext.getTransactionOutput();
+        final TransactionOutput outputToSpend = transactionContext.getTransactionOutputBeingSpent();
         final TransactionInput transactionInput = transactionContext.getTransactionInput();
 
         final LockingScript lockingScript = (outputToSpend != null ? outputToSpend.getLockingScript() : null);

@@ -18,6 +18,7 @@ import com.softwareverde.util.StringUtil;
 public class Value extends ImmutableByteArray implements Const {
     public static final Integer MAX_BYTE_COUNT = 520; // https://en.bitcoin.it/wiki/Script#Arithmetic
     public static final Value ZERO = Value.fromInteger(0L);
+    public static final Value EMPTY = Value.fromBytes(new ImmutableByteArray());
 
     /**
      * Returns a new copy of littleEndianBytes as if it were a minimally encoded integer (despite being too long for a normal integer).
@@ -106,6 +107,11 @@ public class Value extends ImmutableByteArray implements Const {
 
     public static Value fromInteger(final Long longValue) {
         final byte[] bytes = _longToBytes(longValue);
+        return new Value(bytes);
+    }
+
+    public static Value fromInteger(final Integer longValue) {
+        final byte[] bytes = _longToBytes(longValue.longValue());
         return new Value(bytes);
     }
 

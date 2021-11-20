@@ -8,13 +8,17 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
 import com.softwareverde.constable.Constable;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.json.Jsonable;
 
 public interface TransactionContext extends Constable<ImmutableTransactionContext>, Jsonable {
     Long getBlockHeight();
     MedianBlockTime getMedianBlockTime();
     TransactionInput getTransactionInput();
-    TransactionOutput getTransactionOutput();
+    TransactionOutput getTransactionOutputBeingSpent();
+
+    TransactionOutput getPreviousTransactionOutput(Integer outputIndex);
+    List<TransactionOutput> getPreviousTransactionOutputs();
 
     /**
      * Returns the Transaction being validated.

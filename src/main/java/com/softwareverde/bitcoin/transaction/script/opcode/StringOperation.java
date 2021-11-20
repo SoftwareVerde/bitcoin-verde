@@ -15,7 +15,7 @@ public class StringOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_STRING;
     public static final Integer MAX_BYTE_COUNT = 520;
 
-    public static final StringOperation REVERSE_BYTES = new StringOperation((byte) 0xBC, Opcode.REVERSE_BYTES);
+    public static final StringOperation REVERSE_BYTES = new StringOperation(Opcode.REVERSE_BYTES);
 
     protected static StringOperation fromBytes(final ByteArrayReader byteArrayReader) {
         if (! byteArrayReader.hasBytes()) { return null; }
@@ -27,11 +27,11 @@ public class StringOperation extends SubTypedOperation {
         final Opcode opcode = TYPE.getSubtype(opcodeByte);
         if (opcode == null) { return null; }
 
-        return new StringOperation(opcodeByte, opcode);
+        return new StringOperation(opcode);
     }
 
-    protected StringOperation(final byte value, final Opcode opcode) {
-        super(value, TYPE, opcode);
+    protected StringOperation(final Opcode opcode) {
+        super(opcode.getValue(), TYPE, opcode);
     }
 
     @Override

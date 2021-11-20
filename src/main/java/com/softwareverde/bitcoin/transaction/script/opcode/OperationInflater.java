@@ -22,6 +22,7 @@ public class OperationInflater {
         switch (type) {
             case OP_PUSH:           { operation = PushOperation.fromBytes(byteArrayReader); }                       break;
             case OP_DYNAMIC_VALUE:  { operation = DynamicValueOperation.fromBytes(byteArrayReader); }               break;
+            case OP_INTROSPECTION:  { operation = IntrospectionOperation.fromBytes(byteArrayReader); }              break;
             case OP_CONTROL:        { operation = ControlOperation.fromBytes(byteArrayReader); }                    break;
             case OP_STACK:          { operation = StackOperation.fromBytes(byteArrayReader); }                      break;
             case OP_STRING:         { operation = StringOperation.fromBytes(byteArrayReader); }                     break;

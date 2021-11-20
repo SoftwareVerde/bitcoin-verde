@@ -89,6 +89,13 @@ public class ImmutableScript implements Script, Const {
     }
 
     @Override
+    public Script getSubscript(final Integer opcodeIndex) {
+        final MutableScript script = new MutableScript(this);
+        script.subScript(opcodeIndex);
+        return script;
+    }
+
+    @Override
     public ImmutableScript asConst() {
         return this;
     }

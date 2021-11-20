@@ -23,6 +23,23 @@ public enum Opcode {
     COPY_4TH_THEN_3RD                   (0x70),
     COPY_1ST_THEN_MOVE_TO_3RD           (0x7D),
 
+    // INTROSPECTION
+    PUSH_INPUT_INDEX                        (0xC0),
+    PUSH_ACTIVE_BYTECODE                    (0xC1),
+    PUSH_TRANSACTION_VERSION                (0xC2),
+    PUSH_TRANSACTION_INPUT_COUNT            (0xC3),
+    PUSH_TRANSACTION_OUTPUT_COUNT           (0xC4),
+    PUSH_TRANSACTION_LOCK_TIME              (0xC5),
+
+    PUSH_PREVIOUS_OUTPUT_VALUE              (0xC6),
+    PUSH_PREVIOUS_OUTPUT_BYTECODE           (0xC7),
+    PUSH_PREVIOUS_OUTPUT_TRANSACTION_HASH   (0xC8),
+    PUSH_PREVIOUS_OUTPUT_INDEX              (0xC9),
+    PUSH_INPUT_BYTECODE                     (0xCA),
+    PUSH_INPUT_SEQUENCE_NUMBER              (0xCB),
+    PUSH_OUTPUT_VALUE                       (0xCC),
+    PUSH_OUTPUT_BYTECODE                    (0xCD),
+
     // CONTROL
     IF                                  (0x63),
     NOT_IF                              (0x64),

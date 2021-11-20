@@ -34,18 +34,18 @@ public class CryptographicOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_CRYPTOGRAPHIC;
     public static final Integer MAX_MULTI_SIGNATURE_PUBLIC_KEY_COUNT = 20;
 
-    public static final CryptographicOperation RIPEMD_160                       = new CryptographicOperation(Opcode.RIPEMD_160.getValue(),                          Opcode.RIPEMD_160);
-    public static final CryptographicOperation SHA_1                            = new CryptographicOperation(Opcode.SHA_1.getValue(),                               Opcode.SHA_1);
-    public static final CryptographicOperation SHA_256                          = new CryptographicOperation(Opcode.SHA_256.getValue(),                             Opcode.SHA_256);
-    public static final CryptographicOperation SHA_256_THEN_RIPEMD_160          = new CryptographicOperation(Opcode.SHA_256_THEN_RIPEMD_160.getValue(),             Opcode.SHA_256_THEN_RIPEMD_160);
-    public static final CryptographicOperation DOUBLE_SHA_256                   = new CryptographicOperation(Opcode.DOUBLE_SHA_256.getValue(),                      Opcode.DOUBLE_SHA_256);
-    public static final CryptographicOperation CODE_SEPARATOR                   = new CryptographicOperation(Opcode.CODE_SEPARATOR.getValue(),                      Opcode.CODE_SEPARATOR);
-    public static final CryptographicOperation CHECK_SIGNATURE                  = new CryptographicOperation(Opcode.CHECK_SIGNATURE.getValue(),                     Opcode.CHECK_SIGNATURE);
-    public static final CryptographicOperation CHECK_SIGNATURE_THEN_VERIFY      = new CryptographicOperation(Opcode.CHECK_SIGNATURE_THEN_VERIFY.getValue(),         Opcode.CHECK_SIGNATURE_THEN_VERIFY);
-    public static final CryptographicOperation CHECK_MULTISIGNATURE             = new CryptographicOperation(Opcode.CHECK_MULTISIGNATURE.getValue(),                Opcode.CHECK_MULTISIGNATURE);
-    public static final CryptographicOperation CHECK_MULTISIGNATURE_THEN_VERIFY = new CryptographicOperation(Opcode.CHECK_MULTISIGNATURE_THEN_VERIFY.getValue(),    Opcode.CHECK_MULTISIGNATURE_THEN_VERIFY);
-    public static final CryptographicOperation CHECK_DATA_SIGNATURE             = new CryptographicOperation(Opcode.CHECK_DATA_SIGNATURE.getValue(),                Opcode.CHECK_DATA_SIGNATURE);
-    public static final CryptographicOperation CHECK_DATA_SIGNATURE_THEN_VERIFY = new CryptographicOperation(Opcode.CHECK_DATA_SIGNATURE_THEN_VERIFY.getValue(),    Opcode.CHECK_DATA_SIGNATURE_THEN_VERIFY);
+    public static final CryptographicOperation RIPEMD_160                       = new CryptographicOperation(Opcode.RIPEMD_160);
+    public static final CryptographicOperation SHA_1                            = new CryptographicOperation(Opcode.SHA_1);
+    public static final CryptographicOperation SHA_256                          = new CryptographicOperation(Opcode.SHA_256);
+    public static final CryptographicOperation SHA_256_THEN_RIPEMD_160          = new CryptographicOperation(Opcode.SHA_256_THEN_RIPEMD_160);
+    public static final CryptographicOperation DOUBLE_SHA_256                   = new CryptographicOperation(Opcode.DOUBLE_SHA_256);
+    public static final CryptographicOperation CODE_SEPARATOR                   = new CryptographicOperation(Opcode.CODE_SEPARATOR);
+    public static final CryptographicOperation CHECK_SIGNATURE                  = new CryptographicOperation(Opcode.CHECK_SIGNATURE);
+    public static final CryptographicOperation CHECK_SIGNATURE_THEN_VERIFY      = new CryptographicOperation(Opcode.CHECK_SIGNATURE_THEN_VERIFY);
+    public static final CryptographicOperation CHECK_MULTISIGNATURE             = new CryptographicOperation(Opcode.CHECK_MULTISIGNATURE);
+    public static final CryptographicOperation CHECK_MULTISIGNATURE_THEN_VERIFY = new CryptographicOperation(Opcode.CHECK_MULTISIGNATURE_THEN_VERIFY);
+    public static final CryptographicOperation CHECK_DATA_SIGNATURE             = new CryptographicOperation(Opcode.CHECK_DATA_SIGNATURE);
+    public static final CryptographicOperation CHECK_DATA_SIGNATURE_THEN_VERIFY = new CryptographicOperation(Opcode.CHECK_DATA_SIGNATURE_THEN_VERIFY);
 
     protected static CryptographicOperation fromBytes(final ByteArrayReader byteArrayReader) {
         if (! byteArrayReader.hasBytes()) { return null; }
@@ -57,18 +57,18 @@ public class CryptographicOperation extends SubTypedOperation {
         final Opcode opcode = TYPE.getSubtype(opcodeByte);
         if (opcode == null) { return null; }
 
-        return new CryptographicOperation(opcodeByte, opcode);
+        return new CryptographicOperation(opcode);
     }
 
-    protected CryptographicOperation(final byte value, final Opcode opcode) {
-        super(value, TYPE, opcode);
+    protected CryptographicOperation(final Opcode opcode) {
+        super(opcode.getValue(), TYPE, opcode);
     }
 
     protected static Boolean verifySignature(final TransactionContext transactionContext, final PublicKey publicKey, final ScriptSignature scriptSignature, final List<ByteArray> bytesToExcludeFromScript) {
         final UpgradeSchedule upgradeSchedule = transactionContext.getUpgradeSchedule();
         final Transaction transaction = transactionContext.getTransaction();
         final Integer transactionInputIndexBeingSigned = transactionContext.getTransactionInputIndex();
-        final TransactionOutput transactionOutputBeingSpent = transactionContext.getTransactionOutput();
+        final TransactionOutput transactionOutputBeingSpent = transactionContext.getTransactionOutputBeingSpent();
         final Integer codeSeparatorIndex = transactionContext.getScriptLastCodeSeparatorIndex();
         final Script currentScript = transactionContext.getCurrentScript();
 
