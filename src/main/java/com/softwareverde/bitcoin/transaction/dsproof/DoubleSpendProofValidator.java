@@ -17,14 +17,14 @@ public class DoubleSpendProofValidator {
         public final UpgradeSchedule upgradeSchedule;
         public final Long headBlockHeight;
         public final MedianBlockTime medianBlockTime;
-        public final TransactionOutput transactionOutputBeingSpent;
+        public final List<TransactionOutput> previousTransactionOutputs;
         public final Transaction conflictingTransaction;
 
-        public Context(final Long headBlockHeight, final MedianBlockTime medianBlockTime, final TransactionOutput transactionOutputBeingSpent, final Transaction conflictingTransaction, final UpgradeSchedule upgradeSchedule) {
+        public Context(final Long headBlockHeight, final MedianBlockTime medianBlockTime, final List<TransactionOutput> previousTransactionOutputs, final Transaction conflictingTransaction, final UpgradeSchedule upgradeSchedule) {
             this.upgradeSchedule = upgradeSchedule;
             this.headBlockHeight = headBlockHeight;
             this.medianBlockTime = medianBlockTime;
-            this.transactionOutputBeingSpent = transactionOutputBeingSpent;
+            this.previousTransactionOutputs = previousTransactionOutputs;
             this.conflictingTransaction = conflictingTransaction;
         }
     }
@@ -69,13 +69,13 @@ public class DoubleSpendProofValidator {
 
         final DoubleSpendProofPreimageValidator doubleSpendProofPreimageValidator = new DoubleSpendProofPreimageValidator(_context.headBlockHeight, _context.medianBlockTime, _context.upgradeSchedule);
 
-        final Boolean firstProofIsValid = doubleSpendProofPreimageValidator.validateDoubleSpendProof(transactionOutputIdentifier, _context.transactionOutputBeingSpent, _context.conflictingTransaction, doubleSpendProofPreimage0);
+        final Boolean firstProofIsValid = doubleSpendProofPreimageValidator.validateDoubleSpendProof(transactionOutputIdentifier, _context.previousTransactionOutputs, _context.conflictingTransaction, doubleSpendProofPreimage0);
         if (! firstProofIsValid) {
             Logger.trace("DoubleSpendProof " + doubleSpendProofHash + " invalid; first preimage failed validation.");
             return false;
         }
 
-        final Boolean secondProofIsValid = doubleSpendProofPreimageValidator.validateDoubleSpendProof(transactionOutputIdentifier, _context.transactionOutputBeingSpent, _context.conflictingTransaction, doubleSpendProofPreimage1);
+        final Boolean secondProofIsValid = doubleSpendProofPreimageValidator.validateDoubleSpendProof(transactionOutputIdentifier, _context.previousTransactionOutputs, _context.conflictingTransaction, doubleSpendProofPreimage1);
         if (! secondProofIsValid) {
             Logger.trace("DoubleSpendProof " + doubleSpendProofHash + " invalid; second preimage failed validation.");
             return false;

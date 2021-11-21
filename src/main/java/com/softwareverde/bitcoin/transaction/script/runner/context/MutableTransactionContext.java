@@ -14,11 +14,11 @@ import com.softwareverde.json.Json;
 import com.softwareverde.util.Util;
 
 public class MutableTransactionContext implements TransactionContext {
-    public static MutableTransactionContext getContextForVerification(final Transaction signedTransaction, final Integer transactionInputIndex, final TransactionOutput transactionOutputBeingSpent, final UpgradeSchedule upgradeSchedule, final List<TransactionOutput> previousTransactionOutputs) {
-        return MutableTransactionContext.getContextForVerification(signedTransaction, transactionInputIndex, transactionOutputBeingSpent, MedianBlockTime.MAX_VALUE, upgradeSchedule, previousTransactionOutputs);
+    public static MutableTransactionContext getContextForVerification(final Transaction signedTransaction, final Integer transactionInputIndex, final List<TransactionOutput> previousTransactionOutputs, final UpgradeSchedule upgradeSchedule) {
+        return MutableTransactionContext.getContextForVerification(signedTransaction, transactionInputIndex, previousTransactionOutputs, MedianBlockTime.MAX_VALUE, upgradeSchedule);
     }
 
-    public static MutableTransactionContext getContextForVerification(final Transaction signedTransaction, final Integer transactionInputIndex, final TransactionOutput transactionOutputBeingSpent, final MedianBlockTime medianBlockTime, final UpgradeSchedule upgradeSchedule, final List<TransactionOutput> previousTransactionOutputs) {
+    public static MutableTransactionContext getContextForVerification(final Transaction signedTransaction, final Integer transactionInputIndex, final List<TransactionOutput> previousTransactionOutputs, final MedianBlockTime medianBlockTime, final UpgradeSchedule upgradeSchedule) {
         final List<TransactionInput> signedTransactionInputs = signedTransaction.getTransactionInputs();
         final TransactionInput signedTransactionInput = signedTransactionInputs.get(transactionInputIndex);
 
@@ -29,7 +29,6 @@ public class MutableTransactionContext implements TransactionContext {
         mutableContext.setTransaction(signedTransaction);
         mutableContext.setBlockHeight(Long.MAX_VALUE);
         mutableContext.setMedianBlockTime(Util.coalesce(medianBlockTime, MedianBlockTime.MAX_VALUE));
-        mutableContext.setTransactionOutputBeingSpent(transactionOutputBeingSpent);
         mutableContext.setCurrentScriptLastCodeSeparatorIndex(0);
         mutableContext.setPreviousTransactionOutputs(previousTransactionOutputs);
         return mutableContext;
@@ -44,7 +43,6 @@ public class MutableTransactionContext implements TransactionContext {
 
     protected Integer _transactionInputIndex;
     protected TransactionInput _transactionInput;
-    protected TransactionOutput _transactionOutputBeingSpent;
     protected final MutableList<TransactionOutput> _previousTransactionOutputs = new MutableList<>(0);
 
     protected Script _currentScript = null;
@@ -70,11 +68,10 @@ public class MutableTransactionContext implements TransactionContext {
         _transaction = ConstUtil.asConstOrNull(transactionContext.getTransaction());
         _transactionInputIndex = transactionContext.getTransactionInputIndex();
         _transactionInput = ConstUtil.asConstOrNull(transactionContext.getTransactionInput());
-        _transactionOutputBeingSpent = ConstUtil.asConstOrNull(transactionContext.getTransactionOutputBeingSpent());
 
         final List<TransactionOutput> transactionOutputs = transactionContext.getPreviousTransactionOutputs();
         if (transactionOutputs != null) {
-            _previousTransactionOutputs.addAll(transactionOutputs);
+            _previousTransactionOutputs.addAll(ConstUtil.asConstOrNull(transactionOutputs));
         }
 
         final Script currentScript = transactionContext.getCurrentScript();
@@ -107,10 +104,6 @@ public class MutableTransactionContext implements TransactionContext {
 
     public void setTransactionInput(final TransactionInput transactionInput) {
         _transactionInput = transactionInput;
-    }
-
-    public void setTransactionOutputBeingSpent(final TransactionOutput transactionOutput) {
-        _transactionOutputBeingSpent = transactionOutput;
     }
 
     public void setPreviousTransactionOutputs(final List<TransactionOutput> transactionOutputs) {
@@ -162,7 +155,8 @@ public class MutableTransactionContext implements TransactionContext {
 
     @Override
     public TransactionOutput getTransactionOutputBeingSpent() {
-        return _transactionOutputBeingSpent;
+        if (_transactionInputIndex >= _previousTransactionOutputs.getCount()) { return null; }
+        return _previousTransactionOutputs.get(_transactionInputIndex);
     }
 
     @Override

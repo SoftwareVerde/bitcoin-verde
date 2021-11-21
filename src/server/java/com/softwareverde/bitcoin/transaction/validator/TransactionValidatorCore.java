@@ -22,6 +22,7 @@ import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransa
 import com.softwareverde.bitcoin.transaction.script.runner.context.TransactionContext;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
 import com.softwareverde.network.time.NetworkTime;
@@ -254,6 +255,23 @@ public class TransactionValidatorCore implements TransactionValidator {
 
         transactionContext.setTransaction(transaction);
 
+        { // Set the UTXOs to be spent...
+            final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+            final int transactionOutputCount = transactionInputs.getCount();
+            final ImmutableListBuilder<TransactionOutput> transactionOutputsBeingSpent = new ImmutableListBuilder<>(transactionOutputCount);
+            for (final TransactionInput transactionInput : transactionInputs) {
+                final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+                final TransactionOutput transactionOutput = _getUnspentTransactionOutput(transactionOutputIdentifier);
+                if (transactionOutput == null) {
+                    final Json errorJson = _createInvalidTransactionReport("Transaction output (" + transactionOutputIdentifier + ") does not exist or has been spent.", transaction, transactionContext);
+                    return TransactionValidationResult.invalid(errorJson);
+                }
+
+                transactionOutputsBeingSpent.add(transactionOutput);
+            }
+            transactionContext.setPreviousTransactionOutputs(transactionOutputsBeingSpent.build());
+        }
+
         { // Enforce Transaction minimum byte count...
             if (upgradeSchedule.areTransactionsLessThanOneHundredBytesDisallowed(blockHeight)) {
                 final Integer transactionByteCount = transaction.getByteCount();
@@ -300,8 +318,6 @@ public class TransactionValidatorCore implements TransactionValidator {
             final HashSet<TransactionOutputIdentifier> spentOutputIdentifiers = new HashSet<>(transactionInputCount);
 
             for (int i = 0; i < transactionInputCount; ++i) {
-                transactionContext.setTransactionOutputBeingSpent(null); // Clear the TransactionOutput being spent for sane logging of an error before the utxo has been retrieved.
-
                 final TransactionInput transactionInput = transactionInputs.get(i);
                 final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
 
@@ -332,13 +348,7 @@ public class TransactionValidatorCore implements TransactionValidator {
                     }
                 }
 
-                final TransactionOutput transactionOutputBeingSpent = _getUnspentTransactionOutput(transactionOutputIdentifierBeingSpent);
-                if (transactionOutputBeingSpent == null) {
-                    final Json errorJson = _createInvalidTransactionReport("Transaction output does not exist or has been spent.", transaction, transactionContext);
-                    return TransactionValidationResult.invalid(errorJson);
-                }
-                transactionContext.setTransactionOutputBeingSpent(transactionOutputBeingSpent);
-
+                final TransactionOutput transactionOutputBeingSpent = transactionContext.getTransactionOutputBeingSpent();
                 totalInputValueCounter += transactionOutputBeingSpent.getAmount();
 
                 final LockingScript lockingScript = transactionOutputBeingSpent.getLockingScript();

@@ -81,19 +81,17 @@ public class DoubleSpendProofProcessor {
             if (conflictingTransaction == null) { return null; }
         }
 
-        final TransactionOutput transactionOutputBeingSpent;
+        final List<TransactionOutput> previousTransactionOutputs;
         {
             final Integer transactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
-            final List<TransactionOutput> transactionOutputs = transactionBeingSpent.getTransactionOutputs();
-            if (transactionOutputIndex >= transactionOutputs.getCount()) {
+            previousTransactionOutputs = transactionBeingSpent.getTransactionOutputs();
+            if (transactionOutputIndex >= previousTransactionOutputs.getCount()) {
                 Logger.trace("DoubleSpendProof " + doubleSpendProofHash + " invalid; transaction spends out-of-bounds output.");
                 return null;
             }
-
-            transactionOutputBeingSpent = transactionOutputs.get(transactionOutputIndex);
         }
 
-        return new DoubleSpendProofValidator.Context(headBlockHeight, medianTimePast, transactionOutputBeingSpent, conflictingTransaction, upgradeSchedule);
+        return new DoubleSpendProofValidator.Context(headBlockHeight, medianTimePast, previousTransactionOutputs, conflictingTransaction, upgradeSchedule);
     }
 
     public DoubleSpendProofProcessor(final DoubleSpendProofStore doubleSpendProofStore, final Context context) {

@@ -69,7 +69,8 @@ public class ImmutableTransactionContext implements TransactionContext, Const {
 
     @Override
     public TransactionOutput getTransactionOutputBeingSpent() {
-        return _transactionOutputBeingSpent;
+        if (_transactionInputIndex >= _previousTransactionOutputs.getCount()) { return null; }
+        return _previousTransactionOutputs.get(_transactionInputIndex);
     }
 
     @Override

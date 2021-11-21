@@ -924,7 +924,7 @@ public class Wallet {
                 }
             }
 
-            final MutableTransactionContext context = MutableTransactionContext.getContextForVerification(signedTransaction, i, transactionOutputBeingSpent, _medianBlockTime, _upgradeSchedule, previousTransactionOutputs);
+            final MutableTransactionContext context = MutableTransactionContext.getContextForVerification(signedTransaction, i, previousTransactionOutputs, _medianBlockTime, _upgradeSchedule);
             final ScriptRunner.ScriptRunnerResult scriptRunnerResult = scriptRunner.runScript(transactionOutputBeingSpent.getLockingScript(), signedTransactionInput.getUnlockingScript(), context);
             final boolean outputIsUnlocked = scriptRunnerResult.isValid;
 
