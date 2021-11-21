@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
+import com.softwareverde.bitcoin.util.MathUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 
@@ -54,10 +55,11 @@ public class ArithmeticOperation extends SubTypedOperation {
                 final Value value = stack.pop();
                 if (! Operation.validateMinimalEncoding(value, context)) { return false; }
 
+                if (! Operation.isWithinLongIntegerRange(value)) { return false; }
                 final Long longValue = value.asLong();
-                if (! Operation.isWithinIntegerRange(longValue)) { return false; }
 
-                final Long newIntValue = (longValue + 1L);
+                final Long newIntValue = MathUtil.add(longValue, 1L);
+                if (newIntValue == null) { return false; }
 
                 final Value newValue = Value.fromInteger(newIntValue);
                 stack.push(newValue);
@@ -69,10 +71,11 @@ public class ArithmeticOperation extends SubTypedOperation {
                 final Value value = stack.pop();
                 if (! Operation.validateMinimalEncoding(value, context)) { return false; }
 
+                if (! Operation.isWithinLongIntegerRange(value)) { return false; }
                 final Long longValue = value.asLong();
-                if (! Operation.isWithinIntegerRange(longValue)) { return false; }
 
-                final Long newIntValue = (longValue - 1L);
+                final Long newIntValue = MathUtil.subtract(longValue, 1L);
+                if (newIntValue == null) { return false; }
 
                 final Value newValue = Value.fromInteger(newIntValue);
                 stack.push(newValue);
@@ -82,10 +85,11 @@ public class ArithmeticOperation extends SubTypedOperation {
 
             case MULTIPLY_BY_TWO: {
                 final Value value = stack.pop();
+                if (! Operation.isWithinLongIntegerRange(value)) { return false; }
                 final Long longValue = value.asLong();
-                if (! Operation.isWithinIntegerRange(longValue)) { return false; }
 
-                final Long newIntValue = (longValue * 2L);
+                final Long newIntValue = MathUtil.multiply(longValue, 2L);
+                if (newIntValue == null) { return false; }
 
                 final Value newValue = Value.fromInteger(newIntValue);
                 stack.push(newValue);
@@ -95,10 +99,11 @@ public class ArithmeticOperation extends SubTypedOperation {
 
             case DIVIDE_BY_TWO: {
                 final Value value = stack.pop();
+                if (! Operation.isWithinLongIntegerRange(value)) { return false; }
                 final Long longValue = value.asLong();
-                if (! Operation.isWithinIntegerRange(longValue)) { return false; }
 
-                final Long newIntValue = (longValue / 2L);
+                final Long newIntValue = MathUtil.divide(longValue, 2L);
+                if (newIntValue == null) { return false; }
 
                 final Value newValue = Value.fromInteger(newIntValue);
                 stack.push(newValue);
@@ -110,10 +115,11 @@ public class ArithmeticOperation extends SubTypedOperation {
                 final Value value = stack.pop();
                 if (! Operation.validateMinimalEncoding(value, context)) { return false; }
 
+                if (! Operation.isWithinLongIntegerRange(value)) { return false; }
                 final Long longValue = value.asLong();
-                if (! Operation.isWithinIntegerRange(longValue)) { return false; }
 
-                final Long newIntValue = (-longValue);
+                final Long newIntValue = MathUtil.negate(longValue);
+                if (newIntValue == null) { return false; }
 
                 final Value newValue = Value.fromInteger(newIntValue);
                 stack.push(newValue);
@@ -125,10 +131,11 @@ public class ArithmeticOperation extends SubTypedOperation {
                 final Value value = stack.pop();
                 if (! Operation.validateMinimalEncoding(value, context)) { return false; }
 
+                if (! Operation.isWithinLongIntegerRange(value)) { return false; }
                 final Long longValue = value.asLong();
-                if (! Operation.isWithinIntegerRange(longValue)) { return false; }
 
-                final Long newIntValue = Math.abs(longValue);
+                final Long newIntValue = MathUtil.absoluteValue(longValue);
+                if (newIntValue == null) { return false; }
 
                 final Value newValue = Value.fromInteger(newIntValue);
                 stack.push(newValue);
@@ -140,8 +147,8 @@ public class ArithmeticOperation extends SubTypedOperation {
                 final Value value = stack.pop();
                 if (! Operation.validateMinimalEncoding(value, context)) { return false; }
 
+                if (! Operation.isWithinLongIntegerRange(value)) { return false; }
                 final Long longValue = value.asLong();
-                if (! Operation.isWithinIntegerRange(longValue)) { return false; }
 
                 final Long newLongValue = (longValue == 0L ? 1L : 0L);
 
@@ -158,13 +165,14 @@ public class ArithmeticOperation extends SubTypedOperation {
                 final Value value0 = stack.pop();
                 if (! Operation.validateMinimalEncoding(value0, context)) { return false; }
 
+                if (! Operation.isWithinLongIntegerRange(value0)) { return false; }
                 final Long longValue0 = value0.asLong();
-                if (! Operation.isWithinIntegerRange(longValue0)) { return false; }
 
+                if (! Operation.isWithinLongIntegerRange(value1)) { return false; }
                 final Long longValue1 = value1.asLong();
-                if (! Operation.isWithinIntegerRange(longValue1)) { return false; }
 
-                final Long newIntValue = (longValue0 + longValue1);
+                final Long newIntValue = MathUtil.add(longValue0, longValue1);
+                if (newIntValue == null) { return false; }
 
                 final Value newValue = Value.fromInteger(newIntValue);
                 stack.push(newValue);
@@ -179,13 +187,14 @@ public class ArithmeticOperation extends SubTypedOperation {
                 final Value value0 = stack.pop();
                 if (! Operation.validateMinimalEncoding(value0, context)) { return false; }
 
+                if (! Operation.isWithinLongIntegerRange(value0)) { return false; }
                 final Long longValue0 = value0.asLong();
-                if (! Operation.isWithinIntegerRange(longValue0)) { return false; }
 
+                if (! Operation.isWithinLongIntegerRange(value1)) { return false; }
                 final Long longValue1 = value1.asLong();
-                if (! Operation.isWithinIntegerRange(longValue1)) { return false; }
 
-                final Long newIntValue = (longValue0 - longValue1);
+                final Long newIntValue = MathUtil.subtract(longValue0, longValue1);
+                if (newIntValue == null) { return false; }
 
                 final Value newValue = Value.fromInteger(newIntValue);
                 stack.push(newValue);
@@ -200,15 +209,16 @@ public class ArithmeticOperation extends SubTypedOperation {
                 final Value value0 = stack.pop();
                 if (! Operation.validateMinimalEncoding(value0, context)) { return false; }
 
+                if (! Operation.isWithinLongIntegerRange(value0)) { return false; }
                 final Long longValue0 = value0.asLong();
-                if (! Operation.isWithinIntegerRange(longValue0)) { return false; }
 
+                if (! Operation.isWithinLongIntegerRange(value1)) { return false; }
                 final Long longValue1 = value1.asLong();
-                if (! Operation.isWithinIntegerRange(longValue1)) { return false; }
 
-                final Long newIntValue = (longValue1 * longValue0);
+                final Long value = MathUtil.multiply(longValue1, longValue0);
+                if (value == null) { return false; }
 
-                final Value newValue = Value.fromInteger(newIntValue);
+                final Value newValue = Value.fromInteger(value);
                 stack.push(newValue);
 
                 return (! stack.didOverflow());
@@ -224,15 +234,16 @@ public class ArithmeticOperation extends SubTypedOperation {
                 final Value value0 = stack.pop();
                 if (! Operation.validateMinimalEncoding(value0, context)) { return false; }
 
+                if (! Operation.isWithinLongIntegerRange(value0)) { return false; }
                 final Long longValue0 = value0.asLong();
-                if (! Operation.isWithinIntegerRange(longValue0)) { return false; }
 
+                if (! Operation.isWithinLongIntegerRange(value1)) { return false; }
                 final Long longValue1 = value1.asLong();
-                if (! Operation.isWithinIntegerRange(longValue1)) { return false; }
 
                 if (longValue1 == 0) { return false; }
 
-                final Long newIntValue = (longValue0 / longValue1);
+                final Long newIntValue = MathUtil.divide(longValue0, longValue1);
+                if (newIntValue == null) { return false; }
 
                 final Value newValue = Value.fromInteger(newIntValue);
                 stack.push(newValue);
@@ -250,17 +261,19 @@ public class ArithmeticOperation extends SubTypedOperation {
                 final Value value0 = stack.pop();
                 if (! Operation.validateMinimalEncoding(value0, context)) { return false; }
 
+                if (! Operation.isWithinLongIntegerRange(value0)) { return false; }
                 final Long longValue0 = value0.asLong();
-                if (! Operation.isWithinIntegerRange(longValue0)) { return false; }
 
+                if (! Operation.isWithinLongIntegerRange(value1)) { return false; }
                 final Long longValue1 = value1.asLong();
-                if (! Operation.isWithinIntegerRange(longValue1)) { return false; }
 
                 if (longValue1 == 0) { return false; }
 
                 final Long newIntValue = (longValue0 % longValue1);
 
                 final Value newValue = Value.fromInteger(newIntValue);
+                if (! Operation.isWithinLongIntegerRange(newValue)) { return false; }
+
                 stack.push(newValue);
 
                 return (! stack.didOverflow());
@@ -273,11 +286,11 @@ public class ArithmeticOperation extends SubTypedOperation {
                 final Value value0 = stack.pop();
                 if (! Operation.validateMinimalEncoding(value0, context)) { return false; }
 
+                if (! Operation.isWithinLongIntegerRange(value0)) { return false; }
                 final Long longValue0 = value0.asLong();
-                if (! Operation.isWithinIntegerRange(longValue0)) { return false; }
 
+                if (! Operation.isWithinLongIntegerRange(value1)) { return false; }
                 final Long longValue1 = value1.asLong();
-                if (! Operation.isWithinIntegerRange(longValue1)) { return false; }
 
                 final Long newIntValue = Math.min(longValue1, longValue0);
 
@@ -294,11 +307,11 @@ public class ArithmeticOperation extends SubTypedOperation {
                 final Value value0 = stack.pop();
                 if (! Operation.validateMinimalEncoding(value0, context)) { return false; }
 
+                if (! Operation.isWithinLongIntegerRange(value0)) { return false; }
                 final Long longValue0 = value0.asLong();
-                if (! Operation.isWithinIntegerRange(longValue0)) { return false; }
 
+                if (! Operation.isWithinLongIntegerRange(value1)) { return false; }
                 final Long longValue1 = value1.asLong();
-                if (! Operation.isWithinIntegerRange(longValue1)) { return false; }
 
                 final Long newIntValue = Math.max(longValue1, longValue0);
 
