@@ -66,7 +66,7 @@ public class HistoricTransactionsTests extends UnitTest {
             final Json transactionInputsJson = new Json(true);
 
             final TransactionInput transactionInput = transactionContext.getTransactionInput();
-            final TransactionOutput transactionOutput = transactionContext.getTransactionOutput();
+            final TransactionOutput transactionOutput = transactionContext.getTransactionOutputBeingSpent();
             final LockingScript lockingScript = transactionOutput.getLockingScript();
             final String lockingScriptString = (new ScriptDeflater()).toStandardString(lockingScript);
 

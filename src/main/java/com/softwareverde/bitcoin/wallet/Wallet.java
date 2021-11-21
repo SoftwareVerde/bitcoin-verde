@@ -891,11 +891,29 @@ public class Wallet {
 
         final ScriptRunner scriptRunner = new ScriptRunner(_upgradeSchedule);
         final List<TransactionInput> signedTransactionInputs = signedTransaction.getTransactionInputs();
-        for (int i = 0; i < signedTransactionInputs.getCount(); ++i) {
+        final int transactionInputCount = signedTransactionInputs.getCount();
+        final List<TransactionOutput> previousTransactionOutputs;
+        {
+            final ImmutableListBuilder<TransactionOutput> listBuilder = new ImmutableListBuilder<>(transactionInputCount);
+            for (int i = 0; i < transactionInputCount; ++i) {
+                final TransactionInput signedTransactionInput = signedTransactionInputs.get(i);
+                final Sha256Hash transactionHash = signedTransactionInput.getPreviousOutputTransactionHash();
+                final Integer outputIndex = signedTransactionInput.getPreviousOutputIndex();
+                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+
+                final SpendableTransactionOutput spendableTransactionOutput = _transactionOutputs.get(transactionOutputIdentifier);
+                listBuilder.add(spendableTransactionOutput.getTransactionOutput());
+            }
+            previousTransactionOutputs = listBuilder.build();
+        }
+        for (int i = 0; i < transactionInputCount; ++i) {
             final TransactionInput signedTransactionInput = signedTransactionInputs.get(i);
             final TransactionOutput transactionOutputBeingSpent;
             {
-                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(signedTransactionInput.getPreviousOutputTransactionHash(), signedTransactionInput.getPreviousOutputIndex());
+                final Sha256Hash transactionHash = signedTransactionInput.getPreviousOutputTransactionHash();
+                final Integer outputIndex = signedTransactionInput.getPreviousOutputIndex();
+                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+
                 final SpendableTransactionOutput spendableTransactionOutput = _transactionOutputs.get(transactionOutputIdentifier);
                 transactionOutputBeingSpent = spendableTransactionOutput.getTransactionOutput();
 
@@ -906,7 +924,7 @@ public class Wallet {
                 }
             }
 
-            final MutableTransactionContext context = MutableTransactionContext.getContextForVerification(signedTransaction, i, transactionOutputBeingSpent, _medianBlockTime, _upgradeSchedule);
+            final MutableTransactionContext context = MutableTransactionContext.getContextForVerification(signedTransaction, i, transactionOutputBeingSpent, _medianBlockTime, _upgradeSchedule, previousTransactionOutputs);
             final ScriptRunner.ScriptRunnerResult scriptRunnerResult = scriptRunner.runScript(transactionOutputBeingSpent.getLockingScript(), signedTransactionInput.getUnlockingScript(), context);
             final boolean outputIsUnlocked = scriptRunnerResult.isValid;
 

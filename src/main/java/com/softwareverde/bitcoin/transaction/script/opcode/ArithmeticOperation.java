@@ -11,20 +11,20 @@ import com.softwareverde.util.bytearray.ByteArrayReader;
 public class ArithmeticOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_ARITHMETIC;
 
-    public static final ArithmeticOperation ADD_ONE         = new ArithmeticOperation(Opcode.ADD_ONE.getValue(),            Opcode.ADD_ONE);
-    public static final ArithmeticOperation SUBTRACT_ONE    = new ArithmeticOperation(Opcode.SUBTRACT_ONE.getValue(),       Opcode.SUBTRACT_ONE);
-    public static final ArithmeticOperation MULTIPLY_BY_TWO = new ArithmeticOperation(Opcode.MULTIPLY_BY_TWO.getValue(),    Opcode.MULTIPLY_BY_TWO);
-    public static final ArithmeticOperation DIVIDE_BY_TWO   = new ArithmeticOperation(Opcode.DIVIDE_BY_TWO.getValue(),      Opcode.DIVIDE_BY_TWO);
-    public static final ArithmeticOperation NEGATE          = new ArithmeticOperation(Opcode.NEGATE.getValue(),             Opcode.NEGATE);
-    public static final ArithmeticOperation ABSOLUTE_VALUE  = new ArithmeticOperation(Opcode.ABSOLUTE_VALUE.getValue(),     Opcode.ABSOLUTE_VALUE);
-    public static final ArithmeticOperation NOT             = new ArithmeticOperation(Opcode.NOT.getValue(),                Opcode.NOT);
-    public static final ArithmeticOperation ADD             = new ArithmeticOperation(Opcode.ADD.getValue(),                Opcode.ADD);
-    public static final ArithmeticOperation SUBTRACT        = new ArithmeticOperation(Opcode.SUBTRACT.getValue(),           Opcode.SUBTRACT);
-    public static final ArithmeticOperation MULTIPLY        = new ArithmeticOperation(Opcode.MULTIPLY.getValue(),           Opcode.MULTIPLY);
-    public static final ArithmeticOperation DIVIDE          = new ArithmeticOperation(Opcode.DIVIDE.getValue(),             Opcode.DIVIDE);
-    public static final ArithmeticOperation MODULUS         = new ArithmeticOperation(Opcode.MODULUS.getValue(),            Opcode.MODULUS);
-    public static final ArithmeticOperation MIN             = new ArithmeticOperation(Opcode.MIN.getValue(),                Opcode.MIN);
-    public static final ArithmeticOperation MAX             = new ArithmeticOperation(Opcode.MAX.getValue(),                Opcode.MAX);
+    public static final ArithmeticOperation ADD_ONE         = new ArithmeticOperation(Opcode.ADD_ONE);
+    public static final ArithmeticOperation SUBTRACT_ONE    = new ArithmeticOperation(Opcode.SUBTRACT_ONE);
+    public static final ArithmeticOperation MULTIPLY_BY_TWO = new ArithmeticOperation(Opcode.MULTIPLY_BY_TWO);
+    public static final ArithmeticOperation DIVIDE_BY_TWO   = new ArithmeticOperation(Opcode.DIVIDE_BY_TWO);
+    public static final ArithmeticOperation NEGATE          = new ArithmeticOperation(Opcode.NEGATE);
+    public static final ArithmeticOperation ABSOLUTE_VALUE  = new ArithmeticOperation(Opcode.ABSOLUTE_VALUE);
+    public static final ArithmeticOperation NOT             = new ArithmeticOperation(Opcode.NOT);
+    public static final ArithmeticOperation ADD             = new ArithmeticOperation(Opcode.ADD);
+    public static final ArithmeticOperation SUBTRACT        = new ArithmeticOperation(Opcode.SUBTRACT);
+    public static final ArithmeticOperation MULTIPLY        = new ArithmeticOperation(Opcode.MULTIPLY);
+    public static final ArithmeticOperation DIVIDE          = new ArithmeticOperation(Opcode.DIVIDE);
+    public static final ArithmeticOperation MODULUS         = new ArithmeticOperation(Opcode.MODULUS);
+    public static final ArithmeticOperation MIN             = new ArithmeticOperation(Opcode.MIN);
+    public static final ArithmeticOperation MAX             = new ArithmeticOperation(Opcode.MAX);
 
     protected static ArithmeticOperation fromBytes(final ByteArrayReader byteArrayReader) {
         if (! byteArrayReader.hasBytes()) { return null; }
@@ -36,11 +36,11 @@ public class ArithmeticOperation extends SubTypedOperation {
         final Opcode opcode = TYPE.getSubtype(opcodeByte);
         if (opcode == null) { return null; }
 
-        return new ArithmeticOperation(opcodeByte, opcode);
+        return new ArithmeticOperation(opcode);
     }
 
-    protected ArithmeticOperation(final byte value, final Opcode opcode) {
-        super(value, TYPE, opcode);
+    protected ArithmeticOperation(final Opcode opcode) {
+        super(opcode.getValue(), TYPE, opcode);
     }
 
     @Override

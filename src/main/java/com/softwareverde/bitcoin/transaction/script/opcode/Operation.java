@@ -16,99 +16,7 @@ import com.softwareverde.util.Util;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.ABSOLUTE_VALUE;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.ADD;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.ADD_ONE;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.BITWISE_AND;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.BITWISE_INVERT;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.BITWISE_OR;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.BITWISE_XOR;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.CHECK_DATA_SIGNATURE;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.CHECK_DATA_SIGNATURE_THEN_VERIFY;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.CHECK_LOCK_TIME_THEN_VERIFY;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.CHECK_MULTISIGNATURE;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.CHECK_MULTISIGNATURE_THEN_VERIFY;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.CHECK_SEQUENCE_NUMBER_THEN_VERIFY;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.CHECK_SIGNATURE;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.CHECK_SIGNATURE_THEN_VERIFY;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.CODE_SEPARATOR;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.CONCATENATE;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.COPY_1ST;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.COPY_1ST_THEN_MOVE_TO_3RD;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.COPY_2ND;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.COPY_2ND_THEN_1ST;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.COPY_3RD_THEN_2ND_THEN_1ST;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.COPY_4TH_THEN_3RD;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.COPY_NTH;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.DIVIDE;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.DIVIDE_BY_TWO;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.DOUBLE_SHA_256;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.ELSE;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.ENCODE_NUMBER;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.END_IF;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.IF;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.IF_1ST_TRUE_THEN_COPY_1ST;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.IF_NOT_VERSION;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.IF_VERSION;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.INTEGER_AND;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.INTEGER_OR;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.IS_EQUAL;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.IS_EQUAL_THEN_VERIFY;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.IS_GREATER_THAN;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.IS_GREATER_THAN_OR_EQUAL;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.IS_LESS_THAN;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.IS_LESS_THAN_OR_EQUAL;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.IS_NUMERICALLY_EQUAL;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.IS_NUMERICALLY_EQUAL_THEN_VERIFY;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.IS_NUMERICALLY_NOT_EQUAL;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.IS_TRUE;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.IS_WITHIN_RANGE;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.MAX;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.MIN;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.MODULUS;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.MOVE_5TH_AND_6TH_TO_TOP;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.MOVE_NTH_TO_1ST;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.MULTIPLY;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.MULTIPLY_BY_TWO;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.NEGATE;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.NOT;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.NOT_IF;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.NO_OPERATION;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.NO_OPERATION_1;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.NO_OPERATION_2;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.NUMBER_TO_BYTES;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.POP;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.POP_FROM_ALT_STACK;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.POP_THEN_POP;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.POP_TO_ALT_STACK;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.PUSH_1ST_BYTE_COUNT;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.PUSH_DATA;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.PUSH_DATA_BYTE;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.PUSH_DATA_INTEGER;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.PUSH_DATA_SHORT;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.PUSH_NEGATIVE_ONE;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.PUSH_STACK_SIZE;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.PUSH_VALUE;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.PUSH_VERSION;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.PUSH_ZERO;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.REMOVE_2ND_FROM_TOP;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.RESERVED;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.RESERVED_1;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.RETURN;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.REVERSE_BYTES;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.RIPEMD_160;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.ROTATE_TOP_3;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.SHA_1;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.SHA_256;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.SHA_256_THEN_RIPEMD_160;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.SHIFT_LEFT;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.SHIFT_RIGHT;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.SPLIT;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.SUBTRACT;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.SUBTRACT_ONE;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.SWAP_1ST_2ND_WITH_3RD_4TH;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.SWAP_1ST_WITH_2ND;
-import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.VERIFY;
+import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.*;
 
 public abstract class Operation implements Const {
     public static class ScriptOperationExecutionException extends Exception { }
@@ -117,6 +25,7 @@ public abstract class Operation implements Const {
     public enum Type {
         OP_PUSH         (PUSH_NEGATIVE_ONE, PUSH_ZERO, PUSH_VALUE, PUSH_DATA, PUSH_DATA_BYTE, PUSH_DATA_SHORT, PUSH_DATA_INTEGER, PUSH_VERSION),
         OP_DYNAMIC_VALUE(PUSH_STACK_SIZE, COPY_1ST, COPY_NTH, COPY_2ND, COPY_2ND_THEN_1ST, COPY_3RD_THEN_2ND_THEN_1ST, COPY_4TH_THEN_3RD, COPY_1ST_THEN_MOVE_TO_3RD),
+        OP_INTROSPECTION(PUSH_INPUT_INDEX, PUSH_ACTIVE_BYTECODE, PUSH_TRANSACTION_VERSION, PUSH_TRANSACTION_INPUT_COUNT, PUSH_TRANSACTION_OUTPUT_COUNT, PUSH_TRANSACTION_LOCK_TIME, PUSH_PREVIOUS_OUTPUT_VALUE, PUSH_PREVIOUS_OUTPUT_BYTECODE, PUSH_PREVIOUS_OUTPUT_TRANSACTION_HASH, PUSH_PREVIOUS_OUTPUT_INDEX, PUSH_INPUT_BYTECODE, PUSH_INPUT_SEQUENCE_NUMBER, PUSH_OUTPUT_VALUE, PUSH_OUTPUT_BYTECODE),
         OP_CONTROL      (IF, NOT_IF, ELSE, END_IF, VERIFY, RETURN, IF_VERSION, IF_NOT_VERSION),
         OP_STACK        (POP_TO_ALT_STACK, POP_FROM_ALT_STACK, IF_1ST_TRUE_THEN_COPY_1ST, POP, REMOVE_2ND_FROM_TOP, MOVE_NTH_TO_1ST, ROTATE_TOP_3, SWAP_1ST_WITH_2ND, POP_THEN_POP, MOVE_5TH_AND_6TH_TO_TOP, SWAP_1ST_2ND_WITH_3RD_4TH),
         OP_STRING       (CONCATENATE, SPLIT, ENCODE_NUMBER, NUMBER_TO_BYTES, PUSH_1ST_BYTE_COUNT, REVERSE_BYTES),

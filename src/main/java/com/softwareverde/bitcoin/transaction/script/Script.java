@@ -23,6 +23,8 @@ public interface Script extends Constable<ImmutableScript>, Jsonable {
 
     Boolean containsNonPushOperations();
 
+    Script getSubscript(Integer opcodeIndex);
+
     @Override
     ImmutableScript asConst();
 

@@ -24,11 +24,11 @@ public class LockTimeOperation extends SubTypedOperation {
         final Opcode opcode = TYPE.getSubtype(opcodeByte);
         if (opcode == null) { return null; }
 
-        return new LockTimeOperation(opcodeByte, opcode);
+        return new LockTimeOperation(opcode);
     }
 
-    protected LockTimeOperation(final byte value, final Opcode opcode) {
-        super(value, TYPE, opcode);
+    protected LockTimeOperation(final Opcode opcode) {
+        super(opcode.getValue(), TYPE, opcode);
     }
 
     @Override
