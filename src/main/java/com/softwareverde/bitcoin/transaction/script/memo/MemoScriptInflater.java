@@ -71,6 +71,8 @@ public class MemoScriptInflater {
         final PushOperation pushOperation = (PushOperation) operation;
 
         final Value value = pushOperation.getValue();
+        if (! value.isWithinIntegerRange()) { return null; }
+
         return value.asInteger();
     }
 

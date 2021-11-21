@@ -81,6 +81,7 @@ public class StringOperation extends SubTypedOperation {
 
                 final Value beginIndexValue = stack.pop();
                 if (! Operation.validateMinimalEncoding(beginIndexValue, context)) { return false; }
+                if (! beginIndexValue.isWithinIntegerRange()) { return false; }
 
                 final Value value = stack.pop();
 
@@ -144,6 +145,7 @@ public class StringOperation extends SubTypedOperation {
                 if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
                     if (! Operation.isMinimallyEncoded(byteCountValue)) { return false; }
                 }
+                if (! byteCountValue.isWithinIntegerRange()) { return false; }
 
                 if (byteCountValue.getByteCount() > 4) { return false; }
 

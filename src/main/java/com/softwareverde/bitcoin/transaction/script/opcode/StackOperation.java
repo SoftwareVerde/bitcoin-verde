@@ -71,6 +71,7 @@ public class StackOperation extends SubTypedOperation {
             case MOVE_NTH_TO_1ST: {
                 final Value nthIndexValue = stack.pop();
                 if (! Operation.validateMinimalEncoding(nthIndexValue, context)) { return false; }
+                if (! nthIndexValue.isWithinIntegerRange()) { return false; }
 
                 final Integer nthIndex = nthIndexValue.asInteger();
                 final Value nthItem = stack.pop(nthIndex);

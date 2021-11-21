@@ -51,6 +51,7 @@ public class DynamicValueOperation extends SubTypedOperation {
             case COPY_NTH: {
                 final Value nValue = stack.pop();
                 if (! Operation.validateMinimalEncoding(nValue, context)) { return false; }
+                if (! nValue.isWithinIntegerRange()) { return false; }
 
                 final Integer n = nValue.asInteger();
                 stack.push(stack.peak(n));

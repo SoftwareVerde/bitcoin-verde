@@ -143,6 +143,7 @@ public class BitwiseOperation extends SubTypedOperation {
                 final MutableByteArray value = new MutableByteArray(stack.pop());
 
                 if (! bitShiftCountValue.isMinimallyEncodedInteger()) { return false; }
+                if (! bitShiftCountValue.isWithinIntegerRange()) { return false; }
                 final Integer bitShiftCount = bitShiftCountValue.asInteger();
                 if (bitShiftCount < 0) { return false; }
 
@@ -170,6 +171,7 @@ public class BitwiseOperation extends SubTypedOperation {
                 final MutableByteArray value = new MutableByteArray(stack.pop());
 
                 if (! bitShiftCountValue.isMinimallyEncodedInteger()) { return false; }
+                if (! bitShiftCountValue.isWithinIntegerRange()) { return false; }
                 final Integer bitShiftCount = bitShiftCountValue.asInteger();
                 if (bitShiftCount < 0) { return false; }
 

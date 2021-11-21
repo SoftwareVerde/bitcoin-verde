@@ -49,6 +49,7 @@ public class IntrospectionOperation extends SubTypedOperation {
         final Value index = stack.pop();
         if (stack.didOverflow()) { return null; }
         if (! Operation.validateMinimalEncoding(index, context)) { return null; }
+        if (! index.isWithinIntegerRange()) { return null; }
 
         final Integer previousOutputIndex = index.asInteger();
         if (previousOutputIndex == null) { return null; }

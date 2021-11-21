@@ -137,18 +137,8 @@ public class Value extends ImmutableByteArray implements Const {
     }
 
     protected Integer _asInteger() {
-        if (_bytes.length == 0) { return 0; }
-
-        final byte[] bigEndianBytes = ByteUtil.reverseEndian(_bytes);
-
-        final boolean isNegative = _isNegativeNumber(bigEndianBytes);
-
-        { // Remove the sign bit... (only matters when _bytes.length is less than the byteCount of an integer)
-            bigEndianBytes[0] &= (byte) 0x7F;
-        }
-
-        final int value = ByteUtil.bytesToInteger(bigEndianBytes);
-        return (isNegative ? -value : value);
+        final Long asLong = _asLong();
+        return asLong.intValue();
     }
 
     protected Long _asLong() {
@@ -226,6 +216,21 @@ public class Value extends ImmutableByteArray implements Const {
 
     public String asString() {
         return StringUtil.bytesToString(_bytes); // UTF-8
+    }
+
+    public Boolean isWithinIntegerRange() {
+        if (_bytes.length > 4) { return false; }
+        final Long longValue = _asLong();
+
+        if (longValue < Integer.MIN_VALUE) { return false; }
+        if (longValue > Integer.MAX_VALUE) { return false; }
+        return true;
+    }
+
+    public Boolean isWithinLongIntegerRange() {
+        if (_bytes.length> 8) { return false; }
+        final Long longValue = _asLong();
+        return (longValue > Long.MIN_VALUE); // Min of -9223372036854775807 due to script numbers encoding +0 and -0.
     }
 
     @Override
