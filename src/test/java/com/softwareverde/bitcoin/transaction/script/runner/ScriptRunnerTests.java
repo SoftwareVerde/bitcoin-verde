@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.transaction.script.runner;
 
 import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.test.fake.FakeUpgradeSchedule;
 import com.softwareverde.bitcoin.test.util.TransactionTestUtil;
@@ -154,6 +155,7 @@ public class ScriptRunnerTests {
 
         final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
         context.setBlockHeight(590000L);
+        context.setMedianBlockTime(MedianBlockTime.fromSeconds(1562333174L));
 
         final String[] lockingScriptStrings = new String[7];
         final String[] unlockingScriptStrings = new String[7];
@@ -209,6 +211,7 @@ public class ScriptRunnerTests {
 
         final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
         context.setBlockHeight(590000L);
+        context.setMedianBlockTime(MedianBlockTime.fromSeconds(1562333174L));
 
         final String[] lockingScriptStrings = new String[11];
         final String[] unlockingScriptStrings = new String[11];

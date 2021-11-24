@@ -56,7 +56,7 @@ public class BitcoinConstants {
     protected static String USER_AGENT;
     protected static String COINBASE_MESSAGE;
 
-    protected static final List<UtxoCommitmentMetadata> UTXO_COMMITMENTS;
+    protected static List<UtxoCommitmentMetadata> UTXO_COMMITMENTS;
 
     protected static AsertReferenceBlock ASERT_REFERENCE_BLOCK = new AsertReferenceBlock(
         661647L,
@@ -151,6 +151,10 @@ public class BitcoinConstants {
                 BitcoinConstants.setAsertReferenceBlock(BitcoinConstants.MainNet.asertReferenceBlock);
             }
         }
+    }
+
+    public static Boolean isLocked() {
+        return LOCKED;
     }
 
     public static String getGenesisBlockHash() {
@@ -369,6 +373,14 @@ public class BitcoinConstants {
 
     public static List<UtxoCommitmentMetadata> getUtxoCommitments() {
         return UTXO_COMMITMENTS;
+    }
+
+    public static void setUtxoCommitments(final List<UtxoCommitmentMetadata> utxoCommitmentMetadata) {
+        if (LOCKED) {
+            throw new RuntimeException(LOCKED_ERROR_MESSAGE);
+        }
+
+        UTXO_COMMITMENTS = utxoCommitmentMetadata;
     }
 
     protected BitcoinConstants() { }
