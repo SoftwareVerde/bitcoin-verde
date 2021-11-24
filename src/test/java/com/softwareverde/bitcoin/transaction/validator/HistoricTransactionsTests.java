@@ -13,6 +13,7 @@ import com.softwareverde.bitcoin.test.fake.FakeMedianBlockTimeContext;
 import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.test.fake.FakeUpgradeSchedule;
 import com.softwareverde.bitcoin.test.fake.VolatileNetworkTimeWrapper;
+import com.softwareverde.bitcoin.test.util.TransactionTestUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
@@ -30,6 +31,7 @@ import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlocking
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
 import com.softwareverde.logging.Logger;
@@ -96,6 +98,12 @@ public class HistoricTransactionsTests extends UnitTest {
         final TransactionInflater transactionInflater = new TransactionInflater();
         final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(testConfig.transactionBytes));
 
+        final int transactionInputCount;
+        {
+            final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+            transactionInputCount = transactionInputs.getCount();
+        }
+
         final TransactionInput transactionInput;
         {
             if (testConfig.transactionInputBytes != null) {
@@ -128,7 +136,7 @@ public class HistoricTransactionsTests extends UnitTest {
             }
 
             context.setTransactionInput(transactionInput);
-            context.setTransactionOutputBeingSpent(transactionOutput);
+            context.setPreviousTransactionOutputs(TransactionTestUtil.createPreviousTransactionOutputsList(transactionInputCount, testConfig.transactionInputIndex, transactionOutput));
             context.setTransactionInputIndex(testConfig.transactionInputIndex);
         }
 
@@ -668,13 +676,13 @@ public class HistoricTransactionsTests extends UnitTest {
 
     @Test
     public void should_verify_transaction_54AED2D3ABC9B7F6337272649A8B61B774415D469CED1C218F8780BD644C02ED() {
-        // NOTE: This transaction's LockTime failed to validate.  However, its lockTime should be ignore since all of its inputs' SequenceNumbers are "final"...
+        // NOTE: This transaction's LockTime failed to validate.  However, its lockTime should be ignored since all of its inputs' SequenceNumbers are "final"...
 
         // Setup
         final TestConfig testConfig = new TestConfig();
         testConfig.transactionBytes = "0100000001FEF8D1C268874475E874A2A3A664A4EB6F98D1D258B62A2800E4BEFA069C57AD010000008B483045022100B482783530D3EC73C97A5DC147EE3CF1705E355C17DD9DF7AD30D8E49712260D022059750222B33F45D80F5DC49C732786EBAED6C6FA72162A4632FEA7231339C15C0141045D443089B4587D355B4CB5AC39B0156AFC92152627693149DE16D0D2269CEA2417010C0BC6930E9B47573DAB76A951E01D884B2BED9EAF92CC2369B6DDC7F98CFFFFFFFF0200000000000000000B6A0942454E2072756C657A306F0100000000001976A9147038DC3B8533A422D1225ECBCC3C85E282FD92B388ACE4670600";
         testConfig.blockHeight = 419808L;
-
+        testConfig.transactionInputIndex = 0; // Defined for init, but unused.
 
         final UpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
         final TransactionContext transactionContext = initContext(testConfig, upgradeSchedule);

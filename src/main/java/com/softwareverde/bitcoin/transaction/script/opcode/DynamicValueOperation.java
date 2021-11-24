@@ -1,5 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
@@ -37,6 +39,9 @@ public class DynamicValueOperation extends SubTypedOperation {
 
     @Override
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableTransactionContext context) {
+        final UpgradeSchedule upgradeSchedule = context.getUpgradeSchedule();
+        final MedianBlockTime medianBlockTime = context.getMedianBlockTime();
+
         switch (_opcode) {
             case PUSH_STACK_SIZE: {
                 stack.push(Value.fromInteger(stack.getSize().longValue()));
@@ -50,7 +55,9 @@ public class DynamicValueOperation extends SubTypedOperation {
 
             case COPY_NTH: {
                 final Value nValue = stack.pop();
-                if (! Operation.validateMinimalEncoding(nValue, context)) { return false; }
+                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                    if (! nValue.isMinimallyEncoded()) { return false; }
+                }
                 if (! nValue.isWithinIntegerRange()) { return false; }
 
                 final Integer n = nValue.asInteger();

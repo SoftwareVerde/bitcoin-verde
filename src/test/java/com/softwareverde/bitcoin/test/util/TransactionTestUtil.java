@@ -23,6 +23,7 @@ import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
 import com.softwareverde.bitcoin.transaction.signer.TransactionOutputRepository;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
 
@@ -143,5 +144,13 @@ public class TransactionTestUtil {
         mutableTransaction.addTransactionOutput(transactionOutput);
 
         return mutableTransaction;
+    }
+
+    public static MutableList<TransactionOutput> createPreviousTransactionOutputsList(final Integer transactionInputCount, final Integer outputIndex, final TransactionOutput transactionOutput) {
+        final MutableList<TransactionOutput> previousTransactionOutputsList = new MutableList<>(transactionInputCount);
+        for (int i = 0; i < transactionInputCount; ++i) {
+            previousTransactionOutputsList.add(i == outputIndex ? transactionOutput : null);
+        }
+        return previousTransactionOutputsList;
     }
 }

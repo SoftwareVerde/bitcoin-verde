@@ -6,12 +6,14 @@ import com.softwareverde.bitcoin.jni.NativeSecp256k1;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.test.fake.FakeMedianBlockTime;
 import com.softwareverde.bitcoin.test.fake.FakeUpgradeSchedule;
+import com.softwareverde.bitcoin.test.util.TransactionTestUtil;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptInflater;
@@ -25,6 +27,7 @@ import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.util.HashUtil;
 import com.softwareverde.json.Json;
@@ -432,7 +435,7 @@ public class AbcScriptRunnerTests extends UnitTest {
         catch (final Exception exception) {
             // Can happen as of Java 11, but ReflectionUtil also removes the need for
             //  setting volatile due to its usage of sun.misc.Unsafe when using Java 11...
-            Logger.debug("Unable to set volatile modifier.", exception);
+            Logger.debug("Unable to set volatile modifier. (OK)");
         }
 
         BitcoinReflectionUtil.setStaticValue(NativeSecp256k1.class, "_libraryLoadedCorrectly", false);
@@ -541,6 +544,10 @@ public class AbcScriptRunnerTests extends UnitTest {
             final FakeMedianBlockTime medianBlockTime = new FakeMedianBlockTime(MedianBlockTime.GENESIS_BLOCK_TIMESTAMP);
             final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
 
+            final int transactionInputCount = 1;
+            final int transactionOutputIndex = 0;
+            final List<TransactionOutput> previousTransactionOutputs = TransactionTestUtil.createPreviousTransactionOutputsList(transactionInputCount, transactionOutputIndex, transactionOutputBeingSpent);
+
             transactionOutputBeingSpent.setLockingScript(lockingScript);
             transactionOutputBeingSpent.setAmount(testVector.amount);
             transactionBeingSpent.setTransactionOutput(0, transactionOutputBeingSpent);
@@ -554,7 +561,7 @@ public class AbcScriptRunnerTests extends UnitTest {
 
             final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
             context.setTransaction(transaction); // Set the LockTime to zero...
-            context.setTransactionOutputBeingSpent(transactionOutputBeingSpent);
+            context.setPreviousTransactionOutputs(previousTransactionOutputs);
             context.setTransactionInput(transactionInput);
             context.setTransactionInputIndex(0);
 
@@ -607,6 +614,10 @@ public class AbcScriptRunnerTests extends UnitTest {
                 upgradeSchedule.setUnusedValuesAfterSegwitScriptExecutionAllowed(false);
             }
 
+            upgradeSchedule.setAre64BitScriptIntegersEnabled(false);
+            upgradeSchedule.setAreIntrospectionOperationsEnabled(false);
+            upgradeSchedule.setMultiplyOperationEnabled(false);
+
             final boolean wasValid = scriptRunner.runScript(lockingScript, unlockingScript, context).isValid;
 
             executedCount += 1;
@@ -629,7 +640,9 @@ public class AbcScriptRunnerTests extends UnitTest {
                     failCount += 1;
                     System.out.println("FAILED" + (isPossiblyImportant ? " [WARN]" : "") + ": " + i + " (" + testVector.getHash() + " - " + testVector.flagsString + " - " + testVector.expectedResultString + " - \"" + testVector.comments + "\")");
                     System.out.println("Expected: " + expectedResult + " Actual: " + wasValid + " (Production: " + isValidInProduction + ")");
-                    //break;
+
+                    // System.out.println(i + ": " + testVector + "(" + testVector.getHash() + ")");
+                    // break;
                 }
             }
         }

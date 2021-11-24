@@ -11,7 +11,7 @@ public class OperationTests {
         final Value value = Value.fromInteger(Long.MIN_VALUE);
 
         // Action
-        final Boolean isWithinIntegerRange = Operation.isWithinLongIntegerRange(value);
+        final Boolean isWithinIntegerRange = value.isWithinLongIntegerRange();
 
         // Assert
         Assert.assertFalse(isWithinIntegerRange);

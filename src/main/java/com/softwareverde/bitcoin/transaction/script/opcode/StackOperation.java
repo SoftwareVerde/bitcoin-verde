@@ -1,5 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
@@ -40,6 +42,9 @@ public class StackOperation extends SubTypedOperation {
 
     @Override
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableTransactionContext context) {
+        final UpgradeSchedule upgradeSchedule = context.getUpgradeSchedule();
+        final MedianBlockTime medianBlockTime = context.getMedianBlockTime();
+
         switch (_opcode) {
             case POP_TO_ALT_STACK: {
                 final Value value = stack.pop();
@@ -70,7 +75,9 @@ public class StackOperation extends SubTypedOperation {
             }
             case MOVE_NTH_TO_1ST: {
                 final Value nthIndexValue = stack.pop();
-                if (! Operation.validateMinimalEncoding(nthIndexValue, context)) { return false; }
+                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                    if (! nthIndexValue.isMinimallyEncoded()) { return false; }
+                }
                 if (! nthIndexValue.isWithinIntegerRange()) { return false; }
 
                 final Integer nthIndex = nthIndexValue.asInteger();

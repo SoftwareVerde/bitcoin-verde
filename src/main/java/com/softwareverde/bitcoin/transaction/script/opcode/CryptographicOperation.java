@@ -264,10 +264,11 @@ public class CryptographicOperation extends SubTypedOperation {
             if (stack.didOverflow()) { return false; }
 
             if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
-                if (! Operation.validateMinimalEncoding(publicKeyCountValue, transactionContext)) { return false; }
+                if (! publicKeyCountValue.isMinimallyEncoded()) { return false; }
             }
+            if (! publicKeyCountValue.isWithinIntegerRange()) { return false; }
 
-            publicKeyCount = publicKeyCountValue.asLong().intValue();
+            publicKeyCount = publicKeyCountValue.asInteger();
             if (publicKeyCount < 0) { return false; }
             if (publicKeyCount > MAX_MULTI_SIGNATURE_PUBLIC_KEY_COUNT) { return false; }
         }
@@ -298,10 +299,11 @@ public class CryptographicOperation extends SubTypedOperation {
             if (stack.didOverflow()) { return false; }
 
             if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
-                if (! Operation.validateMinimalEncoding(signatureCountValue, transactionContext)) { return false; }
+                if (! signatureCountValue.isMinimallyEncoded()) { return false; }
             }
+            if (! signatureCountValue.isWithinIntegerRange()) { return false; }
 
-            signatureCount = signatureCountValue.asLong().intValue();
+            signatureCount = signatureCountValue.asInteger();
             if (signatureCount < 0) { return false; }
             if (signatureCount > publicKeyCount) { return false; }
         }

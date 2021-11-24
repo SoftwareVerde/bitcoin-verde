@@ -1,15 +1,11 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
-import com.softwareverde.bitcoin.bip.UpgradeSchedule;
-import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.script.opcode.controlstate.CodeBlock;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.runner.context.TransactionContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
-import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.constable.Const;
-import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
@@ -20,7 +16,6 @@ import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.*;
 
 public abstract class Operation implements Const {
     public static class ScriptOperationExecutionException extends Exception { }
-    public static final Integer MAX_INTEGER_BYTE_COUNT = 4;
 
     public enum Type {
         OP_PUSH         (PUSH_NEGATIVE_ONE, PUSH_ZERO, PUSH_VALUE, PUSH_DATA, PUSH_DATA_BYTE, PUSH_DATA_SHORT, PUSH_DATA_INTEGER, PUSH_VERSION),
@@ -67,44 +62,6 @@ public abstract class Operation implements Const {
             }
             return null;
         }
-    }
-
-    protected static Boolean isWithinLongIntegerRange(final Value value) {
-        if (value.getByteCount() > 8) { return false; }
-        final Long longValue = value.asLong();
-        return (longValue > Long.MIN_VALUE); // Min of -9223372036854775807 due to script numbers encoding +0 and -0.
-    }
-
-    protected static Boolean isMinimallyEncoded(final ByteArray littleEndianByteArray) {
-        if (littleEndianByteArray == null) { return false; }
-
-        final int byteCount = littleEndianByteArray.getByteCount();
-        if (byteCount == 0) { return true; } // The only valid encoding of zero is an empty array.
-        if (byteCount > MAX_INTEGER_BYTE_COUNT) { return false; } // Numeric values are not allowed to be larger than 4 bytes.
-
-        final byte leadingByte = littleEndianByteArray.getByte(byteCount - 1);
-        final boolean valueBitsAreSet = ((leadingByte & 0x7F) != 0);
-        if (! valueBitsAreSet) { // If the only bit set is the sign bit...
-            if (byteCount == 1) { return false; } // Negative-zero encodings are not allowed.
-
-            final byte secondLeadingByte = littleEndianByteArray.getByte(byteCount - 2);
-            final boolean signBitIsSet = ((secondLeadingByte & 0x80) != 0);
-            if (! signBitIsSet) { // If the sign bit is the only bit set on the MSB then the sign bit must not be set on the 2nd MSB.
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    protected static Boolean validateMinimalEncoding(final Value value, final TransactionContext transactionContext) {
-        {
-            final UpgradeSchedule upgradeSchedule = transactionContext.getUpgradeSchedule();
-            final MedianBlockTime medianBlockTime = transactionContext.getMedianBlockTime();
-            if (! upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) { return true; }
-        }
-
-        return Operation.isMinimallyEncoded(value);
     }
 
     protected final byte _opcodeByte;

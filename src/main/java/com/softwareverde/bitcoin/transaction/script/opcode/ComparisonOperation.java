@@ -1,5 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.runner.context.TransactionContext;
@@ -48,18 +50,31 @@ public class ComparisonOperation extends SubTypedOperation {
         super(opcode.getValue(), TYPE, opcode);
     }
 
-    protected Tuple<Long, Long> _popNumericTuple(final Stack stack, final TransactionContext transactionContext) {
+    protected Tuple<Long, Long> _popNumericTuple(final Stack stack, final TransactionContext context) {
+        final UpgradeSchedule upgradeSchedule = context.getUpgradeSchedule();
+        final MedianBlockTime medianBlockTime = context.getMedianBlockTime();
+
         final Value value0 = stack.pop();
-        if (! Operation.validateMinimalEncoding(value0, transactionContext)) { return null; }
+        if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+            if (! value0.isMinimallyEncoded()) { return null; }
+        }
+        if (! value0.isWithinLongIntegerRange()) { return null; }
+        if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+            if (! value0.isWithinIntegerRange()) { return null; }
+        }
 
         final Value value1 = stack.pop();
-        if (! Operation.validateMinimalEncoding(value1, transactionContext)) { return null; }
+        if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+            if (! value1.isMinimallyEncoded()) { return null; }
+        }
+        if (! value1.isWithinLongIntegerRange()) { return null; }
+        if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+            if (! value1.isWithinIntegerRange()) { return null; }
+        }
 
         if (stack.didOverflow()) { return null; }
 
-        if (! Operation.isWithinLongIntegerRange(value0)) { return null; }
         final Long longValue0 = value0.asLong();
-        if (! Operation.isWithinLongIntegerRange(value1)) { return null; }
         final Long longValue1 = value1.asLong();
 
         return new Tuple<>(longValue0, longValue1);
@@ -82,6 +97,9 @@ public class ComparisonOperation extends SubTypedOperation {
 
     @Override
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableTransactionContext context) {
+        final UpgradeSchedule upgradeSchedule = context.getUpgradeSchedule();
+        final MedianBlockTime medianBlockTime = context.getMedianBlockTime();
+
         switch (_opcode) {
             case IS_EQUAL: {
                 final Boolean areEqual = _opIsEqual(stack);
@@ -100,7 +118,9 @@ public class ComparisonOperation extends SubTypedOperation {
 
             case IS_TRUE: {
                 final Value value = stack.pop();
-                if (! Operation.validateMinimalEncoding(value, context)) { return false; }
+                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                    if (! value.isMinimallyEncoded()) { return false; }
+                }
 
                 final Boolean booleanValue = value.asBoolean();
                 stack.push(Value.fromBoolean(booleanValue));
@@ -191,21 +211,37 @@ public class ComparisonOperation extends SubTypedOperation {
                 // NOTE: Pushes true on the stack if the value is greater than or equal to the min, and less than the max.
                 //  Assuming the oldest items on the stack are on the left, the parameters are defined on the stack as: [..., VALUE, MIN, MAX]
                 final Value valueMax = stack.pop();
+                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                    if (! valueMax.isMinimallyEncoded()) { return false; }
+                }
+                if (! valueMax.isWithinLongIntegerRange()) { return false; }
+                if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+                    if (! valueMax.isWithinIntegerRange()) { return false; }
+                }
+
                 final Value valueMin = stack.pop();
+                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                    if (! valueMin.isMinimallyEncoded()) { return false; }
+                }
+                if (! valueMin.isWithinLongIntegerRange()) { return false; }
+                if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+                    if (! valueMin.isWithinIntegerRange()) { return false; }
+                }
+
                 final Value value = stack.pop();
+                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                    if (! value.isMinimallyEncoded()) { return false; }
+                }
+                if (! value.isWithinLongIntegerRange()) { return false; }
+                if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+                    if (! value.isWithinIntegerRange()) { return false; }
+                }
+
                 if (stack.didOverflow()) { return false; }
 
-                if (! Operation.validateMinimalEncoding(valueMax, context)) { return false; }
-                if (! Operation.validateMinimalEncoding(valueMin, context)) { return false; }
-                if (! Operation.validateMinimalEncoding(value, context)) { return false; }
-
-                if (! Operation.isWithinLongIntegerRange(valueMax)) { return false; }
                 final Long longMax = valueMax.asLong();
-                if (! Operation.isWithinLongIntegerRange(valueMin)) { return false; }
                 final Long longMin = valueMin.asLong();
-                if (! Operation.isWithinLongIntegerRange(value)) { return false; }
                 final Long longValue = value.asLong();
-
 
                 final Boolean resultValue = ((longValue >= longMin) && (longValue < longMax));
                 stack.push(Value.fromBoolean(resultValue));

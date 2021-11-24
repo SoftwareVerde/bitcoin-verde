@@ -155,6 +155,7 @@ public class MutableTransactionContext implements TransactionContext {
 
     @Override
     public TransactionOutput getTransactionOutputBeingSpent() {
+        if (_transactionInputIndex == null) { return null; }
         if (_transactionInputIndex >= _previousTransactionOutputs.getCount()) { return null; }
         return _previousTransactionOutputs.get(_transactionInputIndex);
     }

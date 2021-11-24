@@ -20,6 +20,7 @@ public class TestNetUpgradeSchedule implements UpgradeSchedule {
     private static final long HF20191115_ACTIVATION_TIME = 1573820238L;
     private static final long HF20200515_ACTIVATION_TIME = 1589544294L;
     private static final long HF20201115_ACTIVATION_TIME = 1605441600L;
+    private static final long HF20220515_ACTIVATION_TIME = 1637694000L;
 
     @Override
     public Boolean isMinimalNumberEncodingRequired(final MedianBlockTime medianBlockTime) {
@@ -145,5 +146,20 @@ public class TestNetUpgradeSchedule implements UpgradeSchedule {
     @Override
     public Boolean isReverseBytesOperationEnabled(final MedianBlockTime medianBlockTime) {
         return (medianBlockTime.getCurrentTimeInSeconds() >= HF20200515_ACTIVATION_TIME);
+    }
+
+    @Override
+    public Boolean areIntrospectionOperationsEnabled(final MedianBlockTime medianBlockTime) {
+        return (medianBlockTime.getCurrentTimeInSeconds() >= HF20220515_ACTIVATION_TIME);
+    }
+
+    @Override
+    public Boolean are64BitScriptIntegersEnabled(final MedianBlockTime medianBlockTime) {
+        return (medianBlockTime.getCurrentTimeInSeconds() >= HF20220515_ACTIVATION_TIME);
+    }
+
+    @Override
+    public Boolean isMultiplyOperationEnabled(final MedianBlockTime medianBlockTime) {
+        return (medianBlockTime.getCurrentTimeInSeconds() >= HF20220515_ACTIVATION_TIME);
     }
 }

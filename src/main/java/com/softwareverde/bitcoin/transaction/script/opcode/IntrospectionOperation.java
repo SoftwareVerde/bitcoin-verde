@@ -1,5 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
@@ -46,15 +48,34 @@ public class IntrospectionOperation extends SubTypedOperation {
     }
 
     protected Integer _popIntegerValue(final Stack stack, final MutableTransactionContext context) {
-        final Value index = stack.pop();
+        final UpgradeSchedule upgradeSchedule = context.getUpgradeSchedule();
+        final MedianBlockTime medianBlockTime = context.getMedianBlockTime();
+
+        final Value value = stack.pop();
         if (stack.didOverflow()) { return null; }
-        if (! Operation.validateMinimalEncoding(index, context)) { return null; }
-        if (! index.isWithinIntegerRange()) { return null; }
+        if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+            if (! value.isMinimallyEncoded()) { return null; }
+        }
+        if (! value.isWithinIntegerRange()) { return null; }
 
-        final Integer previousOutputIndex = index.asInteger();
-        if (previousOutputIndex == null) { return null; }
+        return value.asInteger();
+    }
 
-        return previousOutputIndex;
+    protected Long _popLongValue(final Stack stack, final MutableTransactionContext context) {
+        final UpgradeSchedule upgradeSchedule = context.getUpgradeSchedule();
+        final MedianBlockTime medianBlockTime = context.getMedianBlockTime();
+
+        final Value value = stack.pop();
+        if (stack.didOverflow()) { return null; }
+        if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+            if (! value.isMinimallyEncoded()) { return null; }
+        }
+        if (! value.isWithinLongIntegerRange()) { return null; }
+        if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+            if (! value.isWithinIntegerRange()) { return null; }
+        }
+
+        return value.asLong();
     }
 
     protected IntrospectionOperation(final Opcode opcode) {
@@ -63,6 +84,10 @@ public class IntrospectionOperation extends SubTypedOperation {
 
     @Override
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableTransactionContext context) {
+        final MedianBlockTime medianBlockTime = context.getMedianBlockTime();
+        final UpgradeSchedule upgradeSchedule = context.getUpgradeSchedule();
+        if (! upgradeSchedule.areIntrospectionOperationsEnabled(medianBlockTime)) { return true; } // Opcodes were NO-OPs prior to upgrade...
+
         switch (_opcode) {
             case PUSH_INPUT_INDEX: {
                 final Integer transactionInputIndex = context.getTransactionInputIndex();

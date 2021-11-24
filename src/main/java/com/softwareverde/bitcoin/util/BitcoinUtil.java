@@ -66,7 +66,7 @@ public class BitcoinUtil {
         final Secp256k1Signature signature = Secp256k1.sign(privateKey, preImage.getBytes());
 
         int recoveryId = -1;
-        for (int candidateRecoveryId=0; candidateRecoveryId < 4; candidateRecoveryId++) {
+        for (int candidateRecoveryId = 0; candidateRecoveryId < 4; candidateRecoveryId++) {
             final PublicKey publicKeyUsedForSigning = PublicKey.fromSignature(signature, preImage, candidateRecoveryId);
             if (publicKeyUsedForSigning == null) { continue; }
             if (! Util.areEqual(publicKey, publicKeyUsedForSigning)) { continue; }

@@ -7,13 +7,16 @@ import com.softwareverde.bitcoin.server.message.type.dsproof.DoubleSpendProofMes
 import com.softwareverde.bitcoin.server.message.type.dsproof.DoubleSpendProofPreimage;
 import com.softwareverde.bitcoin.server.message.type.dsproof.DoubleSpendProofPreimageInflater;
 import com.softwareverde.bitcoin.test.UnitTest;
+import com.softwareverde.bitcoin.test.util.TransactionTestUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputInflater;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.HexUtil;
 import org.junit.After;
@@ -49,9 +52,18 @@ public class DoubleSpendProofPreimageValidatorTests extends UnitTest {
 
         final DoubleSpendProofPreimageValidator doubleSpendProofPreimageValidator = new DoubleSpendProofPreimageValidator(blockHeight, medianBlockTime, new CoreUpgradeSchedule());
 
+        final Integer transactionOutputIndex;
+        final int transactionInputCount;
+        {
+            final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+            transactionInputCount = transactionInputs.getCount();
+            transactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
+        }
+        final List<TransactionOutput> previousTransactionOutputs = TransactionTestUtil.createPreviousTransactionOutputsList(transactionInputCount, transactionOutputIndex, transactionOutput);
+
         // Action
-        final Boolean doubleSpendProofPreimage0IsValid = doubleSpendProofPreimageValidator.validateDoubleSpendProof(transactionOutputIdentifier, transactionOutput, transaction, doubleSpendProofPreimage0);
-        final Boolean doubleSpendProofPreimage1IsValid = doubleSpendProofPreimageValidator.validateDoubleSpendProof(transactionOutputIdentifier, transactionOutput, transaction, doubleSpendProofPreimage1);
+        final Boolean doubleSpendProofPreimage0IsValid = doubleSpendProofPreimageValidator.validateDoubleSpendProof(transactionOutputIdentifier, previousTransactionOutputs, transaction, doubleSpendProofPreimage0);
+        final Boolean doubleSpendProofPreimage1IsValid = doubleSpendProofPreimageValidator.validateDoubleSpendProof(transactionOutputIdentifier, previousTransactionOutputs, transaction, doubleSpendProofPreimage1);
 
         // Assert
         Assert.assertTrue(doubleSpendProofPreimage0IsValid);
@@ -79,10 +91,19 @@ public class DoubleSpendProofPreimageValidatorTests extends UnitTest {
 
         final DoubleSpendProofPreimageValidator doubleSpendProofPreimageValidator = new DoubleSpendProofPreimageValidator(blockHeight, medianBlockTime, new CoreUpgradeSchedule());
 
+        final Integer transactionOutputIndex;
+        final int transactionInputCount;
+        {
+            final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+            transactionInputCount = transactionInputs.getCount();
+            transactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
+        }
+        final List<TransactionOutput> previousTransactionOutputs = TransactionTestUtil.createPreviousTransactionOutputsList(transactionInputCount, transactionOutputIndex, transactionOutput);
+
         // Action
         final Boolean preimagesAreInCanonicalOrder = DoubleSpendProof.arePreimagesInCanonicalOrder(doubleSpendProofPreimage0, doubleSpendProofPreimage1);
-        final Boolean doubleSpendProofPreimage0IsValid = doubleSpendProofPreimageValidator.validateDoubleSpendProof(transactionOutputIdentifier, transactionOutput, transaction, doubleSpendProofPreimage0);
-        final Boolean doubleSpendProofPreimage1IsValid = doubleSpendProofPreimageValidator.validateDoubleSpendProof(transactionOutputIdentifier, transactionOutput, transaction, doubleSpendProofPreimage1);
+        final Boolean doubleSpendProofPreimage0IsValid = doubleSpendProofPreimageValidator.validateDoubleSpendProof(transactionOutputIdentifier, previousTransactionOutputs, transaction, doubleSpendProofPreimage0);
+        final Boolean doubleSpendProofPreimage1IsValid = doubleSpendProofPreimageValidator.validateDoubleSpendProof(transactionOutputIdentifier, previousTransactionOutputs, transaction, doubleSpendProofPreimage1);
 
         // Assert
         Assert.assertTrue(preimagesAreInCanonicalOrder);
@@ -96,18 +117,27 @@ public class DoubleSpendProofPreimageValidatorTests extends UnitTest {
         final TransactionInflater transactionInflater = new TransactionInflater();
         final DoubleSpendProofInflater doubleSpendProofInflater = new DoubleSpendProofInflater();
 
+        final int transactionOutputIndex = 0;
+
         final Transaction transactionBeingSpent = transactionInflater.fromBytes(ByteArray.fromHexString("020000000156EFDEA211A9B51EB4AFDD342CF6DBC971C329677899ABA67DC440744170943F000000006B483045022100EEFB7C3CFF281B85199CCBD195E792E5043BBC0F838F29F62CD4502E3C2ABB6402200A58FD3B711C22EE0483AFF38F399A772FDC8914C189A3B823C4B8AB3248B1EF4121030095B240D954005A336C9C9D0F45B68174A156E4BF5775D32D1B60D021AE01F9FFFFFFFF01E31A1400000000001976A914055934E30C3766DAAFF14581DE4C17AF3E15B67788AC00000000"));
-        final TransactionOutput transactionOutputBeingSpent = transactionBeingSpent.getTransactionOutputs().get(0);
+        final TransactionOutput transactionOutputBeingSpent = transactionBeingSpent.getTransactionOutputs().get(transactionOutputIndex);
 
         // D90639268216CA2AC6548BCEDA561FC42CD17F25F7508C3E7B932460E09635AC
         final Transaction firstSeenTransaction = transactionInflater.fromBytes(ByteArray.fromHexString("020000000180D9D013F245CAA214D7AE2D729BB8D3CE2B955AB7D7D646AB10ADDA2FC60143000000006A473044022066B445798A1E1227C5259ACD7F7028F4EF52B33F3CE98935F00E54E4019CC547022028E5352627E29D7228B06D823A508C9A66326837CCC30BAD9C064C37089CEC5F4121030095B240D954005A336C9C9D0F45B68174A156E4BF5775D32D1B60D021AE01F9FFFFFFFF01E1191400000000001976A914055934E30C3766DAAFF14581DE4C17AF3E15B67788AC00000000"));
 
         final DoubleSpendProof doubleSpendProof = doubleSpendProofInflater.fromBytes(ByteArray.fromHexString("80D9D013F245CAA214D7AE2D729BB8D3CE2B955AB7D7D646AB10ADDA2FC601430000000002000000FFFFFFFF0000000010063C63373C3C9FC453F36739E4128FAC03AE6CE318AE8C72FC4B23B6A4A0D13BB13029CE7B1F559EF5E747FCAC439F1455A2EC7C5F09B72290795E7066504432F2B117A860DA57AA32FCC815A5904A2E948A2C92CA3AAC3F80532DD54299A50147304402204578DE7E28F946DE9916A6AC256B7C9D6968876E3D7C0E340D3863C713A2171802205BAE9FFC8C72EAC812590AA8CA3BB2E9CC322BF2259236B8F8BDC294CA2AD9774102000000FFFFFFFF0000000010063C63373C3C9FC453F36739E4128FAC03AE6CE318AE8C72FC4B23B6A4A0D13BB13029CE7B1F559EF5E747FCAC439F1455A2EC7C5F09B72290795E7066504473DFDF808DE7D14B64DD9539AA3F58590E62C0FE3C9C822BBD894D7D4E18811C01473044022066B445798A1E1227C5259ACD7F7028F4EF52B33F3CE98935F00E54E4019CC547022028E5352627E29D7228B06D823A508C9A66326837CCC30BAD9C064C37089CEC5F41"));
 
+        final int transactionInputCount;
+        {
+            final List<TransactionInput> transactionInputs = firstSeenTransaction.getTransactionInputs();
+            transactionInputCount = transactionInputs.getCount();
+        }
+        final List<TransactionOutput> previousTransactionOutputs = TransactionTestUtil.createPreviousTransactionOutputsList(transactionInputCount, transactionOutputIndex, transactionOutputBeingSpent);
+
         final DoubleSpendProofValidator.Context context = new DoubleSpendProofValidator.Context(
             680880L,
             MedianBlockTime.fromSeconds(1617040573L),
-            transactionOutputBeingSpent,
+            previousTransactionOutputs,
             firstSeenTransaction,
             new CoreUpgradeSchedule()
         );
@@ -126,8 +156,10 @@ public class DoubleSpendProofPreimageValidatorTests extends UnitTest {
         // Setup
         final TransactionInflater transactionInflater = new TransactionInflater();
 
+        final Integer transactionOutputIndex = 0;
+
         final Transaction transactionBeingSpent = transactionInflater.fromBytes(ByteArray.fromHexString("020000000156EFDEA211A9B51EB4AFDD342CF6DBC971C329677899ABA67DC440744170943F000000006B483045022100EEFB7C3CFF281B85199CCBD195E792E5043BBC0F838F29F62CD4502E3C2ABB6402200A58FD3B711C22EE0483AFF38F399A772FDC8914C189A3B823C4B8AB3248B1EF4121030095B240D954005A336C9C9D0F45B68174A156E4BF5775D32D1B60D021AE01F9FFFFFFFF01E31A1400000000001976A914055934E30C3766DAAFF14581DE4C17AF3E15B67788AC00000000"));
-        final TransactionOutput transactionOutputBeingSpent = transactionBeingSpent.getTransactionOutputs().get(0);
+        final TransactionOutput transactionOutputBeingSpent = transactionBeingSpent.getTransactionOutputs().get(transactionOutputIndex);
 
         // D90639268216CA2AC6548BCEDA561FC42CD17F25F7508C3E7B932460E09635AC
         final Transaction firstSeenTransaction = transactionInflater.fromBytes(ByteArray.fromHexString("020000000180D9D013F245CAA214D7AE2D729BB8D3CE2B955AB7D7D646AB10ADDA2FC60143000000006A473044022066B445798A1E1227C5259ACD7F7028F4EF52B33F3CE98935F00E54E4019CC547022028E5352627E29D7228B06D823A508C9A66326837CCC30BAD9C064C37089CEC5F4121030095B240D954005A336C9C9D0F45B68174A156E4BF5775D32D1B60D021AE01F9FFFFFFFF01E1191400000000001976A914055934E30C3766DAAFF14581DE4C17AF3E15B67788AC00000000"));
@@ -139,10 +171,17 @@ public class DoubleSpendProofPreimageValidatorTests extends UnitTest {
         final DoubleSpendProof doubleSpendProof = DoubleSpendProof.createDoubleSpendProof(transactionOutputIdentifier, ScriptType.PAY_TO_PUBLIC_KEY_HASH, firstSeenTransaction, doubleSpendTransaction);
         Assert.assertNotNull(doubleSpendProof);
 
+        final int transactionInputCount;
+        {
+            final List<TransactionInput> transactionInputs = firstSeenTransaction.getTransactionInputs();
+            transactionInputCount = transactionInputs.getCount();
+        }
+        final List<TransactionOutput> previousTransactionOutputs = TransactionTestUtil.createPreviousTransactionOutputsList(transactionInputCount, transactionOutputIndex, transactionOutputBeingSpent);
+
         final DoubleSpendProofValidator.Context context = new DoubleSpendProofValidator.Context(
             680880L,
             MedianBlockTime.fromSeconds(1617040573L),
-            transactionOutputBeingSpent,
+            previousTransactionOutputs,
             firstSeenTransaction,
             new CoreUpgradeSchedule()
         );

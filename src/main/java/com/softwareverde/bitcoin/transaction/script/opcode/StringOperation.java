@@ -80,7 +80,9 @@ public class StringOperation extends SubTypedOperation {
                 // { 0x00, 0x11, 0x22 } 0x03 SPLIT -> { 0x00, 0x11, 0x22 } { }
 
                 final Value beginIndexValue = stack.pop();
-                if (! Operation.validateMinimalEncoding(beginIndexValue, context)) { return false; }
+                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                    if (! beginIndexValue.isMinimallyEncoded()) { return false; }
+                }
                 if (! beginIndexValue.isWithinIntegerRange()) { return false; }
 
                 final Value value = stack.pop();
@@ -123,10 +125,16 @@ public class StringOperation extends SubTypedOperation {
 
                 final Value value = stack.pop();
 
-                if (! Operation.isWithinLongIntegerRange(value)) { return false; }
                 final Long valueInteger = value.asLong();
 
-                stack.push(Value.fromInteger(valueInteger));
+                final Value newValue = Value.fromInteger(valueInteger);
+
+                if (! newValue.isWithinLongIntegerRange()) { return false; }
+                if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+                    if (! newValue.isWithinIntegerRange()) { return false; }
+                }
+
+                stack.push(newValue);
 
                 return (! stack.didOverflow());
             }
@@ -143,7 +151,7 @@ public class StringOperation extends SubTypedOperation {
                 final Value value = stack.pop();
 
                 if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
-                    if (! Operation.isMinimallyEncoded(byteCountValue)) { return false; }
+                    if (! byteCountValue.isMinimallyEncoded()) { return false; }
                 }
                 if (! byteCountValue.isWithinIntegerRange()) { return false; }
 

@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.script.opcode.ArithmeticOperation;
 import com.softwareverde.bitcoin.transaction.script.opcode.Opcode;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
@@ -44,6 +45,22 @@ public class ScriptRunner {
             this.isValid = isValid;
             this.signatureOperationCount = signatureOperationCount;
         }
+    }
+
+    protected Boolean _failIfPresent(final Operation operation, final TransactionContext context) {
+        if (operation.failIfPresent()) { return true; }
+
+        // May be removed after 20220515HF...
+        final MedianBlockTime medianBlockTime = context.getMedianBlockTime();
+        if (! _upgradeSchedule.isMultiplyOperationEnabled(medianBlockTime)) {
+            if (operation instanceof ArithmeticOperation) {
+                final ArithmeticOperation arithmeticOperation = (ArithmeticOperation) operation;
+                final Opcode opcode = arithmeticOperation.getOpcode();
+                if (opcode == Opcode.MULTIPLY) { return true; }
+            }
+        }
+
+        return false;
     }
 
     protected final UpgradeSchedule _upgradeSchedule;
@@ -97,7 +114,7 @@ public class ScriptRunner {
                         return ScriptRunnerResult.invalid(mutableContext);
                     }
 
-                    if (operation.failIfPresent()) {
+                    if (_failIfPresent(operation, mutableContext)) {
                         return ScriptRunnerResult.invalid(mutableContext);
                     }
 
@@ -131,7 +148,7 @@ public class ScriptRunner {
                         return ScriptRunnerResult.invalid(mutableContext);
                     }
 
-                    if (operation.failIfPresent()) {
+                    if (_failIfPresent(operation, mutableContext)) {
                         return ScriptRunnerResult.invalid(mutableContext);
                     }
 
@@ -205,7 +222,7 @@ public class ScriptRunner {
                             return ScriptRunnerResult.invalid(mutableContext);
                         }
 
-                        if (operation.failIfPresent()) {
+                        if (_failIfPresent(operation, mutableContext)) {
                             return ScriptRunnerResult.invalid(mutableContext);
                         }
 

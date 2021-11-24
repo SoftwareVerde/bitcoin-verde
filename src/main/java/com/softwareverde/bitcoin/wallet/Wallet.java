@@ -1107,7 +1107,7 @@ public class Wallet {
         final List<PaymentAmount> expectedPaymentAmounts = slpTokenTransactionConfiguration.mutablePaymentAmounts;
         final List<PaymentAmount> bundlePaymentAmounts = transactionBundle.paymentAmountsWithChange;
         boolean shouldUpdateSlpTokenConfiguration = false;
-        for (int i=0; i<bundlePaymentAmounts.getCount(); i++) {
+        for (int i = 0; i < bundlePaymentAmounts.getCount(); i++) {
             final PaymentAmount bundlePaymentAmount = bundlePaymentAmounts.get(i);
             if (bundlePaymentAmount instanceof SlpPaymentAmount) {
                 if (expectedPaymentAmounts.getCount() <= i) {

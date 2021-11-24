@@ -19,6 +19,8 @@ public class Value extends ImmutableByteArray implements Const {
     public static final Integer MAX_BYTE_COUNT = 520; // https://en.bitcoin.it/wiki/Script#Arithmetic
     public static final Value ZERO = Value.fromInteger(0L);
     public static final Value EMPTY = Value.fromBytes(new ImmutableByteArray());
+    public static final Integer MAX_INTEGER_BYTE_COUNT = 4;
+    public static final Integer MAX_LONG_BYTE_COUNT = 8;
 
     /**
      * Returns a new copy of littleEndianBytes as if it were a minimally encoded integer (despite being too long for a normal integer).
@@ -219,7 +221,7 @@ public class Value extends ImmutableByteArray implements Const {
     }
 
     public Boolean isWithinIntegerRange() {
-        if (_bytes.length > 4) { return false; }
+        if (_bytes.length > MAX_INTEGER_BYTE_COUNT) { return false; }
         final Long longValue = _asLong();
 
         if (longValue < Integer.MIN_VALUE) { return false; }
@@ -228,9 +230,29 @@ public class Value extends ImmutableByteArray implements Const {
     }
 
     public Boolean isWithinLongIntegerRange() {
-        if (_bytes.length> 8) { return false; }
+        if (_bytes.length > MAX_LONG_BYTE_COUNT) { return false; }
         final Long longValue = _asLong();
         return (longValue > Long.MIN_VALUE); // Min of -9223372036854775807 due to script numbers encoding +0 and -0.
+    }
+
+    public Boolean isMinimallyEncoded() {
+        final int byteCount = _bytes.length;
+        if (byteCount == 0) { return true; } // The only valid encoding of zero is an empty array.
+        if (byteCount > MAX_INTEGER_BYTE_COUNT) { return false; } // Numeric values are not allowed to be larger than 4 bytes.
+
+        final byte leadingByte = _bytes[byteCount - 1];
+        final boolean valueBitsAreSet = ((leadingByte & 0x7F) != 0);
+        if (! valueBitsAreSet) { // If the only bit set is the sign bit...
+            if (byteCount == 1) { return false; } // Negative-zero encodings are not allowed.
+
+            final byte secondLeadingByte = _bytes[byteCount - 2];
+            final boolean signBitIsSet = ((secondLeadingByte & 0x80) != 0);
+            if (! signBitIsSet) { // If the sign bit is the only bit set on the MSB then the sign bit must not be set on the 2nd MSB.
+                return false;
+            }
+        }
+
+        return true;
     }
 
     @Override
