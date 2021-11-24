@@ -156,7 +156,7 @@ public class AbcScriptRunnerTests extends UnitTest {
         return (! isTestVectorEnabled);
     }
 
-    public static void rebuiltTestVectorManifest() {
+    public static void rebuildTestVectorManifest() {
         final HashSet<Sha256Hash> newDisabledTests = new HashSet<>();
         final HashSet<Sha256Hash> newEnabledTests = new HashSet<>();
 
@@ -371,12 +371,34 @@ public class AbcScriptRunnerTests extends UnitTest {
             case "MAX":                 { return AbcScriptRunnerTests.wrapByte((byte) 0xA4); }
             case "WITHIN":              { return AbcScriptRunnerTests.wrapByte((byte) 0xA5); }
 
+            case "REVERSEBYTES":            { return AbcScriptRunnerTests.wrapByte((byte) 0xBC); }
+            case "OP_INPUTINDEX":           { return AbcScriptRunnerTests.wrapByte((byte) 0xC0); }
+            case "OP_ACTIVEBYTECODE":       { return AbcScriptRunnerTests.wrapByte((byte) 0xC1); }
+            case "OP_TXVERSION":            { return AbcScriptRunnerTests.wrapByte((byte) 0xC2); }
+            case "OP_TXINPUTCOUNT":         { return AbcScriptRunnerTests.wrapByte((byte) 0xC3); }
+            case "OP_TXOUTPUTCOUNT":        { return AbcScriptRunnerTests.wrapByte((byte) 0xC4); }
+            case "OP_TXLOCKTIME":           { return AbcScriptRunnerTests.wrapByte((byte) 0xC5); }
+            case "OP_UTXOVALUE":            { return AbcScriptRunnerTests.wrapByte((byte) 0xC6); }
+            case "OP_UTXOBYTECODE":         { return AbcScriptRunnerTests.wrapByte((byte) 0xC7); }
+            case "OP_OUTPOINTTXHASH":       { return AbcScriptRunnerTests.wrapByte((byte) 0xC8); }
+            case "OP_OUTPOINTINDEX":        { return AbcScriptRunnerTests.wrapByte((byte) 0xC9); }
+            case "OP_INPUTBYTECODE":        { return AbcScriptRunnerTests.wrapByte((byte) 0xCA); }
+            case "OP_INPUTSEQUENCENUMBER":  { return AbcScriptRunnerTests.wrapByte((byte) 0xCB); }
+            case "OP_OUTPUTVALUE":          { return AbcScriptRunnerTests.wrapByte((byte) 0xCC); }
+            case "OP_OUTPUTBYTECODE":       { return AbcScriptRunnerTests.wrapByte((byte) 0xCD); }
+
             case "RESERVED":    { return AbcScriptRunnerTests.wrapByte((byte) 0x50); }
             case "VER":         { return AbcScriptRunnerTests.wrapByte((byte) 0x62); }
             case "VERIF":       { return AbcScriptRunnerTests.wrapByte((byte) 0x65); }
             case "VERNOTIF":    { return AbcScriptRunnerTests.wrapByte((byte) 0x66); }
+            case "OP:RESERVED1": // Fallthrough...
             case "RESERVED1":   { return AbcScriptRunnerTests.wrapByte((byte) 0x89); }
+            case "OP_RESERVED2": // Fallthrough...
             case "RESERVED2":   { return AbcScriptRunnerTests.wrapByte((byte) 0x8A); }
+            case "OP_RESERVED3": // Fallthrough...
+            case "RESERVED3":   { return AbcScriptRunnerTests.wrapByte((byte) 0xCE); }
+            case "OP_RESERVED4": // Fallthrough...
+            case "RESERVED4":   { return AbcScriptRunnerTests.wrapByte((byte) 0xCF); }
             case "NOP1":        { return AbcScriptRunnerTests.wrapByte((byte) 0xB0); }
             case "NOP4":        { return AbcScriptRunnerTests.wrapByte((byte) 0xB3); }
             case "NOP5":        { return AbcScriptRunnerTests.wrapByte((byte) 0xB4); }
@@ -568,6 +590,11 @@ public class AbcScriptRunnerTests extends UnitTest {
             context.setBlockHeight(1L);
             context.setMedianBlockTime(medianBlockTime);
 
+            upgradeSchedule.setAre64BitScriptIntegersEnabled(false);
+            upgradeSchedule.setAreIntrospectionOperationsEnabled(false);
+            upgradeSchedule.setMultiplyOperationEnabled(false);
+            upgradeSchedule.setReverseBytesOperationEnabled(true);
+
             if (testVector.flagsString.contains("MINIMALDATA")) {
                 upgradeSchedule.setMinimalNumberEncodingRequired(true);
             }
@@ -613,10 +640,10 @@ public class AbcScriptRunnerTests extends UnitTest {
             if (testVector.flagsString.contains("DISALLOW_SEGWIT_RECOVERY")) {
                 upgradeSchedule.setUnusedValuesAfterSegwitScriptExecutionAllowed(false);
             }
-
-            upgradeSchedule.setAre64BitScriptIntegersEnabled(false);
-            upgradeSchedule.setAreIntrospectionOperationsEnabled(false);
-            upgradeSchedule.setMultiplyOperationEnabled(false);
+            if (testVector.flagsString.contains("64_BIT_INTEGERS")) {
+                upgradeSchedule.setAre64BitScriptIntegersEnabled(true);
+                upgradeSchedule.setMultiplyOperationEnabled(true);
+            }
 
             final boolean wasValid = scriptRunner.runScript(lockingScript, unlockingScript, context).isValid;
 
@@ -654,8 +681,8 @@ public class AbcScriptRunnerTests extends UnitTest {
         Assert.assertEquals(0, failCount);
     }
 
-    // @Test
-    // public void rebuild_test_vector_manifest() {
-    //     AbcScriptRunnerTests.rebuiltTestVectorManifest();
-    // }
+//    @Test
+//    public void rebuild_test_vector_manifest() {
+//        AbcScriptRunnerTests.rebuildTestVectorManifest();
+//    }
 }

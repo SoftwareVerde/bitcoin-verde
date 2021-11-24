@@ -316,4 +316,30 @@ public class ValueTests {
         // Assert
         Assert.assertEquals(expectedEncoding, encodedValue);
     }
+
+    @Test
+    public void should_inflate_64bit_value_from_long() {
+        // Setup
+        final Long expectedValue = (Long.MIN_VALUE + 1L);
+
+        // Action
+        final Value value = Value.fromInteger(expectedValue);
+        final Long valueLong = value.asLong();
+
+        // Assert
+        Assert.assertEquals(valueLong, expectedValue);
+    }
+
+    @Test
+    public void should_inflate_32bit_value_from_long() {
+        // Setup
+        final Integer expectedValue = (Integer.MIN_VALUE + 1);
+
+        // Action
+        final Value value = Value.fromInteger(expectedValue);
+        final Integer valueLong = value.asInteger();
+
+        // Assert
+        Assert.assertEquals(valueLong, expectedValue);
+    }
 }

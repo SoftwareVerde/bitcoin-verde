@@ -94,8 +94,8 @@ public class Value extends ImmutableByteArray implements Const {
         final boolean isNegative = (value < 0L);
 
         final long absValue = Math.abs(value);
-        final int unsignedByteCount = ( (BitcoinUtil.log2((int) absValue) / 8) + 1 );
-        final byte[] absValueBytes = ByteUtil.integerToBytes(absValue);
+        final int unsignedByteCount = (int) ( (BitcoinUtil.log2(absValue) / 8) + 1 );
+        final byte[] absValueBytes = ByteUtil.longToBytes(absValue);
 
         final boolean requiresSignPadding = ((absValueBytes[absValueBytes.length - unsignedByteCount] & 0x80) == 0x80);
 

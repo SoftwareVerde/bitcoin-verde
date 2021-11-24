@@ -392,7 +392,6 @@ public class ArithmeticOperation extends SubTypedOperation {
                     if (! value0.isWithinIntegerRange()) { return false; }
                 }
 
-
                 final Long longValue0 = value0.asLong();
                 final Long longValue1 = value1.asLong();
 
