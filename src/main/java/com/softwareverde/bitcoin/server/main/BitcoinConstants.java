@@ -35,6 +35,10 @@ public class BitcoinConstants {
         }
     }
 
+    public enum Network {
+        MAIN, TEST, TEST4, SCALE
+    }
+
     private static final String LOCKED_ERROR_MESSAGE = "Attempting to set SystemProperty after initialization.";
     private static Boolean LOCKED = false;
 
@@ -70,6 +74,12 @@ public class BitcoinConstants {
         Difficulty.decode(ByteArray.wrap(HexUtil.hexStringToByteArray("1D00FFFF")))
     );
 
+    protected static AsertReferenceBlock TEST_NET4_ASERT_REFERENCE_BLOCK = new AsertReferenceBlock(
+        16844L,
+        1605451779L,
+        Difficulty.decode(ByteArray.wrap(HexUtil.hexStringToByteArray("1D00FFFF")))
+    );
+
     public static final Default MainNet = new Default(
         "000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F",
         1231006505L, // In seconds.
@@ -85,6 +95,15 @@ public class BitcoinConstants {
         18333,
         "F4F3E5F4",
         TEST_NET_ASERT_REFERENCE_BLOCK,
+        (int) (32L * ByteUtil.Unit.Si.MEGABYTES)
+    );
+
+    public static final Default TestNet4 = new Default(
+        "000000001DD410C49A788668CE26751718CC797474D3152A5FC073DD44FD9F7B",
+        1597811185L, // In seconds.
+        28333,
+        "AFDAB7E2",
+        TEST_NET4_ASERT_REFERENCE_BLOCK,
         (int) (32L * ByteUtil.Unit.Si.MEGABYTES)
     );
 
@@ -141,6 +160,14 @@ public class BitcoinConstants {
                 BitcoinConstants.setDefaultNetworkPort(BitcoinConstants.TestNet.defaultNetworkPort);
                 BitcoinConstants.setDefaultRpcPort(BitcoinConstants.TestNet.defaultRpcPort);
                 BitcoinConstants.setAsertReferenceBlock(BitcoinConstants.TestNet.asertReferenceBlock);
+            } break;
+            case TEST_NET4: {
+                BitcoinConstants.setGenesisBlockHash(BitcoinConstants.TestNet4.genesisBlockHash);
+                BitcoinConstants.setGenesisBlockTimestamp(BitcoinConstants.TestNet4.genesisBlockTimestamp);
+                BitcoinConstants.setNetMagicNumber(BitcoinConstants.TestNet4.netMagicNumber);
+                BitcoinConstants.setDefaultNetworkPort(BitcoinConstants.TestNet4.defaultNetworkPort);
+                BitcoinConstants.setDefaultRpcPort(BitcoinConstants.TestNet4.defaultRpcPort);
+                BitcoinConstants.setAsertReferenceBlock(BitcoinConstants.TestNet4.asertReferenceBlock);
             } break;
             default: {
                 BitcoinConstants.setGenesisBlockHash(BitcoinConstants.MainNet.genesisBlockHash);

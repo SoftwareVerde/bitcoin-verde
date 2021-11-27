@@ -265,7 +265,6 @@ public class ArithmeticOperation extends SubTypedOperation {
             }
 
             case MULTIPLY: {
-                System.out.println("Enabled: " + upgradeSchedule.isMultiplyOperationEnabled(medianBlockTime));
                 if (! upgradeSchedule.isMultiplyOperationEnabled(medianBlockTime)) { return false; }
 
                 final Value value1 = stack.pop();
@@ -285,8 +284,6 @@ public class ArithmeticOperation extends SubTypedOperation {
                 if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
                     if (! value0.isWithinIntegerRange()) { return false; }
                 }
-
-
 
                 final Long longValue0 = value0.asLong();
                 final Long longValue1 = value1.asLong();

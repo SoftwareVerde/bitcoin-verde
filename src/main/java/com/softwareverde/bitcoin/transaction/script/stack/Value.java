@@ -238,7 +238,7 @@ public class Value extends ImmutableByteArray implements Const {
     public Boolean isMinimallyEncoded() {
         final int byteCount = _bytes.length;
         if (byteCount == 0) { return true; } // The only valid encoding of zero is an empty array.
-        if (byteCount > MAX_INTEGER_BYTE_COUNT) { return false; } // Numeric values are not allowed to be larger than 4 bytes.
+        if (byteCount > MAX_LONG_BYTE_COUNT) { return false; } // Numeric values are not allowed to be larger than 4 bytes.
 
         final byte leadingByte = _bytes[byteCount - 1];
         final boolean valueBitsAreSet = ((leadingByte & 0x7F) != 0);

@@ -342,4 +342,19 @@ public class ValueTests {
         // Assert
         Assert.assertEquals(valueLong, expectedValue);
     }
+
+    @Test
+    public void minimally_encode_long_value() {
+        // Setup
+        final Value value = Value.fromBytes(ByteArray.fromHexString("668E97BAF243"));
+        final Value fromIntegerValue = Value.fromInteger(value.asLong());
+
+        // Action
+        final Boolean isMinimallyEncoded = value.isMinimallyEncoded();
+        final Boolean isMinimallyEncoded2 = fromIntegerValue.isMinimallyEncoded();
+
+        // Assert
+        Assert.assertTrue(isMinimallyEncoded);
+        Assert.assertTrue(isMinimallyEncoded2);
+    }
 }

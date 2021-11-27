@@ -263,11 +263,6 @@ public class Main {
                 final BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
                 final BitcoinVerdeDatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
 
-                if (bitcoinProperties.isTestNet()) {
-                    BitcoinConstants.configureForNetwork(NetworkType.TEST_NET);
-                }
-                BitcoinConstants.setBlockMaxByteCount(bitcoinProperties.getBlockMaxByteCount());
-
                 { // Set Log Level...
                     try {
                         final String logDirectory = bitcoinProperties.getLogDirectory();
@@ -295,6 +290,15 @@ public class Main {
 
                 final Thread loggerFlushThread = _createLoggerFlusher();
                 loggerFlushThread.start();
+
+                if (bitcoinProperties.isTestNet()) {
+                    final NetworkType networkType = bitcoinProperties.getNetworkType();
+                    BitcoinConstants.configureForNetwork(networkType);
+                    Logger.info("[Network " + networkType + "]");
+                }
+
+                final Integer blockMaxByteCount = bitcoinProperties.getBlockMaxByteCount();
+                BitcoinConstants.setBlockMaxByteCount(blockMaxByteCount);
 
                 final Container<NodeModule> nodeModuleContainer = new Container<>();
                 final BitcoinVerdeDatabase database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, bitcoinProperties, databaseProperties);
@@ -336,7 +340,9 @@ public class Main {
                 final BitcoinVerdeDatabaseProperties databaseProperties = configuration.getSpvDatabaseProperties();
 
                 if (bitcoinProperties.isTestNet()) {
-                    BitcoinConstants.configureForNetwork(NetworkType.TEST_NET);
+                    final NetworkType networkType = bitcoinProperties.getNetworkType();
+                    BitcoinConstants.configureForNetwork(networkType);
+                    Logger.info("[Network " + networkType + "]");
                 }
                 BitcoinConstants.setBlockMaxByteCount(bitcoinProperties.getBlockMaxByteCount());
 

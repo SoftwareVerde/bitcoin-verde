@@ -143,7 +143,7 @@ public class IntrospectionOperation extends SubTypedOperation {
             case PUSH_TRANSACTION_LOCK_TIME: {
                 final Transaction transaction = context.getTransaction();
                 final LockTime lockTime = transaction.getLockTime();
-                final Value value = Value.fromBytes(lockTime.getBytes());
+                final Value value = Value.fromInteger(lockTime.getValue());
 
                 stack.push(value);
                 return true;
@@ -257,7 +257,7 @@ public class IntrospectionOperation extends SubTypedOperation {
                 }
 
                 final SequenceNumber sequenceNumber = transactionInput.getSequenceNumber();
-                final Value value = Value.fromBytes(sequenceNumber.getBytes());
+                final Value value = Value.fromInteger(sequenceNumber.getValue());
 
                 stack.push(value);
                 return true;
