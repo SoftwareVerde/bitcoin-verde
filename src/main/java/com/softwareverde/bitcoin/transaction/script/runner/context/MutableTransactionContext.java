@@ -9,15 +9,16 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.Util;
 
 public class MutableTransactionContext implements TransactionContext {
-    public static MutableTransactionContext getContextForVerification(final Transaction signedTransaction, final Integer transactionInputIndex, final TransactionOutput transactionOutputBeingSpent, final UpgradeSchedule upgradeSchedule) {
-        return MutableTransactionContext.getContextForVerification(signedTransaction, transactionInputIndex, transactionOutputBeingSpent, MedianBlockTime.MAX_VALUE, upgradeSchedule);
+    public static MutableTransactionContext getContextForVerification(final Transaction signedTransaction, final Integer transactionInputIndex, final List<TransactionOutput> previousTransactionOutputs, final UpgradeSchedule upgradeSchedule) {
+        return MutableTransactionContext.getContextForVerification(signedTransaction, transactionInputIndex, previousTransactionOutputs, MedianBlockTime.MAX_VALUE, upgradeSchedule);
     }
 
-    public static MutableTransactionContext getContextForVerification(final Transaction signedTransaction, final Integer transactionInputIndex, final TransactionOutput transactionOutputBeingSpent, final MedianBlockTime medianBlockTime, final UpgradeSchedule upgradeSchedule) {
+    public static MutableTransactionContext getContextForVerification(final Transaction signedTransaction, final Integer transactionInputIndex, final List<TransactionOutput> previousTransactionOutputs, final MedianBlockTime medianBlockTime, final UpgradeSchedule upgradeSchedule) {
         final List<TransactionInput> signedTransactionInputs = signedTransaction.getTransactionInputs();
         final TransactionInput signedTransactionInput = signedTransactionInputs.get(transactionInputIndex);
 
@@ -28,8 +29,8 @@ public class MutableTransactionContext implements TransactionContext {
         mutableContext.setTransaction(signedTransaction);
         mutableContext.setBlockHeight(Long.MAX_VALUE);
         mutableContext.setMedianBlockTime(Util.coalesce(medianBlockTime, MedianBlockTime.MAX_VALUE));
-        mutableContext.setTransactionOutputBeingSpent(transactionOutputBeingSpent);
         mutableContext.setCurrentScriptLastCodeSeparatorIndex(0);
+        mutableContext.setPreviousTransactionOutputs(previousTransactionOutputs);
         return mutableContext;
     }
 
@@ -42,7 +43,7 @@ public class MutableTransactionContext implements TransactionContext {
 
     protected Integer _transactionInputIndex;
     protected TransactionInput _transactionInput;
-    protected TransactionOutput _transactionOutput;
+    protected final MutableList<TransactionOutput> _previousTransactionOutputs = new MutableList<>(0);
 
     protected Script _currentScript = null;
     protected Integer _currentScriptIndex = 0;
@@ -67,7 +68,11 @@ public class MutableTransactionContext implements TransactionContext {
         _transaction = ConstUtil.asConstOrNull(transactionContext.getTransaction());
         _transactionInputIndex = transactionContext.getTransactionInputIndex();
         _transactionInput = ConstUtil.asConstOrNull(transactionContext.getTransactionInput());
-        _transactionOutput = ConstUtil.asConstOrNull(transactionContext.getTransactionOutput());
+
+        final List<TransactionOutput> transactionOutputs = transactionContext.getPreviousTransactionOutputs();
+        if (transactionOutputs != null) {
+            _previousTransactionOutputs.addAll(ConstUtil.asConstOrNull(transactionOutputs));
+        }
 
         final Script currentScript = transactionContext.getCurrentScript();
         _currentScript = ConstUtil.asConstOrNull(currentScript);
@@ -101,8 +106,9 @@ public class MutableTransactionContext implements TransactionContext {
         _transactionInput = transactionInput;
     }
 
-    public void setTransactionOutputBeingSpent(final TransactionOutput transactionOutput) {
-        _transactionOutput = transactionOutput;
+    public void setPreviousTransactionOutputs(final List<TransactionOutput> transactionOutputs) {
+        _previousTransactionOutputs.clear();
+        _previousTransactionOutputs.addAll(transactionOutputs);
     }
 
     public void setCurrentScript(final Script script) {
@@ -148,8 +154,21 @@ public class MutableTransactionContext implements TransactionContext {
     }
 
     @Override
-    public TransactionOutput getTransactionOutput() {
-        return _transactionOutput;
+    public TransactionOutput getTransactionOutputBeingSpent() {
+        if (_transactionInputIndex == null) { return null; }
+        if (_transactionInputIndex >= _previousTransactionOutputs.getCount()) { return null; }
+        return _previousTransactionOutputs.get(_transactionInputIndex);
+    }
+
+    @Override
+    public TransactionOutput getPreviousTransactionOutput(final Integer outputIndex) {
+        if (outputIndex >= _previousTransactionOutputs.getCount()) { return null; }
+        return _previousTransactionOutputs.get(outputIndex);
+    }
+
+    @Override
+    public List<TransactionOutput> getPreviousTransactionOutputs() {
+        return _previousTransactionOutputs;
     }
 
     @Override

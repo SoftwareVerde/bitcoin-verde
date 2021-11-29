@@ -22,6 +22,8 @@ public class CoreUpgradeSchedule implements UpgradeSchedule {
     private static final long HF20200515_ACTIVATION_TIME = 1589544000L; // Bitcoin Cash: 2020-05-15 Hard Fork:  https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/2020-05-15-upgrade.md
     private static final long HF20201115_ACTIVATION_TIME = 1605441600L; // Bitcoin Cash: 2020-11-15 Hard Fork:  https://gitlab.com/bitcoin-cash-node/bchn-sw/bitcoincash-upgrade-specifications/-/blob/master/spec/2020-11-15-upgrade.md
 
+    private static final long HF20220515_ACTIVATION_TIME = 1652616000L; // Bitcoin Cash: 2022-05-15 Hard Fork:  https://gitlab.com/bitcoin-cash-node/bchn-sw/bitcoincash-upgrade-specifications/-/blob/master/spec/2022-05-15-upgrade.md
+
     @Override
     public Boolean isMinimalNumberEncodingRequired(final MedianBlockTime medianBlockTime) {
         return (medianBlockTime.getCurrentTimeInSeconds() >= HF20191115_ACTIVATION_TIME);
@@ -146,5 +148,20 @@ public class CoreUpgradeSchedule implements UpgradeSchedule {
     @Override
     public Boolean isReverseBytesOperationEnabled(final MedianBlockTime medianBlockTime) {
         return (medianBlockTime.getCurrentTimeInSeconds() >= HF20200515_ACTIVATION_TIME);
+    }
+
+    @Override
+    public Boolean areIntrospectionOperationsEnabled(final MedianBlockTime medianBlockTime) {
+        return (medianBlockTime.getCurrentTimeInSeconds() >= HF20220515_ACTIVATION_TIME);
+    }
+
+    @Override
+    public Boolean are64BitScriptIntegersEnabled(final MedianBlockTime medianBlockTime) {
+        return (medianBlockTime.getCurrentTimeInSeconds() >= HF20220515_ACTIVATION_TIME);
+    }
+
+    @Override
+    public Boolean isMultiplyOperationEnabled(final MedianBlockTime medianBlockTime) {
+        return (medianBlockTime.getCurrentTimeInSeconds() >= HF20220515_ACTIVATION_TIME);
     }
 }

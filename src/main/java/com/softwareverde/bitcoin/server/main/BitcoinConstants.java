@@ -35,6 +35,10 @@ public class BitcoinConstants {
         }
     }
 
+    public enum Network {
+        MAIN, TEST, TEST4, SCALE
+    }
+
     private static final String LOCKED_ERROR_MESSAGE = "Attempting to set SystemProperty after initialization.";
     private static Boolean LOCKED = false;
 
@@ -56,7 +60,7 @@ public class BitcoinConstants {
     protected static String USER_AGENT;
     protected static String COINBASE_MESSAGE;
 
-    protected static final List<UtxoCommitmentMetadata> UTXO_COMMITMENTS;
+    protected static List<UtxoCommitmentMetadata> UTXO_COMMITMENTS;
 
     protected static AsertReferenceBlock ASERT_REFERENCE_BLOCK = new AsertReferenceBlock(
         661647L,
@@ -67,6 +71,12 @@ public class BitcoinConstants {
     protected static AsertReferenceBlock TEST_NET_ASERT_REFERENCE_BLOCK = new AsertReferenceBlock(
         1421481L,
         1605445400L,
+        Difficulty.decode(ByteArray.wrap(HexUtil.hexStringToByteArray("1D00FFFF")))
+    );
+
+    protected static AsertReferenceBlock TEST_NET4_ASERT_REFERENCE_BLOCK = new AsertReferenceBlock(
+        16844L,
+        1605451779L,
         Difficulty.decode(ByteArray.wrap(HexUtil.hexStringToByteArray("1D00FFFF")))
     );
 
@@ -85,6 +95,15 @@ public class BitcoinConstants {
         18333,
         "F4F3E5F4",
         TEST_NET_ASERT_REFERENCE_BLOCK,
+        (int) (32L * ByteUtil.Unit.Si.MEGABYTES)
+    );
+
+    public static final Default TestNet4 = new Default(
+        "000000001DD410C49A788668CE26751718CC797474D3152A5FC073DD44FD9F7B",
+        1597811185L, // In seconds.
+        28333,
+        "AFDAB7E2",
+        TEST_NET4_ASERT_REFERENCE_BLOCK,
         (int) (32L * ByteUtil.Unit.Si.MEGABYTES)
     );
 
@@ -142,6 +161,14 @@ public class BitcoinConstants {
                 BitcoinConstants.setDefaultRpcPort(BitcoinConstants.TestNet.defaultRpcPort);
                 BitcoinConstants.setAsertReferenceBlock(BitcoinConstants.TestNet.asertReferenceBlock);
             } break;
+            case TEST_NET4: {
+                BitcoinConstants.setGenesisBlockHash(BitcoinConstants.TestNet4.genesisBlockHash);
+                BitcoinConstants.setGenesisBlockTimestamp(BitcoinConstants.TestNet4.genesisBlockTimestamp);
+                BitcoinConstants.setNetMagicNumber(BitcoinConstants.TestNet4.netMagicNumber);
+                BitcoinConstants.setDefaultNetworkPort(BitcoinConstants.TestNet4.defaultNetworkPort);
+                BitcoinConstants.setDefaultRpcPort(BitcoinConstants.TestNet4.defaultRpcPort);
+                BitcoinConstants.setAsertReferenceBlock(BitcoinConstants.TestNet4.asertReferenceBlock);
+            } break;
             default: {
                 BitcoinConstants.setGenesisBlockHash(BitcoinConstants.MainNet.genesisBlockHash);
                 BitcoinConstants.setGenesisBlockTimestamp(BitcoinConstants.MainNet.genesisBlockTimestamp);
@@ -151,6 +178,10 @@ public class BitcoinConstants {
                 BitcoinConstants.setAsertReferenceBlock(BitcoinConstants.MainNet.asertReferenceBlock);
             }
         }
+    }
+
+    public static Boolean isLocked() {
+        return LOCKED;
     }
 
     public static String getGenesisBlockHash() {
@@ -369,6 +400,14 @@ public class BitcoinConstants {
 
     public static List<UtxoCommitmentMetadata> getUtxoCommitments() {
         return UTXO_COMMITMENTS;
+    }
+
+    public static void setUtxoCommitments(final List<UtxoCommitmentMetadata> utxoCommitmentMetadata) {
+        if (LOCKED) {
+            throw new RuntimeException(LOCKED_ERROR_MESSAGE);
+        }
+
+        UTXO_COMMITMENTS = utxoCommitmentMetadata;
     }
 
     protected BitcoinConstants() { }

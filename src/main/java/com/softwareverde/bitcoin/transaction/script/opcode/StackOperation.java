@@ -1,5 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
@@ -9,17 +11,17 @@ import com.softwareverde.util.bytearray.ByteArrayReader;
 public class StackOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_STACK;
 
-    public static final StackOperation POP_TO_ALT_STACK             = new StackOperation(Opcode.POP_TO_ALT_STACK.getValue(),            Opcode.POP_TO_ALT_STACK);
-    public static final StackOperation POP_FROM_ALT_STACK           = new StackOperation(Opcode.POP_FROM_ALT_STACK.getValue(),          Opcode.POP_FROM_ALT_STACK);
-    public static final StackOperation IF_1ST_TRUE_THEN_COPY_1ST    = new StackOperation(Opcode.IF_1ST_TRUE_THEN_COPY_1ST.getValue(),   Opcode.IF_1ST_TRUE_THEN_COPY_1ST);
-    public static final StackOperation POP                          = new StackOperation(Opcode.POP.getValue(),                         Opcode.POP);
-    public static final StackOperation REMOVE_2ND_FROM_TOP          = new StackOperation(Opcode.REMOVE_2ND_FROM_TOP.getValue(),         Opcode.REMOVE_2ND_FROM_TOP);
-    public static final StackOperation MOVE_NTH_TO_1ST              = new StackOperation(Opcode.MOVE_NTH_TO_1ST.getValue(),             Opcode.MOVE_NTH_TO_1ST);
-    public static final StackOperation ROTATE_TOP_3                 = new StackOperation(Opcode.ROTATE_TOP_3.getValue(),                Opcode.ROTATE_TOP_3);
-    public static final StackOperation SWAP_1ST_WITH_2ND            = new StackOperation(Opcode.SWAP_1ST_WITH_2ND.getValue(),           Opcode.SWAP_1ST_WITH_2ND);
-    public static final StackOperation POP_THEN_POP                 = new StackOperation(Opcode.POP_THEN_POP.getValue(),                Opcode.POP_THEN_POP);
-    public static final StackOperation MOVE_5TH_AND_6TH_TO_TOP      = new StackOperation(Opcode.MOVE_5TH_AND_6TH_TO_TOP.getValue(),     Opcode.MOVE_5TH_AND_6TH_TO_TOP);
-    public static final StackOperation SWAP_1ST_2ND_WITH_3RD_4TH    = new StackOperation(Opcode.SWAP_1ST_2ND_WITH_3RD_4TH.getValue(),   Opcode.SWAP_1ST_2ND_WITH_3RD_4TH);
+    public static final StackOperation POP_TO_ALT_STACK             = new StackOperation(Opcode.POP_TO_ALT_STACK);
+    public static final StackOperation POP_FROM_ALT_STACK           = new StackOperation(Opcode.POP_FROM_ALT_STACK);
+    public static final StackOperation IF_1ST_TRUE_THEN_COPY_1ST    = new StackOperation(Opcode.IF_1ST_TRUE_THEN_COPY_1ST);
+    public static final StackOperation POP                          = new StackOperation(Opcode.POP);
+    public static final StackOperation REMOVE_2ND_FROM_TOP          = new StackOperation(Opcode.REMOVE_2ND_FROM_TOP);
+    public static final StackOperation MOVE_NTH_TO_1ST              = new StackOperation(Opcode.MOVE_NTH_TO_1ST);
+    public static final StackOperation ROTATE_TOP_3                 = new StackOperation(Opcode.ROTATE_TOP_3);
+    public static final StackOperation SWAP_1ST_WITH_2ND            = new StackOperation(Opcode.SWAP_1ST_WITH_2ND);
+    public static final StackOperation POP_THEN_POP                 = new StackOperation(Opcode.POP_THEN_POP);
+    public static final StackOperation MOVE_5TH_AND_6TH_TO_TOP      = new StackOperation(Opcode.MOVE_5TH_AND_6TH_TO_TOP);
+    public static final StackOperation SWAP_1ST_2ND_WITH_3RD_4TH    = new StackOperation(Opcode.SWAP_1ST_2ND_WITH_3RD_4TH);
 
     protected static StackOperation fromBytes(final ByteArrayReader byteArrayReader) {
         if (! byteArrayReader.hasBytes()) { return null; }
@@ -31,15 +33,18 @@ public class StackOperation extends SubTypedOperation {
         final Opcode opcode = TYPE.getSubtype(opcodeByte);
         if (opcode == null) { return null; }
 
-        return new StackOperation(opcodeByte, opcode);
+        return new StackOperation(opcode);
     }
 
-    protected StackOperation(final byte value, final Opcode opcode) {
-        super(value, TYPE, opcode);
+    protected StackOperation(final Opcode opcode) {
+        super(opcode.getValue(), TYPE, opcode);
     }
 
     @Override
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableTransactionContext context) {
+        final UpgradeSchedule upgradeSchedule = context.getUpgradeSchedule();
+        final MedianBlockTime medianBlockTime = context.getMedianBlockTime();
+
         switch (_opcode) {
             case POP_TO_ALT_STACK: {
                 final Value value = stack.pop();
@@ -70,7 +75,10 @@ public class StackOperation extends SubTypedOperation {
             }
             case MOVE_NTH_TO_1ST: {
                 final Value nthIndexValue = stack.pop();
-                if (! Operation.validateMinimalEncoding(nthIndexValue, context)) { return false; }
+                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                    if (! nthIndexValue.isMinimallyEncoded()) { return false; }
+                }
+                if (! nthIndexValue.isWithinIntegerRange()) { return false; }
 
                 final Integer nthIndex = nthIndexValue.asInteger();
                 final Value nthItem = stack.pop(nthIndex);

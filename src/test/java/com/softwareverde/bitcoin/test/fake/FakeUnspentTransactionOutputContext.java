@@ -11,14 +11,23 @@ import com.softwareverde.logging.Logger;
 import java.util.HashMap;
 
 public class FakeUnspentTransactionOutputContext implements UnspentTransactionOutputContext {
+    protected final Boolean _logNonExistentOutputs;
     protected final HashMap<TransactionOutputIdentifier, TransactionOutput> _transactionOutputs = new HashMap<>();
     protected final HashMap<TransactionOutputIdentifier, Boolean> _transactionCoinbaseStatuses = new HashMap<>();
     protected final HashMap<TransactionOutputIdentifier, Sha256Hash> _transactionBlockHashes = new HashMap<>();
     protected final HashMap<TransactionOutputIdentifier, Long> _transactionBlockHeights = new HashMap<>();
 
+    public FakeUnspentTransactionOutputContext() {
+        _logNonExistentOutputs = true;
+    }
+
+    public FakeUnspentTransactionOutputContext(final Boolean logNonExistentOutputs) {
+        _logNonExistentOutputs = logNonExistentOutputs;
+    }
+
     @Override
     public TransactionOutput getTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
-        if (! _transactionOutputs.containsKey(transactionOutputIdentifier)) {
+        if ( (! _transactionOutputs.containsKey(transactionOutputIdentifier)) && _logNonExistentOutputs ) {
             Logger.debug("Requested non-existent output: " + transactionOutputIdentifier, new Exception());
         }
         return _transactionOutputs.get(transactionOutputIdentifier);
@@ -26,7 +35,7 @@ public class FakeUnspentTransactionOutputContext implements UnspentTransactionOu
 
     @Override
     public Long getBlockHeight(final TransactionOutputIdentifier transactionOutputIdentifier) {
-        if (! _transactionBlockHeights.containsKey(transactionOutputIdentifier)) {
+        if ((! _transactionBlockHeights.containsKey(transactionOutputIdentifier)) && _logNonExistentOutputs ) {
             Logger.debug("Requested non-existent output blockHeight: " + transactionOutputIdentifier, new Exception());
         }
 
@@ -35,7 +44,7 @@ public class FakeUnspentTransactionOutputContext implements UnspentTransactionOu
 
     @Override
     public Sha256Hash getBlockHash(final TransactionOutputIdentifier transactionOutputIdentifier) {
-        if (! _transactionBlockHeights.containsKey(transactionOutputIdentifier)) {
+        if ( (! _transactionBlockHeights.containsKey(transactionOutputIdentifier)) && _logNonExistentOutputs ) {
             Logger.debug("Requested non-existent output Block hash: " + transactionOutputIdentifier, new Exception());
         }
 
@@ -44,7 +53,7 @@ public class FakeUnspentTransactionOutputContext implements UnspentTransactionOu
 
     @Override
     public Boolean isCoinbaseTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
-        if (! _transactionBlockHeights.containsKey(transactionOutputIdentifier)) {
+        if ( (! _transactionBlockHeights.containsKey(transactionOutputIdentifier)) && _logNonExistentOutputs ) {
             Logger.debug("Requested non-existent coinbase output: " + transactionOutputIdentifier, new Exception());
         }
 

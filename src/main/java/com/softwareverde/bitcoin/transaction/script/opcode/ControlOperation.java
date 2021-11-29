@@ -12,14 +12,14 @@ import com.softwareverde.util.bytearray.ByteArrayReader;
 public class ControlOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_CONTROL;
 
-    public static final ControlOperation IF             = new ControlOperation(Opcode.IF.getValue(),                Opcode.IF);
-    public static final ControlOperation NOT_IF         = new ControlOperation(Opcode.NOT_IF.getValue(),            Opcode.NOT_IF);
-    public static final ControlOperation ELSE           = new ControlOperation(Opcode.ELSE.getValue(),              Opcode.ELSE);
-    public static final ControlOperation END_IF         = new ControlOperation(Opcode.END_IF.getValue(),            Opcode.END_IF);
-    public static final ControlOperation RETURN         = new ControlOperation(Opcode.RETURN.getValue(),            Opcode.RETURN);
-    public static final ControlOperation VERIFY         = new ControlOperation(Opcode.VERIFY.getValue(),            Opcode.VERIFY);
-    public static final ControlOperation IF_VERSION     = new ControlOperation(Opcode.IF_VERSION.getValue(),        Opcode.IF_VERSION);
-    public static final ControlOperation IF_NOT_VERSION = new ControlOperation(Opcode.IF_NOT_VERSION.getValue(),    Opcode.IF_NOT_VERSION);
+    public static final ControlOperation IF             = new ControlOperation(Opcode.IF);
+    public static final ControlOperation NOT_IF         = new ControlOperation(Opcode.NOT_IF);
+    public static final ControlOperation ELSE           = new ControlOperation(Opcode.ELSE);
+    public static final ControlOperation END_IF         = new ControlOperation(Opcode.END_IF);
+    public static final ControlOperation RETURN         = new ControlOperation(Opcode.RETURN);
+    public static final ControlOperation VERIFY         = new ControlOperation(Opcode.VERIFY);
+    public static final ControlOperation IF_VERSION     = new ControlOperation(Opcode.IF_VERSION);
+    public static final ControlOperation IF_NOT_VERSION = new ControlOperation(Opcode.IF_NOT_VERSION);
 
     protected static ControlOperation fromBytes(final ByteArrayReader byteArrayReader) {
         if (! byteArrayReader.hasBytes()) { return null; }
@@ -31,11 +31,11 @@ public class ControlOperation extends SubTypedOperation {
         final Opcode opcode = TYPE.getSubtype(opcodeByte);
         if (opcode == null) { return null; }
 
-        return new ControlOperation(opcodeByte, opcode);
+        return new ControlOperation(opcode);
     }
 
-    protected ControlOperation(final byte value, final Opcode opcode) {
-        super(value, TYPE, opcode);
+    protected ControlOperation(final Opcode opcode) {
+        super(opcode.getValue(), TYPE, opcode);
     }
 
     @Override

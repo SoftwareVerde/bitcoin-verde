@@ -135,4 +135,24 @@ public interface UpgradeSchedule {
      * Enabled in HF20200515.
      */
     Boolean isReverseBytesOperationEnabled(MedianBlockTime medianBlockTime);
+
+    /**
+     * Introspection Operations push information about the Transaction to the script's stack.
+     * Enabled in HF20220515.
+     */
+    Boolean areIntrospectionOperationsEnabled(MedianBlockTime medianBlockTime);
+
+    /**
+     * 64-bit script integers are used for most script operations, with overflow validation.
+     * Enabled in HF20220515.
+     */
+    Boolean are64BitScriptIntegersEnabled(MedianBlockTime medianBlockTime);
+
+    /**
+     * Enables the MULTIPLY Opcode.
+     * Enabled in HF20220515.
+     */
+    Boolean isMultiplyOperationEnabled(MedianBlockTime medianBlockTime);
+
+
 }

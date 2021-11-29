@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.configuration;
 
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
+import com.softwareverde.bitcoin.server.main.NetworkType;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.logging.LogLevel;
@@ -92,6 +93,16 @@ public class BitcoinProperties {
     public LogLevel getLogLevel() { return _logLevel; }
     public Boolean isTestNet() { return _isTestNet(); }
     public Integer getTestNetVersion() { return _testNet; }
+    public NetworkType getNetworkType() {
+        switch (_testNet) {
+            case 4: return NetworkType.TEST_NET4;
+
+            case 1:
+            case 3: return NetworkType.TEST_NET;
+
+            default: return NetworkType.MAIN_NET;
+        }
+    }
     public Boolean isPruningModeEnabled() { return _pruningModeIsEnabled; }
 
     public Long getMaxUtxoCacheByteCount() { return _maxUtxoCacheByteCount; }

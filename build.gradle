@@ -61,11 +61,11 @@ dependencies {
 
     // Server
     serverImplementation group: 'com.github.softwareverde',     name: 'java-db-mysql',          version: 'v4.2.2'
-    serverImplementation group: 'com.github.softwareverde',     name: 'java-db-mysql-embedded', version: 'v3.0.2'
+    serverImplementation group: 'com.github.softwareverde',     name: 'java-db-mysql-embedded', version: 'v3.0.3'
     serverImplementation group: 'org.mariadb.jdbc',             name: 'mariadb-java-client',    version: '2.7.3'
 
-    serverImplementation group: 'com.github.softwareverde',     name: 'java-mariadb-osx',       version: 'v10.5.9-p1'
-    serverImplementation group: 'com.github.softwareverde',     name: 'java-mariadb-linux',     version: 'v10.5.9'
+    serverImplementation group: 'com.github.softwareverde',     name: 'java-mariadb-osx',       version: 'v10.5.9-p2'
+    serverImplementation group: 'com.github.softwareverde',     name: 'java-mariadb-linux',     version: 'v10.5.9-p1'
     serverImplementation group: 'com.github.softwareverde',     name: 'java-mariadb-windows',   version: 'v10.5.9'
     serverImplementation group: 'org.apache.commons',           name: 'commons-dbcp2',          version: '2.8.0'
 

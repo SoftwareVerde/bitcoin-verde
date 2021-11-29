@@ -24,7 +24,7 @@ public class ElectrumPropertiesLoader {
         final Address donationAddress;
         {
             final AddressInflater addressInflater = new AddressInflater();
-            final String donationAddressString = properties.getProperty("electrum.donationAddress");
+            final String donationAddressString = Util.coalesce(properties.getProperty("electrum.donationAddress"));
             donationAddress = Util.coalesce(addressInflater.fromBase58Check(donationAddressString), addressInflater.fromBase32Check(donationAddressString));
 
             if ( (donationAddress == null) && (! Util.isBlank(donationAddressString))) {

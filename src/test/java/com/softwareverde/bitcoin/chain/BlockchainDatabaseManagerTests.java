@@ -21,6 +21,7 @@ import com.softwareverde.bitcoin.server.module.node.database.blockchain.Blockcha
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
+import com.softwareverde.bitcoin.test.util.TransactionTestUtil;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.coinbase.MutableCoinbaseTransaction;
@@ -39,6 +40,7 @@ import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
 import com.softwareverde.database.DatabaseException;
@@ -1236,10 +1238,11 @@ class Void {
             final MutableTransaction transaction = new MutableTransaction();
             transaction.setVersion(Transaction.VERSION);
             transaction.setLockTime(LockTime.MIN_TIMESTAMP);
+            final int transactionOutputIndex = 0;
             final TransactionOutput outputBeingSpent;
             {
                 final Transaction transactionToSpend = customBlock6.getCoinbaseTransaction();
-                outputBeingSpent = transactionToSpend.getTransactionOutputs().get(0);
+                outputBeingSpent = transactionToSpend.getTransactionOutputs().get(transactionOutputIndex);
 
                 final MutableTransactionInput transactionInput = new MutableTransactionInput();
                 transactionInput.setPreviousOutputTransactionHash(transactionToSpend.getHash());
@@ -1255,6 +1258,8 @@ class Void {
             final TransactionSigner transactionSigner = new TransactionSigner();
             final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
 
+            final List<TransactionOutput> previousTransactionOutputs = TransactionTestUtil.createPreviousTransactionOutputsList(1, transactionOutputIndex, outputBeingSpent);
+
             final TransactionInput transactionInput = signedTransaction.getTransactionInputs().get(0);
             final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
             context.setCurrentScript(null);
@@ -1262,7 +1267,7 @@ class Void {
             context.setTransactionInput(transactionInput);
             context.setTransaction(signedTransaction);
             context.setBlockHeight(6L);
-            context.setTransactionOutputBeingSpent(outputBeingSpent);
+            context.setPreviousTransactionOutputs(previousTransactionOutputs);
             context.setCurrentScriptLastCodeSeparatorIndex(0);
             final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
             final Boolean outputIsUnlocked = scriptRunner.runScript(outputBeingSpent.getLockingScript(), transactionInput.getUnlockingScript(), context).isValid;

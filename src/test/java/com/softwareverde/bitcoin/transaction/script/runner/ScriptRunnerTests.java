@@ -2,8 +2,10 @@ package com.softwareverde.bitcoin.transaction.script.runner;
 
 import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.test.fake.FakeUpgradeSchedule;
+import com.softwareverde.bitcoin.test.util.TransactionTestUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
@@ -72,13 +74,22 @@ public class ScriptRunnerTests {
         final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
         final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
 
-        final TransactionInput transactionInput = transaction1.getTransactionInputs().get(0);
-        final TransactionOutput transactionOutput = transactionBeingSpent.getTransactionOutputs().get(0);
+        final int transactionOutputIndex = 0;
+        final int transactionInputCount;
+        final TransactionInput transactionInput;
+        {
+            final List<TransactionInput> transactionInputs = transaction1.getTransactionInputs();
+            transactionInputCount = transactionInputs.getCount();
+            transactionInput = transactionInputs.get(0);
+        }
+        final TransactionOutput transactionOutput = transactionBeingSpent.getTransactionOutputs().get(transactionOutputIndex);
+
+        final List<TransactionOutput> previousTransactionOutputs = TransactionTestUtil.createPreviousTransactionOutputsList(transactionInputCount, transactionOutputIndex, transactionOutput);
 
         context.setTransaction(transaction1);
         context.setTransactionInputIndex(0);
         context.setTransactionInput(transactionInput);
-        context.setTransactionOutputBeingSpent(transactionOutput);
+        context.setPreviousTransactionOutputs(previousTransactionOutputs);
         context.setBlockHeight(0L);
 
         final LockingScript lockingScript = transactionOutput.getLockingScript();
@@ -111,14 +122,18 @@ public class ScriptRunnerTests {
         final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
         context.setTransaction(transaction);
 
+        final int transactionOutputIndex = 0;
+        final TransactionOutput transactionOutputBeingSpent = transactionBeingSpent.getTransactionOutputs().get(transactionOutputIndex);
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-        for (int inputIndex=0; inputIndex<transactionInputs.getCount(); ++inputIndex) {
+        final int transactionInputCount = transactionInputs.getCount();
+        final List<TransactionOutput> previousTransactionOutputs = TransactionTestUtil.createPreviousTransactionOutputsList(transactionInputCount, transactionOutputIndex, transactionOutputBeingSpent);
+
+        for (int inputIndex = 0; inputIndex < transactionInputs.getCount(); ++inputIndex) {
             final TransactionInput transactionInput = transactionInputs.get(inputIndex);
-            final TransactionOutput transactionOutputBeingSpent = transactionBeingSpent.getTransactionOutputs().get(0);
 
             context.setTransactionInputIndex(inputIndex);
             context.setTransactionInput(transactionInput);
-            context.setTransactionOutputBeingSpent(transactionOutputBeingSpent);
+            context.setPreviousTransactionOutputs(previousTransactionOutputs);
             context.setBlockHeight(0L);
 
             final LockingScript lockingScript = transactionOutputBeingSpent.getLockingScript();
@@ -140,6 +155,7 @@ public class ScriptRunnerTests {
 
         final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
         context.setBlockHeight(590000L);
+        context.setMedianBlockTime(MedianBlockTime.fromSeconds(1562333174L));
 
         final String[] lockingScriptStrings = new String[7];
         final String[] unlockingScriptStrings = new String[7];
@@ -195,6 +211,7 @@ public class ScriptRunnerTests {
 
         final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
         context.setBlockHeight(590000L);
+        context.setMedianBlockTime(MedianBlockTime.fromSeconds(1562333174L));
 
         final String[] lockingScriptStrings = new String[11];
         final String[] unlockingScriptStrings = new String[11];

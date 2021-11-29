@@ -6,12 +6,14 @@ import com.softwareverde.bitcoin.jni.NativeSecp256k1;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.test.fake.FakeMedianBlockTime;
 import com.softwareverde.bitcoin.test.fake.FakeUpgradeSchedule;
+import com.softwareverde.bitcoin.test.util.TransactionTestUtil;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptInflater;
@@ -25,6 +27,7 @@ import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.util.HashUtil;
 import com.softwareverde.json.Json;
@@ -153,7 +156,7 @@ public class AbcScriptRunnerTests extends UnitTest {
         return (! isTestVectorEnabled);
     }
 
-    public static void rebuiltTestVectorManifest() {
+    public static void rebuildTestVectorManifest() {
         final HashSet<Sha256Hash> newDisabledTests = new HashSet<>();
         final HashSet<Sha256Hash> newEnabledTests = new HashSet<>();
 
@@ -368,12 +371,34 @@ public class AbcScriptRunnerTests extends UnitTest {
             case "MAX":                 { return AbcScriptRunnerTests.wrapByte((byte) 0xA4); }
             case "WITHIN":              { return AbcScriptRunnerTests.wrapByte((byte) 0xA5); }
 
+            case "REVERSEBYTES":            { return AbcScriptRunnerTests.wrapByte((byte) 0xBC); }
+            case "OP_INPUTINDEX":           { return AbcScriptRunnerTests.wrapByte((byte) 0xC0); }
+            case "OP_ACTIVEBYTECODE":       { return AbcScriptRunnerTests.wrapByte((byte) 0xC1); }
+            case "OP_TXVERSION":            { return AbcScriptRunnerTests.wrapByte((byte) 0xC2); }
+            case "OP_TXINPUTCOUNT":         { return AbcScriptRunnerTests.wrapByte((byte) 0xC3); }
+            case "OP_TXOUTPUTCOUNT":        { return AbcScriptRunnerTests.wrapByte((byte) 0xC4); }
+            case "OP_TXLOCKTIME":           { return AbcScriptRunnerTests.wrapByte((byte) 0xC5); }
+            case "OP_UTXOVALUE":            { return AbcScriptRunnerTests.wrapByte((byte) 0xC6); }
+            case "OP_UTXOBYTECODE":         { return AbcScriptRunnerTests.wrapByte((byte) 0xC7); }
+            case "OP_OUTPOINTTXHASH":       { return AbcScriptRunnerTests.wrapByte((byte) 0xC8); }
+            case "OP_OUTPOINTINDEX":        { return AbcScriptRunnerTests.wrapByte((byte) 0xC9); }
+            case "OP_INPUTBYTECODE":        { return AbcScriptRunnerTests.wrapByte((byte) 0xCA); }
+            case "OP_INPUTSEQUENCENUMBER":  { return AbcScriptRunnerTests.wrapByte((byte) 0xCB); }
+            case "OP_OUTPUTVALUE":          { return AbcScriptRunnerTests.wrapByte((byte) 0xCC); }
+            case "OP_OUTPUTBYTECODE":       { return AbcScriptRunnerTests.wrapByte((byte) 0xCD); }
+
             case "RESERVED":    { return AbcScriptRunnerTests.wrapByte((byte) 0x50); }
             case "VER":         { return AbcScriptRunnerTests.wrapByte((byte) 0x62); }
             case "VERIF":       { return AbcScriptRunnerTests.wrapByte((byte) 0x65); }
             case "VERNOTIF":    { return AbcScriptRunnerTests.wrapByte((byte) 0x66); }
+            case "OP:RESERVED1": // Fallthrough...
             case "RESERVED1":   { return AbcScriptRunnerTests.wrapByte((byte) 0x89); }
+            case "OP_RESERVED2": // Fallthrough...
             case "RESERVED2":   { return AbcScriptRunnerTests.wrapByte((byte) 0x8A); }
+            case "OP_RESERVED3": // Fallthrough...
+            case "RESERVED3":   { return AbcScriptRunnerTests.wrapByte((byte) 0xCE); }
+            case "OP_RESERVED4": // Fallthrough...
+            case "RESERVED4":   { return AbcScriptRunnerTests.wrapByte((byte) 0xCF); }
             case "NOP1":        { return AbcScriptRunnerTests.wrapByte((byte) 0xB0); }
             case "NOP4":        { return AbcScriptRunnerTests.wrapByte((byte) 0xB3); }
             case "NOP5":        { return AbcScriptRunnerTests.wrapByte((byte) 0xB4); }
@@ -432,7 +457,7 @@ public class AbcScriptRunnerTests extends UnitTest {
         catch (final Exception exception) {
             // Can happen as of Java 11, but ReflectionUtil also removes the need for
             //  setting volatile due to its usage of sun.misc.Unsafe when using Java 11...
-            Logger.debug("Unable to set volatile modifier.", exception);
+            Logger.debug("Unable to set volatile modifier. (OK)");
         }
 
         BitcoinReflectionUtil.setStaticValue(NativeSecp256k1.class, "_libraryLoadedCorrectly", false);
@@ -541,6 +566,10 @@ public class AbcScriptRunnerTests extends UnitTest {
             final FakeMedianBlockTime medianBlockTime = new FakeMedianBlockTime(MedianBlockTime.GENESIS_BLOCK_TIMESTAMP);
             final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
 
+            final int transactionInputCount = 1;
+            final int transactionOutputIndex = 0;
+            final List<TransactionOutput> previousTransactionOutputs = TransactionTestUtil.createPreviousTransactionOutputsList(transactionInputCount, transactionOutputIndex, transactionOutputBeingSpent);
+
             transactionOutputBeingSpent.setLockingScript(lockingScript);
             transactionOutputBeingSpent.setAmount(testVector.amount);
             transactionBeingSpent.setTransactionOutput(0, transactionOutputBeingSpent);
@@ -554,12 +583,17 @@ public class AbcScriptRunnerTests extends UnitTest {
 
             final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
             context.setTransaction(transaction); // Set the LockTime to zero...
-            context.setTransactionOutputBeingSpent(transactionOutputBeingSpent);
+            context.setPreviousTransactionOutputs(previousTransactionOutputs);
             context.setTransactionInput(transactionInput);
             context.setTransactionInputIndex(0);
 
             context.setBlockHeight(1L);
             context.setMedianBlockTime(medianBlockTime);
+
+            upgradeSchedule.setAre64BitScriptIntegersEnabled(false);
+            upgradeSchedule.setAreIntrospectionOperationsEnabled(false);
+            upgradeSchedule.setMultiplyOperationEnabled(false);
+            upgradeSchedule.setReverseBytesOperationEnabled(true);
 
             if (testVector.flagsString.contains("MINIMALDATA")) {
                 upgradeSchedule.setMinimalNumberEncodingRequired(true);
@@ -606,6 +640,10 @@ public class AbcScriptRunnerTests extends UnitTest {
             if (testVector.flagsString.contains("DISALLOW_SEGWIT_RECOVERY")) {
                 upgradeSchedule.setUnusedValuesAfterSegwitScriptExecutionAllowed(false);
             }
+            if (testVector.flagsString.contains("64_BIT_INTEGERS")) {
+                upgradeSchedule.setAre64BitScriptIntegersEnabled(true);
+                upgradeSchedule.setMultiplyOperationEnabled(true);
+            }
 
             final boolean wasValid = scriptRunner.runScript(lockingScript, unlockingScript, context).isValid;
 
@@ -629,7 +667,9 @@ public class AbcScriptRunnerTests extends UnitTest {
                     failCount += 1;
                     System.out.println("FAILED" + (isPossiblyImportant ? " [WARN]" : "") + ": " + i + " (" + testVector.getHash() + " - " + testVector.flagsString + " - " + testVector.expectedResultString + " - \"" + testVector.comments + "\")");
                     System.out.println("Expected: " + expectedResult + " Actual: " + wasValid + " (Production: " + isValidInProduction + ")");
-                    //break;
+
+                    // System.out.println(i + ": " + testVector + "(" + testVector.getHash() + ")");
+                    // break;
                 }
             }
         }
@@ -641,8 +681,8 @@ public class AbcScriptRunnerTests extends UnitTest {
         Assert.assertEquals(0, failCount);
     }
 
-    // @Test
-    // public void rebuild_test_vector_manifest() {
-    //     AbcScriptRunnerTests.rebuiltTestVectorManifest();
-    // }
+//    @Test
+//    public void rebuild_test_vector_manifest() {
+//        AbcScriptRunnerTests.rebuildTestVectorManifest();
+//    }
 }

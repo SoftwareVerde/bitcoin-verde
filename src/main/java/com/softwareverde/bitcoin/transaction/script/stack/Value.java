@@ -18,6 +18,9 @@ import com.softwareverde.util.StringUtil;
 public class Value extends ImmutableByteArray implements Const {
     public static final Integer MAX_BYTE_COUNT = 520; // https://en.bitcoin.it/wiki/Script#Arithmetic
     public static final Value ZERO = Value.fromInteger(0L);
+    public static final Value EMPTY = Value.fromBytes(new ImmutableByteArray());
+    public static final Integer MAX_INTEGER_BYTE_COUNT = 4;
+    public static final Integer MAX_LONG_BYTE_COUNT = 8;
 
     /**
      * Returns a new copy of littleEndianBytes as if it were a minimally encoded integer (despite being too long for a normal integer).
@@ -86,12 +89,13 @@ public class Value extends ImmutableByteArray implements Const {
     // The returned byte array is little-endian.
     protected static byte[] _longToBytes(final Long value) {
         if (value == 0L) { return new byte[0]; }
+        if (value == Long.MIN_VALUE) { return new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, (byte) 0x80, (byte) 0x80}; }
 
-        final boolean isNegative = (value < 0);
+        final boolean isNegative = (value < 0L);
 
         final long absValue = Math.abs(value);
-        final int unsignedByteCount = ( (BitcoinUtil.log2((int) absValue) / 8) + 1 );
-        final byte[] absValueBytes = ByteUtil.integerToBytes(absValue);
+        final int unsignedByteCount = (int) ( (BitcoinUtil.log2(absValue) / 8) + 1 );
+        final byte[] absValueBytes = ByteUtil.longToBytes(absValue);
 
         final boolean requiresSignPadding = ((absValueBytes[absValueBytes.length - unsignedByteCount] & 0x80) == 0x80);
 
@@ -106,6 +110,11 @@ public class Value extends ImmutableByteArray implements Const {
 
     public static Value fromInteger(final Long longValue) {
         final byte[] bytes = _longToBytes(longValue);
+        return new Value(bytes);
+    }
+
+    public static Value fromInteger(final Integer longValue) {
+        final byte[] bytes = _longToBytes(longValue.longValue());
         return new Value(bytes);
     }
 
@@ -130,18 +139,8 @@ public class Value extends ImmutableByteArray implements Const {
     }
 
     protected Integer _asInteger() {
-        if (_bytes.length == 0) { return 0; }
-
-        final byte[] bigEndianBytes = ByteUtil.reverseEndian(_bytes);
-
-        final boolean isNegative = _isNegativeNumber(bigEndianBytes);
-
-        { // Remove the sign bit... (only matters when _bytes.length is less than the byteCount of an integer)
-            bigEndianBytes[0] &= (byte) 0x7F;
-        }
-
-        final int value = ByteUtil.bytesToInteger(bigEndianBytes);
-        return (isNegative ? -value : value);
+        final Long asLong = _asLong();
+        return asLong.intValue();
     }
 
     protected Long _asLong() {
@@ -219,6 +218,41 @@ public class Value extends ImmutableByteArray implements Const {
 
     public String asString() {
         return StringUtil.bytesToString(_bytes); // UTF-8
+    }
+
+    public Boolean isWithinIntegerRange() {
+        if (_bytes.length > MAX_INTEGER_BYTE_COUNT) { return false; }
+        final Long longValue = _asLong();
+
+        if (longValue < Integer.MIN_VALUE) { return false; }
+        if (longValue > Integer.MAX_VALUE) { return false; }
+        return true;
+    }
+
+    public Boolean isWithinLongIntegerRange() {
+        if (_bytes.length > MAX_LONG_BYTE_COUNT) { return false; }
+        final Long longValue = _asLong();
+        return (longValue > Long.MIN_VALUE); // Min of -9223372036854775807 due to script numbers encoding +0 and -0.
+    }
+
+    public Boolean isMinimallyEncoded() {
+        final int byteCount = _bytes.length;
+        if (byteCount == 0) { return true; } // The only valid encoding of zero is an empty array.
+        if (byteCount > MAX_LONG_BYTE_COUNT) { return false; } // Numeric values are not allowed to be larger than 4 bytes.
+
+        final byte leadingByte = _bytes[byteCount - 1];
+        final boolean valueBitsAreSet = ((leadingByte & 0x7F) != 0);
+        if (! valueBitsAreSet) { // If the only bit set is the sign bit...
+            if (byteCount == 1) { return false; } // Negative-zero encodings are not allowed.
+
+            final byte secondLeadingByte = _bytes[byteCount - 2];
+            final boolean signBitIsSet = ((secondLeadingByte & 0x80) != 0);
+            if (! signBitIsSet) { // If the sign bit is the only bit set on the MSB then the sign bit must not be set on the 2nd MSB.
+                return false;
+            }
+        }
+
+        return true;
     }
 
     @Override

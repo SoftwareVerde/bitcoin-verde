@@ -8,6 +8,10 @@ public abstract class SubTypedOperation extends Operation {
         _opcode = opcode;
     }
 
+    public Opcode getOpcode() {
+        return _opcode;
+    }
+
     @Override
     public boolean equals(final Object object) {
         if (! (object instanceof SubTypedOperation)) { return false ;}

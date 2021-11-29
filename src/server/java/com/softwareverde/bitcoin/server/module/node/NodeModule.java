@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node;
 
 import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
+import com.softwareverde.bitcoin.bip.TestNet4UpgradeSchedule;
 import com.softwareverde.bitcoin.bip.TestNetUpgradeSchedule;
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.Block;
@@ -35,6 +36,7 @@ import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.DatabaseMaintainer;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
+import com.softwareverde.bitcoin.server.main.NetworkType;
 import com.softwareverde.bitcoin.server.memory.LowMemoryMonitor;
 import com.softwareverde.bitcoin.server.message.BitcoinBinaryPacketFormat;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
@@ -359,7 +361,15 @@ public class NodeModule {
 
         { // Upgrade Schedule
             if (bitcoinProperties.isTestNet()) {
-                _upgradeSchedule = new TestNetUpgradeSchedule();
+                final NetworkType networkType = bitcoinProperties.getNetworkType();
+                switch (networkType) {
+                    case TEST_NET4: {
+                        _upgradeSchedule = new TestNet4UpgradeSchedule();
+                    } break;
+                    default: {
+                        _upgradeSchedule = new TestNetUpgradeSchedule();
+                    }
+                }
             }
             else {
                 _upgradeSchedule = new CoreUpgradeSchedule();

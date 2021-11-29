@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.transaction.validator;
 
 import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
+import com.softwareverde.bitcoin.bip.TestNet4UpgradeSchedule;
 import com.softwareverde.bitcoin.bip.TestNetUpgradeSchedule;
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
@@ -13,6 +14,7 @@ import com.softwareverde.bitcoin.test.fake.FakeMedianBlockTimeContext;
 import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.test.fake.FakeUpgradeSchedule;
 import com.softwareverde.bitcoin.test.fake.VolatileNetworkTimeWrapper;
+import com.softwareverde.bitcoin.test.util.TransactionTestUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
@@ -30,6 +32,7 @@ import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlocking
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
 import com.softwareverde.logging.Logger;
@@ -66,7 +69,7 @@ public class HistoricTransactionsTests extends UnitTest {
             final Json transactionInputsJson = new Json(true);
 
             final TransactionInput transactionInput = transactionContext.getTransactionInput();
-            final TransactionOutput transactionOutput = transactionContext.getTransactionOutput();
+            final TransactionOutput transactionOutput = transactionContext.getTransactionOutputBeingSpent();
             final LockingScript lockingScript = transactionOutput.getLockingScript();
             final String lockingScriptString = (new ScriptDeflater()).toStandardString(lockingScript);
 
@@ -95,6 +98,12 @@ public class HistoricTransactionsTests extends UnitTest {
     public static TransactionContext initContext(final TestConfig testConfig, final UpgradeSchedule upgradeSchedule) {
         final TransactionInflater transactionInflater = new TransactionInflater();
         final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(testConfig.transactionBytes));
+
+        final int transactionInputCount;
+        {
+            final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+            transactionInputCount = transactionInputs.getCount();
+        }
 
         final TransactionInput transactionInput;
         {
@@ -128,7 +137,7 @@ public class HistoricTransactionsTests extends UnitTest {
             }
 
             context.setTransactionInput(transactionInput);
-            context.setTransactionOutputBeingSpent(transactionOutput);
+            context.setPreviousTransactionOutputs(TransactionTestUtil.createPreviousTransactionOutputsList(transactionInputCount, testConfig.transactionInputIndex, transactionOutput));
             context.setTransactionInputIndex(testConfig.transactionInputIndex);
         }
 
@@ -668,13 +677,13 @@ public class HistoricTransactionsTests extends UnitTest {
 
     @Test
     public void should_verify_transaction_54AED2D3ABC9B7F6337272649A8B61B774415D469CED1C218F8780BD644C02ED() {
-        // NOTE: This transaction's LockTime failed to validate.  However, its lockTime should be ignore since all of its inputs' SequenceNumbers are "final"...
+        // NOTE: This transaction's LockTime failed to validate.  However, its lockTime should be ignored since all of its inputs' SequenceNumbers are "final"...
 
         // Setup
         final TestConfig testConfig = new TestConfig();
         testConfig.transactionBytes = "0100000001FEF8D1C268874475E874A2A3A664A4EB6F98D1D258B62A2800E4BEFA069C57AD010000008B483045022100B482783530D3EC73C97A5DC147EE3CF1705E355C17DD9DF7AD30D8E49712260D022059750222B33F45D80F5DC49C732786EBAED6C6FA72162A4632FEA7231339C15C0141045D443089B4587D355B4CB5AC39B0156AFC92152627693149DE16D0D2269CEA2417010C0BC6930E9B47573DAB76A951E01D884B2BED9EAF92CC2369B6DDC7F98CFFFFFFFF0200000000000000000B6A0942454E2072756C657A306F0100000000001976A9147038DC3B8533A422D1225ECBCC3C85E282FD92B388ACE4670600";
         testConfig.blockHeight = 419808L;
-
+        testConfig.transactionInputIndex = 0; // Defined for init, but unused.
 
         final UpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
         final TransactionContext transactionContext = initContext(testConfig, upgradeSchedule);
@@ -1136,5 +1145,62 @@ public class HistoricTransactionsTests extends UnitTest {
         // Network Time:        1609048366
 
         HistoricTransactionsTests.runScripts(testConfig);
+    }
+
+    @Test
+    public void should_verify_transaction_1404153F7DEB13815233FE27C5F0810CC7D7832949D3102080203818D0607A58_0() {
+        final TestConfig testConfig = new TestConfig();
+        testConfig.transactionBytes = "0100000001B2CB66B84B20FEBF61C035BA62F24F8F169CF1225A7BE8B814193AED9E4D3ABD000000004220B2CB66B84B20FEBF61C035BA62F24F8F169CF1225A7BE8B814193AED9E4D3ABD2000C8887463756874637568746375687463756874637568746375687463756851000000000193CD97000000000017A914DC4683722DBDEDB04F3A45886020C573BA05DDC78700000000";
+        testConfig.transactionInputBytes = "B2CB66B84B20FEBF61C035BA62F24F8F169CF1225A7BE8B814193AED9E4D3ABD000000004220B2CB66B84B20FEBF61C035BA62F24F8F169CF1225A7BE8B814193AED9E4D3ABD2000C888746375687463756874637568746375687463756874637568746375685100000000";
+        testConfig.transactionOutputIndex = 0;
+        testConfig.transactionOutputBytes = "87CF97000000000017A9146A712D1B560D118C60E66F709DB740744BD2042B87";
+        testConfig.blockHeight = 70638L;
+        testConfig.medianBlockTime = 1637694332L;
+        testConfig.transactionInputIndex = 0;
+        testConfig.lockingScriptBytes = "A9146A712D1B560D118C60E66F709DB740744BD2042B87";
+        testConfig.unlockingScriptBytes = "20B2CB66B84B20FEBF61C035BA62F24F8F169CF1225A7BE8B814193AED9E4D3ABD2000C8887463756874637568746375687463756874637568746375687463756851";
+
+        // Median Block Time:   1637694332
+        // Network Time:        1637988507
+
+        HistoricTransactionsTests.runScripts(testConfig, new TestNet4UpgradeSchedule());
+    }
+
+    @Test
+    public void should_verify_transaction_11CB5E8E60B8536AC81DF6A962A6C1E9AACD987A5CBB15A7BD57230B74AE6B5E_0() {
+        final TestConfig testConfig = new TestConfig();
+        testConfig.transactionBytes = "010000000186CC38934771FED3457F1C31C8E063667E8244EA9666EA9E58EF1614F41663020000000022002000CB8874637568746375687463756874637568746375687463756874637568510000000001C3C597000000000017A914DC4683722DBDEDB04F3A45886020C573BA05DDC78700000000";
+        testConfig.transactionInputBytes = "86CC38934771FED3457F1C31C8E063667E8244EA9666EA9E58EF1614F41663020000000022002000CB88746375687463756874637568746375687463756874637568746375685100000000";
+        testConfig.transactionOutputIndex = 0;
+        testConfig.transactionOutputBytes = "B7C797000000000017A914AD9516CD99B26ADC8481289C0EA112D6D485CB6987";
+        testConfig.blockHeight = 70638L;
+        testConfig.medianBlockTime = 1637694332L;
+        testConfig.transactionInputIndex = 0;
+        testConfig.lockingScriptBytes = "A914AD9516CD99B26ADC8481289C0EA112D6D485CB6987";
+        testConfig.unlockingScriptBytes = "002000CB887463756874637568746375687463756874637568746375687463756851";
+
+        // Median Block Time:   1637694332
+        // Network Time:        1637988507
+
+        HistoricTransactionsTests.runScripts(testConfig, new TestNet4UpgradeSchedule());
+    }
+
+    @Test
+    public void should_verify_transaction_179C597CD77210F68081CF430AE8B406E2B26EE31DCE11D8F1EBF88879EDE3BE_0() {
+        final TestConfig testConfig = new TestConfig();
+        testConfig.transactionBytes = "010000000191455607F510B0BB6F60051AB74F55FDF080146F3440EA62DDB3C8AE349721C70000000037003506668E97BAF2430340E281950880A5FFFFFFFFFFFF88C08874637568746375687463756874637568746375687463756874637568510000000001583E0F000000000017A914DC4683722DBDEDB04F3A45886020C573BA05DDC78700000000";
+        testConfig.transactionInputBytes = "91455607F510B0BB6F60051AB74F55FDF080146F3440EA62DDB3C8AE349721C70000000037003506668E97BAF2430340E281950880A5FFFFFFFFFFFF88C088746375687463756874637568746375687463756874637568746375685100000000";
+        testConfig.transactionOutputIndex = 0;
+        testConfig.transactionOutputBytes = "4C400F000000000017A914E1C1FB04286B1FA8CF6701E3B975B88A173A196C87";
+        testConfig.blockHeight = 70638L;
+        testConfig.medianBlockTime = 1637694332L;
+        testConfig.transactionInputIndex = 0;
+        testConfig.lockingScriptBytes = "A914E1C1FB04286B1FA8CF6701E3B975B88A173A196C87";
+        testConfig.unlockingScriptBytes = "003506668E97BAF2430340E281950880A5FFFFFFFFFFFF88C0887463756874637568746375687463756874637568746375687463756851";
+
+        // Median Block Time:   1637694332
+        // Network Time:        1637988507
+
+        HistoricTransactionsTests.runScripts(testConfig, new TestNet4UpgradeSchedule());
     }
 }

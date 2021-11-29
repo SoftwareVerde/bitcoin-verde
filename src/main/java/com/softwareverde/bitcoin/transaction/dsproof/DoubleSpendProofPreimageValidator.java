@@ -91,7 +91,9 @@ public class DoubleSpendProofPreimageValidator {
         _upgradeSchedule = upgradeSchedule;
     }
 
-    public Boolean validateDoubleSpendProof(final TransactionOutputIdentifier transactionOutputBeingSpentIdentifier, final TransactionOutput transactionOutputBeingSpent, final Transaction firstSeenSpendingTransaction, final DoubleSpendProofPreimage doubleSpendProofPreimage) {
+    public Boolean validateDoubleSpendProof(final TransactionOutputIdentifier transactionOutputBeingSpentIdentifier, final List<TransactionOutput> previousTransactionOutputs, final Transaction firstSeenSpendingTransaction, final DoubleSpendProofPreimage doubleSpendProofPreimage) {
+        final Integer transactionOutputIndexBeingSpent = transactionOutputBeingSpentIdentifier.getOutputIndex();
+        final TransactionOutput transactionOutputBeingSpent = previousTransactionOutputs.get(transactionOutputIndexBeingSpent);
         final LockingScript lockingScript = transactionOutputBeingSpent.getLockingScript();
         final UnlockingScript firstSeenUnlockingScript = _getUnlockingScriptSpendingOutput(transactionOutputBeingSpentIdentifier, firstSeenSpendingTransaction);
         if (firstSeenUnlockingScript == null) { return false; }
@@ -115,7 +117,7 @@ public class DoubleSpendProofPreimageValidator {
             final TransactionInput transactionInput = transactionInputs.get(transactionInputIndex);
 
             transactionContext.setTransactionInput(transactionInput);
-            transactionContext.setTransactionOutputBeingSpent(transactionOutputBeingSpent);
+            transactionContext.setPreviousTransactionOutputs(previousTransactionOutputs);
             transactionContext.setTransactionInputIndex(transactionInputIndex);
         }
 

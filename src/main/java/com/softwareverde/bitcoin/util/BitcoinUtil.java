@@ -66,7 +66,7 @@ public class BitcoinUtil {
         final Secp256k1Signature signature = Secp256k1.sign(privateKey, preImage.getBytes());
 
         int recoveryId = -1;
-        for (int candidateRecoveryId=0; candidateRecoveryId < 4; candidateRecoveryId++) {
+        for (int candidateRecoveryId = 0; candidateRecoveryId < 4; candidateRecoveryId++) {
             final PublicKey publicKeyUsedForSigning = PublicKey.fromSignature(signature, preImage, candidateRecoveryId);
             if (publicKeyUsedForSigning == null) { continue; }
             if (! Util.areEqual(publicKey, publicKeyUsedForSigning)) { continue; }
@@ -100,30 +100,16 @@ public class BitcoinUtil {
      * Returns the Log (base2) of x, rounded down.
      *  Ex: log2(65280) -> 15 (Mathematically this value is 15.99...)
      */
-    public static int log2(int x) {
-        int log = 0;
+    public static int log2(final int value) {
+        return (31 - Integer.numberOfLeadingZeros(value));
+    }
 
-        if ((x & 0xffff0000) != 0) {
-            x >>>= 16;
-            log = 16;
-        }
-
-        if (x >= 256) {
-            x >>>= 8;
-            log += 8;
-        }
-
-        if (x >= 16) {
-            x >>>= 4;
-            log += 4;
-        }
-
-        if (x >= 4) {
-            x >>>= 2;
-            log += 2;
-        }
-
-        return log + (x >>> 1);
+    /**
+     * Returns the Log (base2) of x, rounded down.
+     *  Ex: log2(65280) -> 15 (Mathematically this value is 15.99...)
+     */
+    public static int log2(final long value) {
+        return (63 - Long.numberOfLeadingZeros(value));
     }
 
     public static void exitFailure() {
