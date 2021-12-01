@@ -582,6 +582,10 @@ public class ElectrumModule {
             final String headerString = blockHeadersArray.getString(0);
             blockHeaderBytes = ByteArray.fromHexString(headerString);
             final BlockHeader blockHeader = blockHeaderInflater.fromBytes(blockHeaderBytes);
+            if (blockHeader == null) {
+                Logger.debug("Unable to get head block hash.");
+                return;
+            }
 
             final Json blockHeaderHeightJson = nodeConnection.getBlockHeaderHeight(blockHeader.getHash());
             blockHeight = blockHeaderHeightJson.getLong("blockHeight");
