@@ -160,7 +160,7 @@ public class ScriptPatternMatcher {
         final ByteArray bytes = MutableByteArray.wrap(pushOperation.getValue().getBytes());
 
         final AddressInflater addressInflater = new AddressInflater();
-        return addressInflater.fromBytes(bytes, isCompressed);
+        return addressInflater.fromBytes(Address.Type.P2PKH, bytes, isCompressed);
     }
 
     protected Address _extractAddressFromPayToScriptHash(final Script lockingScript, final Boolean isCompressed) {
@@ -177,7 +177,7 @@ public class ScriptPatternMatcher {
         final ByteArray bytes = MutableByteArray.wrap(pushOperation.getValue().getBytes());
 
         final AddressInflater addressInflater = new AddressInflater();
-        return addressInflater.fromBytes(bytes, isCompressed);
+        return addressInflater.fromBytes(Address.Type.P2SH, bytes, isCompressed);
     }
 
     protected Address _extractAddress(final ScriptType scriptType, final LockingScript lockingScript) {

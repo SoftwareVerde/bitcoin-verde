@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.bytearray.Endian;
 
@@ -34,7 +35,8 @@ public class QueryAddressBlocksMessageInflater extends BitcoinProtocolMessageInf
 
         for (int i = 0; i < addressCount; ++i) {
             final AddressInflater addressInflater = _addressInflaters.getAddressInflater();
-            final Address address = addressInflater.fromBytes(MutableByteArray.wrap(byteArrayReader.readBytes(Address.BYTE_COUNT, Endian.LITTLE)));
+            final ByteArray addressBytes = MutableByteArray.wrap(byteArrayReader.readBytes(Address.BYTE_COUNT, Endian.LITTLE));
+            final Address address = addressInflater.fromBytes(Address.Type.P2PKH, addressBytes, false);
             if (address == null) { return null; }
 
             queryAddressBlocksMessage._addresses.add(address);

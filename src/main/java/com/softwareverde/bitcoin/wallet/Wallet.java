@@ -78,7 +78,7 @@ public class Wallet {
         public final MutableSlpSendScript slpSendScript = new MutableSlpSendScript();
     }
 
-    protected static final Address DUMMY_ADDRESS = (new AddressInflater()).fromBytes(new MutableByteArray(Address.BYTE_COUNT));
+    protected static final Address DUMMY_ADDRESS = (new AddressInflater()).fromBytes(Address.Type.P2PKH, new MutableByteArray(Address.BYTE_COUNT), true);
 
     protected final UpgradeSchedule _upgradeSchedule;
     protected final HashMap<Address, PublicKey> _publicKeys = new HashMap<>();

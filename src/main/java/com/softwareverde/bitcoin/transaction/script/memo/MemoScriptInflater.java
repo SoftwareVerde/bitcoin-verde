@@ -113,7 +113,7 @@ public class MemoScriptInflater {
         final Value value = pushOperation.getValue();
         if (! Util.areEqual(Address.BYTE_COUNT, value.getByteCount())) { return null; }
 
-        return _addressInflater.fromBytes(value);
+        return _addressInflater.fromBytes(Address.Type.P2PKH, value, false);
     }
 
     protected MemoAction _fromLockingScript(final LockingScript lockingScript) {

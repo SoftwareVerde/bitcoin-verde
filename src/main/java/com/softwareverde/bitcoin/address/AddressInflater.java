@@ -22,11 +22,11 @@ public class AddressInflater {
     protected Address _fromPublicKey(final PublicKey publicKey, final Boolean asCompressed) {
         if (asCompressed) {
             final byte[] rawBitcoinAddress = _hashPublicKey(publicKey.compress());
-            return new CompressedAddress(rawBitcoinAddress);
+            return new Address(Address.Type.P2PKH, rawBitcoinAddress, true);
         }
         else {
             final byte[] rawBitcoinAddress = _hashPublicKey(publicKey.decompress());
-            return new Address(rawBitcoinAddress);
+            return new Address(Address.Type.P2PKH, rawBitcoinAddress, false);
         }
     }
 
@@ -36,12 +36,12 @@ public class AddressInflater {
         if (asCompressed) {
             final PublicKey compressedPublicKey = publicKey.compress();
             final byte[] rawBitcoinAddress = _hashPublicKey(compressedPublicKey);
-            return new CompressedAddress(rawBitcoinAddress);
+            return new Address(Address.Type.P2PKH, rawBitcoinAddress, true);
         }
         else {
             final PublicKey uncompressedPublicKey = publicKey.decompress();
             final byte[] rawBitcoinAddress = _hashPublicKey(uncompressedPublicKey);
-            return new Address(rawBitcoinAddress);
+            return new Address(Address.Type.P2PKH, rawBitcoinAddress, false);
         }
     }
 
@@ -68,21 +68,13 @@ public class AddressInflater {
         final Boolean checksumIsValid = (ByteUtil.areEqual(calculatedChecksum, checksum));
         if (! checksumIsValid) { return null; }
 
-        switch (prefix) {
-            case Address.PREFIX: {
-                if (isCompressed) {
-                    return new CompressedAddress(bytesWithoutPrefixAndWithoutChecksum);
-                }
-                else {
-                    return new Address(bytesWithoutPrefixAndWithoutChecksum);
-                }
-            }
-            case PayToScriptHashAddress.PREFIX: { return new PayToScriptHashAddress(bytesWithoutPrefixAndWithoutChecksum); }
-            default: {
-                Logger.warn("Unknown Address Prefix: 0x"+ HexUtil.toHexString(new byte[] { prefix }));
-                return null;
-            }
+        final Address.Type addressType = Address.Type.fromBase58Prefix(prefix);
+        if (addressType == null) {
+            Logger.info("Unknown Address Prefix: 0x"+ HexUtil.toHexString(new byte[] { prefix }));
+            return null;
         }
+
+        return new Address(addressType, bytesWithoutPrefixAndWithoutChecksum, isCompressed);
     }
 
     protected Address _fromBase32Check(final String base32String, final Boolean isCompressed) {
@@ -132,36 +124,21 @@ public class AddressInflater {
 
         final byte version = payloadBytes.getByte(0);
         if ((version & 0x80) != 0x00) { return null; } // The version byte's most significant bit must be 0...
-        final byte addressType = (byte) ((version >> 3) & 0x0F);
+        final byte addressTypeByte = (byte) ((version >> 3) & 0x0F);
         final int hashByteCount = (20 + ((version & 0x07) * 4));
 
         if (payloadBytes.getByteCount() < (hashByteCount + 1)) { return null; }
-        final ByteArray hash = MutableByteArray.wrap(payloadBytes.getBytes(1, hashByteCount));
+        final byte[] hashBytes = payloadBytes.getBytes(1, hashByteCount);
 
-        final ByteArray checksumPayload = AddressInflater.buildBase32ChecksumPreImage(prefix, version, hash);
+        final ByteArray checksumPayload = AddressInflater.buildBase32ChecksumPreImage(prefix, version, MutableByteArray.wrap(hashBytes));
 
         final ByteArray calculatedChecksum = AddressInflater.calculateBase32Checksum(checksumPayload);
         if (! Util.areEqual(calculatedChecksum, checksum)) { return null; }
 
-        if (addressType == PayToScriptHashAddress.BASE_32_PREFIX) { // P2SH
-            return new PayToScriptHashAddress(hash.getBytes());
-        }
+        final Address.Type addressType = Address.Type.fromBase32Prefix(addressTypeByte);
+        if (addressType == null) { return null; }
 
-        if (addressType == Address.BASE_32_PREFIX) { // P2PKH
-            if (isCompressed) {
-                return new CompressedAddress(hash.getBytes());
-            }
-            else {
-                return new Address(hash.getBytes());
-            }
-        }
-
-        if (isCompressed) {
-            return new CompressedAddress(hash.getBytes());
-        }
-        else {
-            return new Address(hash.getBytes());
-        }
+        return new Address(addressType, hashBytes, isCompressed);
     }
 
     /**
@@ -247,19 +224,9 @@ public class AddressInflater {
         return _fromPrivateKey(privateKey, asCompressed);
     }
 
-    public Address fromBytes(final ByteArray bytes) {
+    public Address fromBytes(final Address.Type addressType, final ByteArray bytes, final Boolean isCompressed) {
         if (bytes.getByteCount() != Address.BYTE_COUNT) { return null; }
-        return new Address(bytes.getBytes());
-    }
-
-    public Address fromBytes(final ByteArray bytes, final Boolean isCompressed) {
-        if (bytes.getByteCount() != Address.BYTE_COUNT) { return null; }
-        if (isCompressed) {
-            return new CompressedAddress(bytes.getBytes());
-        }
-        else {
-            return new Address(bytes.getBytes());
-        }
+        return new Address(addressType, bytes.getBytes(), isCompressed);
     }
 
     public Address fromPublicKey(final PublicKey publicKey) {
