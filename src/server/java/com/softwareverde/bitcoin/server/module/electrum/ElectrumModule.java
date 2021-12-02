@@ -20,12 +20,14 @@ import com.softwareverde.bitcoin.server.module.electrum.json.ElectrumJsonProtoco
 import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.HeadersBootstrapper;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.ScriptInflater;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.ConcurrentHashSet;
 import com.softwareverde.concurrent.threadpool.CachedThreadPool;
@@ -269,8 +271,9 @@ public class ElectrumModule {
         }
     }
 
-    protected void _onNewTransaction(final Transaction transaction, final Long fee) {
+    protected void _onNewTransaction(final Transaction transaction, final Long nullableFee) {
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
+        final AddressInflater addressInflater = new AddressInflater();
 
         final HashSet<Address> matchedAddresses = new HashSet<>();
         for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
@@ -290,6 +293,50 @@ public class ElectrumModule {
                 }
             }
         }
+        boolean allInputsWerePayToPublicKeyHash = true;
+        for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+            final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
+
+            final Address address = scriptPatternMatcher.extractAddressFromPayToPublicKeyHash(unlockingScript);
+            if (address == null) {
+                allInputsWerePayToPublicKeyHash = false;
+                continue;
+            }
+
+            final AddressSubscriptionKey addressSubscriptionKey = new AddressSubscriptionKey(address, null);
+            synchronized (_connectionAddresses) {
+                final boolean addressIsConnected = _connectionAddresses.containsKey(addressSubscriptionKey);
+                if (addressIsConnected) {
+                    matchedAddresses.add(address);
+                }
+            }
+        }
+
+        if (! allInputsWerePayToPublicKeyHash) {
+            final Sha256Hash transactionHash = transaction.getHash();
+            try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
+                final Json getTransactionJson = nodeConnection.getTransaction(transactionHash, false);
+                if (getTransactionJson != null) {
+                    final Json transactionJson = getTransactionJson.get("transaction");
+                    final Json transactionInputsJson = transactionJson.get("inputs");
+                    for (int i = 0; i < transactionInputsJson.length(); ++i) {
+                        final Json transactionInputJson = transactionInputsJson.get(i);
+                        final String addressString = transactionInputJson.getString("address");
+
+                        final Address address = addressInflater.fromBase58Check(addressString);
+                        if (address == null) { continue; }
+
+                        final AddressSubscriptionKey addressSubscriptionKey = new AddressSubscriptionKey(address, null);
+                        synchronized (_connectionAddresses) {
+                            final boolean addressIsConnected = _connectionAddresses.containsKey(addressSubscriptionKey);
+                            if (addressIsConnected) {
+                                matchedAddresses.add(address);
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         for (final Address address : matchedAddresses) {
             synchronized (_connectionAddresses) {
@@ -297,16 +344,16 @@ public class ElectrumModule {
                 for (final ConnectionAddress connectionAddress : connectionAddresses) {
                     final JsonSocket jsonSocket = connectionAddress.connection.get();
                     final boolean jsonSocketIsConnected = ((jsonSocket != null) && jsonSocket.isConnected());
-                    if (!jsonSocketIsConnected) { continue; }
+                    if (! jsonSocketIsConnected) { continue; }
+
+                    final Sha256Hash status = _calculateAddressStatus(connectionAddress.subscriptionKey);
+                    connectionAddress.status = status;
+                    Logger.debug("Updated Status: " + connectionAddress);
 
                     if (connectionAddress.subscriptionKey.isScriptHash) {
-                        _notifyScriptHashStatus(jsonSocket, connectionAddress.subscriptionKey);
+                        _notifyScriptHashStatus(jsonSocket, connectionAddress.subscriptionKey, status);
                     }
                     else {
-                        final Sha256Hash status = _calculateAddressStatus(connectionAddress.subscriptionKey);
-                        connectionAddress.status = status;
-                        Logger.debug("Updated Status: " + connectionAddress);
-
                         _notifyAddressStatus(jsonSocket, connectionAddress.subscriptionKey, status);
                     }
                 }
@@ -1168,11 +1215,6 @@ public class ElectrumModule {
                 return null;
             }
         }
-    }
-
-    protected void _notifyScriptHashStatus(final JsonSocket jsonSocket, final AddressSubscriptionKey addressKey) {
-        final Sha256Hash addressStatus = _calculateAddressStatus(addressKey);
-        _notifyScriptHashStatus(jsonSocket, addressKey, addressStatus);
     }
 
     protected void _notifyScriptHashStatus(final JsonSocket jsonSocket, final AddressSubscriptionKey addressKey, final Sha256Hash addressStatus) {

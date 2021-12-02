@@ -1,7 +1,10 @@
 package com.softwareverde.bitcoin.transaction.script;
 
+import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
@@ -190,5 +193,25 @@ public class ScriptPatternMatcherTests {
 
         // Assert
         Assert.assertFalse(isUnspendable);
+    }
+
+    @Test
+    public void should_match_p2pk_unlocking_script_address() {
+        // Setup
+        final String transactionHex = "010000000110EE96AA946338CFD0B2ED0603259CFE2F5458C32EE4BD7B88B583769C6B046E010000006B483045022100E5E4749D539A163039769F52E1EBC8E6F62E39387D61E1A305BD722116CDED6C022014924B745DD02194FE6B5CB8AC88EE8E9A2AEDE89E680DCEA6169EA696E24D52012102B4B754609B46B5D09644C2161F1767B72B93847CE8154D795F95D31031A08AA2FFFFFFFF028098F34C010000001976A914A134408AFA258A50ED7A1D9817F26B63CC9002CC88AC8028BB13010000001976A914FEC5B1145596B35F59F8BE1DAF169F375942143388AC00000000";
+        final TransactionInflater transactionInflater = new TransactionInflater();
+        final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString(transactionHex));
+        final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+        final TransactionInput transactionInput = transactionInputs.get(0);
+        final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
+        final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
+        final AddressInflater addressInflater = new AddressInflater();
+        final Address expectedAddress = addressInflater.fromBase58Check("1CfD77hupeUvFwBPxZ2fA8iyWmVwQY22oh");
+
+        // Action
+        final Address address = scriptPatternMatcher.extractAddressFromPayToPublicKeyHash(unlockingScript);
+
+        // Assert
+        Assert.assertEquals(expectedAddress, address);
     }
 }

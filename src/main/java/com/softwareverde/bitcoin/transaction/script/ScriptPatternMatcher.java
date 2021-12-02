@@ -180,23 +180,7 @@ public class ScriptPatternMatcher {
         return addressInflater.fromBytes(bytes, isCompressed);
     }
 
-    /**
-     * Returns true if the provided script matches the Pay-To-Public-Key (P2PK) script format.
-     *  The P2PK format is: <20-byte public-key-hash> OP_CHECKSIG
-     */
-    public Boolean matchesPayToPublicKeyFormat(final LockingScript lockingScript) {
-        return _matchesPayToPublicKeyFormat(lockingScript);
-    }
-
-    /**
-     * Returns true if the provided script matches the Pay-To-Public-Key-Hash (P2PKH) script format.
-     *  The P2PKH format is: OP_DUP OP_HASH160 <20-byte public-key-hash> OP_EQUALVERIFY OP_CHECKSIG
-     */
-    public Boolean matchesPayToPublicKeyHashFormat(final LockingScript lockingScript) {
-        return _matchesPayToPublicKeyHashFormat(lockingScript);
-    }
-
-    public Address extractAddress(final ScriptType scriptType, final LockingScript lockingScript) {
+    protected Address _extractAddress(final ScriptType scriptType, final LockingScript lockingScript) {
         final Address address;
         {
             switch (scriptType) {
@@ -220,31 +204,7 @@ public class ScriptPatternMatcher {
         return address;
     }
 
-    public Address extractAddressFromPayToPublicKey(final LockingScript lockingScript) {
-        return _extractAddressFromPayToPublicKey(lockingScript);
-    }
-
-    public Address extractAddressFromPayToPublicKeyHash(final LockingScript lockingScript) {
-        return _extractAddressFromPayToPublicKeyHash(lockingScript, false);
-    }
-
-    public Address extractAddressFromPayToPublicKeyHash(final LockingScript lockingScript, final Boolean isCompressed) {
-        return _extractAddressFromPayToPublicKeyHash(lockingScript, isCompressed);
-    }
-
-    public Address extractAddressFromPayToScriptHash(final LockingScript lockingScript) {
-        return _extractAddressFromPayToScriptHash(lockingScript, false);
-    }
-
-    /**
-     * Returns true if the provided script matches the Pay-To-Script-Hash (P2SH) script format.
-     *  The P2SH format is: HASH160 <20-byte redeem-script-hash> EQUAL
-     */
-    public Boolean matchesPayToScriptHashFormat(final LockingScript lockingScript) {
-        return _matchesPayToScriptHashFormat(lockingScript);
-    }
-
-    public ScriptType getScriptType(final LockingScript lockingScript) {
+    protected ScriptType _getScriptType(final LockingScript lockingScript) {
         final Boolean isPayToPublicKeyHash = _matchesPayToPublicKeyHashFormat(lockingScript);
         if (isPayToPublicKeyHash) {
             return ScriptType.PAY_TO_PUBLIC_KEY_HASH;
@@ -298,6 +258,81 @@ public class ScriptPatternMatcher {
         }
 
         return ScriptType.CUSTOM_SCRIPT;
+    }
+
+    /**
+     * Returns true if the provided script matches the Pay-To-Public-Key (P2PK) script format.
+     *  The P2PK format is: <20-byte public-key-hash> OP_CHECKSIG
+     */
+    public Boolean matchesPayToPublicKeyFormat(final LockingScript lockingScript) {
+        return _matchesPayToPublicKeyFormat(lockingScript);
+    }
+
+    /**
+     * Returns true if the provided script matches the Pay-To-Public-Key-Hash (P2PKH) script format.
+     *  The P2PKH format is: OP_DUP OP_HASH160 <20-byte public-key-hash> OP_EQUALVERIFY OP_CHECKSIG
+     */
+    public Boolean matchesPayToPublicKeyHashFormat(final LockingScript lockingScript) {
+        return _matchesPayToPublicKeyHashFormat(lockingScript);
+    }
+
+    public Address extractAddress(final ScriptType scriptType, final LockingScript lockingScript) {
+        return _extractAddress(scriptType, lockingScript);
+    }
+
+    public Address extractAddress(final LockingScript lockingScript) {
+        final ScriptType scriptType = _getScriptType(lockingScript);
+        if (scriptType == null) { return null; }
+
+        return _extractAddress(scriptType, lockingScript);
+    }
+
+    public Address extractAddressFromPayToPublicKeyHash(final UnlockingScript unlockingScript) {
+        if (unlockingScript.containsNonPushOperations()) { return null; }
+
+        final List<Operation> operations = unlockingScript.getOperations();
+        final int operationCount = operations.getCount();
+        if (operationCount > 2) { return null; } // Custom script type...
+        if (operationCount == 1) { return null;  } // Possibly P2PK...
+
+        final PushOperation pushOperation = (PushOperation) operations.get(1);
+        final Value value = pushOperation.getValue();
+
+        final PublicKey publicKey = value.asPublicKey();
+        if (publicKey == null) { return null; }
+
+        if (!publicKey.isValid()) { return null; }
+
+        final AddressInflater addressInflater = new AddressInflater();
+        return addressInflater.fromPublicKey(publicKey);
+    }
+
+    public Address extractAddressFromPayToPublicKey(final LockingScript lockingScript) {
+        return _extractAddressFromPayToPublicKey(lockingScript);
+    }
+
+    public Address extractAddressFromPayToPublicKeyHash(final LockingScript lockingScript) {
+        return _extractAddressFromPayToPublicKeyHash(lockingScript, false);
+    }
+
+    public Address extractAddressFromPayToPublicKeyHash(final LockingScript lockingScript, final Boolean isCompressed) {
+        return _extractAddressFromPayToPublicKeyHash(lockingScript, isCompressed);
+    }
+
+    public Address extractAddressFromPayToScriptHash(final LockingScript lockingScript) {
+        return _extractAddressFromPayToScriptHash(lockingScript, false);
+    }
+
+    /**
+     * Returns true if the provided script matches the Pay-To-Script-Hash (P2SH) script format.
+     *  The P2SH format is: HASH160 <20-byte redeem-script-hash> EQUAL
+     */
+    public Boolean matchesPayToScriptHashFormat(final LockingScript lockingScript) {
+        return _matchesPayToScriptHashFormat(lockingScript);
+    }
+
+    public ScriptType getScriptType(final LockingScript lockingScript) {
+        return _getScriptType(lockingScript);
     }
 
     // https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/2019-05-15-segwit-recovery.md
