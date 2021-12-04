@@ -893,6 +893,26 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         _executeJsonRequest(rpcRequestJson);
     }
 
+    public Long ping() {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
+        final NanoTimer nanoTimer = new NanoTimer();
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "POST");
+        rpcRequestJson.put("query", "PING");
+
+        nanoTimer.start();
+        final Json response = _executeJsonRequest(rpcRequestJson);
+        nanoTimer.stop();
+
+        if (response == null || (! response.getBoolean("wasSuccess"))) {
+            return null;
+        }
+
+        return nanoTimer.getMillisecondsElapsed().longValue();
+    }
+
     @Override
     public void close() {
         if (_jsonSocket != null) {

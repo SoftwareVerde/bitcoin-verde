@@ -180,13 +180,19 @@ public class ElectrumModule {
         nodeConnection.setOnCloseCallback(new Runnable() {
             @Override
             public void run() {
-                if ( nodeConnection.isConnected() && (_cachedConnectionCount.get() < _maxCachedConnectionCount) ) {
-                    _cachedConnections.addLast(nodeConnection);
-                    _cachedConnectionCount.getAndIncrement();
-                }
-                else {
+                if ( (! nodeConnection.isConnected()) || (_cachedConnectionCount.get() >= _maxCachedConnectionCount) ) {
                     nodeConnection.superClose();
+                    return;
                 }
+
+                final Long ping = nodeConnection.ping();
+                if (ping == null) {
+                    nodeConnection.superClose();
+                    return;
+                }
+
+                _cachedConnections.addLast(nodeConnection);
+                _cachedConnectionCount.getAndIncrement();
             }
         });
 

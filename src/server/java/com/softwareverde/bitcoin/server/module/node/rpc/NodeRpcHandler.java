@@ -2270,6 +2270,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                                 _jsonConnectionProperties.keepAliveIsEnabled = parameters.getBoolean("enableKeepAlive");
                             } break;
 
+                            case "PING": {
+                                response.put(WAS_SUCCESS_KEY, 1);
+                            } break;
+
                             // TODO: Add invalidate-block command (see: feature/invalidate-block/master).
                             // TODO: Add rebuild-UTXO set from block-height command.
 
