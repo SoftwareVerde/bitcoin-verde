@@ -48,6 +48,11 @@ import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.security.MessageDigest;
 import java.util.HashMap;
@@ -62,7 +67,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class ElectrumModule {
-    public static final String SERVER_VERSION = "Electrum Verde 1.0.2";
+    public static final String SERVER_VERSION = "Electrum Verde 1.0.3";
     public static final String BANNER = ElectrumModule.SERVER_VERSION;
     public static final String PROTOCOL_VERSION = "1.4.4";
 
@@ -145,6 +150,8 @@ public class ElectrumModule {
         return transactionBlockHeightJson;
     }
 
+    protected final Integer _maxCachedConnectionCount = 32;
+    protected final Long _maxCachedConnectionLifespan = 10000L;
     protected final AtomicInteger _cachedConnectionCount = new AtomicInteger(0);
     protected final ConcurrentLinkedDeque<CachedNodeJsonRpcConnection> _cachedConnections = new ConcurrentLinkedDeque<>();
     protected NodeJsonRpcConnection _getNodeConnection() {
@@ -158,7 +165,7 @@ public class ElectrumModule {
                 continue;
             }
 
-            if (cachedConnection.getConnectionDuration() > 10000L) {
+            if (cachedConnection.getConnectionDuration() > _maxCachedConnectionLifespan) {
                 cachedConnection.superClose();
                 continue;
             }
@@ -173,8 +180,8 @@ public class ElectrumModule {
         nodeConnection.setOnCloseCallback(new Runnable() {
             @Override
             public void run() {
-                if ( nodeConnection.isConnected() && (_cachedConnectionCount.get() < 32) ) {
-                    _cachedConnections.add(nodeConnection);
+                if ( nodeConnection.isConnected() && (_cachedConnectionCount.get() < _maxCachedConnectionCount) ) {
+                    _cachedConnections.addLast(nodeConnection);
                     _cachedConnectionCount.getAndIncrement();
                 }
                 else {
@@ -366,43 +373,70 @@ public class ElectrumModule {
         }
     }
 
-    protected Long _loadBootstrappedHeaders() {
-        long blockHeight = -1L;
+    protected Long _readHeadersFromStream(final InputStream inputStream) throws IOException {
+        long headerCount = 0L;
 
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
+        final MutableByteArray buffer = new MutableByteArray(BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT);
+        while (true) {
+            int readByteCount = inputStream.read(buffer.unwrap());
+            while ((readByteCount >= 0) && (readByteCount < BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT)) {
+                final int nextByte = inputStream.read();
+                if (nextByte < 0) { break; }
+
+                buffer.setByte(readByteCount, (byte) nextByte);
+                readByteCount += 1;
+            }
+            if (readByteCount != BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT) { return headerCount; }
+
+            final BlockHeader blockHeader = blockHeaderInflater.fromBytes(buffer);
+            if (blockHeader == null) { return headerCount; }
+
+            _cachedBlockHeaders.add(blockHeader);
+            headerCount += 1L;
+        }
+    }
+
+    protected Long _loadBootstrappedHeaders() {
         try (final InputStream inputStream = HeadersBootstrapper.class.getResourceAsStream("/bootstrap/headers.dat")) {
             if (inputStream == null) {
                 Logger.warn("Unable to open headers bootstrap file.");
-                return blockHeight;
+                return -1L;
             }
 
-            final MutableByteArray buffer = new MutableByteArray(BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT);
-            while (true) {
-                int readByteCount = inputStream.read(buffer.unwrap());
-                while ((readByteCount >= 0) && (readByteCount < BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT)) {
-                    final int nextByte = inputStream.read();
-                    if (nextByte < 0) { break; }
-
-                    buffer.setByte(readByteCount, (byte) nextByte);
-                    readByteCount += 1;
-                }
-                if (readByteCount != BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT) { return blockHeight; }
-
-                final BlockHeader blockHeader = blockHeaderInflater.fromBytes(buffer);
-                if (blockHeader == null) { return blockHeight; }
-
-                _cachedBlockHeaders.add(blockHeader);
-                blockHeight += 1L;
-            }
+            return (_readHeadersFromStream(inputStream) - 1L);
         }
         catch (final Exception exception) {
             Logger.warn(exception);
         }
 
-        return blockHeight;
+        return -1L;
     }
 
     protected void _cacheBlockHeaders() {
+        final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
+        final File dataDirectory = _electrumProperties.getDataDirectory();
+        final File headersCacheFile = new File(dataDirectory, "headers.dat");
+        final boolean shouldWriteToHeadersFile;
+        if (headersCacheFile.exists()) {
+            shouldWriteToHeadersFile = true;
+        }
+        else {
+            boolean dataFileCreatedSuccessfully;
+            try {
+                dataFileCreatedSuccessfully = headersCacheFile.createNewFile();
+            }
+            catch (final Exception exception) {
+                dataFileCreatedSuccessfully = false;
+            }
+
+            if (! dataFileCreatedSuccessfully) {
+                Logger.info("Unable to create headers data file: " + headersCacheFile);
+            }
+
+            shouldWriteToHeadersFile = dataFileCreatedSuccessfully;
+        }
+
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
         _blockHeaderCacheWriteLock.lock();
         try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
@@ -412,20 +446,39 @@ public class ElectrumModule {
 
             final long maxBlockHeight = Math.max(0L, _chainHeight - RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT);
             long blockHeight = (_loadBootstrappedHeaders() + 1L);
-            while (blockHeight <= maxBlockHeight) {
-                final Json blockHeadersJson = nodeConnection.getBlockHeadersAfter(blockHeight, RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT, true);
-                final Json blockHeadersArray = blockHeadersJson.get("blockHeaders");
-                final int blockHeaderCount = blockHeadersArray.length();
-                Logger.debug("Received " + blockHeaderCount + " headers, starting at: " + blockHeight + " max=" + maxBlockHeight);
-                for (int i = 0; i < blockHeaderCount; ++i) {
-                    final String blockHeaderString = blockHeadersArray.getString(i);
-                    final BlockHeader blockHeader = blockHeaderInflater.fromBytes(ByteArray.fromHexString(blockHeaderString));
-                    _cachedBlockHeaders.add(blockHeader);
-                    blockHeight += 1L;
+            try (final FileInputStream inputStream = new FileInputStream(headersCacheFile)) {
+                blockHeight += _readHeadersFromStream(inputStream);
+            }
 
-                    if (blockHeight > maxBlockHeight) { break; } // Include the maxBlockHeight block...
+            try (final BufferedOutputStream headersOutputStream = (shouldWriteToHeadersFile ? new BufferedOutputStream(new FileOutputStream(headersCacheFile, true)) : null)) {
+                while (blockHeight <= maxBlockHeight) {
+                    final Json blockHeadersJson = nodeConnection.getBlockHeadersAfter(blockHeight, RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT, true);
+                    final Json blockHeadersArray = blockHeadersJson.get("blockHeaders");
+                    final int blockHeaderCount = blockHeadersArray.length();
+                    Logger.debug("Received " + blockHeaderCount + " headers, starting at: " + blockHeight + " max=" + maxBlockHeight);
+                    for (int i = 0; i < blockHeaderCount; ++i) {
+                        final String blockHeaderString = blockHeadersArray.getString(i);
+                        final BlockHeader blockHeader = blockHeaderInflater.fromBytes(ByteArray.fromHexString(blockHeaderString));
+                        _cachedBlockHeaders.add(blockHeader);
+
+                        if (headersOutputStream != null) {
+                            final ByteArray blockHeaderBytes = blockHeaderDeflater.toBytes(blockHeader);
+                            headersOutputStream.write(blockHeaderBytes.getBytes());
+                        }
+
+                        blockHeight += 1L;
+
+                        if (blockHeight > maxBlockHeight) { break; } // Include the maxBlockHeight block...
+                    }
+                }
+
+                if (headersOutputStream != null) {
+                    headersOutputStream.flush();
                 }
             }
+        }
+        catch (final Exception exception) {
+            Logger.debug(exception);
         }
         finally {
             _blockHeaderCacheWriteLock.unlock();
@@ -546,7 +599,7 @@ public class ElectrumModule {
         final Json json = new ElectrumJson(false);
 
         json.put("id", id);
-        json.put("result", donationAddress.toBase32CheckEncoded());
+        json.put("result", (donationAddress != null ? donationAddress.toBase32CheckEncoded() : ""));
         jsonSocket.write(new ElectrumJsonProtocolMessage(json));
         jsonSocket.flush();
 
@@ -1281,7 +1334,7 @@ public class ElectrumModule {
             { // Add the JsonSocket as a WeakReference if the set does not contain it...
                 boolean socketExists = false;
                 for (final ConnectionAddress connectionAddress : connectionAddresses) {
-                    if (addressStatus != null) {
+                    if (addressStatus != null && (! Util.areEqual(connectionAddress.status, addressStatus))) {
                         connectionAddress.status = addressStatus;
                         Logger.debug("Updated Status: " + connectionAddress);
                     }
@@ -1294,7 +1347,6 @@ public class ElectrumModule {
                 if (! socketExists) {
                     final ConnectionAddress connectionAddress = new ConnectionAddress(addressKey, jsonSocket);
                     connectionAddress.status = addressStatus;
-                    Logger.debug("Updated Status: " + connectionAddress);
 
                     connectionAddresses.add(connectionAddress);
                 }
@@ -2076,6 +2128,27 @@ public class ElectrumModule {
                     if ( (_nodeNotificationConnection == null) || (! _nodeNotificationConnection.isConnected()) ) {
                         _createNodeNotificationConnection();
                     }
+
+                    while (true) { // Attempt to serve a cached connection...
+                        final CachedNodeJsonRpcConnection cachedConnection = _cachedConnections.pollFirst();
+                        if (cachedConnection == null) { break; }
+                        _cachedConnectionCount.getAndDecrement();
+
+                        if (! cachedConnection.isConnected()) {
+                            cachedConnection.superClose();
+                            continue;
+                        }
+
+                        if (cachedConnection.getConnectionDuration() > _maxCachedConnectionLifespan) {
+                            cachedConnection.superClose();
+                            continue;
+                        }
+
+                        if (_cachedConnectionCount.get() < _maxCachedConnectionCount) {
+                            _cachedConnections.addLast(cachedConnection);
+                            _cachedConnectionCount.getAndDecrement();
+                        }
+                    }
                 }
             }
         });
@@ -2085,6 +2158,14 @@ public class ElectrumModule {
 
     public void loop() {
         final Thread mainThread = Thread.currentThread();
+
+        final File dataDirectory = _electrumProperties.getDataDirectory();
+        if (! dataDirectory.exists()) {
+            final boolean dataDirectoryCreated = dataDirectory.mkdirs();
+            if (! dataDirectoryCreated) {
+                Logger.warn("Unable to create data directory: " + dataDirectory);
+            }
+        }
 
         _threadPool.start();
         _requestBooster.start();

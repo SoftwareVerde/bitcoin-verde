@@ -1,8 +1,9 @@
 package com.softwareverde.bitcoin.server.configuration;
 
 import com.softwareverde.bitcoin.address.Address;
-import com.softwareverde.bitcoin.rpc.RpcCredentials;
 import com.softwareverde.logging.LogLevel;
+
+import java.io.File;
 
 public class ElectrumProperties {
     public static final Integer HTTP_PORT = 50001;
@@ -10,8 +11,8 @@ public class ElectrumProperties {
 
     protected String _bitcoinRpcUrl;
     protected Integer _bitcoinRpcPort;
-    protected RpcCredentials _rpcCredentials;
     protected LogLevel _logLevel;
+    protected File _dataDirectory;
 
     protected Integer _httpPort;
     protected Integer _tlsPort;
@@ -26,10 +27,6 @@ public class ElectrumProperties {
 
     public Integer getBitcoinRpcPort() {
         return _bitcoinRpcPort;
-    }
-
-    public RpcCredentials getRpcCredentials() {
-        return _rpcCredentials;
     }
 
     public Integer getHttpPort() {
@@ -54,5 +51,9 @@ public class ElectrumProperties {
 
     public LogLevel getLogLevel() {
         return _logLevel;
+    }
+
+    public File getDataDirectory() {
+        return _dataDirectory;
     }
 }
