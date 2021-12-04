@@ -151,9 +151,14 @@ public class ElectrumModule {
         while (true) { // Attempt to serve a cached connection...
             final CachedNodeJsonRpcConnection cachedConnection = _cachedConnections.pollFirst();
             if (cachedConnection == null) { break; }
-
             _cachedConnectionCount.getAndDecrement();
+
             if (! cachedConnection.isConnected()) {
+                cachedConnection.superClose();
+                continue;
+            }
+
+            if (cachedConnection.getConnectionDuration() > 10000L) {
                 cachedConnection.superClose();
                 continue;
             }
@@ -865,9 +870,6 @@ public class ElectrumModule {
             }
         }
 
-        final Json json = new ElectrumJson(false);
-        json.put("id", id);
-
         final String transactionHexString;
         try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
             final Json transactionJson = nodeConnection.getTransaction(transactionHash, true);
@@ -875,6 +877,17 @@ public class ElectrumModule {
             transactionHexString = transactionHexUppercaseString.toLowerCase();
         }
 
+        if (Util.isBlank(transactionHexString)) {
+            final Json json = ElectrumModule.createErrorJson(id, "Unable to load transaction.", null);
+            jsonSocket.write(new ElectrumJsonProtocolMessage(json));
+            jsonSocket.flush();
+
+            _debugWriteMessage(jsonSocket, json);
+            return;
+        }
+
+        final Json json = new ElectrumJson(false);
+        json.put("id", id);
         json.put("result", transactionHexString);
 
         jsonSocket.write(new ElectrumJsonProtocolMessage(json));
