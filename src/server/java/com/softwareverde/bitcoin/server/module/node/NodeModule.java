@@ -705,7 +705,7 @@ public class NodeModule {
         }
 
         if (pruningModeIsEnabled) {
-            _blockPruner = new BlockPruner(databaseManagerFactory, _blockStore, new BlockPruner.RequiredBlockChecker() {
+            _blockPruner = new BlockPruner(databaseManagerFactory, _blockStore, indexModeIsEnabled, new BlockPruner.RequiredBlockChecker() {
                 @Override
                 public Boolean isBlockRequired(final Long blockHeight, final Sha256Hash blockHash) {
                     final boolean utxoCommitmentGeneratorRequiresBlock = _utxoCommitmentGenerator.requiresBlock(blockHeight, blockHash);
@@ -802,7 +802,7 @@ public class NodeModule {
         }
 
         _utxoCommitmentGenerator = new UtxoCommitmentGenerator(databaseManagerFactory, _utxoCommitmentStore.getUtxoDataDirectory());
-        _utxoCommitmentDownloader = new UtxoCommitmentDownloader(databaseManagerFactory, _bitcoinNodeManager, _utxoCommitmentStore, _utxoCommitmentGenerator, _blockPruner);
+        _utxoCommitmentDownloader = new UtxoCommitmentDownloader(databaseManagerFactory, _bitcoinNodeManager, _utxoCommitmentStore, _utxoCommitmentGenerator, _blockPruner, _blockchainIndexer);
 
         { // Set the synchronization elements to cascade to each component...
             _blockchainBuilder.setAsynchronousNewBlockProcessedCallback(new BlockchainBuilder.NewBlockProcessedCallback() {

@@ -85,7 +85,9 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
             final NanoTimer nanoTimer = new NanoTimer();
             nanoTimer.start();
             final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
-            _indexerCache.cacheTransactionId(_cacheIdentifier, transactionHash, transactionId);
+            if (transactionId != null) {
+                _indexerCache.cacheTransactionId(_cacheIdentifier, transactionHash, transactionId);
+            }
             nanoTimer.stop();
             _getTransactionIdMs += nanoTimer.getMillisecondsElapsed();
             return transactionId;

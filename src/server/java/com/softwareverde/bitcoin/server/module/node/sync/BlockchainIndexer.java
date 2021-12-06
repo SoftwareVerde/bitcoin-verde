@@ -27,6 +27,7 @@ import com.softwareverde.bitcoin.transaction.script.slp.send.SlpSendScript;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
@@ -165,11 +166,9 @@ public class BlockchainIndexer extends SleepyService {
         return inputIndexDataList;
     }
 
-    protected Map<TransactionOutputIdentifier, OutputIndexData> _indexTransactionOutputs(final TransactionId transactionId, final Transaction transaction) throws ContextException {
+    protected Map<TransactionOutputIdentifier, OutputIndexData> _indexTransactionOutputs(final TransactionId transactionId, final Sha256Hash transactionHash, final List<TransactionOutput> transactionOutputs) throws ContextException {
         final HashMap<TransactionOutputIdentifier, OutputIndexData> outputIndexData = new HashMap<>();
 
-        final Sha256Hash transactionHash = transaction.getHash();
-        final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
         final int transactionOutputCount = transactionOutputs.getCount();
 
         final LockingScript firstOutputLockingScript;
@@ -349,11 +348,16 @@ public class BlockchainIndexer extends SleepyService {
         }
 
         if (transaction == null) {
-            Logger.debug("Unable to inflate Transaction for address processing: " + transactionId);
+            Logger.debug("Unable to inflate Transaction for indexing: " + transactionId);
             return null;
         }
 
-        final Map<TransactionOutputIdentifier, OutputIndexData> outputIndexData = _indexTransactionOutputs(transactionId, transaction);
+        final Map<TransactionOutputIdentifier, OutputIndexData> outputIndexData;
+        {
+            final Sha256Hash transactionHash = transaction.getHash();
+            final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+            outputIndexData = _indexTransactionOutputs(transactionId, transactionHash, transactionOutputs);
+        }
         timer.mark("_indexTransactionOutputs");
         for (final OutputIndexData indexData : outputIndexData.values()) {
             context.indexTransactionOutput(indexData.transactionId, indexData.outputIndex, indexData.amount, indexData.scriptType, indexData.address, indexData.scriptHash, indexData.slpTransactionId, indexData.memoActionType, indexData.memoActionIdentifier);
@@ -460,5 +464,35 @@ public class BlockchainIndexer extends SleepyService {
 
     public void setOnSleepCallback(final Runnable onSleepCallback) {
         _onSleepCallback = onSleepCallback;
+    }
+
+    public void indexUtxosFromUtxoCommitmentImport(final List<TransactionOutputIdentifier> transactionOutputIdentifiers, final List<TransactionOutput> transactionOutputs) throws Exception {
+        final int outputCount = transactionOutputs.getCount();
+        {
+            final int identifiersCount = transactionOutputIdentifiers.getCount();
+            if (outputCount != identifiersCount) {
+                throw new RuntimeException("Identifier/Output count mismatch. (" + identifiersCount + " != " + outputCount + ")");
+            }
+        }
+
+        try (final AtomicTransactionOutputIndexerContext context = _context.newTransactionOutputIndexerContext()) {
+            for (int i = 0; i < outputCount; ++i) {
+                final TransactionOutputIdentifier transactionOutputIdentifier = transactionOutputIdentifiers.get(i);
+                final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
+                final TransactionOutput transactionOutput = transactionOutputs.get(i);
+
+                final TransactionId transactionId = context.getTransactionId(transactionHash);
+
+                // NOTE: Normally the whole Transaction's Outputs are provided to _indexTransactionOutputs in order to process SLP/MEMO/etc,
+                //  however, since all of these special transactions' first output is an OP_RETURN, they will never be included in the UTXO set,
+                //  and therefore the order/size of the TransactionOutputs list does not matter.
+                final Map<TransactionOutputIdentifier, OutputIndexData> outputIndexData = _indexTransactionOutputs(transactionId, transactionHash, new ImmutableList<>(transactionOutput));
+                for (final OutputIndexData indexData : outputIndexData.values()) {
+                    context.indexTransactionOutput(indexData.transactionId, indexData.outputIndex, indexData.amount, indexData.scriptType, indexData.address, indexData.scriptHash, indexData.slpTransactionId, indexData.memoActionType, indexData.memoActionIdentifier);
+                }
+            }
+
+            context.finish();
+        }
     }
 }

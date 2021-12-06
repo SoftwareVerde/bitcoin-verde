@@ -40,6 +40,7 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.query.parameter.InClauseParameter;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Container;
@@ -96,7 +97,11 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
     protected TransactionId _storeTransactionHash(final Transaction transaction) throws DatabaseException {
         final Sha256Hash transactionHash = transaction.getHash();
+        final Integer transactionByteCount = transaction.getByteCount();
+        return _storeTransactionHash(transactionHash, transactionByteCount, transaction);
+    }
 
+    protected TransactionId _storeTransactionHash(final Sha256Hash transactionHash, final Integer nullableByteCount, final Transaction nullableTransaction) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         { // Check if the Transaction already exists...
@@ -106,7 +111,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             }
         }
 
-        final Integer transactionByteCount = transaction.getByteCount();
+        final Integer transactionByteCount = (nullableByteCount != null ? nullableByteCount : nullableTransaction.getByteCount());
         final Long transactionId = databaseConnection.executeSql(
             new Query("INSERT INTO transactions (hash, byte_count) VALUES (?, ?)")
                 .setParameter(transactionHash)
@@ -260,22 +265,41 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         return listBuilder.build();
     }
 
-    protected List<TransactionId> _storeTransactionHashes(final List<Transaction> transactions, final DatabaseConnectionFactory databaseConnectionFactory, final Integer maxThreadCount) throws DatabaseException {
-        final List<Transaction> sortedTransactions;
-        { // TODO: Have the caller sort the Transactions in order to optimize for CTOR...
-            final MutableList<Transaction> unsortedTransactions = new MutableList<>(transactions);
-            unsortedTransactions.sort(new Comparator<Transaction>() {
-                @Override
-                public int compare(final Transaction transaction0, final Transaction transaction1) {
-                    final Sha256Hash transactionHash0 = transaction0.getHash();
-                    final Sha256Hash transactionHash1 = transaction1.getHash();
-                    return transactionHash0.compareTo(transactionHash1);
-                }
-            });
-            sortedTransactions = unsortedTransactions;
+    protected static class TransactionHashAndByteCount {
+        public final Sha256Hash transactionHash;
+        public final Integer byteCount;
+
+        public TransactionHashAndByteCount(final Sha256Hash transactionHash, final Integer byteCount) {
+            this.transactionHash = transactionHash;
+            this.byteCount = byteCount;
+        }
+    }
+
+    protected List<TransactionHashAndByteCount> _convertToHashAndByteCounts(final List<Transaction> transactions) {
+        final MutableList<TransactionHashAndByteCount> transactionHashAndByteCounts = new MutableList<>(transactions.getCount());
+        for (final Transaction transaction : transactions) {
+            final Sha256Hash transactionHash = transaction.getHash();
+            final Integer transactionByteCount = transaction.getByteCount();
+
+            final TransactionHashAndByteCount transactionHashAndByteCount = new TransactionHashAndByteCount(transactionHash, transactionByteCount);
+            transactionHashAndByteCounts.add(transactionHashAndByteCount);
         }
 
-        final BatchRunner<Transaction> batchRunner;
+        // TODO: Require that the outside callee provides the transactions list in already-sorted order (as an optimization with CTOR)...
+        transactionHashAndByteCounts.sort(new Comparator<TransactionHashAndByteCount>() {
+            @Override
+            public int compare(final TransactionHashAndByteCount transactionHashAndByteCount0, final TransactionHashAndByteCount transactionHashAndByteCount1) {
+                final Sha256Hash transactionHash0 = transactionHashAndByteCount0.transactionHash;
+                final Sha256Hash transactionHash1 = transactionHashAndByteCount1.transactionHash;
+                return transactionHash0.compareTo(transactionHash1);
+            }
+        });
+
+        return transactionHashAndByteCounts;
+    }
+
+    protected List<TransactionId> _storeTransactionHashes(final List<TransactionHashAndByteCount> transactions, final DatabaseConnectionFactory databaseConnectionFactory, final Integer maxThreadCount) throws DatabaseException {
+        final BatchRunner<TransactionHashAndByteCount> batchRunner;
         {
             if (databaseConnectionFactory != null) {
                 final Integer batchSize = Math.min(512, _databaseManager.getMaxQueryBatchSize());
@@ -289,11 +313,16 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
         final ConcurrentHashMap<Sha256Hash, TransactionId> transactionHashMap = new ConcurrentHashMap<>(transactions.getCount());
         {
-            batchRunner.run(sortedTransactions, new BatchRunner.Batch<Transaction>() {
+            batchRunner.run(transactions, new BatchRunner.Batch<TransactionHashAndByteCount>() {
                 @Override
-                public void run(final List<Transaction> transactionsBatch) throws Exception {
+                public void run(final List<TransactionHashAndByteCount> transactionsBatch) throws Exception {
                     final Query query = new Query("SELECT id, hash FROM transactions WHERE hash IN (?)");
-                    query.setInClauseParameters(transactionsBatch, ValueExtractor.HASHABLE);
+                    query.setInClauseParameters(transactionsBatch, new ValueExtractor<TransactionHashAndByteCount>() {
+                        @Override
+                        public InClauseParameter extractValues(final TransactionHashAndByteCount value) {
+                            return ValueExtractor.SHA256_HASH.extractValues(value.transactionHash);
+                        }
+                    });
 
                     final java.util.List<Row> rows;
                     {
@@ -319,18 +348,18 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         }
 
         {
-            batchRunner.run(sortedTransactions, new BatchRunner.Batch<Transaction>() {
+            batchRunner.run(transactions, new BatchRunner.Batch<TransactionHashAndByteCount>() {
                 @Override
-                public void run(final List<Transaction> transactionsBatch) throws Exception {
+                public void run(final List<TransactionHashAndByteCount> transactionsBatch) throws Exception {
                     final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO transactions (hash, byte_count) VALUES (?, ?)");
 
                     List<Sha256Hash> insertedTransactionHashes;
                     boolean queryIsEmpty = true;
                     {
                         final ImmutableListBuilder<Sha256Hash> listBuilder = new ImmutableListBuilder<>(transactionsBatch.getCount());
-                        for (final Transaction transaction : transactionsBatch) {
-                            final Sha256Hash transactionHash = transaction.getHash();
-                            final Integer transactionByteCount = transaction.getByteCount();
+                        for (final TransactionHashAndByteCount transaction : transactionsBatch) {
+                            final Sha256Hash transactionHash = transaction.transactionHash;
+                            final Integer transactionByteCount = transaction.byteCount;
 
                             if (! transactionHashMap.containsKey(transactionHash)) {
                                 batchedInsertQuery.setParameter(transactionHash);
@@ -366,8 +395,8 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         }
 
         final ImmutableListBuilder<TransactionId> transactionIds = new ImmutableListBuilder<>(transactions.getCount());
-        for (final Transaction transaction : transactions) {
-            final Sha256Hash transactionHash = transaction.getHash();
+        for (final TransactionHashAndByteCount transaction : transactions) {
+            final Sha256Hash transactionHash = transaction.transactionHash;
 
             final TransactionId transactionId = transactionHashMap.get(transactionHash);
             transactionIds.add(transactionId);
@@ -914,13 +943,47 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     }
 
     @Override
+    public TransactionId storeTransactionHash(final Sha256Hash transactionHash, final Integer transactionByteCount) throws DatabaseException {
+        return _storeTransactionHash(transactionHash, Util.coalesce(transactionByteCount), null);
+    }
+
+    @Override
     public TransactionId storeTransactionHash(final Transaction transaction) throws DatabaseException {
         return _storeTransactionHash(transaction);
     }
 
     @Override
+    public List<TransactionId> storeTransactionHashes(final List<Sha256Hash> transactionHashes, final List<Integer> transactionByteCounts) throws DatabaseException {
+        final int transactionHashCount = transactionHashes.getCount();
+        {
+            final int transactionByteCountCount = transactionByteCounts.getCount();
+            if (transactionHashCount != transactionByteCountCount) { throw new RuntimeException("TransactionHash/ByteCount mismatch. (" + transactionHashCount + " != " + transactionByteCountCount + ")"); }
+        }
+
+        final MutableList<TransactionHashAndByteCount> transactionHashAndByteCounts = new MutableList<>(transactionHashCount);
+        for (int i = 0; i < transactionHashCount; ++i) {
+            final Sha256Hash transactionHash = transactionHashes.get(i);
+            final Integer transactionByteCount = transactionByteCounts.get(i);
+
+            final TransactionHashAndByteCount transactionHashAndByteCount = new TransactionHashAndByteCount(transactionHash, transactionByteCount);
+            transactionHashAndByteCounts.add(transactionHashAndByteCount);
+        }
+        // TODO: Require that the outside callee provides the transactions list in already-sorted order (as an optimization with CTOR)...
+        transactionHashAndByteCounts.sort(new Comparator<TransactionHashAndByteCount>() {
+            @Override
+            public int compare(final TransactionHashAndByteCount transactionHashAndByteCount0, final TransactionHashAndByteCount transactionHashAndByteCount1) {
+                final Sha256Hash transactionHash0 = transactionHashAndByteCount0.transactionHash;
+                final Sha256Hash transactionHash1 = transactionHashAndByteCount1.transactionHash;
+                return transactionHash0.compareTo(transactionHash1);
+            }
+        });
+        return _storeTransactionHashes(transactionHashAndByteCounts, null, null);
+    }
+
+    @Override
     public List<TransactionId> storeTransactionHashes(final List<Transaction> transactions) throws DatabaseException {
-        return _storeTransactionHashes(transactions, null, null);
+        final List<TransactionHashAndByteCount> transactionHashAndByteCounts = _convertToHashAndByteCounts(transactions);
+        return _storeTransactionHashes(transactionHashAndByteCounts, null, null);
     }
 
     /**
@@ -929,7 +992,8 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
      */
     @Override
     public List<TransactionId> storeTransactionHashes(final List<Transaction> transactions, final DatabaseConnectionFactory databaseConnectionFactory, final Integer maxThreadCount) throws DatabaseException {
-        return _storeTransactionHashes(transactions, databaseConnectionFactory, maxThreadCount);
+        final List<TransactionHashAndByteCount> transactionHashAndByteCounts = _convertToHashAndByteCounts(transactions);
+        return _storeTransactionHashes(transactionHashAndByteCounts, databaseConnectionFactory, maxThreadCount);
     }
 
     @Override

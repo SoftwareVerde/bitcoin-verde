@@ -1473,6 +1473,104 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         return unspentTransactionOutput;
     }
 
+    protected void _visitUtxoKey(final UtxoKey utxoKey, final UnspentTransactionOutputVisitor visitor) throws Exception {
+        final Sha256Hash transactionHash = Sha256Hash.copyOf(utxoKey.transactionHash);
+        final Integer outputIndex = utxoKey.outputIndex;
+        final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+
+        final UnspentTransactionOutput transactionOutput = _getUnspentTransactionOutput(transactionOutputIdentifier, false);
+
+        if (transactionOutput == null) { return; }
+        visitor.run(transactionOutputIdentifier, transactionOutput);
+    }
+
+    @Override
+    public void visitUnspentTransactionOutputs(final UnspentTransactionOutputVisitor visitor) throws DatabaseException {
+        if (UtxoCacheStaticState.isUtxoCacheDefunct()) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
+
+        UTXO_READ_MUTEX.lock();
+        try {
+            // Iterate through the UTXO cache...
+            for (final UtxoKey utxoKey : UTXO_SET.keySet()) {
+                _visitUtxoKey(utxoKey, visitor);
+            }
+
+            // Iterate through the UTXO double buffer, omitting items found within the cache to prevent duplicates...
+            synchronized (DOUBLE_BUFFER) {
+                for (final UtxoKey utxoKey : DOUBLE_BUFFER.keySet()) {
+                    if (UTXO_SET.containsKey(utxoKey)) { continue; }
+
+                    _visitUtxoKey(utxoKey, visitor);
+                }
+            }
+
+            // Iterate through the committed UTXO set, omitting items found within the cache and double buffer to prevent duplicates...
+            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+            Sha256Hash transactionHash;
+            Integer outputIndex = 0;
+            {
+                final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT transaction_hash FROM committed_unspent_transaction_outputs ORDER BY transaction_hash ASC LIMIT 1"));
+                if (rows.isEmpty()) {
+                    transactionHash = null;
+                }
+                else {
+                    final Row row = rows.get(0);
+                    transactionHash = Sha256Hash.wrap(row.getBytes("transaction_hash"));
+                }
+            }
+            while (true) {
+                { // Finish traversing any remaining outputs from the same transaction from the previous batch...
+                    final java.util.List<Row> rows = databaseConnection.query(
+                        new Query("SELECT transaction_hash, `index` FROM committed_unspent_transaction_outputs WHERE transaction_hash = ? AND `index` >= ? ORDER BY `index` ASC")
+                            .setParameter(transactionHash)
+                            .setParameter(outputIndex)
+                    );
+                    for (final Row row : rows) {
+                        transactionHash = Sha256Hash.wrap(row.getBytes("transaction_hash"));
+                        outputIndex = row.getInteger("index");
+                        final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+                        final UtxoKey utxoKey = new UtxoKey(transactionOutputIdentifier);
+                        if (UTXO_SET.containsKey(utxoKey)) { continue; }
+                        if (DOUBLE_BUFFER.containsKey(utxoKey)) { continue; }
+
+                        final UnspentTransactionOutput unspentTransactionOutput = _getUnspentTransactionOutput(transactionOutputIdentifier, false);
+                        if (unspentTransactionOutput == null) { continue; }
+
+                        visitor.run(transactionOutputIdentifier, unspentTransactionOutput);
+                    }
+                }
+
+                final java.util.List<Row> rows = databaseConnection.query(
+                    new Query("SELECT transaction_hash, `index` FROM committed_unspent_transaction_outputs WHERE transaction_hash > ? ORDER BY transaction_hash ASC, `index` ASC LIMIT 1024")
+                        .setParameter(transactionHash)
+                );
+                for (final Row row : rows) {
+                    transactionHash = Sha256Hash.wrap(row.getBytes("transaction_hash"));
+                    outputIndex = row.getInteger("index");
+                    final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+
+                    final UnspentTransactionOutput unspentTransactionOutput = _getUnspentTransactionOutput(transactionOutputIdentifier, false);
+                    if (unspentTransactionOutput == null) { continue; }
+
+                    visitor.run(transactionOutputIdentifier, unspentTransactionOutput);
+                }
+
+                if (rows.isEmpty()) { break; }
+                outputIndex += 1;
+            }
+        }
+        catch (final Exception exception) {
+            if (exception instanceof DatabaseException) {
+                throw (DatabaseException) exception;
+            }
+
+            throw new DatabaseException(exception);
+        }
+        finally {
+            UTXO_READ_MUTEX.unlock();
+        }
+    }
+
     public void populateCache(final CacheLoadingMethod cacheLoadingMethod) throws DatabaseException {
         UTXO_WRITE_MUTEX.lock();
         try {

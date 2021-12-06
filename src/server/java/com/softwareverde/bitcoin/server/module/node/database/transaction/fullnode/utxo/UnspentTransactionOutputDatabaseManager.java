@@ -16,6 +16,10 @@ public interface UnspentTransactionOutputDatabaseManager {
         Boolean isFlushedToDisk();
     }
 
+    interface UnspentTransactionOutputVisitor {
+        void run(TransactionOutputIdentifier transactionOutputIdentifier, UnspentTransactionOutput transactionOutput) throws Exception;
+    }
+
     Long DEFAULT_MAX_UTXO_CACHE_COUNT = 500000L;
     Float DEFAULT_PURGE_PERCENT = 0.5F;
     Long BYTES_PER_UTXO = 128L; // NOTE: This value is larger than the actual size.  // TODO: Research a more accurate UTXO byte count.
@@ -102,4 +106,6 @@ public interface UnspentTransactionOutputDatabaseManager {
     Long getMaxUtxoCount();
 
     UnspentTransactionOutput findOutputData(TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException;
+
+    void visitUnspentTransactionOutputs(UnspentTransactionOutputVisitor visitor) throws DatabaseException;
 }

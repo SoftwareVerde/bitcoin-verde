@@ -30,6 +30,7 @@ public class BlockPruner extends SleepyService {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final BlockStore _blockStore;
     protected final RequiredBlockChecker _requiredBlockChecker;
+    protected final Boolean _shouldKeepTransactionHashes;
 
     protected Long _lastPrunedBlockHeight = 0L;
 
@@ -56,10 +57,11 @@ public class BlockPruner extends SleepyService {
         );
     }
 
-    public BlockPruner(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockStore blockStore, final RequiredBlockChecker requiredBlockChecker) {
+    public BlockPruner(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockStore blockStore, final Boolean shouldKeepTransactionHashes, final RequiredBlockChecker requiredBlockChecker) {
         _databaseManagerFactory = databaseManagerFactory;
         _blockStore = blockStore;
         _requiredBlockChecker = requiredBlockChecker;
+        _shouldKeepTransactionHashes = shouldKeepTransactionHashes;
 
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             _lastPrunedBlockHeight = _getLastPrunedBlockHeight(databaseManager);
@@ -121,10 +123,18 @@ public class BlockPruner extends SleepyService {
                         .setParameter(prunedBlockId)
                 );
                 // Drop associated rows from: transactions, block_transactions
-                databaseConnection.executeSql(
-                    new Query("DELETE block_transactions, transactions FROM block_transactions INNER JOIN transactions ON transactions.id = block_transactions.transaction_id WHERE block_transactions.block_id = ?")
-                        .setParameter(prunedBlockId)
-                );
+                if (_shouldKeepTransactionHashes) {
+                    databaseConnection.executeSql(
+                        new Query("DELETE block_transactions FROM block_transactions WHERE block_id = ?")
+                            .setParameter(prunedBlockId)
+                    );
+                }
+                else {
+                    databaseConnection.executeSql(
+                        new Query("DELETE block_transactions, transactions FROM block_transactions INNER JOIN transactions ON transactions.id = block_transactions.transaction_id WHERE block_transactions.block_id = ?")
+                            .setParameter(prunedBlockId)
+                    );
+                }
                 _setLastPrunedBlockHeight(blockHeight, databaseManager);
                 TransactionUtil.commitTransaction(databaseConnection);
 
