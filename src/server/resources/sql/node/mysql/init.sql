@@ -316,8 +316,7 @@ CREATE TABLE validated_slp_transactions (
     transaction_id INT UNSIGNED NOT NULL,
     is_valid TINYINT(1) UNSIGNED NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
-    UNIQUE KEY valid_slp_transactions_uq (transaction_id),
-    FOREIGN KEY valid_slp_transactions_tx_id_fk (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE
+    UNIQUE KEY valid_slp_transactions_uq (transaction_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
 CREATE TABLE double_spend_proofs (
