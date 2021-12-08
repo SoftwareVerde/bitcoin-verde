@@ -6,7 +6,7 @@ import com.softwareverde.bitcoin.server.module.node.sync.inventory.BitcoinNodeBl
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.RequestId;
 import com.softwareverde.bitcoin.server.node.RequestPriority;
-import com.softwareverde.concurrent.service.GracefulSleepyService;
+import com.softwareverde.concurrent.service.LockingSleepyService;
 import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -21,7 +21,7 @@ import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class BlockDownloader extends GracefulSleepyService {
+public class BlockDownloader extends LockingSleepyService {
     public interface BlockDownloadCallback {
         void onBlockDownloaded(final Block block, final BitcoinNode bitcoinNode);
     }
@@ -161,7 +161,7 @@ public class BlockDownloader extends GracefulSleepyService {
     }
 
     @Override
-    protected Boolean _run() {
+    protected Boolean _runSynchronized() {
         if (_isPaused) { return false; }
 
         if (Logger.isTraceEnabled()) {

@@ -7,7 +7,6 @@ import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.message.type.query.utxo.UtxoCommitmentBreakdown;
 import com.softwareverde.bitcoin.server.module.node.manager.NodeFilter;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilderTests;
-import com.softwareverde.bitcoin.server.module.node.sync.DisabledBlockchainIndexer;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.RequestId;
 import com.softwareverde.bitcoin.test.UnitTest;
@@ -150,9 +149,7 @@ public class UtxoCommitmentDownloaderTests extends UnitTest {
                 }
             },
             null,
-            null,
-            null,
-            new DisabledBlockchainIndexer()
+            null
         );
 
         // Action

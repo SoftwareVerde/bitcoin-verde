@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.database.transaction.slp;
 
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.server.PropertiesStore;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
@@ -10,6 +11,7 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.database.util.TransactionUtil;
+import com.softwareverde.util.Util;
 
 public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabaseManager {
     protected static final String LAST_SLP_VALIDATED_BLOCK_ID_KEY = "last_slp_validated_block_id";
@@ -21,17 +23,20 @@ public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabase
 
         final BlockId lastIndexedBlockId;
         {
-            final java.util.List<Row> rows = databaseConnection.query(
-                    new Query("SELECT value FROM properties WHERE `key` = ?")
-                            .setParameter(LAST_SLP_VALIDATED_BLOCK_ID_KEY)
-            );
-            if (rows.isEmpty()) {
-                lastIndexedBlockId = BlockId.wrap(0L);
-            }
-            else {
-                final Row row = rows.get(0);
-                lastIndexedBlockId = BlockId.wrap(row.getLong("value"));
-            }
+//            final java.util.List<Row> rows = databaseConnection.query(
+//                    new Query("SELECT value FROM properties WHERE `key` = ?")
+//                            .setParameter(LAST_SLP_VALIDATED_BLOCK_ID_KEY)
+//            );
+//            if (rows.isEmpty()) {
+//                lastIndexedBlockId = BlockId.wrap(0L);
+//            }
+//            else {
+//                final Row row = rows.get(0);
+//                lastIndexedBlockId = BlockId.wrap(row.getLong("value"));
+//            }
+
+            final PropertiesStore propertiesStore = PropertiesStore.getInstance();
+            lastIndexedBlockId = BlockId.wrap(Util.coalesce(propertiesStore.get(LAST_SLP_VALIDATED_BLOCK_ID_KEY)));
         }
         return lastIndexedBlockId;
     }
@@ -149,12 +154,15 @@ public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabase
 
         // NOTE: "GREATEST(VALUES(value), value)" is apparently bugged as of 2020-06-19, v10.5.9-p1.  MariaDB bug report not submitted.
         // NOTE: 2021-10-28: GREATEST(VALUES(value), value) works when ran via the MySQL client, but was not tested via driver.  Using MariaDB v10.5.9-p1, mariadb-java-client v2.7.3
-        databaseConnection.executeSql(
-            new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = GREATEST(value, ?)")
-                .setParameter(LAST_SLP_VALIDATED_BLOCK_ID_KEY)
-                .setParameter(blockId)
-                .setParameter(blockId)
-        );
+//        databaseConnection.executeSql(
+//            new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = GREATEST(value, ?)")
+//                .setParameter(LAST_SLP_VALIDATED_BLOCK_ID_KEY)
+//                .setParameter(blockId)
+//                .setParameter(blockId)
+//        );
+
+        final PropertiesStore propertiesStore = PropertiesStore.getInstance();
+        propertiesStore.set(LAST_SLP_VALIDATED_BLOCK_ID_KEY, blockId.longValue());
     }
 
     /**

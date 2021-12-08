@@ -802,7 +802,7 @@ public class NodeModule {
         }
 
         _utxoCommitmentGenerator = new UtxoCommitmentGenerator(databaseManagerFactory, _utxoCommitmentStore.getUtxoDataDirectory());
-        _utxoCommitmentDownloader = new UtxoCommitmentDownloader(databaseManagerFactory, _bitcoinNodeManager, _utxoCommitmentStore, _utxoCommitmentGenerator, _blockPruner, _blockchainIndexer);
+        _utxoCommitmentDownloader = new UtxoCommitmentDownloader(databaseManagerFactory, _bitcoinNodeManager, _utxoCommitmentStore, _blockPruner);
 
         { // Set the synchronization elements to cascade to each component...
             _blockchainBuilder.setAsynchronousNewBlockProcessedCallback(new BlockchainBuilder.NewBlockProcessedCallback() {
@@ -960,11 +960,36 @@ public class NodeModule {
 
                     if ( _bitcoinProperties.isFastSyncEnabled() && (! wasFastSyncCompleted.value) ) {
                         if (blockHeaderDownloaderBlockHeight >= maxCommitmentBlockHeight) {
-                            final Boolean didComplete = _utxoCommitmentDownloader.runOnceSynchronously();
-                            if (didComplete) {
-                                wasFastSyncCompleted.value = true;
-                                _blockDownloader.setPaused(false);
+                            _blockHeaderDownloader.lock();
+                            _blockDownloader.lock();
+                            _utxoCommitmentGenerator.lock();
+                            _blockchainIndexer.lock();
+                            try {
+                                final Boolean didComplete = _utxoCommitmentDownloader.runOnceSynchronously();
+                                if (didComplete) {
+                                    if (indexModeIsEnabled) {
+                                        final UtxoCommitIndexer utxoCommitIndexer = new UtxoCommitIndexer(_blockchainIndexer, databaseManagerFactory);
+                                        try {
+                                            utxoCommitIndexer.indexUtxosAfterUtxoCommitmentImport();
+                                        }
+                                        catch (final DatabaseException exception) {
+                                            Logger.debug(exception);
+                                        }
+                                    }
+
+                                    wasFastSyncCompleted.value = true;
+                                }
+                            }
+                            finally {
+                                _blockchainIndexer.unlock();
+                                _utxoCommitmentGenerator.unlock();
+                                _blockDownloader.unlock();
+                                _blockHeaderDownloader.unlock();
+
+                                _blockHeaderDownloader.wakeUp();
                                 _blockDownloader.wakeUp();
+                                _utxoCommitmentGenerator.wakeUp();
+                                _blockchainIndexer.wakeUp();
                             }
                         }
                     }

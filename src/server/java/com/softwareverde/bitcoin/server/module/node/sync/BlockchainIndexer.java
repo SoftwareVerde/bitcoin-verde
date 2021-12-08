@@ -24,7 +24,7 @@ import com.softwareverde.bitcoin.transaction.script.slp.commit.SlpCommitScript;
 import com.softwareverde.bitcoin.transaction.script.slp.genesis.SlpGenesisScript;
 import com.softwareverde.bitcoin.transaction.script.slp.mint.SlpMintScript;
 import com.softwareverde.bitcoin.transaction.script.slp.send.SlpSendScript;
-import com.softwareverde.concurrent.service.SleepyService;
+import com.softwareverde.concurrent.service.LockingSleepyService;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
@@ -42,7 +42,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 
-public class BlockchainIndexer extends SleepyService {
+public class BlockchainIndexer extends LockingSleepyService {
     public static final Integer BATCH_SIZE = 1024;
 
     protected static class OutputIndexData {
@@ -380,7 +380,7 @@ public class BlockchainIndexer extends SleepyService {
     }
 
     @Override
-    protected Boolean _run() {
+    protected Boolean _runSynchronized() {
         final NanoTimer nanoTimer = new NanoTimer();
         nanoTimer.start();
 

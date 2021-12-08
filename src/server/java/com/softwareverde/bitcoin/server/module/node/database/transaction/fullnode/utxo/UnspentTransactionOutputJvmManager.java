@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.module.node.database.transaction.fullno
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
+import com.softwareverde.bitcoin.server.PropertiesStore;
 import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
@@ -165,14 +166,17 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
     }
 
     protected static Long _getCommittedUnspentTransactionOutputBlockHeight(final DatabaseConnection databaseConnection) throws DatabaseException {
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT value FROM properties WHERE `key` = ?")
-                .setParameter(COMMITTED_UTXO_BLOCK_HEIGHT_KEY)
-        );
-        if (rows.isEmpty()) { return 0L; }
+//        final java.util.List<Row> rows = databaseConnection.query(
+//            new Query("SELECT value FROM properties WHERE `key` = ?")
+//                .setParameter(COMMITTED_UTXO_BLOCK_HEIGHT_KEY)
+//        );
+//        if (rows.isEmpty()) { return 0L; }
+//
+//        final Row row = rows.get(0);
+//        return Util.coalesce(row.getLong("value"), 0L);
 
-        final Row row = rows.get(0);
-        return Util.coalesce(row.getLong("value"), 0L);
+        final PropertiesStore propertiesStore = PropertiesStore.getInstance();
+        return Util.coalesce(propertiesStore.get(COMMITTED_UTXO_BLOCK_HEIGHT_KEY));
     }
 
     protected void _markTransactionOutputsAsSpent(final List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers) {
@@ -575,11 +579,13 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         );
 
         { // Save the committed set's block height...
-            databaseConnection.executeSql(
-                new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES (value)")
-                    .setParameter(COMMITTED_UTXO_BLOCK_HEIGHT_KEY)
-                    .setParameter(newCommittedBlockHeight)
-            );
+//            databaseConnection.executeSql(
+//                new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES (value)")
+//                    .setParameter(COMMITTED_UTXO_BLOCK_HEIGHT_KEY)
+//                    .setParameter(newCommittedBlockHeight)
+//            );
+            final PropertiesStore propertiesStore = PropertiesStore.getInstance();
+            propertiesStore.set(COMMITTED_UTXO_BLOCK_HEIGHT_KEY, newCommittedBlockHeight);
         }
 
         synchronized (DOUBLE_BUFFER) {
@@ -1422,11 +1428,14 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                 databaseConnection.executeSql(
                     new Query("DELETE FROM committed_unspent_transaction_outputs")
                 );
-                databaseConnection.executeSql(
-                    new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES (value)")
-                        .setParameter(COMMITTED_UTXO_BLOCK_HEIGHT_KEY)
-                        .setParameter(0L)
-                );
+//                databaseConnection.executeSql(
+//                    new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES (value)")
+//                        .setParameter(COMMITTED_UTXO_BLOCK_HEIGHT_KEY)
+//                        .setParameter(0L)
+//                );
+
+                final PropertiesStore propertiesStore = PropertiesStore.getInstance();
+                propertiesStore.set(COMMITTED_UTXO_BLOCK_HEIGHT_KEY, 0L);
             }
             finally {
                 COMMITTED_UTXO_TABLE_WRITE_LOCK.unlock();

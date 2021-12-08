@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.module.node.database.indexer;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.server.PropertiesStore;
 import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
@@ -250,14 +251,16 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
     protected Long _getLastIndexedTransactionId() throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT value FROM properties WHERE `key` = ?")
-                .setParameter(LAST_INDEXED_TRANSACTION_KEY)
-        );
-        if (rows.isEmpty()) { return 0L; }
-
-        final Row row = rows.get(0);
-        return row.getLong("value");
+//        final java.util.List<Row> rows = databaseConnection.query(
+//            new Query("SELECT value FROM properties WHERE `key` = ?")
+//                .setParameter(LAST_INDEXED_TRANSACTION_KEY)
+//        );
+//        if (rows.isEmpty()) { return 0L; }
+//
+//        final Row row = rows.get(0);
+//        return row.getLong("value");
+        final PropertiesStore propertiesStore = PropertiesStore.getInstance();
+        return Util.coalesce(propertiesStore.get(LAST_INDEXED_TRANSACTION_KEY));
     }
 
     @Override
@@ -363,13 +366,21 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
     public void markTransactionProcessed(final TransactionId transactionId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        databaseConnection.executeSql(
-            // NOTE: See SlpTransactionDatabaseManagerCore for GREATEST(value, VALUES(value)) discussion.
-            new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = GREATEST(value, ?)")
-                .setParameter(LAST_INDEXED_TRANSACTION_KEY)
-                .setParameter(transactionId)
-                .setParameter(transactionId)
-        );
+//        databaseConnection.executeSql(
+//            // NOTE: See SlpTransactionDatabaseManagerCore for GREATEST(value, VALUES(value)) discussion.
+//            new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = GREATEST(value, ?)")
+//                .setParameter(LAST_INDEXED_TRANSACTION_KEY)
+//                .setParameter(transactionId)
+//                .setParameter(transactionId)
+//        );
+
+        final PropertiesStore propertiesStore = PropertiesStore.getInstance();
+        propertiesStore.getAndSet(LAST_INDEXED_TRANSACTION_KEY, new PropertiesStore.GetAndSetter() {
+            @Override
+            public Long run(final Long value) {
+                return Math.max(Util.coalesce(value), (transactionId == null ? 0L : transactionId.longValue()));
+            }
+        });
     }
 
     @Override

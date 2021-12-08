@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.sync.block;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.server.PropertiesStore;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
@@ -15,7 +16,6 @@ import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.row.Row;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
@@ -37,24 +37,29 @@ public class BlockPruner extends SleepyService {
     protected Long _getLastPrunedBlockHeight(final DatabaseManager databaseManager) throws DatabaseException {
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT value FROM properties WHERE `key` = ?")
-                .setParameter(PRUNED_BLOCK_HEIGHT_KEY)
-        );
-        if (rows.isEmpty()) { return 0L; }
+//        final java.util.List<Row> rows = databaseConnection.query(
+//            new Query("SELECT value FROM properties WHERE `key` = ?")
+//                .setParameter(PRUNED_BLOCK_HEIGHT_KEY)
+//        );
+//        if (rows.isEmpty()) { return 0L; }
+//
+//        final Row row = rows.get(0);
+//        return row.getLong("value");
 
-        final Row row = rows.get(0);
-        return row.getLong("value");
+        final PropertiesStore propertiesStore = PropertiesStore.getInstance();
+        return Util.coalesce(propertiesStore.get(PRUNED_BLOCK_HEIGHT_KEY));
     }
 
     protected void _setLastPrunedBlockHeight(final Long blockHeight, final DatabaseManager databaseManager) throws DatabaseException {
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
-        databaseConnection.executeSql(
-            new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES (value)")
-                .setParameter(PRUNED_BLOCK_HEIGHT_KEY)
-                .setParameter(blockHeight)
-        );
+//        databaseConnection.executeSql(
+//            new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES (value)")
+//                .setParameter(PRUNED_BLOCK_HEIGHT_KEY)
+//                .setParameter(blockHeight)
+//        );
+        final PropertiesStore propertiesStore = PropertiesStore.getInstance();
+        propertiesStore.set(PRUNED_BLOCK_HEIGHT_KEY, blockHeight);
     }
 
     public BlockPruner(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockStore blockStore, final Boolean shouldKeepTransactionHashes, final RequiredBlockChecker requiredBlockChecker) {

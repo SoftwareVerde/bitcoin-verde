@@ -24,6 +24,7 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.database.transaction.pending.PendingTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManagerCore;
+import com.softwareverde.bitcoin.server.module.node.database.utxo.UtxoCommitmentDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.store.UtxoCommitmentStore;
 import com.softwareverde.bitcoin.server.module.node.utxo.UtxoCommitmentManagerCore;
@@ -50,6 +51,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     protected PendingTransactionDatabaseManager _pendingTransactionDatabaseManager;
     protected SlpTransactionDatabaseManager _slpTransactionDatabaseManager;
     protected UnspentTransactionOutputDatabaseManager _unspentTransactionOutputDatabaseManager;
+    protected UtxoCommitmentDatabaseManager _utxoCommitmentDatabaseManager;
     protected UtxoCommitmentManager _utxoCommitmentManager;
 
     public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final PendingBlockStore blockStore, final UtxoCommitmentStore utxoCommitmentStore, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration) {
@@ -169,6 +171,14 @@ public class FullNodeDatabaseManager implements DatabaseManager {
         }
 
         return _unspentTransactionOutputDatabaseManager;
+    }
+
+    public UtxoCommitmentDatabaseManager getUtxoCommitmentDatabaseManager() {
+        if (_utxoCommitmentDatabaseManager == null) {
+            _utxoCommitmentDatabaseManager = new UtxoCommitmentDatabaseManager(this);
+        }
+
+        return _utxoCommitmentDatabaseManager;
     }
 
     public UtxoCommitmentManager getUtxoCommitmentManager() {

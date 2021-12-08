@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.main;
 
 import com.softwareverde.bitcoin.server.Environment;
+import com.softwareverde.bitcoin.server.PropertiesStore;
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.server.configuration.BitcoinVerdeDatabaseProperties;
 import com.softwareverde.bitcoin.server.configuration.Configuration;
@@ -263,6 +264,8 @@ public class Main {
                 final BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
                 final BitcoinVerdeDatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
 
+                PropertiesStore.init(new File(bitcoinProperties.getDataDirectory()));
+
                 { // Set Log Level...
                     try {
                         final String logDirectory = bitcoinProperties.getLogDirectory();
@@ -339,6 +342,8 @@ public class Main {
                 final BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
                 final BitcoinVerdeDatabaseProperties databaseProperties = configuration.getSpvDatabaseProperties();
 
+                PropertiesStore.init(new File(bitcoinProperties.getDataDirectory()));
+
                 if (bitcoinProperties.isTestNet()) {
                     final NetworkType networkType = bitcoinProperties.getNetworkType();
                     BitcoinConstants.configureForNetwork(networkType);
@@ -403,6 +408,7 @@ public class Main {
                 final Configuration configuration = _loadConfigurationFile(configurationFilename);
                 final ExplorerProperties explorerProperties = configuration.getExplorerProperties();
                 final ExplorerModule explorerModule = new ExplorerModule(explorerProperties);
+
                 explorerModule.start();
                 explorerModule.loop();
                 explorerModule.stop();
@@ -438,6 +444,8 @@ public class Main {
                 final Configuration configuration = _loadConfigurationFile(configurationFilename);
                 final BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
                 final BitcoinVerdeDatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
+
+                PropertiesStore.init(new File(bitcoinProperties.getDataDirectory()));
 
                 final BitcoinVerdeDatabase database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, bitcoinProperties, databaseProperties);
                 if (database == null) {
@@ -496,6 +504,8 @@ public class Main {
 
                 final Configuration configuration = _loadConfigurationFile(configurationFile);
                 final ElectrumProperties electrumProperties = configuration.getElectrumProperties();
+
+                PropertiesStore.init(electrumProperties.getDataDirectory());
 
                 final LogLevel logLevel = electrumProperties.getLogLevel();
                 if (logLevel != null) {
