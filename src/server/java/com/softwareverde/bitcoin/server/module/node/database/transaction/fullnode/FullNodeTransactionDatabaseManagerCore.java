@@ -57,6 +57,16 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransactionDatabaseManager {
+    protected static class TransactionHashAndByteCount {
+        public final Sha256Hash transactionHash;
+        public final Integer byteCount;
+
+        public TransactionHashAndByteCount(final Sha256Hash transactionHash, final Integer byteCount) {
+            this.transactionHash = transactionHash;
+            this.byteCount = byteCount;
+        }
+    }
+
     protected final SystemTime _systemTime = new SystemTime();
     protected final FullNodeDatabaseManager _databaseManager;
     protected final MasterInflater _masterInflater;
@@ -265,16 +275,6 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         return listBuilder.build();
     }
 
-    protected static class TransactionHashAndByteCount {
-        public final Sha256Hash transactionHash;
-        public final Integer byteCount;
-
-        public TransactionHashAndByteCount(final Sha256Hash transactionHash, final Integer byteCount) {
-            this.transactionHash = transactionHash;
-            this.byteCount = byteCount;
-        }
-    }
-
     protected List<TransactionHashAndByteCount> _convertToHashAndByteCounts(final List<Transaction> transactions) {
         final MutableList<TransactionHashAndByteCount> transactionHashAndByteCounts = new MutableList<>(transactions.getCount());
         for (final Transaction transaction : transactions) {
@@ -285,20 +285,25 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             transactionHashAndByteCounts.add(transactionHashAndByteCount);
         }
 
-        // TODO: Require that the outside callee provides the transactions list in already-sorted order (as an optimization with CTOR)...
-        transactionHashAndByteCounts.sort(new Comparator<TransactionHashAndByteCount>() {
-            @Override
-            public int compare(final TransactionHashAndByteCount transactionHashAndByteCount0, final TransactionHashAndByteCount transactionHashAndByteCount1) {
-                final Sha256Hash transactionHash0 = transactionHashAndByteCount0.transactionHash;
-                final Sha256Hash transactionHash1 = transactionHashAndByteCount1.transactionHash;
-                return transactionHash0.compareTo(transactionHash1);
-            }
-        });
-
         return transactionHashAndByteCounts;
     }
 
     protected List<TransactionId> _storeTransactionHashes(final List<TransactionHashAndByteCount> transactions, final DatabaseConnectionFactory databaseConnectionFactory, final Integer maxThreadCount) throws DatabaseException {
+
+        final List<TransactionHashAndByteCount> sortedTransactions;
+        { // TODO: Require that the outside callee provides the transactions list in already-sorted order (as an optimization with CTOR)...
+            final MutableList<TransactionHashAndByteCount> mutableList = new MutableList<>(transactions);
+            mutableList.sort(new Comparator<TransactionHashAndByteCount>() {
+                @Override
+                public int compare(final TransactionHashAndByteCount transactionHashAndByteCount0, final TransactionHashAndByteCount transactionHashAndByteCount1) {
+                    final Sha256Hash transactionHash0 = transactionHashAndByteCount0.transactionHash;
+                    final Sha256Hash transactionHash1 = transactionHashAndByteCount1.transactionHash;
+                    return transactionHash0.compareTo(transactionHash1);
+                }
+            });
+            sortedTransactions = mutableList;
+        }
+
         final BatchRunner<TransactionHashAndByteCount> batchRunner;
         {
             if (databaseConnectionFactory != null) {
@@ -313,7 +318,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
         final ConcurrentHashMap<Sha256Hash, TransactionId> transactionHashMap = new ConcurrentHashMap<>(transactions.getCount());
         {
-            batchRunner.run(transactions, new BatchRunner.Batch<TransactionHashAndByteCount>() {
+            batchRunner.run(sortedTransactions, new BatchRunner.Batch<TransactionHashAndByteCount>() {
                 @Override
                 public void run(final List<TransactionHashAndByteCount> transactionsBatch) throws Exception {
                     final Query query = new Query("SELECT id, hash FROM transactions WHERE hash IN (?)");
@@ -348,7 +353,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         }
 
         {
-            batchRunner.run(transactions, new BatchRunner.Batch<TransactionHashAndByteCount>() {
+            batchRunner.run(sortedTransactions, new BatchRunner.Batch<TransactionHashAndByteCount>() {
                 @Override
                 public void run(final List<TransactionHashAndByteCount> transactionsBatch) throws Exception {
                     final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO transactions (hash, byte_count) VALUES (?, ?)");
