@@ -975,6 +975,7 @@ public class NodeModule {
 
                     if ( _bitcoinProperties.isFastSyncEnabled() && (! wasFastSyncCompleted.value) ) {
                         if (blockHeaderDownloaderBlockHeight >= maxCommitmentBlockHeight) {
+                            Logger.debug("Locking services for UTXO import...");
                             _blockHeaderDownloader.lock();
                             _blockDownloader.lock();
                             _utxoCommitmentGenerator.lock();
@@ -996,6 +997,7 @@ public class NodeModule {
                                 }
                             }
                             finally {
+                                Logger.debug("Unlocking services for UTXO import...");
                                 _blockchainIndexer.unlock();
                                 _utxoCommitmentGenerator.unlock();
                                 _blockDownloader.unlock();
@@ -1005,6 +1007,7 @@ public class NodeModule {
                                 _blockDownloader.wakeUp();
                                 _utxoCommitmentGenerator.wakeUp();
                                 _blockchainIndexer.wakeUp();
+                                Logger.debug("Services revived.");
                             }
                         }
                     }

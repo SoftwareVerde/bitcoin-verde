@@ -4,14 +4,18 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public abstract class LockingSleepyService extends GracefulSleepyService {
     protected final AtomicInteger _lockSemaphore = new AtomicInteger(0);
+    protected Boolean _hasSuppressedRun = false;
 
-    protected abstract Boolean _runSynchronized();
+    protected abstract Boolean _execute();
 
     @Override
-    protected final synchronized Boolean _run() {
-        if (_lockSemaphore.get() > 0) { return false; }
+    protected final Boolean _run() {
+        if (_lockSemaphore.get() > 0) {
+            _hasSuppressedRun = true;
+            return false;
+        }
 
-        return _runSynchronized();
+        return _execute();
     }
 
     public synchronized void lock() {
@@ -23,6 +27,12 @@ public abstract class LockingSleepyService extends GracefulSleepyService {
     }
 
     public void unlock() {
-        _lockSemaphore.decrementAndGet();
+        final int lockCount = _lockSemaphore.decrementAndGet();
+        if (lockCount > 0) { return; }
+
+        if (_hasSuppressedRun) {
+            _hasSuppressedRun = false;
+            this.wakeUp();
+        }
     }
 }

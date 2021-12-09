@@ -616,7 +616,7 @@ public class UtxoCommitmentGenerator extends LockingSleepyService {
     protected void _onStart() { }
 
     @Override
-    protected Boolean _runSynchronized() {
+    protected Boolean _execute() {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
             final Long committedUtxoBlockHeight = unspentTransactionOutputDatabaseManager.getCommittedUnspentTransactionOutputBlockHeight();

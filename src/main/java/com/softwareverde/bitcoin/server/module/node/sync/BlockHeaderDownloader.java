@@ -458,7 +458,7 @@ public class BlockHeaderDownloader extends LockingSleepyService {
     }
 
     @Override
-    protected Boolean _runSynchronized() {
+    protected Boolean _execute() {
         synchronized (_genesisBlockPin) {
             while (! _hasGenesisBlock) {
                 try { _genesisBlockPin.wait(); }

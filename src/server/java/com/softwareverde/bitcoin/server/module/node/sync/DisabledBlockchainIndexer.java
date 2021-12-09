@@ -13,7 +13,7 @@ public class DisabledBlockchainIndexer extends BlockchainIndexer {
     protected void _onStart() { }
 
     @Override
-    protected Boolean _runSynchronized() { return false; }
+    protected Boolean _execute() { return false; }
 
     @Override
     protected void _onSleep() { }

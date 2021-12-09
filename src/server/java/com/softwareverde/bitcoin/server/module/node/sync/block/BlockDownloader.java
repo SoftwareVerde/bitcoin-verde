@@ -161,7 +161,7 @@ public class BlockDownloader extends LockingSleepyService {
     }
 
     @Override
-    protected Boolean _runSynchronized() {
+    protected Boolean _execute() {
         if (_isPaused) { return false; }
 
         if (Logger.isTraceEnabled()) {

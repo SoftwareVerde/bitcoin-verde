@@ -380,7 +380,7 @@ public class BlockchainIndexer extends LockingSleepyService {
     }
 
     @Override
-    protected Boolean _runSynchronized() {
+    protected Boolean _execute() {
         final NanoTimer nanoTimer = new NanoTimer();
         nanoTimer.start();
 
@@ -476,6 +476,8 @@ public class BlockchainIndexer extends LockingSleepyService {
         }
 
         try (final AtomicTransactionOutputIndexerContext context = _context.newTransactionOutputIndexerContext()) {
+            context.initialize();
+
             for (int i = 0; i < outputCount; ++i) {
                 final TransactionOutputIdentifier transactionOutputIdentifier = transactionOutputIdentifiers.get(i);
                 final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
@@ -490,6 +492,8 @@ public class BlockchainIndexer extends LockingSleepyService {
                 for (final OutputIndexData indexData : outputIndexData.values()) {
                     context.indexTransactionOutput(indexData.transactionId, indexData.outputIndex, indexData.amount, indexData.scriptType, indexData.address, indexData.scriptHash, indexData.slpTransactionId, indexData.memoActionType, indexData.memoActionIdentifier);
                 }
+
+                context.markTransactionProcessed(transactionId);
             }
 
             final TransactionId lastFinishedTransactionId = context.finish();

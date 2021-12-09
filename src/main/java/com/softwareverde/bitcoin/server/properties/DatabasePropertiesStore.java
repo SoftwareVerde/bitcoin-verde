@@ -2,10 +2,12 @@ package com.softwareverde.bitcoin.server.properties;
 
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
+import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.query.Query;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Tuple;
+import com.softwareverde.util.Util;
 
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -17,26 +19,35 @@ public class DatabasePropertiesStore implements PropertiesStore {
 
     protected Boolean _hasLoaded = false;
 
+    protected Boolean _keyExists(final String key, final DatabaseConnection databaseConnection) throws DatabaseException {
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT 1 FROM properties WHERE `key` = ?")
+                .setParameter(key)
+        );
+        return (rows.size() > 0);
+    }
+
     protected void _flush() {
         for (final String key : _values.keySet()) {
             final Tuple<Long, Boolean> value = _values.get(key);
 
             final Boolean isSynced = value.second;
-            if ( (isSynced != null) && isSynced ) { continue; }
+            if (isSynced) { continue; }
 
             try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                if (isSynced == null) {
-                    databaseConnection.executeSql(
-                        new Query("INSERT IGNORE INTO properties (`key`, value) VALUES (?, ?)")
-                            .setParameter(key)
-                            .setParameter(value.first)
-                    );
-                }
-                else {
+                final Boolean keyExists = _keyExists(key, databaseConnection);
+                if (keyExists) {
                     databaseConnection.executeSql(
                         new Query("UPDATE properties SET value = ? WHERE `key` = ?")
                             .setParameter(value.first)
                             .setParameter(key)
+                    );
+                }
+                else {
+                    databaseConnection.executeSql(
+                        new Query("INSERT INTO properties (`key`, value) VALUES (?, ?)")
+                            .setParameter(key)
+                            .setParameter(value.first)
                     );
                 }
                 value.second = true;
@@ -74,7 +85,7 @@ public class DatabasePropertiesStore implements PropertiesStore {
             public void run() {
                 try {
                     final Thread thread = Thread.currentThread();
-                    while (!thread.isInterrupted()) {
+                    while (! thread.isInterrupted()) {
                         synchronized (_mutex) {
                             try { _mutex.wait(); }
                             catch (final Exception exception) { break; }
@@ -130,17 +141,28 @@ public class DatabasePropertiesStore implements PropertiesStore {
 
     @Override
     public synchronized void set(final String key, final Long value) {
+        final boolean flushIsRequired;
+
         if (_values.containsKey(key)) {
             final Tuple<Long, Boolean> tuple = _values.get(key);
-            tuple.first = value;
-            tuple.second = false;
+            if (! Util.areEqual(tuple.first, value)) {
+                tuple.first = value;
+                tuple.second = false;
+                flushIsRequired = true;
+            }
+            else {
+                flushIsRequired = false;
+            }
         }
         else {
             _values.put(key, new Tuple<>(value, false));
+            flushIsRequired = true;
         }
 
-        synchronized (_mutex) {
-            _mutex.notifyAll();
+        if (flushIsRequired) {
+            synchronized (_mutex) {
+                _mutex.notifyAll();
+            }
         }
     }
 
@@ -173,11 +195,22 @@ public class DatabasePropertiesStore implements PropertiesStore {
             _values.put(key, tuple);
         }
 
-        tuple.first = getAndSetter.run(tuple.first);
-        tuple.second = false;
+        final boolean flushIsRequired;
+        final Long previousValue = tuple.first;
+        tuple.first = getAndSetter.run(previousValue);
 
-        synchronized (_mutex) {
-            _mutex.notifyAll();
+        if (! Util.areEqual(previousValue, tuple.first)) {
+            tuple.second = false;
+            flushIsRequired = true;
+        }
+        else {
+            flushIsRequired = false;
+        }
+
+        if (flushIsRequired) {
+            synchronized (_mutex) {
+                _mutex.notifyAll();
+            }
         }
     }
 }
