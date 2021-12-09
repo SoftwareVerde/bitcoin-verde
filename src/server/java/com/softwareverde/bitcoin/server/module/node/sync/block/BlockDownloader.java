@@ -370,7 +370,7 @@ public class BlockDownloader extends LockingSleepyService {
 
         _pendingBlockStore.storePendingBlock(block);
         // NOTE: The blockHash is not removed from the _downloadBlockQueue since it would require a O(N) search and the
-        //  the main loop skips the entry once encountered if it has already been downloaded...
+        //  main loop skips the entry once encountered if it has already been downloaded...
 
         final BlockDownloadCallback blockDownloadCallback = _blockDownloadCallback;
         if (blockDownloadCallback != null) {
