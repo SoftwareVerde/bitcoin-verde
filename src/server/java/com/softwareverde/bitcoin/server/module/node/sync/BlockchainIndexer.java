@@ -466,7 +466,7 @@ public class BlockchainIndexer extends LockingSleepyService {
         _onSleepCallback = onSleepCallback;
     }
 
-    public void indexUtxosFromUtxoCommitmentImport(final List<TransactionOutputIdentifier> transactionOutputIdentifiers, final List<TransactionOutput> transactionOutputs) throws Exception {
+    public synchronized void indexUtxosFromUtxoCommitmentImport(final List<TransactionOutputIdentifier> transactionOutputIdentifiers, final List<TransactionOutput> transactionOutputs) throws Exception {
         final int outputCount = transactionOutputs.getCount();
         {
             final int identifiersCount = transactionOutputIdentifiers.getCount();
@@ -492,7 +492,8 @@ public class BlockchainIndexer extends LockingSleepyService {
                 }
             }
 
-            context.finish();
+            final TransactionId lastFinishedTransactionId = context.finish();
+            _context.commitLastProcessedTransactionId(lastFinishedTransactionId);
         }
     }
 }

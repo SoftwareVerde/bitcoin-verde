@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.server.module.node.sync.BlockchainIndexer;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
@@ -18,8 +19,29 @@ public class UtxoCommitIndexer {
     protected final BlockchainIndexer _blockchainIndexer;
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
 
-    protected void _indexUtxosAfterUtxoCommitmentImport(final FullNodeDatabaseManager databaseManager) throws Exception {
+    protected void _indexUtxoBatch(final List<TransactionOutputIdentifier> batchIdentifiers, final List<TransactionOutput> batchOutputs, final FullNodeDatabaseManager databaseManager) throws Exception {
         final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+        final HashSet<Sha256Hash> transactionHashDuplicateSet = new HashSet<>();
+
+        final int batchCount = batchIdentifiers.getCount();
+        final MutableList<Sha256Hash> transactionHashes = new MutableList<>(batchCount);
+        final MutableList<Integer> transactionByteCounts = new MutableList<>(batchCount);
+        for (final TransactionOutputIdentifier outputIdentifier : batchIdentifiers) {
+            final Sha256Hash transactionHash = outputIdentifier.getTransactionHash();
+            final Integer byteCount = 0;
+
+            final boolean isUnique = transactionHashDuplicateSet.add(transactionHash);
+            if (! isUnique) { continue; }
+
+            transactionHashes.add(transactionHash);
+            transactionByteCounts.add(byteCount);
+        }
+
+        transactionDatabaseManager.storeTransactionHashes(transactionHashes, transactionByteCounts);
+        _blockchainIndexer.indexUtxosFromUtxoCommitmentImport(batchIdentifiers, batchOutputs);
+    }
+
+    protected void _indexUtxosAfterUtxoCommitmentImport(final FullNodeDatabaseManager databaseManager) throws Exception {
         final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
 
         final int batchSize = 1024;
@@ -33,32 +55,14 @@ public class UtxoCommitIndexer {
 
                 final int batchCount = batchIdentifiers.getCount();
                 if (batchCount >= batchSize) {
-                    final HashSet<Sha256Hash> transactionHashDuplicateSet = new HashSet<>();
-
-                    final MutableList<Sha256Hash> transactionHashes = new MutableList<>(batchCount);
-                    final MutableList<Integer> transactionByteCounts = new MutableList<>(batchCount);
-                    for (final TransactionOutputIdentifier outputIdentifier : batchIdentifiers) {
-                        final Sha256Hash transactionHash = outputIdentifier.getTransactionHash();
-                        final Integer byteCount = 0;
-
-                        final boolean isUnique = transactionHashDuplicateSet.add(transactionHash);
-                        if (! isUnique) { continue; }
-
-                        transactionHashes.add(transactionHash);
-                        transactionByteCounts.add(byteCount);
-                    }
-
-                    transactionDatabaseManager.storeTransactionHashes(transactionHashes, transactionByteCounts);
-                    _blockchainIndexer.indexUtxosFromUtxoCommitmentImport(batchIdentifiers, batchOutputs);
-
+                    _indexUtxoBatch(batchIdentifiers, batchOutputs, databaseManager);
                     batchIdentifiers.clear();
                     batchOutputs.clear();
                 }
             }
         });
         if (! batchIdentifiers.isEmpty()) {
-            _blockchainIndexer.indexUtxosFromUtxoCommitmentImport(batchIdentifiers, batchOutputs);
-
+            _indexUtxoBatch(batchIdentifiers, batchOutputs, databaseManager);
             batchIdentifiers.clear();
             batchOutputs.clear();
         }

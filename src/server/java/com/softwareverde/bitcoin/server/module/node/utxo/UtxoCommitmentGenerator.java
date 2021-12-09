@@ -7,7 +7,6 @@ import com.softwareverde.bitcoin.chain.utxo.UtxoCommitment;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentId;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentManager;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentMetadata;
-import com.softwareverde.bitcoin.server.PropertiesStore;
 import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
@@ -24,6 +23,7 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputJvmManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
 import com.softwareverde.bitcoin.server.module.node.database.utxo.UtxoCommitmentDatabaseManager;
+import com.softwareverde.bitcoin.server.properties.PropertiesStore;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
@@ -70,18 +70,7 @@ public class UtxoCommitmentGenerator extends LockingSleepyService {
     protected Long _cachedStagedUtxoCommitmentBlockHeight = null;
 
     protected Long _getStagedUtxoCommitmentBlockHeight(final DatabaseManager databaseManager) throws DatabaseException {
-        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-
-//        final java.util.List<Row> rows = databaseConnection.query(
-//            new Query("SELECT value FROM properties WHERE `key` = ?")
-//                .setParameter(STAGED_COMMITMENT_BLOCK_HEIGHT_KEY)
-//        );
-//        if (rows.isEmpty()) { return 0L; }
-//
-//        final Row row = rows.get(0);
-//        final Long blockHeight = row.getLong("value");
-
-        final PropertiesStore propertiesStore = PropertiesStore.getInstance();
+        final PropertiesStore propertiesStore = databaseManager.getPropertiesStore();
         final Long blockHeight = Util.coalesce(propertiesStore.get(STAGED_COMMITMENT_BLOCK_HEIGHT_KEY));
 
         _cachedStagedUtxoCommitmentBlockHeight = blockHeight;
@@ -89,16 +78,8 @@ public class UtxoCommitmentGenerator extends LockingSleepyService {
         return blockHeight;
     }
 
-    protected void _setStagedUtxoCommitmentBlockHeight(final Long blockHeight, final DatabaseManager databaseManager) throws DatabaseException {
-        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-
-//        databaseConnection.executeSql(
-//            new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES (value)")
-//                .setParameter(STAGED_COMMITMENT_BLOCK_HEIGHT_KEY)
-//                .setParameter(blockHeight)
-//        );
-
-        final PropertiesStore propertiesStore = PropertiesStore.getInstance();
+    protected void _setStagedUtxoCommitmentBlockHeight(final Long blockHeight, final DatabaseManager databaseManager) {
+        final PropertiesStore propertiesStore = databaseManager.getPropertiesStore();
         propertiesStore.set(STAGED_COMMITMENT_BLOCK_HEIGHT_KEY, blockHeight);
 
         _cachedStagedUtxoCommitmentBlockHeight = blockHeight;

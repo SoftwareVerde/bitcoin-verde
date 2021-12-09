@@ -116,6 +116,7 @@ import com.softwareverde.bitcoin.server.module.node.utxo.UtxoCommitmentGenerator
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.server.node.RequestId;
+import com.softwareverde.bitcoin.server.properties.DatabasePropertiesStore;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProof;
@@ -161,6 +162,7 @@ public class NodeModule {
     protected final SystemTime _systemTime;
     protected final BitcoinProperties _bitcoinProperties;
     protected final Environment _environment;
+    protected final DatabasePropertiesStore _propertiesStore;
     protected final PendingBlockStoreCore _blockStore;
     protected final CheckpointConfiguration _checkpointConfiguration;
     protected final MasterInflater _masterInflater;
@@ -221,7 +223,15 @@ public class NodeModule {
         {
             final Database database = _environment.getDatabase();
             final DatabaseConnectionFactory databaseConnectionFactory = _environment.getDatabaseConnectionFactory();
-            databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionFactory, database.getMaxQueryBatchSize(), _blockStore, _utxoCommitmentStore, _masterInflater, _checkpointConfiguration);
+            databaseManagerFactory = new FullNodeDatabaseManagerFactory(
+                databaseConnectionFactory,
+                database.getMaxQueryBatchSize(),
+                _propertiesStore,
+                _blockStore,
+                _utxoCommitmentStore,
+                _masterInflater,
+                _checkpointConfiguration
+            );
         }
 
         Logger.info("[Stopping Request Handler]");
@@ -333,6 +343,8 @@ public class NodeModule {
 
         try { _databaseMaintenanceThread.join(30000L); } catch (final InterruptedException exception) { }
 
+        _propertiesStore.stop();
+
         Logger.flush();
 
         synchronized (_isShuttingDown) {
@@ -427,9 +439,12 @@ public class NodeModule {
 
         final Database database = _environment.getDatabase();
         final DatabaseConnectionFactory databaseConnectionFactory = _environment.getDatabaseConnectionFactory();
+        _propertiesStore = new DatabasePropertiesStore(databaseConnectionFactory);
+
         final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(
             databaseConnectionFactory,
             database.getMaxQueryBatchSize(),
+            _propertiesStore,
             _blockStore,
             _utxoCommitmentStore,
             _masterInflater,
@@ -1241,6 +1256,7 @@ public class NodeModule {
     }
 
     public void loop() {
+        _propertiesStore.start();
         _networkThreadPool.start();
         _blockProcessingThreadPool.start();
         _generalThreadPool.start();
@@ -1254,6 +1270,7 @@ public class NodeModule {
         final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(
             databaseConnectionFactory,
             database.getMaxQueryBatchSize(),
+            _propertiesStore,
             _blockStore,
             _utxoCommitmentStore,
             _masterInflater,

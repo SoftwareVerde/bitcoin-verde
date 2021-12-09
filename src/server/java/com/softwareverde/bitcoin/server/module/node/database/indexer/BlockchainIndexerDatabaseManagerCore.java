@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin.server.module.node.database.indexer;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.server.PropertiesStore;
 import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
@@ -14,6 +13,7 @@ import com.softwareverde.bitcoin.server.module.node.database.blockchain.Blockcha
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.properties.PropertiesStore;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -248,18 +248,8 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         return balance;
     }
 
-    protected Long _getLastIndexedTransactionId() throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-//        final java.util.List<Row> rows = databaseConnection.query(
-//            new Query("SELECT value FROM properties WHERE `key` = ?")
-//                .setParameter(LAST_INDEXED_TRANSACTION_KEY)
-//        );
-//        if (rows.isEmpty()) { return 0L; }
-//
-//        final Row row = rows.get(0);
-//        return row.getLong("value");
-        final PropertiesStore propertiesStore = PropertiesStore.getInstance();
+    protected Long _getLastIndexedTransactionId() {
+        final PropertiesStore propertiesStore = _databaseManager.getPropertiesStore();
         return Util.coalesce(propertiesStore.get(LAST_INDEXED_TRANSACTION_KEY));
     }
 
@@ -363,18 +353,8 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
     }
 
     @Override
-    public void markTransactionProcessed(final TransactionId transactionId) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-//        databaseConnection.executeSql(
-//            // NOTE: See SlpTransactionDatabaseManagerCore for GREATEST(value, VALUES(value)) discussion.
-//            new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = GREATEST(value, ?)")
-//                .setParameter(LAST_INDEXED_TRANSACTION_KEY)
-//                .setParameter(transactionId)
-//                .setParameter(transactionId)
-//        );
-
-        final PropertiesStore propertiesStore = PropertiesStore.getInstance();
+    public void markTransactionProcessed(final TransactionId transactionId) {
+        final PropertiesStore propertiesStore = _databaseManager.getPropertiesStore();
         propertiesStore.getAndSet(LAST_INDEXED_TRANSACTION_KEY, new PropertiesStore.GetAndSetter() {
             @Override
             public Long run(final Long value) {

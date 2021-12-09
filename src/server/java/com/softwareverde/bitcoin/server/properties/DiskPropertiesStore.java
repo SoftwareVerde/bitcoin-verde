@@ -1,5 +1,6 @@
-package com.softwareverde.bitcoin.server;
+package com.softwareverde.bitcoin.server.properties;
 
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.util.HashUtil;
 import com.softwareverde.json.Json;
@@ -12,49 +13,24 @@ import com.softwareverde.util.Util;
 import java.io.File;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class PropertiesStore implements Jsonable {
-    protected static PropertiesStore INSTANCE;
-    public static synchronized void init(final File dataDirectory) {
-        if (INSTANCE != null) { return; }
-
-        final PropertiesStore propertiesStore = new PropertiesStore(dataDirectory);
-        propertiesStore.start();
-
-        INSTANCE = propertiesStore;
-
-        final Runtime runtime = Runtime.getRuntime();
-        runtime.addShutdownHook(new Thread(new Runnable() {
-            @Override
-            public void run() {
-                final PropertiesStore propertiesStore = INSTANCE;
-                if (propertiesStore == null) { return; }
-
-                propertiesStore.stop();
-            }
-        }));
-    }
-
-    public static PropertiesStore getInstance() {
-        return INSTANCE;
-    }
-
-    public interface GetAndSetter {
-        Long run(Long value);
-    }
-
+public class DiskPropertiesStore implements PropertiesStore, Jsonable {
     protected final File _file;
     protected final Thread _thread;
     protected final Object _mutex = new Object();
     protected final ConcurrentHashMap<String, Long> _values = new ConcurrentHashMap<>();
 
-    protected PropertiesStore(final File dataDirectory) {
+    public DiskPropertiesStore(final File dataDirectory) {
         _file = new File(dataDirectory, "properties.dat");
 
         _thread = new Thread(new Runnable() {
             @Override
             public void run() {
                 try {
-                    Sha256Hash oldContentHash = Sha256Hash.wrap(HashUtil.sha256(Util.coalesce(IoUtil.getFileContents(_file), new byte[0])));
+                    Sha256Hash oldContentHash;
+                    {
+                        final ByteArray storedBytes = ByteArray.wrap(Util.coalesce(IoUtil.getFileContents(_file), new byte[0]));
+                        oldContentHash = HashUtil.sha256(storedBytes);
+                    }
 
                     final Thread thread = Thread.currentThread();
                     while (! thread.isInterrupted()) {
@@ -63,22 +39,27 @@ public class PropertiesStore implements Jsonable {
                             catch (final Exception exception) { break; }
                         }
 
-                        final Json json = PropertiesStore.this.toJson();
-                        final String content = json.toString();
-                        final Sha256Hash currentContentHash = Sha256Hash.wrap(HashUtil.sha256(StringUtil.stringToBytes(content)));
+                        final Sha256Hash currentContentHash;
+                        final ByteArray contentBytes;
+                        {
+                            final Json json = DiskPropertiesStore.this.toJson();
+                            final String content = json.toString();
+                            contentBytes = ByteArray.wrap(StringUtil.stringToBytes(content));
+                            currentContentHash = HashUtil.sha256(contentBytes);
+                        }
                         if (! Util.areEqual(oldContentHash, currentContentHash)) {
-                            IoUtil.putFileContents(_file, StringUtil.stringToBytes(content));
+                            IoUtil.putFileContents(_file, contentBytes);
                         }
                     }
                 }
                 finally {
-                    final Json json = PropertiesStore.this.toJson();
+                    final Json json = DiskPropertiesStore.this.toJson();
                     final String content = json.toString();
                     IoUtil.putFileContents(_file, StringUtil.stringToBytes(content));
                 }
             }
         });
-        _thread.setName("PropertiesStore - Flush Thread");
+        _thread.setName("DiskPropertiesStore - Flush Thread");
         _thread.setDaemon(true);
         _thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
             @Override
@@ -95,17 +76,18 @@ public class PropertiesStore implements Jsonable {
         }
     }
 
-    protected void start() {
+    public void start() {
         _thread.start();
     }
 
-    protected void stop() {
+    public void stop() {
         _thread.interrupt();
 
         try { _thread.join(); }
         catch (final Exception exception) { }
     }
 
+    @Override
     public synchronized void set(final String key, final Long value) {
         _values.put(key, value);
 
@@ -114,10 +96,12 @@ public class PropertiesStore implements Jsonable {
         }
     }
 
+    @Override
     public synchronized Long get(final String key) {
         return _values.get(key);
     }
 
+    @Override
     public synchronized void getAndSet(final String key, final GetAndSetter getAndSetter) {
         final Long value = _values.get(key);
         final Long newValue = getAndSetter.run(value);

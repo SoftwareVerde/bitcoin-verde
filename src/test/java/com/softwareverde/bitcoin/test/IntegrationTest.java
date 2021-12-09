@@ -27,6 +27,7 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UtxoCacheStaticState;
 import com.softwareverde.bitcoin.server.module.node.store.UtxoCommitmentStore;
 import com.softwareverde.bitcoin.server.module.node.store.UtxoCommitmentStoreCore;
+import com.softwareverde.bitcoin.server.properties.InMemoryPropertiesStore;
 import com.softwareverde.bitcoin.test.fake.FakeSynchronizationStatus;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
@@ -72,6 +73,8 @@ public class IntegrationTest extends UnitTest {
     protected final DifficultyCalculatorFactory _difficultyCalculatorFactory;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
 
+    protected final InMemoryPropertiesStore _propertiesStore;
+
     protected final Long _requiredCoinbaseMaturity = 0L;
 
     public IntegrationTest() {
@@ -82,6 +85,7 @@ public class IntegrationTest extends UnitTest {
 
         try {
             _utxoCommitmentStore = new UtxoCommitmentStoreCore(Files.createTempDirectory("utxo").toFile().getAbsolutePath());
+            _propertiesStore = new InMemoryPropertiesStore();
         }
         catch (final Exception exception) {
             throw new RuntimeException(exception);
@@ -102,11 +106,11 @@ public class IntegrationTest extends UnitTest {
         };
 
         _databaseConnectionFactory = _database.getDatabaseConnectionFactory();
-        _fullNodeDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(_databaseConnectionFactory, _database.getMaxQueryBatchSize(), _blockStore, _utxoCommitmentStore, _masterInflater, _checkpointConfiguration);
-        _spvDatabaseManagerFactory = new SpvDatabaseManagerFactory(_databaseConnectionFactory, _database.getMaxQueryBatchSize(), _checkpointConfiguration);
+        _fullNodeDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(_databaseConnectionFactory, _database.getMaxQueryBatchSize(), _propertiesStore, _blockStore, _utxoCommitmentStore, _masterInflater, _checkpointConfiguration);
+        _spvDatabaseManagerFactory = new SpvDatabaseManagerFactory(_databaseConnectionFactory, _database.getMaxQueryBatchSize(), _propertiesStore, _checkpointConfiguration);
 
         final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactoryWrapper(_databaseConnectionFactory);
-        _readUncommittedDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, _database.getMaxQueryBatchSize(), _blockStore, _utxoCommitmentStore, _masterInflater, _checkpointConfiguration);
+        _readUncommittedDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, _database.getMaxQueryBatchSize(), _propertiesStore, _blockStore, _utxoCommitmentStore, _masterInflater, _checkpointConfiguration);
 
         // Bypass the Hikari database connection pool...
         _database.setDatabaseConnectionPool(new DatabaseConnectionPool() {
@@ -201,12 +205,16 @@ public class IntegrationTest extends UnitTest {
         file.delete();
         file.mkdirs();
         file.deleteOnExit();
+
+        _propertiesStore.clear();
     }
 
     @Override
     public void after() throws Exception {
         Thread.sleep(500L); // Allow Integration DB to complete cleanup before next test.
         _threadPool.stop();
+
+        _propertiesStore.clear();
     }
 
     protected static final String INSERT_BLOCK_QUERY = "INSERT INTO blocks (hash, previous_block_id, block_height, blockchain_segment_id, merkle_root, version, timestamp, median_block_time, difficulty, nonce, chain_work) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";

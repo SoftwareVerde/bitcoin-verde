@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin.server.module.node.database.transaction.fullno
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
-import com.softwareverde.bitcoin.server.PropertiesStore;
 import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
@@ -20,6 +19,7 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.jvm.UtxoKey;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.jvm.UtxoValue;
 import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
+import com.softwareverde.bitcoin.server.properties.PropertiesStore;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.MutableUnspentTransactionOutput;
@@ -165,17 +165,8 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         throw new DatabaseException(exception);
     }
 
-    protected static Long _getCommittedUnspentTransactionOutputBlockHeight(final DatabaseConnection databaseConnection) throws DatabaseException {
-//        final java.util.List<Row> rows = databaseConnection.query(
-//            new Query("SELECT value FROM properties WHERE `key` = ?")
-//                .setParameter(COMMITTED_UTXO_BLOCK_HEIGHT_KEY)
-//        );
-//        if (rows.isEmpty()) { return 0L; }
-//
-//        final Row row = rows.get(0);
-//        return Util.coalesce(row.getLong("value"), 0L);
-
-        final PropertiesStore propertiesStore = PropertiesStore.getInstance();
+    protected Long _getCommittedUnspentTransactionOutputBlockHeight() {
+        final PropertiesStore propertiesStore = _databaseManager.getPropertiesStore();
         return Util.coalesce(propertiesStore.get(COMMITTED_UTXO_BLOCK_HEIGHT_KEY));
     }
 
@@ -579,12 +570,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         );
 
         { // Save the committed set's block height...
-//            databaseConnection.executeSql(
-//                new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES (value)")
-//                    .setParameter(COMMITTED_UTXO_BLOCK_HEIGHT_KEY)
-//                    .setParameter(newCommittedBlockHeight)
-//            );
-            final PropertiesStore propertiesStore = PropertiesStore.getInstance();
+            final PropertiesStore propertiesStore = databaseManager.getPropertiesStore();
             propertiesStore.set(COMMITTED_UTXO_BLOCK_HEIGHT_KEY, newCommittedBlockHeight);
         }
 
@@ -888,6 +874,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
             return;
         }
 
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         try (final FileInputStream fileInputStream = new FileInputStream(file)) {
             final long blockHeight;
             {
@@ -901,8 +888,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                 blockHeight = ByteUtil.bytesToLong(blockHeightBytes);
             }
 
-            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-            final Long committedBlockHeight = _getCommittedUnspentTransactionOutputBlockHeight(databaseConnection);
+            final Long committedBlockHeight = _getCommittedUnspentTransactionOutputBlockHeight();
 
             if (! Util.areEqual(committedBlockHeight, blockHeight)) {
                 Logger.info("UtxoCache file does not match committed UTXO block height; aborting UTXO cache loading.");
@@ -958,10 +944,9 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
 
         final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-        final Long committedBlockHeight = _getCommittedUnspentTransactionOutputBlockHeight(databaseConnection);
+        final Long committedBlockHeight = _getCommittedUnspentTransactionOutputBlockHeight();
 
         final int blockBatchCount = 12;
 
@@ -969,6 +954,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         final int maxKeepCount = (int) (_maxUtxoCount * (1.0D - _purgePercent));
         long maxRemainingCount = maxKeepCount;
 
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         long loadBlockHeight = committedBlockHeight;
         while (maxRemainingCount > 0) {
             if (nextBlockId == null) { break; }
@@ -1351,16 +1337,15 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
     }
 
     @Override
-    public Long getCommittedUnspentTransactionOutputBlockHeight() throws DatabaseException {
+    public Long getCommittedUnspentTransactionOutputBlockHeight() {
         return this.getCommittedUnspentTransactionOutputBlockHeight(false);
     }
 
     @Override
-    public Long getCommittedUnspentTransactionOutputBlockHeight(final Boolean noLock) throws DatabaseException {
+    public Long getCommittedUnspentTransactionOutputBlockHeight(final Boolean noLock) {
         if (! noLock) { UTXO_READ_MUTEX.lock(); }
         try {
-            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-            return _getCommittedUnspentTransactionOutputBlockHeight(databaseConnection);
+            return _getCommittedUnspentTransactionOutputBlockHeight();
         }
         finally {
             if (! noLock) { UTXO_READ_MUTEX.unlock(); }
@@ -1396,8 +1381,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                 return uncommittedUtxoBlockHeight;
             }
 
-            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-            return _getCommittedUnspentTransactionOutputBlockHeight(databaseConnection);
+            return _getCommittedUnspentTransactionOutputBlockHeight();
         }
         finally {
             if (! noLock) { UTXO_READ_MUTEX.unlock(); }
@@ -1428,13 +1412,8 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                 databaseConnection.executeSql(
                     new Query("DELETE FROM committed_unspent_transaction_outputs")
                 );
-//                databaseConnection.executeSql(
-//                    new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES (value)")
-//                        .setParameter(COMMITTED_UTXO_BLOCK_HEIGHT_KEY)
-//                        .setParameter(0L)
-//                );
 
-                final PropertiesStore propertiesStore = PropertiesStore.getInstance();
+                final PropertiesStore propertiesStore = _databaseManager.getPropertiesStore();
                 propertiesStore.set(COMMITTED_UTXO_BLOCK_HEIGHT_KEY, 0L);
             }
             finally {
