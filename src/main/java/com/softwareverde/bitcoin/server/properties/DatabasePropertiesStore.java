@@ -52,6 +52,7 @@ public class DatabasePropertiesStore implements PropertiesStore {
         try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final java.util.List<Row> rows = databaseConnection.query(
                 new Query("SELECT value FROM properties WHERE `key` = ?")
+                    .setParameter(key)
             );
             if (rows.isEmpty()) { return; }
 
@@ -146,7 +147,7 @@ public class DatabasePropertiesStore implements PropertiesStore {
     @Override
     public synchronized Long get(final String key) {
         if (! _hasLoaded) {
-            Logger.debug("NOTICE: Requested value before start.");
+            Logger.debug("NOTICE: Requested value before start. (" + key + ")", new Exception());
             _loadValue(key);
         }
 

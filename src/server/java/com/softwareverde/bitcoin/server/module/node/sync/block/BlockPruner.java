@@ -32,7 +32,7 @@ public class BlockPruner extends SleepyService {
     protected final RequiredBlockChecker _requiredBlockChecker;
     protected final Boolean _shouldKeepTransactionHashes;
 
-    protected Long _lastPrunedBlockHeight = 0L;
+    protected Long _lastPrunedBlockHeight = null;
 
     protected Long _getLastPrunedBlockHeight(final DatabaseManager databaseManager) throws DatabaseException {
         final PropertiesStore propertiesStore = databaseManager.getPropertiesStore();
@@ -49,13 +49,6 @@ public class BlockPruner extends SleepyService {
         _blockStore = blockStore;
         _requiredBlockChecker = requiredBlockChecker;
         _shouldKeepTransactionHashes = shouldKeepTransactionHashes;
-
-        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            _lastPrunedBlockHeight = _getLastPrunedBlockHeight(databaseManager);
-        }
-        catch (final DatabaseException exception) {
-            Logger.debug(exception);
-        }
     }
 
     public void setLastPrunedBlockHeight(final Long blockHeight, final DatabaseManager databaseManager) throws DatabaseException {
@@ -64,7 +57,16 @@ public class BlockPruner extends SleepyService {
     }
 
     @Override
-    protected void _onStart() { }
+    protected void _onStart() {
+        if (_lastPrunedBlockHeight == null) {
+            try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                _lastPrunedBlockHeight = _getLastPrunedBlockHeight(databaseManager);
+            }
+            catch (final DatabaseException exception) {
+                Logger.debug(exception);
+            }
+        }
+    }
 
     @Override
     protected Boolean _run() {
@@ -82,7 +84,7 @@ public class BlockPruner extends SleepyService {
             final Long headBlockHeight = Util.coalesce(blockHeaderDatabaseManager.getBlockHeight(headBlockId), 0L);
             final long maxPruneBlockHeight = Math.min(utxoCommittedBlockHeight, headBlockHeight);
 
-            for (long blockHeight = _lastPrunedBlockHeight; blockHeight < maxPruneBlockHeight; ++blockHeight) {
+            for (long blockHeight = Util.coalesce(_lastPrunedBlockHeight); blockHeight < maxPruneBlockHeight; ++blockHeight) {
                 final BlockId prunedBlockId = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, blockHeight);
                 final Sha256Hash prunedBlockHash = blockHeaderDatabaseManager.getBlockHash(prunedBlockId);
 
