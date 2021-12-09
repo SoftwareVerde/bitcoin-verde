@@ -754,10 +754,6 @@ public class NodeModule {
 
             _blockDownloader = new BlockDownloader(_blockStore, bitcoinNodeCollector, blockInventoryTracker, blockDownloadPlanner, _generalThreadPool);
 
-            if (_bitcoinProperties.isFastSyncEnabled()) {
-                _blockDownloader.setPaused(true);
-            }
-
             final int maxConcurrentDownloadCount = bitcoinProperties.getMinPeerCount();
             final int maxConcurrentDownloadCountPerNode = 2;
             _blockDownloader.setMaxConcurrentDownloadCount(maxConcurrentDownloadCount);
@@ -819,6 +815,7 @@ public class NodeModule {
         _utxoCommitmentGenerator = new UtxoCommitmentGenerator(databaseManagerFactory, _utxoCommitmentStore.getUtxoDataDirectory());
         _utxoCommitmentDownloader = new UtxoCommitmentDownloader(databaseManagerFactory, _bitcoinNodeManager, _utxoCommitmentStore, _blockPruner);
 
+        final Container<Boolean> wasFastSyncCompleted;
         { // Set the synchronization elements to cascade to each component...
             _blockchainBuilder.setAsynchronousNewBlockProcessedCallback(new BlockchainBuilder.NewBlockProcessedCallback() {
                 @Override
@@ -907,7 +904,7 @@ public class NodeModule {
 
             final long maxCommitmentBlockHeight;
             final long minCommitmentBlockHeight;
-            final Container<Boolean> wasFastSyncCompleted = new Container<>(false);
+            wasFastSyncCompleted = new Container<>(false);
             {
                 long maxBlockHeight = 0L;
                 long minBlockHeight = Long.MAX_VALUE;
@@ -975,11 +972,8 @@ public class NodeModule {
 
                     if ( _bitcoinProperties.isFastSyncEnabled() && (! wasFastSyncCompleted.value) ) {
                         if (blockHeaderDownloaderBlockHeight >= maxCommitmentBlockHeight) {
-                            Logger.debug("Locking services for UTXO import...");
-                            _blockHeaderDownloader.lock();
-                            _blockDownloader.lock();
-                            _utxoCommitmentGenerator.lock();
-                            _blockchainIndexer.lock();
+                            Logger.debug("Pausing BlockHeaderDownloader for UTXO import...");
+                            _blockHeaderDownloader.pause();
                             try {
                                 final Boolean didComplete = _utxoCommitmentDownloader.runOnceSynchronously();
                                 if (didComplete) {
@@ -997,17 +991,17 @@ public class NodeModule {
                                 }
                             }
                             finally {
-                                Logger.debug("Unlocking services for UTXO import...");
-                                _blockchainIndexer.unlock();
-                                _utxoCommitmentGenerator.unlock();
-                                _blockDownloader.unlock();
-                                _blockHeaderDownloader.unlock();
+                                Logger.debug("Resuming services for UTXO import...");
+                                _blockchainIndexer.resume();
+                                _utxoCommitmentGenerator.resume();
+                                _blockDownloader.resume();
+                                _blockHeaderDownloader.resume();
 
                                 _blockHeaderDownloader.wakeUp();
                                 _blockDownloader.wakeUp();
                                 _utxoCommitmentGenerator.wakeUp();
                                 _blockchainIndexer.wakeUp();
-                                Logger.debug("Services revived.");
+                                Logger.debug("Services resumed.");
                             }
                         }
                     }
@@ -1111,6 +1105,13 @@ public class NodeModule {
                 _bitcoinNodeManager.addNode(bitcoinNode);
             }
         });
+
+        if ( _bitcoinProperties.isFastSyncEnabled() && (! wasFastSyncCompleted.value) ) {
+            Logger.debug("Pausing services for fast sync...");
+            _blockDownloader.pause();
+            _utxoCommitmentGenerator.pause();
+            _blockchainIndexer.pause();
+        }
 
         {
             final ImmutableListBuilder<SleepyService> listBuilder = new ImmutableListBuilder<>();

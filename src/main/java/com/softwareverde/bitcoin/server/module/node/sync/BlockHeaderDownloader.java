@@ -24,7 +24,7 @@ import com.softwareverde.bitcoin.server.module.node.manager.NodeFilter;
 import com.softwareverde.bitcoin.server.module.node.sync.inventory.BitcoinNodeBlockInventoryTracker;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.RequestId;
-import com.softwareverde.concurrent.service.LockingSleepyService;
+import com.softwareverde.concurrent.service.PausableSleepyService;
 import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -39,7 +39,7 @@ import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class BlockHeaderDownloader extends LockingSleepyService {
+public class BlockHeaderDownloader extends PausableSleepyService {
     public interface Context extends MultiConnectionDatabaseContext, NetworkTimeContext, NodeManagerContext, SystemTimeContext, ThreadPoolContext, DifficultyCalculatorFactory, UpgradeScheduleContext { }
 
     public interface NewBlockHeadersAvailableCallback {

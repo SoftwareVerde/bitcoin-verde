@@ -27,7 +27,7 @@ import com.softwareverde.bitcoin.server.properties.PropertiesStore;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
-import com.softwareverde.concurrent.service.LockingSleepyService;
+import com.softwareverde.concurrent.service.PausableSleepyService;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -57,7 +57,7 @@ import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class UtxoCommitmentGenerator extends LockingSleepyService {
+public class UtxoCommitmentGenerator extends PausableSleepyService {
     protected static final String STAGED_COMMITMENT_BLOCK_HEIGHT_KEY = "staged_utxo_commitment_block_height";
     protected static final Integer UTXO_COMMITMENT_BLOCK_LAG = UndoLogDatabaseManager.MAX_REORG_DEPTH;
     protected static final Long MIN_BLOCK_HEIGHT = 650000L;
