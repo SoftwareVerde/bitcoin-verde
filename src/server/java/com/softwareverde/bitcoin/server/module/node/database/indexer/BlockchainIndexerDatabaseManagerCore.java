@@ -13,6 +13,7 @@ import com.softwareverde.bitcoin.server.module.node.database.blockchain.Blockcha
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.properties.PropertiesStore;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -247,17 +248,9 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         return balance;
     }
 
-    protected Long _getLastIndexedTransactionId() throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT value FROM properties WHERE `key` = ?")
-                .setParameter(LAST_INDEXED_TRANSACTION_KEY)
-        );
-        if (rows.isEmpty()) { return 0L; }
-
-        final Row row = rows.get(0);
-        return row.getLong("value");
+    protected Long _getLastIndexedTransactionId() {
+        final PropertiesStore propertiesStore = _databaseManager.getPropertiesStore();
+        return Util.coalesce(propertiesStore.get(LAST_INDEXED_TRANSACTION_KEY));
     }
 
     @Override
@@ -360,16 +353,14 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
     }
 
     @Override
-    public void markTransactionProcessed(final TransactionId transactionId) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        databaseConnection.executeSql(
-            // NOTE: See SlpTransactionDatabaseManagerCore for GREATEST(value, VALUES(value)) discussion.
-            new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = GREATEST(value, ?)")
-                .setParameter(LAST_INDEXED_TRANSACTION_KEY)
-                .setParameter(transactionId)
-                .setParameter(transactionId)
-        );
+    public void markTransactionProcessed(final TransactionId transactionId) {
+        final PropertiesStore propertiesStore = _databaseManager.getPropertiesStore();
+        propertiesStore.getAndSet(LAST_INDEXED_TRANSACTION_KEY, new PropertiesStore.GetAndSetter() {
+            @Override
+            public Long run(final Long value) {
+                return Math.max(Util.coalesce(value), (transactionId == null ? 0L : transactionId.longValue()));
+            }
+        });
     }
 
     @Override

@@ -28,8 +28,11 @@ public class TransactionOutputId implements Const, Comparable<TransactionOutputI
         if (! (object instanceof TransactionOutputId)) { return false; }
         final TransactionOutputId transactionOutputId = (TransactionOutputId) object;
 
-        if (! Util.areEqual(_transactionId, transactionOutputId.getTransactionId())) { return false; }
-        if (! Util.areEqual(_outputIndex, transactionOutputId.getOutputIndex())) { return false; }
+        final TransactionId transactionId = transactionOutputId.getTransactionId();
+        if (! Util.areEqual(_transactionId, transactionId)) { return false; }
+
+        final Integer outputIndex = transactionOutputId.getOutputIndex();
+        if (! Util.areEqual(_outputIndex, outputIndex)) { return false; }
 
         return true;
     }
@@ -46,11 +49,13 @@ public class TransactionOutputId implements Const, Comparable<TransactionOutputI
 
     @Override
     public int compareTo(final TransactionOutputId transactionOutputId) {
-        final int transactionIdComparison = _transactionId.compareTo(transactionOutputId.getTransactionId());
+        final TransactionId transactionId = transactionOutputId.getTransactionId();
+        final int transactionIdComparison = _transactionId.compareTo(transactionId);
         if (transactionIdComparison != 0) {
             return transactionIdComparison;
         }
 
-        return _outputIndex.compareTo(transactionOutputId.getOutputIndex());
+        final Integer outputIndex = transactionOutputId.getOutputIndex();
+        return _outputIndex.compareTo(outputIndex);
     }
 }

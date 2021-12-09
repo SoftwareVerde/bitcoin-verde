@@ -6,10 +6,12 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.properties.PropertiesStore;
 import com.softwareverde.database.DatabaseException;
 
 public interface DatabaseManager extends AutoCloseable {
     DatabaseConnection getDatabaseConnection();
+    PropertiesStore getPropertiesStore();
 
     BitcoinNodeDatabaseManager getNodeDatabaseManager();
     BlockchainDatabaseManager getBlockchainDatabaseManager();

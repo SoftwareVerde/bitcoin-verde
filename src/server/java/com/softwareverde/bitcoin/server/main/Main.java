@@ -403,6 +403,7 @@ public class Main {
                 final Configuration configuration = _loadConfigurationFile(configurationFilename);
                 final ExplorerProperties explorerProperties = configuration.getExplorerProperties();
                 final ExplorerModule explorerModule = new ExplorerModule(explorerProperties);
+
                 explorerModule.start();
                 explorerModule.loop();
                 explorerModule.stop();

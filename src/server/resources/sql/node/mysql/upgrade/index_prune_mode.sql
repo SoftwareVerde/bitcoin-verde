@@ -1,0 +1,1 @@
+ALTER TABLE validated_slp_transactions DROP FOREIGN KEY valid_slp_transactions_tx_id_fk;

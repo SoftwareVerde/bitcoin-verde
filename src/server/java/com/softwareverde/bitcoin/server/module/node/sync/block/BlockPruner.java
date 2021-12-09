@@ -12,10 +12,10 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
+import com.softwareverde.bitcoin.server.properties.PropertiesStore;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.row.Row;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
@@ -30,43 +30,25 @@ public class BlockPruner extends SleepyService {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final BlockStore _blockStore;
     protected final RequiredBlockChecker _requiredBlockChecker;
+    protected final Boolean _shouldKeepTransactionHashes;
 
-    protected Long _lastPrunedBlockHeight = 0L;
+    protected Long _lastPrunedBlockHeight = null;
 
     protected Long _getLastPrunedBlockHeight(final DatabaseManager databaseManager) throws DatabaseException {
-        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT value FROM properties WHERE `key` = ?")
-                .setParameter(PRUNED_BLOCK_HEIGHT_KEY)
-        );
-        if (rows.isEmpty()) { return 0L; }
-
-        final Row row = rows.get(0);
-        return row.getLong("value");
+        final PropertiesStore propertiesStore = databaseManager.getPropertiesStore();
+        return Util.coalesce(propertiesStore.get(PRUNED_BLOCK_HEIGHT_KEY));
     }
 
     protected void _setLastPrunedBlockHeight(final Long blockHeight, final DatabaseManager databaseManager) throws DatabaseException {
-        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-
-        databaseConnection.executeSql(
-            new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES (value)")
-                .setParameter(PRUNED_BLOCK_HEIGHT_KEY)
-                .setParameter(blockHeight)
-        );
+        final PropertiesStore propertiesStore = databaseManager.getPropertiesStore();
+        propertiesStore.set(PRUNED_BLOCK_HEIGHT_KEY, blockHeight);
     }
 
-    public BlockPruner(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockStore blockStore, final RequiredBlockChecker requiredBlockChecker) {
+    public BlockPruner(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockStore blockStore, final Boolean shouldKeepTransactionHashes, final RequiredBlockChecker requiredBlockChecker) {
         _databaseManagerFactory = databaseManagerFactory;
         _blockStore = blockStore;
         _requiredBlockChecker = requiredBlockChecker;
-
-        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            _lastPrunedBlockHeight = _getLastPrunedBlockHeight(databaseManager);
-        }
-        catch (final DatabaseException exception) {
-            Logger.debug(exception);
-        }
+        _shouldKeepTransactionHashes = shouldKeepTransactionHashes;
     }
 
     public void setLastPrunedBlockHeight(final Long blockHeight, final DatabaseManager databaseManager) throws DatabaseException {
@@ -75,7 +57,16 @@ public class BlockPruner extends SleepyService {
     }
 
     @Override
-    protected void _onStart() { }
+    protected void _onStart() {
+        if (_lastPrunedBlockHeight == null) {
+            try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                _lastPrunedBlockHeight = _getLastPrunedBlockHeight(databaseManager);
+            }
+            catch (final DatabaseException exception) {
+                Logger.debug(exception);
+            }
+        }
+    }
 
     @Override
     protected Boolean _run() {
@@ -93,7 +84,7 @@ public class BlockPruner extends SleepyService {
             final Long headBlockHeight = Util.coalesce(blockHeaderDatabaseManager.getBlockHeight(headBlockId), 0L);
             final long maxPruneBlockHeight = Math.min(utxoCommittedBlockHeight, headBlockHeight);
 
-            for (long blockHeight = _lastPrunedBlockHeight; blockHeight < maxPruneBlockHeight; ++blockHeight) {
+            for (long blockHeight = Util.coalesce(_lastPrunedBlockHeight); blockHeight < maxPruneBlockHeight; ++blockHeight) {
                 final BlockId prunedBlockId = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, blockHeight);
                 final Sha256Hash prunedBlockHash = blockHeaderDatabaseManager.getBlockHash(prunedBlockId);
 
@@ -103,10 +94,36 @@ public class BlockPruner extends SleepyService {
                 _blockStore.removeBlock(prunedBlockHash, blockHeight);
 
                 TransactionUtil.startTransaction(databaseConnection);
+                // Drop rows from: indexed_transaction_outputs, indexed_transaction_inputs, validated_slp_transactions, double_spend_proofs
                 databaseConnection.executeSql(
-                    new Query("DELETE block_transactions, transactions FROM block_transactions INNER JOIN transactions ON transactions.id = block_transactions.transaction_id WHERE block_id = ?")
+                    new Query("DELETE indexed_transaction_outputs FROM block_transactions INNER JOIN indexed_transaction_outputs ON indexed_transaction_outputs.id = block_transactions.transaction_id WHERE block_transactions.block_id = ?")
                         .setParameter(prunedBlockId)
                 );
+                databaseConnection.executeSql(
+                    new Query("DELETE indexed_transaction_inputs FROM block_transactions INNER JOIN indexed_transaction_inputs ON indexed_transaction_inputs.id = block_transactions.transaction_id WHERE block_transactions.block_id = ?")
+                        .setParameter(prunedBlockId)
+                );
+                databaseConnection.executeSql(
+                    new Query("DELETE validated_slp_transactions FROM block_transactions INNER JOIN validated_slp_transactions ON validated_slp_transactions.id = block_transactions.transaction_id WHERE block_transactions.block_id = ?")
+                        .setParameter(prunedBlockId)
+                );
+                databaseConnection.executeSql(
+                    new Query("DELETE double_spend_proofs FROM block_transactions INNER JOIN double_spend_proofs ON double_spend_proofs.id = block_transactions.transaction_id WHERE block_transactions.block_id = ?")
+                        .setParameter(prunedBlockId)
+                );
+                // Drop associated rows from: transactions, block_transactions
+                if (_shouldKeepTransactionHashes) {
+                    databaseConnection.executeSql(
+                        new Query("DELETE block_transactions FROM block_transactions WHERE block_id = ?")
+                            .setParameter(prunedBlockId)
+                    );
+                }
+                else {
+                    databaseConnection.executeSql(
+                        new Query("DELETE block_transactions, transactions FROM block_transactions INNER JOIN transactions ON transactions.id = block_transactions.transaction_id WHERE block_transactions.block_id = ?")
+                            .setParameter(prunedBlockId)
+                    );
+                }
                 _setLastPrunedBlockHeight(blockHeight, databaseManager);
                 TransactionUtil.commitTransaction(databaseConnection);
 

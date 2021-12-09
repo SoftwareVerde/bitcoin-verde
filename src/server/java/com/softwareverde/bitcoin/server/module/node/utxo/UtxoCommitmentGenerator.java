@@ -22,10 +22,12 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputJvmManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
+import com.softwareverde.bitcoin.server.module.node.database.utxo.UtxoCommitmentDatabaseManager;
+import com.softwareverde.bitcoin.server.properties.PropertiesStore;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
-import com.softwareverde.concurrent.service.GracefulSleepyService;
+import com.softwareverde.concurrent.service.PausableSleepyService;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -48,8 +50,6 @@ import com.softwareverde.util.timer.MultiTimer;
 import com.softwareverde.util.timer.NanoTimer;
 
 import java.io.File;
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.TreeMap;
@@ -57,7 +57,7 @@ import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class UtxoCommitmentGenerator extends GracefulSleepyService {
+public class UtxoCommitmentGenerator extends PausableSleepyService {
     protected static final String STAGED_COMMITMENT_BLOCK_HEIGHT_KEY = "staged_utxo_commitment_block_height";
     protected static final Integer UTXO_COMMITMENT_BLOCK_LAG = UndoLogDatabaseManager.MAX_REORG_DEPTH;
     protected static final Long MIN_BLOCK_HEIGHT = 650000L;
@@ -70,79 +70,19 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
     protected Long _cachedStagedUtxoCommitmentBlockHeight = null;
 
     protected Long _getStagedUtxoCommitmentBlockHeight(final DatabaseManager databaseManager) throws DatabaseException {
-        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT value FROM properties WHERE `key` = ?")
-                .setParameter(STAGED_COMMITMENT_BLOCK_HEIGHT_KEY)
-        );
-        if (rows.isEmpty()) { return 0L; }
-
-        final Row row = rows.get(0);
-        final Long blockHeight = row.getLong("value");
+        final PropertiesStore propertiesStore = databaseManager.getPropertiesStore();
+        final Long blockHeight = Util.coalesce(propertiesStore.get(STAGED_COMMITMENT_BLOCK_HEIGHT_KEY));
 
         _cachedStagedUtxoCommitmentBlockHeight = blockHeight;
 
         return blockHeight;
     }
 
-    protected void _setStagedUtxoCommitmentBlockHeight(final Long blockHeight, final DatabaseManager databaseManager) throws DatabaseException {
-        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-
-        databaseConnection.executeSql(
-            new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES (value)")
-                .setParameter(STAGED_COMMITMENT_BLOCK_HEIGHT_KEY)
-                .setParameter(blockHeight)
-        );
+    protected void _setStagedUtxoCommitmentBlockHeight(final Long blockHeight, final DatabaseManager databaseManager) {
+        final PropertiesStore propertiesStore = databaseManager.getPropertiesStore();
+        propertiesStore.set(STAGED_COMMITMENT_BLOCK_HEIGHT_KEY, blockHeight);
 
         _cachedStagedUtxoCommitmentBlockHeight = blockHeight;
-    }
-
-    protected final UtxoCommitmentId _createUtxoCommitment(final BlockId blockId, final DatabaseManager databaseManager) throws DatabaseException {
-        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-
-        final Long utxoCommitId = databaseConnection.executeSql(
-            new Query("INSERT INTO utxo_commitments (block_id) VALUES (?)")
-                .setParameter(blockId)
-        );
-
-        return UtxoCommitmentId.wrap(utxoCommitId);
-    }
-
-    protected final void _setUtxoCommitmentHash(final UtxoCommitmentId utxoCommitmentId, final Sha256Hash hash, final PublicKey publicKey, final DatabaseManager databaseManager) throws DatabaseException {
-        final PublicKey compressedPublicKey = publicKey.compress();
-        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-
-        databaseConnection.executeSql(
-            new Query("UPDATE utxo_commitments SET hash = ?, public_key = ? WHERE id = ?")
-                .setParameter(hash)
-                .setParameter(compressedPublicKey)
-                .setParameter(utxoCommitmentId)
-        );
-    }
-
-    protected Long _createUtxoCommitmentBucket(final UtxoCommitmentId utxoCommitmentId, final Integer bucketIndex, final PublicKey publicKey, final DatabaseManager databaseManager) throws DatabaseException {
-        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-
-        return databaseConnection.executeSql(
-            new Query("INSERT INTO utxo_commitment_buckets (utxo_commitment_id, `index`, public_key) VALUES (?, ?, ?)")
-                .setParameter(utxoCommitmentId)
-                .setParameter(bucketIndex)
-                .setParameter(publicKey)
-        );
-    }
-
-    protected Long _createUtxoCommitmentFile(final Long bucketId, final Integer subBucketIndex, final PublicKey subBucketPublicKey, final Integer subBucketUtxoCount, final Long subBucketByteCount, final DatabaseManager databaseManager) throws DatabaseException {
-        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-
-        return databaseConnection.executeSql(
-            new Query("INSERT INTO utxo_commitment_files (utxo_commitment_bucket_id, sub_bucket_index, public_key, utxo_count, byte_count) VALUES (?, ?, ?, ?, ?)")
-                .setParameter(bucketId)
-                .setParameter(subBucketIndex)
-                .setParameter(subBucketPublicKey)
-                .setParameter(subBucketUtxoCount)
-                .setParameter(subBucketByteCount)
-        );
     }
 
     protected void _importFromCommittedUtxos(final FullNodeDatabaseManager databaseManager) throws DatabaseException {
@@ -218,6 +158,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
     }
 
     protected UtxoCommitment _publishUtxoCommitment(final BlockId blockId, final Sha256Hash blockHash, final Long commitBlockHeight, final FullNodeDatabaseManager databaseManager) throws Exception {
+        final UtxoCommitmentDatabaseManager utxoCommitmentDatabaseManager = databaseManager.getUtxoCommitmentDatabaseManager();
         { // Check if a UTXO commitment already exists for this blockId...
             // NOTE: This can happen if the node has imported a UTXO set and/or if UTXO sets are being manually regenerated.
             final UtxoCommitmentManager utxoCommitmentManager = databaseManager.getUtxoCommitmentManager();
@@ -238,7 +179,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
         }
 
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-        final UtxoCommitmentId utxoCommitmentId = _createUtxoCommitment(blockId, databaseManager);
+        final UtxoCommitmentId utxoCommitmentId = utxoCommitmentDatabaseManager.createUtxoCommitment(blockId);
         final EcMultiset utxoCommitMultiset = new EcMultiset();
         final MutableList<File> utxoCommitmentFiles = new MutableList<>(UtxoCommitment.BUCKET_COUNT);
 
@@ -437,11 +378,11 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
             for (final BucketFile bucket : bucketQueues) {
                 final Integer bucketIndex = bucket.getIndex();
                 final PublicKey bucketPublicKey = bucket.getPublicKey();
-                final Long bucketId = _createUtxoCommitmentBucket(utxoCommitmentId, bucketIndex, bucketPublicKey, databaseManager);
+                final Long bucketId = utxoCommitmentDatabaseManager.createUtxoCommitmentBucket(utxoCommitmentId, bucketIndex, bucketPublicKey);
 
                 int subBucketIndex = 0;
                 for (final BucketFile.SubBucketFile subBucket : bucket.getSubBuckets()) {
-                    _createUtxoCommitmentFile(bucketId, subBucketIndex, subBucket.publicKey, subBucket.utxoCount, subBucket.byteCount, databaseManager);
+                    utxoCommitmentDatabaseManager.createUtxoCommitmentFile(bucketId, subBucketIndex, subBucket.publicKey, subBucket.utxoCount, subBucket.byteCount);
 
                     utxoCommitmentFiles.add(subBucket.file);
                     subBucketIndex += 1;
@@ -452,7 +393,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
 
             final PublicKey publicKey = utxoCommitMultiset.getPublicKey();
             final Sha256Hash commitHash = utxoCommitMultiset.getHash();
-            _setUtxoCommitmentHash(utxoCommitmentId, commitHash, publicKey, databaseManager);
+            utxoCommitmentDatabaseManager.setUtxoCommitmentHash(utxoCommitmentId, commitHash, publicKey);
 
             utxoCommitment._blockId = blockId;
             utxoCommitment._blockHeight = commitBlockHeight;
@@ -675,7 +616,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
     protected void _onStart() { }
 
     @Override
-    protected Boolean _run() {
+    protected Boolean _execute() {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
             final Long committedUtxoBlockHeight = unspentTransactionOutputDatabaseManager.getCommittedUnspentTransactionOutputBlockHeight();
@@ -695,64 +636,12 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
         return false;
     }
 
-    protected Sha256Hash _calculateEcMultisetHash(final PublicKey publicKey) {
-        final EcMultiset ecMultiset = new EcMultiset(publicKey);
-        return ecMultiset.getHash();
-    }
-
     @Override
     protected void _onSleep() { }
 
     public UtxoCommitmentGenerator(final FullNodeDatabaseManagerFactory databaseManagerFactory, final String outputDirectory) {
         _databaseManagerFactory = databaseManagerFactory;
         _outputDirectory = outputDirectory;
-    }
-
-    public void storeUtxoCommitment(final UtxoCommitmentMetadata utxoCommitmentMetadata, final List<UtxoDatabaseSubBucket> utxoCommitmentFiles) throws DatabaseException {
-        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-            TransactionUtil.startTransaction(databaseConnection);
-
-            final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(utxoCommitmentMetadata.blockHash);
-            final UtxoCommitmentId utxoCommitmentId = _createUtxoCommitment(blockId, databaseManager);
-            final Sha256Hash ecMultisetHash = _calculateEcMultisetHash(utxoCommitmentMetadata.publicKey);
-            _setUtxoCommitmentHash(utxoCommitmentId, ecMultisetHash, utxoCommitmentMetadata.publicKey, databaseManager);
-
-            final HashMap<Integer, EcMultiset> bucketHashes = new HashMap<>();
-            final HashMap<Integer, MutableList<UtxoDatabaseSubBucket>> bucketFiles = new HashMap<>();
-            for (final UtxoDatabaseSubBucket subBucket : utxoCommitmentFiles) {
-                bucketFiles.putIfAbsent(subBucket.bucketIndex, new MutableList<>());
-                bucketHashes.putIfAbsent(subBucket.bucketIndex, new EcMultiset());
-
-                final MutableList<UtxoDatabaseSubBucket> subBuckets = bucketFiles.get(subBucket.bucketIndex);
-                subBuckets.add(subBucket);
-
-                final EcMultiset bucketHash = bucketHashes.get(subBucket.bucketIndex);
-                bucketHash.add(subBucket.subBucketPublicKey);
-            }
-            for (final MutableList<UtxoDatabaseSubBucket> subBuckets : bucketFiles.values()) {
-                subBuckets.sort(new Comparator<UtxoDatabaseSubBucket>() {
-                    @Override
-                    public int compare(final UtxoDatabaseSubBucket subBucket0, final UtxoDatabaseSubBucket subBucket1) {
-                        return subBucket0.subBucketIndex.compareTo(subBucket1.subBucketIndex);
-                    }
-                });
-            }
-
-            for (final Integer bucketIndex : bucketHashes.keySet()) {
-                final EcMultiset bucketHash = bucketHashes.get(bucketIndex);
-                final List<UtxoDatabaseSubBucket> subBuckets = bucketFiles.get(bucketIndex);
-
-                final PublicKey bucketPublicKey = bucketHash.getPublicKey();
-
-                final Long bucketId = _createUtxoCommitmentBucket(utxoCommitmentId, bucketIndex, bucketPublicKey, databaseManager);
-                for (final UtxoDatabaseSubBucket subBucket : subBuckets) {
-                    _createUtxoCommitmentFile(bucketId, subBucket.subBucketIndex, subBucket.subBucketPublicKey, subBucket.subBucketUtxoCount, subBucket.subBucketByteCount, databaseManager);
-                }
-            }
-            TransactionUtil.commitTransaction(databaseConnection);
-        }
     }
 
     public Boolean requiresBlock(final Long blockHeight, final Sha256Hash blockHash) {

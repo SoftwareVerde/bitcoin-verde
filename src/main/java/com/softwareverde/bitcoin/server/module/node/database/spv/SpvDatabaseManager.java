@@ -9,10 +9,12 @@ import com.softwareverde.bitcoin.server.module.node.database.blockchain.Blockcha
 import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManagerCore;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.spv.SpvTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.properties.PropertiesStore;
 import com.softwareverde.database.DatabaseException;
 
 public class SpvDatabaseManager implements DatabaseManager {
     protected final DatabaseConnection _databaseConnection;
+    protected final PropertiesStore _propertiesStore;
     protected final Integer _maxQueryBatchSize;
     protected final CheckpointConfiguration _checkpointConfiguration;
 
@@ -22,8 +24,9 @@ public class SpvDatabaseManager implements DatabaseManager {
     protected BlockHeaderDatabaseManagerCore _blockHeaderDatabaseManager;
     protected SpvTransactionDatabaseManager _transactionDatabaseManager;
 
-    public SpvDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final CheckpointConfiguration checkpointConfiguration) {
+    public SpvDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final PropertiesStore propertiesStore, final CheckpointConfiguration checkpointConfiguration) {
         _databaseConnection = databaseConnection;
+        _propertiesStore = propertiesStore;
         _maxQueryBatchSize = maxQueryBatchSize;
         _checkpointConfiguration = checkpointConfiguration;
     }
@@ -31,6 +34,11 @@ public class SpvDatabaseManager implements DatabaseManager {
     @Override
     public DatabaseConnection getDatabaseConnection() {
         return _databaseConnection;
+    }
+
+    @Override
+    public PropertiesStore getPropertiesStore() {
+        return _propertiesStore;
     }
 
     @Override
