@@ -26,11 +26,27 @@ public class TransactionsApi extends ExplorerApiEndpoint {
         }
     }
 
+    public static class GetRawTransactionResult extends ApiResult {
+        private String _payload = null;
+
+        public void setTransaction(final String transactionHex) {
+            _payload = transactionHex;
+        }
+
+        @Override
+        public Json toJson() {
+            final Json json = super.toJson();
+            json.put("transaction", _payload);
+            return json;
+        }
+    }
+
     public TransactionsApi(final String apiPrePath, final Environment environment) {
         super(environment);
 
         _defineEndpoint((apiPrePath + "/transactions"), HttpMethod.POST, new SubmitTransactionHandler());
-        _defineEndpoint((apiPrePath + "/transactions/<hash>"), HttpMethod.GET, new GetTransactionHandler());
+        _defineEndpoint((apiPrePath + "/transactions"), HttpMethod.GET, new GetTransactionHandler());
+        _defineEndpoint((apiPrePath + "/transactions/<transactionHash>"), HttpMethod.GET, new GetTransactionHandler());
         _defineEndpoint((apiPrePath + "/transactions/<transactionHash>/double-spend-proofs"), HttpMethod.GET, new GetDoubleSpendProofHandler());
     }
 }

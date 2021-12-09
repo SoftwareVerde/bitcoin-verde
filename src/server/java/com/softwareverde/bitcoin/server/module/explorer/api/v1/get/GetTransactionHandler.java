@@ -11,6 +11,7 @@ import com.softwareverde.http.server.servlet.response.JsonResponse;
 import com.softwareverde.http.server.servlet.response.Response;
 import com.softwareverde.http.server.servlet.routed.RequestHandler;
 import com.softwareverde.json.Json;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
 import java.util.Map;
@@ -28,7 +29,7 @@ public class GetTransactionHandler implements RequestHandler<Environment> {
         final Sha256Hash transactionHash;
         {
             final GetParameters getParameters = request.getGetParameters();
-            transactionHashString = Util.coalesce(urlParameters.get("hash"), getParameters.get("hash"));
+            transactionHashString = Util.coalesce(urlParameters.get("transactionHash"), getParameters.get("hash"));
             if (! Util.isBlank(transactionHashString)) {
                 transactionHash = Sha256Hash.fromHexString(transactionHashString);
             }
@@ -64,9 +65,10 @@ public class GetTransactionHandler implements RequestHandler<Environment> {
                 return new JsonResponse(Response.Codes.SERVER_ERROR, result);
             }
 
-            final Json transactionJson;
+            final Json rpcResponseJson;
             {
-                final Json rpcResponseJson = nodeJsonRpcConnection.getTransaction(transactionHash, rawFormat);
+                rpcResponseJson = nodeJsonRpcConnection.getTransaction(transactionHash, rawFormat);
+                Logger.debug(rpcResponseJson);
                 if (rpcResponseJson == null) {
                     return new JsonResponse(Response.Codes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
                 }
@@ -75,14 +77,24 @@ public class GetTransactionHandler implements RequestHandler<Environment> {
                     final String errorMessage = rpcResponseJson.getString("errorMessage");
                     return new JsonResponse(Response.Codes.SERVER_ERROR, new ApiResult(false, errorMessage));
                 }
-
-                transactionJson = rpcResponseJson.get("transaction");
             }
 
-            final TransactionsApi.GetTransactionResult getTransactionResult = new TransactionsApi.GetTransactionResult();
-            getTransactionResult.setWasSuccess(true);
-            getTransactionResult.setTransactionJson(transactionJson);
-            return new JsonResponse(Response.Codes.OK, getTransactionResult);
+            if (rawFormat) {
+                final String transactionHex = rpcResponseJson.getString("transaction");
+
+                final TransactionsApi.GetRawTransactionResult getTransactionResult = new TransactionsApi.GetRawTransactionResult();
+                getTransactionResult.setWasSuccess(true);
+                getTransactionResult.setTransaction(transactionHex);
+                return new JsonResponse(Response.Codes.OK, getTransactionResult);
+            }
+            else {
+                final Json transactionJson = rpcResponseJson.get("transaction");
+
+                final TransactionsApi.GetTransactionResult getTransactionResult = new TransactionsApi.GetTransactionResult();
+                getTransactionResult.setWasSuccess(true);
+                getTransactionResult.setTransactionJson(transactionJson);
+                return new JsonResponse(Response.Codes.OK, getTransactionResult);
+            }
         }
     }
 }
