@@ -232,7 +232,8 @@ public class BlockHeaderDownloader extends SleepyService {
                 if (! previousBlockExists) {
                     final Boolean isGenesisBlock = Util.areEqual(BlockHeader.GENESIS_BLOCK_HASH, firstBlockHeader.getHash());
                     if (! isGenesisBlock) {
-                        // NOTE: Previous block not existing does not qualify the block as indefinitely invalid.
+                        // NOTE: The block is not added to nullableInvalidBlockHashes;
+                        //  The previous block not existing does not qualify the block as being definitively invalid.
                         return false;
                     }
                 }
@@ -335,7 +336,7 @@ public class BlockHeaderDownloader extends SleepyService {
         if (blockHeaderCount == 0) { return true; }
 
         final BlockHeader firstBlockHeader = blockHeaders.get(0);
-        Logger.debug("Downloaded Block headers: "+ firstBlockHeader.getHash() + " + " + blockHeaderCount);
+        Logger.debug("Downloaded Block headers: " + firstBlockHeader.getHash() + " + " + blockHeaderCount);
 
         final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
 
@@ -351,9 +352,11 @@ public class BlockHeaderDownloader extends SleepyService {
                 return false;
             }
 
-            for (final BlockHeader blockHeader : blockHeaders) {
-                final Sha256Hash blockHash = blockHeader.getHash();
-                _blockInventoryTracker.markInventoryAvailable(blockHash, bitcoinNode);
+            if (bitcoinNode != null) {
+                for (final BlockHeader blockHeader : blockHeaders) {
+                    final Sha256Hash blockHash = blockHeader.getHash();
+                    _blockInventoryTracker.markInventoryAvailable(blockHash, bitcoinNode);
+                }
             }
 
             final BlockHeader lastBlockHeader = blockHeaders.get(blockHeaderCount - 1);

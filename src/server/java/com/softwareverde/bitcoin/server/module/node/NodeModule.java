@@ -925,7 +925,7 @@ public class NodeModule {
             _blockHeaderDownloader.setNewBlockHeaderAvailableCallback(new BlockHeaderDownloader.NewBlockHeadersAvailableCallback() {
                 @Override
                 public void onNewHeadersReceived(final BitcoinNode bitcoinNode, final List<BlockHeader> blockHeaders) {
-                    {
+                    if (bitcoinNode != null) {
                         final MutableList<Sha256Hash> blockHashes = new MutableList<>(blockHeaders.getCount());
                         for (final BlockHeader blockHeader : blockHeaders) {
                             final Sha256Hash blockHash = blockHeader.getHash();
@@ -974,6 +974,9 @@ public class NodeModule {
             _blockDownloader.setBlockDownloadedCallback(new BlockDownloader.BlockDownloadCallback() {
                 @Override
                 public void onBlockDownloaded(final Block block, final BitcoinNode bitcoinNode) {
+                    // Notify the BlockHeaderDownloader for the case that the Block was submitting via RPC...
+                    _blockHeaderDownloader.onNewBlockHeaders(bitcoinNode, new ImmutableList<>(block));
+
                     _blockchainBuilder.wakeUp();
                 }
             });
