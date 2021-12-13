@@ -246,8 +246,13 @@ public class MutableBlock extends AbstractBlockHeader implements Block {
 
     @Override
     public List<Sha256Hash> getPartialMerkleTree(final Integer transactionIndex) {
+        return this.getPartialMerkleTree(transactionIndex, false);
+    }
+
+    @Override
+    public List<Sha256Hash> getPartialMerkleTree(final Integer transactionIndex, final Boolean inclusive) {
         if (_merkleTree.isEmpty()) { return new MutableList<>(); }
-        return _merkleTree.getPartialTree(transactionIndex);
+        return _merkleTree.getPartialTree(transactionIndex, inclusive);
     }
 
     @Override

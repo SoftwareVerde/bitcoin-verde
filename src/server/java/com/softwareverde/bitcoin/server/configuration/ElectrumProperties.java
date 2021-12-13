@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.configuration;
 
 import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.server.main.NetworkType;
 import com.softwareverde.logging.LogLevel;
 
 import java.io.File;
@@ -13,6 +14,7 @@ public class ElectrumProperties {
     protected Integer _bitcoinRpcPort;
     protected LogLevel _logLevel;
     protected File _dataDirectory;
+    protected Integer _testNet;
 
     protected Integer _httpPort;
     protected Integer _tlsPort;
@@ -55,5 +57,17 @@ public class ElectrumProperties {
 
     public File getDataDirectory() {
         return _dataDirectory;
+    }
+
+    public Integer getTestNetVersion() { return _testNet; }
+    public NetworkType getNetworkType() {
+        switch (_testNet) {
+            case 4: return NetworkType.TEST_NET4;
+
+            case 1:
+            case 3: return NetworkType.TEST_NET;
+
+            default: return NetworkType.MAIN_NET;
+        }
     }
 }

@@ -1,16 +1,18 @@
 package com.softwareverde.bitcoin.server.properties;
 
 import com.softwareverde.bitcoin.test.IntegrationTest;
+import org.junit.After;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 
 public class DatabasePropertiesStoreTests extends IntegrationTest {
-    @Override
+    @Override @Before
     public void before() throws Exception {
         super.before();
     }
 
-    @Override
+    @Override @After
     public void after() throws Exception {
         super.after();
     }

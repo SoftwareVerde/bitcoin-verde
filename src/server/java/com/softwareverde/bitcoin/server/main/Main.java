@@ -481,7 +481,7 @@ public class Main {
                 final DatabaseConnectionPool databaseConnectionPool = new ApacheCommonsDatabaseConnectionPool(databaseProperties, database.getMaxDatabaseConnectionCount());
                 final Environment environment = new Environment(database, databaseConnectionPool);
 
-                final StratumModule stratumModule = new StratumModule(stratumProperties, environment);
+                final StratumModule stratumModule = new StratumModule(stratumProperties, environment, false);
                 stratumModule.loop();
                 Logger.flush();
             } break;

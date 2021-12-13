@@ -14,6 +14,7 @@ import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.rpc.NodeJsonRpcConnection;
 import com.softwareverde.bitcoin.server.configuration.ElectrumProperties;
 import com.softwareverde.bitcoin.server.electrum.socket.ElectrumServerSocket;
+import com.softwareverde.bitcoin.server.main.NetworkType;
 import com.softwareverde.bitcoin.server.message.type.query.header.RequestBlockHeadersMessage;
 import com.softwareverde.bitcoin.server.module.electrum.json.ElectrumJson;
 import com.softwareverde.bitcoin.server.module.electrum.json.ElectrumJsonProtocolMessage;
@@ -404,6 +405,11 @@ public class ElectrumModule {
     }
 
     protected Long _loadBootstrappedHeaders() {
+        final NetworkType networkType = _electrumProperties.getNetworkType();
+        if (networkType != NetworkType.MAIN_NET) {
+            return -1L;
+        }
+
         try (final InputStream inputStream = HeadersBootstrapper.class.getResourceAsStream("/bootstrap/headers.dat")) {
             if (inputStream == null) {
                 Logger.warn("Unable to open headers bootstrap file.");
@@ -779,8 +785,7 @@ public class ElectrumModule {
             final int headerIndex = (blockHeaderMerkleTree.getItemCount() - 1);
 
             merkleRoot = blockHeaderMerkleTree.getMerkleRoot();
-            partialMerkleTree = blockHeaderMerkleTree.getPartialTree(headerIndex);
-
+            partialMerkleTree = blockHeaderMerkleTree.getPartialTree(headerIndex, true);
         }
         else {
             merkleRoot = null;
@@ -998,7 +1003,7 @@ public class ElectrumModule {
             final Json blockJson = nodeConnection.getBlock(blockHeight, true);
             final Block block = blockInflater.fromBytes(ByteArray.fromHexString(blockJson.getString("block")));
 
-            final List<Sha256Hash> partialMerkleTree = block.getPartialMerkleTree(transactionIndex);
+            final List<Sha256Hash> partialMerkleTree = block.getPartialMerkleTree(transactionIndex, false);
             final Json partialMerkleTreeJson = new ElectrumJson(true);
             for (final Sha256Hash item : partialMerkleTree) {
                 partialMerkleTreeJson.add(item);
@@ -1097,7 +1102,7 @@ public class ElectrumModule {
             final Transaction transaction = transactions.get(transactionIndex);
 
             transactionHash = transaction.getHash();
-            partialMerkleTree = (includePartialMerkleTree ? block.getPartialMerkleTree(transactionIndex) : null);
+            partialMerkleTree = (includePartialMerkleTree ? block.getPartialMerkleTree(transactionIndex, false) : null);
         }
 
         final Json json = new ElectrumJson(false);

@@ -1011,9 +1011,6 @@ public class NodeModule {
             _blockDownloader.setBlockDownloadedCallback(new BlockDownloader.BlockDownloadCallback() {
                 @Override
                 public void onBlockDownloaded(final Block block, final BitcoinNode bitcoinNode) {
-                    // Notify the BlockHeaderDownloader for the case that the Block was submitting via RPC...
-                    _blockHeaderDownloader.onNewBlockHeaders(bitcoinNode, new ImmutableList<>(block));
-
                     _blockchainBuilder.wakeUp();
                 }
             });
@@ -1140,7 +1137,7 @@ public class NodeModule {
                 final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_generalThreadPool); // TODO: Should combine _generalThreadPool and _networkThreadPool, and/or refactor completely.
                 final RpcStatisticsHandler statisticsHandler = new RpcStatisticsHandler(_blockHeaderDownloader, _blockchainBuilder, blockProcessor, _bitcoinNodeManager);
 
-                final RpcDataHandler rpcDataHandler = new RpcDataHandler(_systemTime, _masterInflater, databaseManagerFactory, _difficultyCalculatorFactory, transactionValidatorFactory, _transactionDownloader, _blockchainBuilder, _blockDownloader, doubleSpendProofStore, _mutableNetworkTime, _upgradeSchedule);
+                final RpcDataHandler rpcDataHandler = new RpcDataHandler(_systemTime, _masterInflater, databaseManagerFactory, _difficultyCalculatorFactory, transactionValidatorFactory, _transactionDownloader, _blockchainBuilder, _blockHeaderDownloader, _blockDownloader, doubleSpendProofStore, _mutableNetworkTime, _upgradeSchedule);
 
                 final MetadataHandler metadataHandler = new MetadataHandler(databaseManagerFactory, doubleSpendProofStore);
                 final QueryBlockchainHandler queryBlockchainHandler = new QueryBlockchainHandler(databaseConnectionFactory);

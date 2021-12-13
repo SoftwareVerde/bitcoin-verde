@@ -18,6 +18,7 @@ public interface Block extends BlockHeaderWithTransactionCount {
 
     MerkleTree<Transaction> getMerkleTree();
     List<Sha256Hash> getPartialMerkleTree(Integer transactionIndex);
+    List<Sha256Hash> getPartialMerkleTree(Integer transactionIndex, Boolean inclusive);
     PartialMerkleTree getPartialMerkleTree(BloomFilter bloomFilter);
     Boolean hasTransaction(Sha256Hash transactionHash);
 

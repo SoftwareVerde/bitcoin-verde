@@ -19,6 +19,7 @@ public class ElectrumPropertiesLoader {
         final String tlsCertificateFile = properties.getProperty("electrum.tlsCertificateFile", "");
         final LogLevel logLevel = LogLevel.fromString(properties.getProperty("electrum.logLevel", "INFO"));
         final File dataDirectory = new File(properties.getProperty("electrum.dataDirectory", "data/electrum"));
+        final Integer testNet = Util.parseInt(properties.getProperty("electrum.testNet", "0"));
 
         final Address donationAddress;
         {
@@ -43,6 +44,8 @@ public class ElectrumPropertiesLoader {
         electrumProperties._donationAddress = donationAddress;
         electrumProperties._logLevel = logLevel;
         electrumProperties._dataDirectory = dataDirectory;
+
+        electrumProperties._testNet = testNet;
 
         return electrumProperties;
     }

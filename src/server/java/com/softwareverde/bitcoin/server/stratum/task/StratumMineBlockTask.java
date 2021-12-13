@@ -160,7 +160,7 @@ public class StratumMineBlockTask {
                 _coinbaseTransactionHead + _extraNonce1 + stratumExtraNonce2 + _coinbaseTransactionTail
             ));
 
-            merkleRoot = calculateMerkleRoot(coinbaseTransaction, _merkleTreeBranches);
+            merkleRoot = StratumMineBlockTask.calculateMerkleRoot(coinbaseTransaction, _merkleTreeBranches);
         }
         blockHeader.setMerkleRoot(merkleRoot);
 

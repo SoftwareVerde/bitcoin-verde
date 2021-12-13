@@ -40,6 +40,7 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.dsproof.DoubleSpendProofStore;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
+import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
 import com.softwareverde.bitcoin.server.module.node.sync.SlpTransactionProcessor;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
@@ -89,6 +90,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     protected final TransactionValidatorFactory _transactionValidatorFactory;
     protected final VolatileNetworkTime _networkTime;
     protected final TransactionDownloader _transactionDownloader;
+    protected final BlockHeaderDownloader _blockHeaderDownloader;
     protected final BlockDownloader _blockDownloader;
     protected final BlockchainBuilder _blockchainBuilder;
     protected final DoubleSpendProofStore _doubleSpendProofStore;
@@ -208,7 +210,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
         return BlockHeader.calculateBlockReward(blockHeight);
     }
 
-    public RpcDataHandler(final SystemTime systemTime, final MasterInflater masterInflater, final FullNodeDatabaseManagerFactory databaseManagerFactory, final DifficultyCalculatorFactory difficultyCalculatorFactory, final TransactionValidatorFactory transactionValidatorFactory, final TransactionDownloader transactionDownloader, final BlockchainBuilder blockchainBuilder, final BlockDownloader blockDownloader, final DoubleSpendProofStore doubleSpendProofStore, final VolatileNetworkTime networkTime, final UpgradeSchedule upgradeSchedule) {
+    public RpcDataHandler(final SystemTime systemTime, final MasterInflater masterInflater, final FullNodeDatabaseManagerFactory databaseManagerFactory, final DifficultyCalculatorFactory difficultyCalculatorFactory, final TransactionValidatorFactory transactionValidatorFactory, final TransactionDownloader transactionDownloader, final BlockchainBuilder blockchainBuilder, final BlockHeaderDownloader blockHeaderDownloader, final BlockDownloader blockDownloader, final DoubleSpendProofStore doubleSpendProofStore, final VolatileNetworkTime networkTime, final UpgradeSchedule upgradeSchedule) {
         _systemTime = systemTime;
         _masterInflater = masterInflater;
         _upgradeSchedule = upgradeSchedule;
@@ -217,6 +219,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
         _transactionValidatorFactory = transactionValidatorFactory;
 
         _transactionDownloader = transactionDownloader;
+        _blockHeaderDownloader = blockHeaderDownloader;
         _blockDownloader = blockDownloader;
         _blockchainBuilder = blockchainBuilder;
         _networkTime = networkTime;
@@ -858,6 +861,8 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
 
     @Override
     public void submitBlock(final Block block) {
+        Logger.info("Received Block via RPC: " + block.getHash());
+        _blockHeaderDownloader.submitBlock(block);
         _blockDownloader.submitBlock(block);
     }
 

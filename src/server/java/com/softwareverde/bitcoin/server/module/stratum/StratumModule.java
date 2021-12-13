@@ -54,7 +54,7 @@ public class StratumModule {
     }
 
     public StratumModule(final StratumProperties stratumProperties, final Environment environment) {
-        this(stratumProperties, environment, true);
+        this(stratumProperties, environment, false);
     }
 
     public StratumModule(final StratumProperties stratumProperties, final Environment environment, final Boolean useBitcoinCoreStratumServer) {

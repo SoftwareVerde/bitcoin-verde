@@ -15,6 +15,7 @@ import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.Util;
@@ -67,6 +68,20 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
 
     public ImmutableBlock(final Block block) {
         this(block, block.getTransactions());
+    }
+
+    @Override
+    public MerkleRoot getMerkleRoot() {
+        final MerkleRoot cachedMerkleRoot = _merkleRoot;
+        if (cachedMerkleRoot != null) { return cachedMerkleRoot; }
+
+        if (_merkleTree == null) {
+            _buildMerkleTree();
+        }
+
+        final MerkleRoot merkleRoot = _merkleTree.getMerkleRoot();
+        _merkleRoot = merkleRoot;
+        return merkleRoot;
     }
 
     @Override
@@ -153,10 +168,17 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
 
     @Override
     public List<Sha256Hash> getPartialMerkleTree(final Integer transactionIndex) {
+        return this.getPartialMerkleTree(transactionIndex, false);
+    }
+
+    @Override
+    public List<Sha256Hash> getPartialMerkleTree(final Integer transactionIndex, final Boolean inclusive) {
         if (_merkleTree == null) {
             _buildMerkleTree();
         }
-        return _merkleTree.getPartialTree(transactionIndex);
+
+        if (_merkleTree.isEmpty()) { return new MutableList<>(); }
+        return _merkleTree.getPartialTree(transactionIndex, inclusive);
     }
 
     @Override

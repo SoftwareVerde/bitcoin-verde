@@ -430,7 +430,8 @@ public class BitcoinVerdeStratumServer implements StratumServer {
 
                 final BlockDeflater blockDeflater = _masterInflater.getBlockDeflater();
                 final Block block = mineBlockTask.assembleBlock(stratumNonce, stratumExtraNonce2, stratumTimestamp);
-                Logger.info(blockDeflater.toBytes(block));
+                final ByteArray bytes = blockDeflater.toBytes(block);
+                Logger.info(block.getHash() + " " + bytes);
 
                 final NodeJsonRpcConnection nodeRpcConnection = _getNodeJsonRpcConnection();
                 final Json submitBlockResponse = nodeRpcConnection.submitBlock(block);
