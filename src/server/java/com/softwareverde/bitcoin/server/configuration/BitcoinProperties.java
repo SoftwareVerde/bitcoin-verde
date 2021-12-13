@@ -35,6 +35,7 @@ public class BitcoinProperties {
     protected Float _utxoPurgePercent;
     protected Boolean _bootstrapIsEnabled;
     protected Boolean _fastSyncIsEnabled;
+    protected Long _fastSyncTimeoutInSeconds;
     protected Boolean _indexingModeIsEnabled;
     protected Integer _maxMessagesPerSecond;
     protected String _dataDirectory;
@@ -117,6 +118,7 @@ public class BitcoinProperties {
     public Integer getMaxMessagesPerSecond() { return _maxMessagesPerSecond; }
     public Boolean isBootstrapEnabled() { return (_isTestNet() ? false : _bootstrapIsEnabled); }
     public Boolean isFastSyncEnabled() { return (_pruningModeIsEnabled && _fastSyncIsEnabled); }
+    public Long getFastSyncTimeoutMs() { return (_fastSyncTimeoutInSeconds < 0L ? -1L : (_fastSyncTimeoutInSeconds * 1000L)); }
     public String getDataDirectory() { return _dataDirectory; }
     public Boolean isInvalidSlpTransactionRelayEnabled() { return _shouldRelayInvalidSlpTransactions; }
 

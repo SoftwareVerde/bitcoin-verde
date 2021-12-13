@@ -44,6 +44,7 @@ public class ConfigurationPropertiesExporter {
     public static final String UTXO_PURGE_PERCENT = "bitcoin.utxoPurgePercent";
     public static final String BOOTSTRAP_IS_ENABLED = "bitcoin.enableBootstrap";
     public static final String FAST_SYNC_IS_ENABLED = "bitcoin.enableFastSync";
+    public static final String FAST_SYNC_TIMEOUT = "bitcoin.fastSyncTimeoutSeconds";
     public static final String INDEXING_MODE_IS_ENABLED = "bitcoin.indexBlocks";
     public static final String MAX_MESSAGES_PER_SECOND = "bitcoin.maxMessagesPerSecondPerNode";
     public static final String BITCOIN_PROPERTIES_DATA_DIRECTORY = "bitcoin.dataDirectory";
@@ -161,6 +162,7 @@ public class ConfigurationPropertiesExporter {
             this.put(UTXO_PURGE_PERCENT, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._utxoPurgePercent));
             this.put(BOOTSTRAP_IS_ENABLED, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._bootstrapIsEnabled));
             this.put(FAST_SYNC_IS_ENABLED, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._fastSyncIsEnabled));
+            this.put(FAST_SYNC_TIMEOUT, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._fastSyncTimeoutInSeconds));
             this.put(INDEXING_MODE_IS_ENABLED, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._indexingModeIsEnabled));
             this.put(MAX_MESSAGES_PER_SECOND, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._maxMessagesPerSecond));
             this.put(BITCOIN_PROPERTIES_DATA_DIRECTORY, bitcoinProperties._dataDirectory);

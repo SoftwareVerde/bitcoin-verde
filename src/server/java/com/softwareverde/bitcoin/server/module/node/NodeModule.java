@@ -812,8 +812,9 @@ public class NodeModule {
             });
         }
 
+        final Long fastSyncTimeout = _bitcoinProperties.getFastSyncTimeoutMs();
         _utxoCommitmentGenerator = new UtxoCommitmentGenerator(databaseManagerFactory, _utxoCommitmentStore.getUtxoDataDirectory());
-        _utxoCommitmentDownloader = new UtxoCommitmentDownloader(databaseManagerFactory, _bitcoinNodeManager, _utxoCommitmentStore, _blockPruner);
+        _utxoCommitmentDownloader = new UtxoCommitmentDownloader(databaseManagerFactory, _bitcoinNodeManager, _utxoCommitmentStore, _blockPruner, fastSyncTimeout);
 
         final Container<Boolean> wasFastSyncCompleted;
         { // Set the synchronization elements to cascade to each component...

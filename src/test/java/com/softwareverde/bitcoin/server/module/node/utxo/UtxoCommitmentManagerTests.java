@@ -84,10 +84,10 @@ public class UtxoCommitmentManagerTests extends IntegrationTest {
             }
 
             for (final UtxoCommitmentBreakdown utxoCommitmentBreakdown : utxoCommitmentBreakdowns) {
-                final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(utxoCommitmentBreakdown.commitment.blockHash);
+                final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(utxoCommitmentBreakdown.metadata.blockHash);
                 final UtxoCommitmentId utxoCommitmentId = utxoCommitmentDatabaseManager.createUtxoCommitment(blockId);
-                final Sha256Hash multisetHash = UtxoCommitmentDatabaseManager.calculateEcMultisetHash(utxoCommitmentBreakdown.commitment.publicKey);
-                utxoCommitmentDatabaseManager.setUtxoCommitmentHash(utxoCommitmentId, multisetHash, utxoCommitmentBreakdown.commitment.publicKey);
+                final Sha256Hash multisetHash = UtxoCommitmentDatabaseManager.calculateEcMultisetHash(utxoCommitmentBreakdown.metadata.publicKey);
+                utxoCommitmentDatabaseManager.setUtxoCommitmentHash(utxoCommitmentId, multisetHash, utxoCommitmentBreakdown.metadata.publicKey);
 
                 int bucketIndex = 0;
                 for (final UtxoCommitmentBucket utxoCommitmentBucket : utxoCommitmentBreakdown.buckets) {

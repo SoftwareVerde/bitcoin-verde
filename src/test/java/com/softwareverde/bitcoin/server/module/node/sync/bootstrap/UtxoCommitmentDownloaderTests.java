@@ -149,16 +149,17 @@ public class UtxoCommitmentDownloaderTests extends UnitTest {
                 }
             },
             null,
+            null,
             null
         );
 
         // Action
-        final UtxoCommitmentDownloader.UtxoCommit utxoCommit = utxoCommitmentDownloader._calculateUtxoCommitToDownload();
+        final UtxoCommitmentDownloader.UtxoCommitment utxoCommit = utxoCommitmentDownloader._calculateUtxoCommitmentToDownload();
 
         // Assert
-        Assert.assertEquals(Long.valueOf(690000L), utxoCommit.utxoCommitment.blockHeight);
-        Assert.assertEquals(Long.valueOf(4283387782L), utxoCommit.utxoCommitment.byteCount);
-        Assert.assertEquals(Sha256Hash.fromHexString("000000000000000001993116A3D4D6431759CCECCE0E4F4C47E907E20D2BC535"), utxoCommit.utxoCommitment.blockHash);
-        Assert.assertEquals(PublicKey.fromHexString("03F9B516ED2FEC0D9C8440918994989D8B8C62C800C40B721EC006D592517E9E82"), utxoCommit.utxoCommitment.publicKey);
+        Assert.assertEquals(Long.valueOf(690000L), utxoCommit.metadata.blockHeight);
+        Assert.assertEquals(Long.valueOf(4283387782L), utxoCommit.metadata.byteCount);
+        Assert.assertEquals(Sha256Hash.fromHexString("000000000000000001993116A3D4D6431759CCECCE0E4F4C47E907E20D2BC535"), utxoCommit.metadata.blockHash);
+        Assert.assertEquals(PublicKey.fromHexString("03F9B516ED2FEC0D9C8440918994989D8B8C62C800C40B721EC006D592517E9E82"), utxoCommit.metadata.publicKey);
     }
 }

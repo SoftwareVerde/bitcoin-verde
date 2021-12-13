@@ -27,7 +27,7 @@ public class QueryUtxoCommitmentsHandler implements BitcoinNode.QueryUtxoCommitm
 
             final UtxoCommitmentsMessage utxoCommitmentsMessage = new UtxoCommitmentsMessage();
             for (final UtxoCommitmentBreakdown utxoCommitmentBreakdown : utxoCommitments) {
-                utxoCommitmentsMessage.addUtxoCommitment(utxoCommitmentBreakdown.commitment, utxoCommitmentBreakdown.buckets);
+                utxoCommitmentsMessage.addUtxoCommitment(utxoCommitmentBreakdown.metadata, utxoCommitmentBreakdown.buckets);
             }
 
             bitcoinNode.queueMessage(utxoCommitmentsMessage);
