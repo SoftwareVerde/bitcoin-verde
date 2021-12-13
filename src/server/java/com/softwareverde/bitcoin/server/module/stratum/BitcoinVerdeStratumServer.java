@@ -633,7 +633,7 @@ public class BitcoinVerdeStratumServer implements StratumServer {
 
                     final Long msSinceLastTaskUpdate = _lastTransactionQueueProcessTimer.getMillisecondsElapsed();
 
-                    if (msSinceLastTaskUpdate >= 1000) {
+                    if (msSinceLastTaskUpdate >= 10000L) {
                         _addQueuedTransactionsToCurrentMiningTask();
                         _updateCurrentMiningTask();
                         _broadcastNewTask(false);

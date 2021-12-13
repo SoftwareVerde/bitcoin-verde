@@ -62,7 +62,7 @@ public class MerkleTreeNode<T extends Hashable> implements MutableMerkleTree<T> 
         if (_itemCount == 0) { return; }
         if ( (_item0 != null) || (_item1 != null) ) {
             if (_item0 != null) {
-                // The hash for the item at `index` is ommitted; therefore, include the other leaf's hash if ti exists.
+                // The hash for the item at `index` is omitted; therefore, include the other leaf's hash if it exists.
                 if (index == 1) { // NOTE: _item0 cannot be null if index == 1
                     partialTreeBuilder.add(_item0.getHash());
                 }
