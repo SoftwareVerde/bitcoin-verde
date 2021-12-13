@@ -43,6 +43,8 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.Map;
+
 public class HistoricTransactionsTests extends UnitTest {
     public static class TestConfig {
         String transactionBytes;
@@ -57,8 +59,8 @@ public class HistoricTransactionsTests extends UnitTest {
     }
 
     public static Json toBitcoinjTestCase(final TestConfig testConfig, final UpgradeSchedule upgradeSchedule) {
-        final TransactionContext transactionContext = initContext(testConfig, upgradeSchedule);
-        return toBitcoinjTestCase(transactionContext);
+        final TransactionContext transactionContext = HistoricTransactionsTests.initContext(testConfig, null, upgradeSchedule);
+        return HistoricTransactionsTests.toBitcoinjTestCase(transactionContext);
     }
 
     public static Json toBitcoinjTestCase(final TransactionContext transactionContext) {
@@ -84,7 +86,7 @@ public class HistoricTransactionsTests extends UnitTest {
 
         { // Transaction Data...
             final Transaction transaction = transactionContext.getTransaction();
-            final ByteArray transactionBytes = (new TransactionDeflater().toBytes(transaction));
+            final ByteArray transactionBytes = (new TransactionDeflater()).toBytes(transaction);
             json.add(transactionBytes);
         }
 
@@ -95,7 +97,7 @@ public class HistoricTransactionsTests extends UnitTest {
         return json;
     }
 
-    public static TransactionContext initContext(final TestConfig testConfig, final UpgradeSchedule upgradeSchedule) {
+    public static TransactionContext initContext(final TestConfig testConfig, final Map<Sha256Hash, Transaction> transactionsToSpend, final UpgradeSchedule upgradeSchedule) {
         final TransactionInflater transactionInflater = new TransactionInflater();
         final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(testConfig.transactionBytes));
 
@@ -137,7 +139,13 @@ public class HistoricTransactionsTests extends UnitTest {
             }
 
             context.setTransactionInput(transactionInput);
-            context.setPreviousTransactionOutputs(TransactionTestUtil.createPreviousTransactionOutputsList(transactionInputCount, testConfig.transactionInputIndex, transactionOutput));
+            if (transactionsToSpend != null) {
+                final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+                context.setPreviousTransactionOutputs(TransactionTestUtil.createPreviousTransactionOutputsList(transactionInputs, transactionsToSpend));
+            }
+            else {
+                context.setPreviousTransactionOutputs(TransactionTestUtil.createPreviousTransactionOutputsList(transactionInputCount, testConfig.transactionInputIndex, transactionOutput));
+            }
             context.setTransactionInputIndex(testConfig.transactionInputIndex);
         }
 
@@ -159,8 +167,8 @@ public class HistoricTransactionsTests extends UnitTest {
     }
 
     public static void runScripts(final TestConfig testConfig, final UpgradeSchedule upgradeSchedule, final Boolean expectedResult) {
-        // Setup;
-        final TransactionContext transactionContext = initContext(testConfig, upgradeSchedule);
+        // Setup
+        final TransactionContext transactionContext = HistoricTransactionsTests.initContext(testConfig, null, upgradeSchedule);
 
         final LockingScript lockingScript = new ImmutableLockingScript(MutableByteArray.wrap(HexUtil.hexStringToByteArray(testConfig.lockingScriptBytes)));
         final UnlockingScript unlockingScript = new ImmutableUnlockingScript(MutableByteArray.wrap(HexUtil.hexStringToByteArray(testConfig.unlockingScriptBytes)));
@@ -172,6 +180,22 @@ public class HistoricTransactionsTests extends UnitTest {
 
         // Assert
         Assert.assertEquals(expectedResult, inputIsUnlocked);
+    }
+
+    public static Boolean runScripts(final TestConfig testConfig, final Map<Sha256Hash, Transaction> transactionsToSpend, final UpgradeSchedule upgradeSchedule) {
+        // Setup
+        final TransactionContext transactionContext = HistoricTransactionsTests.initContext(testConfig, transactionsToSpend, upgradeSchedule);
+
+        final LockingScript lockingScript = new ImmutableLockingScript(MutableByteArray.wrap(HexUtil.hexStringToByteArray(testConfig.lockingScriptBytes)));
+        final UnlockingScript unlockingScript = new ImmutableUnlockingScript(MutableByteArray.wrap(HexUtil.hexStringToByteArray(testConfig.unlockingScriptBytes)));
+
+        final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
+
+        // Action
+        final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, transactionContext).isValid;
+
+        // Assert
+        return inputIsUnlocked;
     }
 
     @After
@@ -686,7 +710,7 @@ public class HistoricTransactionsTests extends UnitTest {
         testConfig.transactionInputIndex = 0; // Defined for init, but unused.
 
         final UpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
-        final TransactionContext transactionContext = initContext(testConfig, upgradeSchedule);
+        final TransactionContext transactionContext = HistoricTransactionsTests.initContext(testConfig, null, upgradeSchedule);
 
         final MedianBlockTime medianBlockTime = ImmutableMedianBlockTime.fromSeconds(1467969398L);
         final VolatileNetworkTime networkTime = VolatileNetworkTimeWrapper.wrap(ImmutableNetworkTime.fromSeconds(1529680230L));
@@ -1092,7 +1116,7 @@ public class HistoricTransactionsTests extends UnitTest {
     public void should_verify_testnet_transaction_81F488070C4215DD7D1B47734EAE523896297DEA9E3E08D0D368E84AAB9FD7B6_0() {
         final TestNetUpgradeSchedule upgradeSchedule = new TestNetUpgradeSchedule();
 
-        final HistoricTransactionsTests.TestConfig testConfig = new HistoricTransactionsTests.TestConfig();
+        final HistoricTransactionsTests.TestConfig testConfig = new TestConfig();
         testConfig.transactionBytes = "02000000030D4817464CE572E859074B0A638CD9647C6DCB87A300FBFE40B865AAB5DE134B010000006B483045022100A446F825B8CD6480D11E80E9B720B2F934327F540FFC3C0A6DE0CA171A1D4A540220054207EEF05062E430B93C736F9D7BC8F071483B09E15B43B9EEE875006F7A3B012103A589968481DC6FF8BA5AF1E3FDF5721C49D9336EED6D79302A921D8360D10747FFFFFFFFE13A3B220B7ED7D0CE1757DD6F3CB097489B4605D3B87F7F333A4F3ACA572088010000006B483045022100EA35689C567D6D0107B581DF02832FBA7DAD4C5C8FC58C94AABA84E8251F06B402205E4CE658FE2404ABA3E17E29EB8324D6E38D2F227FA61FEFA67121FDE44A1BAD01210369D2238BD50F291691F9E15A6CC39209EDE21AAF41F1534132B44CAE7F5CC0B5FFFFFFFFF2D2622A1A7A0C8A698F8B8FA4F0B016C012C8A534FF251B235EC1F9D01331B7010000006A4730440220283A2E7448865E9357406F2032D7D12178AB33FF91029A9AD9B5CBEB5BD9349B022058B6B5794478DDA17FC81E9EFE518158A82DB39E59476DA6D8D353AC54454C04012102840DBC78D1C53764BFBDBB128C3B4C1922E2EAC921D65F6B3C51694F09DF95FFFFFFFFFF02404B4C00000000001976A914AC19D3FD17710E6B9A331022FE92C693FDF6659588AC5FE31600000000001976A914A82DF617258ECC8877DE0E969439A08ABE2357D788AC00000000";
         testConfig.transactionInputBytes = "0D4817464CE572E859074B0A638CD9647C6DCB87A300FBFE40B865AAB5DE134B010000006B483045022100A446F825B8CD6480D11E80E9B720B2F934327F540FFC3C0A6DE0CA171A1D4A540220054207EEF05062E430B93C736F9D7BC8F071483B09E15B43B9EEE875006F7A3B012103A589968481DC6FF8BA5AF1E3FDF5721C49D9336EED6D79302A921D8360D10747FFFFFFFF";
         testConfig.transactionOutputIndex = 1;
@@ -1112,7 +1136,7 @@ public class HistoricTransactionsTests extends UnitTest {
     public void should_verify_testnet_transaction_B3FA07C78A2EC7CEF75E0FD558FD60756287B31B9AC810F6B5A06D9FACE060BD_0() {
         final TestNetUpgradeSchedule upgradeSchedule = new TestNetUpgradeSchedule();
 
-        final HistoricTransactionsTests.TestConfig testConfig = new HistoricTransactionsTests.TestConfig();
+        final HistoricTransactionsTests.TestConfig testConfig = new TestConfig();
         testConfig.transactionBytes = "0100000001F268EE57BC5C2D7191709C34C3D119F36494340DA178C4EFFCCB9F6BB7E1C7E80000000023220020A8C4BBE5EFA86519468CB1188565E481860FD8DDCC1F5242AD737E72230D0434FFFFFFFF01C37352000000000017A9141516811D888D572AE963E048D17CC76C7DFB431D8700000000";
         testConfig.transactionInputBytes = "F268EE57BC5C2D7191709C34C3D119F36494340DA178C4EFFCCB9F6BB7E1C7E80000000023220020A8C4BBE5EFA86519468CB1188565E481860FD8DDCC1F5242AD737E72230D0434FFFFFFFF";
         testConfig.transactionOutputIndex = 1;

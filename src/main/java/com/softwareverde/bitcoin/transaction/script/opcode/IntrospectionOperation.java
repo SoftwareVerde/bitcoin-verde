@@ -152,6 +152,7 @@ public class IntrospectionOperation extends SubTypedOperation {
             case PUSH_PREVIOUS_OUTPUT_VALUE: {
                 final Integer outputIndex = _popIntegerValue(stack, context);
                 if (outputIndex == null) { return false; }
+                if (outputIndex < 0) { return false; }
 
                 final TransactionOutput previousOutput = context.getPreviousTransactionOutput(outputIndex);
                 if (previousOutput == null) { return false; }
@@ -166,6 +167,7 @@ public class IntrospectionOperation extends SubTypedOperation {
             case PUSH_PREVIOUS_OUTPUT_BYTECODE: {
                 final Integer outputIndex = _popIntegerValue(stack, context);
                 if (outputIndex == null) { return false; }
+                if (outputIndex < 0) { return false; }
 
                 final TransactionOutput previousOutput = context.getPreviousTransactionOutput(outputIndex);
                 if (previousOutput == null) { return false; }
@@ -188,6 +190,7 @@ public class IntrospectionOperation extends SubTypedOperation {
                     final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
                     final int transactionInputCount = transactionInputs.getCount();
                     if (inputIndex >= transactionInputCount) { return false; }
+                    if (inputIndex < 0) { return false; }
 
                     transactionInput = transactionInputs.get(inputIndex);
                 }
@@ -209,6 +212,7 @@ public class IntrospectionOperation extends SubTypedOperation {
                     final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
                     final int transactionInputCount = transactionInputs.getCount();
                     if (inputIndex >= transactionInputCount) { return false; }
+                    if (inputIndex < 0) { return false; }
 
                     transactionInput = transactionInputs.get(inputIndex);
                 }
@@ -230,6 +234,7 @@ public class IntrospectionOperation extends SubTypedOperation {
                     final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
                     final int transactionInputCount = transactionInputs.getCount();
                     if (inputIndex >= transactionInputCount) { return false; }
+                    if (inputIndex < 0) { return false; }
 
                     transactionInput = transactionInputs.get(inputIndex);
                 }
@@ -252,6 +257,7 @@ public class IntrospectionOperation extends SubTypedOperation {
                     final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
                     final int transactionInputCount = transactionInputs.getCount();
                     if (inputIndex >= transactionInputCount) { return false; }
+                    if (inputIndex < 0) { return false; }
 
                     transactionInput = transactionInputs.get(inputIndex);
                 }
@@ -273,6 +279,7 @@ public class IntrospectionOperation extends SubTypedOperation {
                     final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
                     final int transactionOutputCount = transactionOutputs.getCount();
                     if (outputIndex >= transactionOutputCount) { return false; }
+                    if (outputIndex < 0) { return false; }
 
                     transactionOutput = transactionOutputs.get(outputIndex);
                 }
@@ -294,6 +301,7 @@ public class IntrospectionOperation extends SubTypedOperation {
                     final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
                     final int transactionOutputCount = transactionOutputs.getCount();
                     if (outputIndex >= transactionOutputCount) { return false; }
+                    if (outputIndex < 0) { return false; }
 
                     transactionOutput = transactionOutputs.get(outputIndex);
                 }
@@ -305,7 +313,6 @@ public class IntrospectionOperation extends SubTypedOperation {
                 stack.push(value);
                 return true;
             }
-
 
             default: { return false; }
         }

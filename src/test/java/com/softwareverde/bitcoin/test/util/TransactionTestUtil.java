@@ -27,6 +27,8 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
 
+import java.util.Map;
+
 public class TransactionTestUtil {
     protected TransactionTestUtil() { }
 
@@ -150,6 +152,27 @@ public class TransactionTestUtil {
         final MutableList<TransactionOutput> previousTransactionOutputsList = new MutableList<>(transactionInputCount);
         for (int i = 0; i < transactionInputCount; ++i) {
             previousTransactionOutputsList.add(i == outputIndex ? transactionOutput : null);
+        }
+        return previousTransactionOutputsList;
+    }
+
+    public static MutableList<TransactionOutput> createPreviousTransactionOutputsList(final List<TransactionInput> transactionInputs, final Map<Sha256Hash, Transaction> transactionsToSpend) {
+        final int transactionInputCount = transactionInputs.getCount();
+        final MutableList<TransactionOutput> previousTransactionOutputsList = new MutableList<>(transactionInputCount);
+        for (int i = 0; i < transactionInputCount; ++i) {
+            final TransactionInput transactionInput = transactionInputs.get(i);
+            final Sha256Hash previousTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+            final Integer transactionOutputIndex = transactionInput.getPreviousOutputIndex();
+
+            final Transaction transactionToSpend = transactionsToSpend.get(previousTransactionHash);
+            final List<TransactionOutput> transactionOutputs = (transactionToSpend != null ? transactionToSpend.getTransactionOutputs() : null);
+            final TransactionOutput transactionOutput = (transactionOutputs != null ? transactionOutputs.get(transactionOutputIndex) : null);
+
+            if (transactionOutput == null) {
+                throw new RuntimeException("Missing Previous Transaction Output: " + previousTransactionHash + ":" + transactionOutputIndex);
+            }
+
+            previousTransactionOutputsList.add(transactionOutput);
         }
         return previousTransactionOutputsList;
     }
