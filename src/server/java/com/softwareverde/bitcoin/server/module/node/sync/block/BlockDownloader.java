@@ -33,6 +33,7 @@ public class BlockDownloader extends PausableSleepyService {
     public interface BlockDownloadPlanner {
         List<PendingBlockInventory> getNextPendingBlockInventoryBatch();
         void requestInventory(Sha256Hash blockHash, Long blockHeight);
+        void clearQueue();
     }
 
     protected final ThreadPool _threadPool;
@@ -338,6 +339,11 @@ public class BlockDownloader extends PausableSleepyService {
         _downloadBlockQueue.add(pendingBlockInventory);
 
         this.wakeUp();
+    }
+
+    public void clearQueue() {
+        _blockDownloadPlanner.clearQueue();
+        _downloadBlockQueue.clear();
     }
 
     public void setBlockDownloadedCallback(final BlockDownloadCallback blockDownloadCallback) {

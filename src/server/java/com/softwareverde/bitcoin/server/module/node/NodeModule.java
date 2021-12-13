@@ -991,6 +991,9 @@ public class NodeModule {
                                 }
                             }
                             finally {
+                                // Blocks that are requested during the UTXO import should be cleared since they are usually early blocks...
+                                _blockDownloader.clearQueue();
+
                                 Logger.debug("Resuming services for UTXO import...");
                                 _blockchainIndexer.resume();
                                 _utxoCommitmentGenerator.resume();

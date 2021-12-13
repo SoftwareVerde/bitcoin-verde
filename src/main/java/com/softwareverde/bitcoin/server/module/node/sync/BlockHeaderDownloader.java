@@ -358,6 +358,18 @@ public class BlockHeaderDownloader extends PausableSleepyService {
         final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
 
         try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+            { // Check that the batch contains a new header...
+                final BlockHeader lastBlockHeader = blockHeaders.get(blockHeaderCount - 1);
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+
+                final Boolean firstBlockHeaderExists = blockHeaderDatabaseManager.blockHeaderExists(firstBlockHeader.getHash());
+                final Boolean lastBlockHeaderExists = blockHeaderDatabaseManager.blockHeaderExists(lastBlockHeader.getHash());
+
+                if (firstBlockHeaderExists && lastBlockHeaderExists) {
+                    return false; // Nothing to do.
+                }
+            }
+
             final MutableList<Sha256Hash> invalidBlockHashes = new MutableList<>(0);
             final Boolean headersAreValid = _validateAndStoreBlockHeaders(blockHeaders, databaseManager, invalidBlockHashes);
             if (! headersAreValid) {
