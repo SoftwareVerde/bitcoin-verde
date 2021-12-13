@@ -1107,6 +1107,8 @@ public class NodeModule {
         });
 
         if ( _bitcoinProperties.isFastSyncEnabled() && (! wasFastSyncCompleted.value) ) {
+            _bitcoinNodeManager.setFastSyncIsEnabled(true); // Allow pruned nodes with UTXO Commitments when fast sync is enabled.
+
             Logger.debug("Pausing services for fast sync...");
             _blockDownloader.pause();
             _utxoCommitmentGenerator.pause();

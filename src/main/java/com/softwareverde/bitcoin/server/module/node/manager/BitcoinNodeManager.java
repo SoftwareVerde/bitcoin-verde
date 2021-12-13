@@ -160,6 +160,7 @@ public class BitcoinNodeManager {
     protected MutableBloomFilter _bloomFilter = null;
     protected Runnable _onNodeListChanged;
     protected NewNodeCallback _newNodeCallback;
+    protected Boolean _fastSyncIsEnabled = false;
 
     protected final Runnable _preferredPeerMonitor = new Runnable() {
         @Override
@@ -520,7 +521,19 @@ public class BitcoinNodeManager {
         final long preferredPeerBlockHeightThreshold = 6L;
 
         final Boolean isBitcoinCashFullNode = BitcoinNodeManager.isBitcoinCashFullNode(bitcoinNode);
-        if (! isBitcoinCashFullNode) { return false; }
+        if (! isBitcoinCashFullNode) {
+            if (_fastSyncIsEnabled) {
+                final Boolean hasUtxoCommitments = bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.UTXO_COMMITMENTS_ENABLED);
+                if (! hasUtxoCommitments) {
+                    Logger.debug("Excluding node from preferred list; pruning node. (hasUtxoCommitments=0)");
+                    return false;
+                }
+            }
+            else {
+                Logger.debug("Excluding node from preferred list; pruning node.");
+                return false;
+            }
+        }
 
         final Boolean isOutboundConnection = bitcoinNode.isOutboundConnection();
         if (! isOutboundConnection) { return false; }
@@ -1325,5 +1338,13 @@ public class BitcoinNodeManager {
 
     public void defineDnsSeeds(final List<String> dnsSeeds) {
         _dnsSeeds.addAll(dnsSeeds);
+    }
+
+    public void setFastSyncIsEnabled(final Boolean isEnabled) {
+        _fastSyncIsEnabled = isEnabled;
+    }
+
+    public Boolean isFastSyncEnabled() {
+        return _fastSyncIsEnabled;
     }
 }
