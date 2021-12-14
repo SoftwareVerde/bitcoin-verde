@@ -10,7 +10,7 @@ import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
-import com.softwareverde.bitcoin.server.message.type.query.utxo.UtxoCommitmentBreakdown;
+import com.softwareverde.bitcoin.server.message.type.query.utxo.NodeSpecificUtxoCommitmentBreakdown;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
@@ -157,14 +157,14 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
         final Long maxBucketByteCount = (32L * ByteUtil.Unit.Binary.MEBIBYTES);
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             final UtxoCommitmentManager utxoCommitmentManager = databaseManager.getUtxoCommitmentManager();
-            final List<UtxoCommitmentBreakdown> availableUtxoCommitments = utxoCommitmentManager.getAvailableUtxoCommitments();
+            final List<NodeSpecificUtxoCommitmentBreakdown> availableUtxoCommitments = utxoCommitmentManager.getAvailableUtxoCommitments();
             Assert.assertEquals(1L, availableUtxoCommitments.getCount());
 
-            final UtxoCommitmentBreakdown utxoCommitmentBreakdown = availableUtxoCommitments.get(0);
-            Assert.assertEquals(128, utxoCommitmentBreakdown.buckets.getCount());
+            final NodeSpecificUtxoCommitmentBreakdown utxoCommitmentBreakdown = availableUtxoCommitments.get(0);
+            Assert.assertEquals(128, utxoCommitmentBreakdown.getBuckets().getCount());
 
             for (int i = 0; i < 128; ++i) {
-                final UtxoCommitmentBucket utxoCommitmentBucket = utxoCommitmentBreakdown.buckets.get(i);
+                final UtxoCommitmentBucket utxoCommitmentBucket = utxoCommitmentBreakdown.getBuckets().get(i);
                 final PublicKey expectedPublicKey = utxoCommitmentBucket.getPublicKey();
                 final PublicKey bucketPublicKey = utxoBucketPublicKeys.get(i);
 

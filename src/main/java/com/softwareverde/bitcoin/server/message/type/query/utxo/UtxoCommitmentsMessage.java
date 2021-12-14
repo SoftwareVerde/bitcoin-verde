@@ -1,9 +1,9 @@
 package com.softwareverde.bitcoin.server.message.type.query.utxo;
 
-import com.softwareverde.bitcoin.chain.utxo.MultisetBucket;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitment;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentBucket;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentMetadata;
+import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentSubBucket;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.util.ByteUtil;
@@ -19,7 +19,7 @@ public class UtxoCommitmentsMessage extends BitcoinProtocolMessage {
     public static final Integer MAX_COMMITMENT_COUNT = 32;
     public static final Integer MAX_SUB_BUCKET_COUNT = 128;
 
-    protected final MutableList<UtxoCommitmentBreakdown> _commitments = new MutableList<>();
+    protected final MutableList<NodeSpecificUtxoCommitmentBreakdown> _commitments = new MutableList<>();
     protected ByteArray _cachedBytes = null;
 
     public UtxoCommitmentsMessage() {
@@ -29,11 +29,11 @@ public class UtxoCommitmentsMessage extends BitcoinProtocolMessage {
     public void addUtxoCommitment(final UtxoCommitmentMetadata utxoCommitmentParam, final List<UtxoCommitmentBucket> utxoCommitmentBuckets) {
         if (_commitments.getCount() >= MAX_COMMITMENT_COUNT) { return; }
 
-        _commitments.add(new UtxoCommitmentBreakdown(utxoCommitmentParam, utxoCommitmentBuckets));
+        _commitments.add(new NodeSpecificUtxoCommitmentBreakdown(utxoCommitmentParam, utxoCommitmentBuckets));
         _cachedBytes = null;
     }
 
-    public List<UtxoCommitmentBreakdown> getUtxoCommitments() {
+    public List<NodeSpecificUtxoCommitmentBreakdown> getUtxoCommitments() {
         return _commitments;
     }
 
@@ -49,9 +49,9 @@ public class UtxoCommitmentsMessage extends BitcoinProtocolMessage {
 
         final int commitmentCount = _commitments.getCount();
         byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(commitmentCount));
-        for (final UtxoCommitmentBreakdown utxoCommitment : _commitments) {
-            final UtxoCommitmentMetadata utxoCommitmentMetadata = utxoCommitment.metadata;
-            final List<UtxoCommitmentBucket> utxoCommitmentBuckets = utxoCommitment.buckets;
+        for (final NodeSpecificUtxoCommitmentBreakdown utxoCommitment : _commitments) {
+            final UtxoCommitmentMetadata utxoCommitmentMetadata = utxoCommitment.getMetadata();
+            final List<UtxoCommitmentBucket> utxoCommitmentBuckets = utxoCommitment.getBuckets();
             final PublicKey compressedPublicKey = utxoCommitmentMetadata.publicKey.compress();
 
             byteArrayBuilder.appendBytes(utxoCommitmentMetadata.blockHash, Endian.LITTLE);
@@ -69,10 +69,10 @@ public class UtxoCommitmentsMessage extends BitcoinProtocolMessage {
                 byteArrayBuilder.appendBytes(utxoCommitmentBucketPublicKey);
                 byteArrayBuilder.appendBytes(ByteUtil.longToBytes(byteCount), Endian.LITTLE);
 
-                final List<MultisetBucket> subBuckets = utxoCommitmentBucket.getSubBuckets();
+                final List<UtxoCommitmentSubBucket> subBuckets = utxoCommitmentBucket.getSubBuckets();
                 final int subBucketCount = subBuckets.getCount();
                 byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(subBucketCount));
-                for (final MultisetBucket subBucket : subBuckets) {
+                for (final UtxoCommitmentSubBucket subBucket : subBuckets) {
                     final PublicKey subBucketPublicKey = subBucket.getPublicKey();
                     final Long subBucketByteCount = subBucket.getByteCount();
 

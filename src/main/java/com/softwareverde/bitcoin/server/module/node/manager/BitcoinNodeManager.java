@@ -525,12 +525,12 @@ public class BitcoinNodeManager {
             if (_fastSyncIsEnabled) {
                 final Boolean hasUtxoCommitments = bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.UTXO_COMMITMENTS_ENABLED);
                 if (! hasUtxoCommitments) {
-                    Logger.debug("Excluding node from preferred list; pruning node. (hasUtxoCommitments=0)");
+                    Logger.debug("Excluding node from preferred list; pruning node. (hasUtxoCommitments=0) " + bitcoinNode);
                     return false;
                 }
             }
             else {
-                Logger.debug("Excluding node from preferred list; pruning node.");
+                Logger.debug("Excluding node from preferred list; pruning node. " + bitcoinNode);
                 return false;
             }
         }

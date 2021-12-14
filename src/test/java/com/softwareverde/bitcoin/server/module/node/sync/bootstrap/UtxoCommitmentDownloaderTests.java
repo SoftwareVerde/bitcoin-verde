@@ -1,10 +1,10 @@
 package com.softwareverde.bitcoin.server.module.node.sync.bootstrap;
 
-import com.softwareverde.bitcoin.chain.utxo.MultisetBucket;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentBucket;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentMetadata;
+import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentSubBucket;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
-import com.softwareverde.bitcoin.server.message.type.query.utxo.UtxoCommitmentBreakdown;
+import com.softwareverde.bitcoin.server.message.type.query.utxo.NodeSpecificUtxoCommitmentBreakdown;
 import com.softwareverde.bitcoin.server.module.node.manager.NodeFilter;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilderTests;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
@@ -80,7 +80,7 @@ public class UtxoCommitmentDownloaderTests extends UnitTest {
             final PublicKey bucketPublicKey = PublicKey.fromBytes(ByteArray.fromHexString(fields[0]));
             final Long bucketByteCount = Util.parseLong(fields[1]);
 
-            final MutableList<MultisetBucket> subBuckets = new MutableList<>();
+            final MutableList<UtxoCommitmentSubBucket> subBuckets = new MutableList<>();
             if (subBucketsResource != null) {
                 final String subBucketLine = subBucketLines[bucketIndex];
                 final String[] subBucketFields = subBucketLine.split(",");
@@ -89,7 +89,7 @@ public class UtxoCommitmentDownloaderTests extends UnitTest {
                     final PublicKey subBucketPublicKey = PublicKey.fromBytes(ByteArray.fromHexString(subBucketFields[fieldIndex]));
                     final Long subBucketByteCount = Util.parseLong(subBucketFields[fieldIndex + 1]);
 
-                    final MultisetBucket multisetBucket = new MultisetBucket(subBucketPublicKey, subBucketByteCount);
+                    final UtxoCommitmentSubBucket multisetBucket = new UtxoCommitmentSubBucket(subBucketPublicKey, subBucketByteCount);
                     subBuckets.add(multisetBucket);
                 }
             }
@@ -116,19 +116,19 @@ public class UtxoCommitmentDownloaderTests extends UnitTest {
                 (new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        final MutableList<UtxoCommitmentBreakdown> utxoCommitmentBreakdowns = new MutableList<>();
+                        final MutableList<NodeSpecificUtxoCommitmentBreakdown> utxoCommitmentBreakdowns = new MutableList<>();
 
                         { // UTXO Commit 680000
                             final List<UtxoCommitmentBucket> utxoCommitmentBuckets = UtxoCommitmentDownloaderTests.inflateUtxoCommitmentBuckets("/utxo/030B9820CB8174C850FD89A208193C45370AD190F3E80578A1D5243051A4F86A07_buckets.csv", null);
                             utxoCommitmentBreakdowns.add(
-                                new UtxoCommitmentBreakdown(olderUtxoCommitmentMetadata, utxoCommitmentBuckets)
+                                new NodeSpecificUtxoCommitmentBreakdown(olderUtxoCommitmentMetadata, utxoCommitmentBuckets)
                             );
                         }
 
                         { // UTXO Commit 690000
                             final List<UtxoCommitmentBucket> utxoCommitmentBuckets = UtxoCommitmentDownloaderTests.inflateUtxoCommitmentBuckets("/utxo/03F9B516ED2FEC0D9C8440918994989D8B8C62C800C40B721EC006D592517E9E82_buckets.csv", null);
                             utxoCommitmentBreakdowns.add(
-                                new UtxoCommitmentBreakdown(newerUtxoCommitmentMetadata, utxoCommitmentBuckets)
+                                new NodeSpecificUtxoCommitmentBreakdown(newerUtxoCommitmentMetadata, utxoCommitmentBuckets)
                             );
                         }
 

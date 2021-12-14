@@ -8,7 +8,7 @@ import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentBucket;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentId;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentManager;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentMetadata;
-import com.softwareverde.bitcoin.server.message.type.query.utxo.UtxoCommitmentBreakdown;
+import com.softwareverde.bitcoin.server.message.type.query.utxo.NodeSpecificUtxoCommitmentBreakdown;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.utxo.UtxoCommitmentDatabaseManager;
@@ -44,7 +44,7 @@ public class UtxoCommitmentManagerTests extends IntegrationTest {
         final BlockHeader block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
         final BlockHeader block2 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
 
-        final MutableList<UtxoCommitmentBreakdown> utxoCommitmentBreakdowns = new MutableList<>();
+        final MutableList<NodeSpecificUtxoCommitmentBreakdown> utxoCommitmentBreakdowns = new MutableList<>();
         { // (Fake) UTXO Commit 1...
             final UtxoCommitmentMetadata utxoCommitmentMetadata = new UtxoCommitmentMetadata(
                 block1.getHash(),
@@ -55,7 +55,7 @@ public class UtxoCommitmentManagerTests extends IntegrationTest {
 
             final List<UtxoCommitmentBucket> utxoCommitmentBuckets = UtxoCommitmentDownloaderTests.inflateUtxoCommitmentBuckets("/utxo/035E30B654C7C6D921CBEC03FD8BB76191032785326CB8B5BA74D1EE48927AB682_buckets.csv", null);
             utxoCommitmentBreakdowns.add(
-                new UtxoCommitmentBreakdown(utxoCommitmentMetadata, utxoCommitmentBuckets)
+                new NodeSpecificUtxoCommitmentBreakdown(utxoCommitmentMetadata, utxoCommitmentBuckets)
             );
         }
 
@@ -69,7 +69,7 @@ public class UtxoCommitmentManagerTests extends IntegrationTest {
 
             final List<UtxoCommitmentBucket> utxoCommitmentBuckets = UtxoCommitmentDownloaderTests.inflateUtxoCommitmentBuckets("/utxo/02D748F35D53F4C029149F3EBACF7AB70693F5148B3857D4EBD4DF71A2C27CBF65_buckets.csv", "/utxo/02D748F35D53F4C029149F3EBACF7AB70693F5148B3857D4EBD4DF71A2C27CBF65_sub_buckets.csv");
             utxoCommitmentBreakdowns.add(
-                new UtxoCommitmentBreakdown(utxoCommitmentMetadata, utxoCommitmentBuckets)
+                new NodeSpecificUtxoCommitmentBreakdown(utxoCommitmentMetadata, utxoCommitmentBuckets)
             );
         }
 
@@ -83,14 +83,15 @@ public class UtxoCommitmentManagerTests extends IntegrationTest {
                 blockHeaderDatabaseManager.storeBlockHeader(block2);
             }
 
-            for (final UtxoCommitmentBreakdown utxoCommitmentBreakdown : utxoCommitmentBreakdowns) {
-                final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(utxoCommitmentBreakdown.metadata.blockHash);
+            for (final NodeSpecificUtxoCommitmentBreakdown utxoCommitmentBreakdown : utxoCommitmentBreakdowns) {
+                final UtxoCommitmentMetadata utxoCommitmentMetadata = utxoCommitmentBreakdown.getMetadata();
+                final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(utxoCommitmentMetadata.blockHash);
                 final UtxoCommitmentId utxoCommitmentId = utxoCommitmentDatabaseManager.createUtxoCommitment(blockId);
-                final Sha256Hash multisetHash = UtxoCommitmentDatabaseManager.calculateEcMultisetHash(utxoCommitmentBreakdown.metadata.publicKey);
-                utxoCommitmentDatabaseManager.setUtxoCommitmentHash(utxoCommitmentId, multisetHash, utxoCommitmentBreakdown.metadata.publicKey);
+                final Sha256Hash multisetHash = UtxoCommitmentDatabaseManager.calculateEcMultisetHash(utxoCommitmentMetadata.publicKey);
+                utxoCommitmentDatabaseManager.setUtxoCommitmentHash(utxoCommitmentId, multisetHash, utxoCommitmentMetadata.publicKey);
 
                 int bucketIndex = 0;
-                for (final UtxoCommitmentBucket utxoCommitmentBucket : utxoCommitmentBreakdown.buckets) {
+                for (final UtxoCommitmentBucket utxoCommitmentBucket : utxoCommitmentBreakdown.getBuckets()) {
                     final Long bucketId = utxoCommitmentDatabaseManager.createUtxoCommitmentBucket(utxoCommitmentId, bucketIndex, utxoCommitmentBucket.getPublicKey());
 
                     if (utxoCommitmentBucket.hasSubBuckets()) {
@@ -110,7 +111,7 @@ public class UtxoCommitmentManagerTests extends IntegrationTest {
         }
 
         // Action
-        final List<UtxoCommitmentBreakdown> retrievedUtxoCommitmentBreakdowns;
+        final List<NodeSpecificUtxoCommitmentBreakdown> retrievedUtxoCommitmentBreakdowns;
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             final UtxoCommitmentManager utxoCommitmentManager = databaseManager.getUtxoCommitmentManager();
 
@@ -119,7 +120,7 @@ public class UtxoCommitmentManagerTests extends IntegrationTest {
 
         // Assert
         Assert.assertEquals(utxoCommitmentBreakdowns.getCount(), retrievedUtxoCommitmentBreakdowns.getCount());
-        for (final UtxoCommitmentBreakdown utxoCommitmentBreakdown : utxoCommitmentBreakdowns) {
+        for (final NodeSpecificUtxoCommitmentBreakdown utxoCommitmentBreakdown : utxoCommitmentBreakdowns) {
             Assert.assertTrue(retrievedUtxoCommitmentBreakdowns.contains(utxoCommitmentBreakdown));
         }
     }

@@ -234,6 +234,8 @@ public class NodeModule {
             );
         }
 
+        _utxoCommitmentDownloader.shutdown();
+
         Logger.info("[Stopping Request Handler]");
         _requestDataHandler.shutdown();
 

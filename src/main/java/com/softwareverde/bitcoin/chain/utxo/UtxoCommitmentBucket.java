@@ -10,13 +10,13 @@ public class UtxoCommitmentBucket extends MultisetBucket {
         return Util.areEqual(utxoCommitmentBucket0._subBuckets, utxoCommitmentBucket1._subBuckets);
     }
 
-    protected final List<MultisetBucket> _subBuckets;
+    protected final List<UtxoCommitmentSubBucket> _subBuckets;
 
     public UtxoCommitmentBucket(final PublicKey multisetPublicKey, final Long byteCount) {
         this(multisetPublicKey, byteCount, null);
     }
 
-    public UtxoCommitmentBucket(final PublicKey multisetPublicKey, final Long byteCount, final List<MultisetBucket> subBuckets) {
+    public UtxoCommitmentBucket(final PublicKey multisetPublicKey, final Long byteCount, final List<UtxoCommitmentSubBucket> subBuckets) {
         super(multisetPublicKey, byteCount);
         _subBuckets = subBuckets;
     }
@@ -25,13 +25,13 @@ public class UtxoCommitmentBucket extends MultisetBucket {
         return ( (_subBuckets != null) && (! _subBuckets.isEmpty()) );
     }
 
-    public List<MultisetBucket> getSubBuckets() {
+    public List<UtxoCommitmentSubBucket> getSubBuckets() {
         return (_subBuckets != null ? _subBuckets : new MutableList<>(0));
     }
 
     /**
      * Returns true if object is a UtxoCommitmentBucket with the same MultisetHash and ByteCount;
-     *  this function does not consider whether or not the subBuckets are identical.
+     *  this function does not consider whether the subBuckets are identical or not.
      */
     @Override
     public boolean equals(final Object object) {

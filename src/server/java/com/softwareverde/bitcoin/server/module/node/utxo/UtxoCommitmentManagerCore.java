@@ -1,14 +1,14 @@
 package com.softwareverde.bitcoin.server.module.node.utxo;
 
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.chain.utxo.MultisetBucket;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentBucket;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentId;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentManager;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentMetadata;
+import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentSubBucket;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
-import com.softwareverde.bitcoin.server.message.type.query.utxo.UtxoCommitmentBreakdown;
+import com.softwareverde.bitcoin.server.message.type.query.utxo.NodeSpecificUtxoCommitmentBreakdown;
 import com.softwareverde.bitcoin.server.message.type.query.utxo.UtxoCommitmentsMessage;
 import com.softwareverde.bitcoin.server.module.node.store.UtxoCommitmentStore;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -29,8 +29,8 @@ public class UtxoCommitmentManagerCore implements UtxoCommitmentManager {
     }
 
     @Override
-    public List<UtxoCommitmentBreakdown> getAvailableUtxoCommitments() throws DatabaseException {
-        final MutableList<UtxoCommitmentBreakdown> utxoCommitmentBreakdowns = new MutableList<>();
+    public List<NodeSpecificUtxoCommitmentBreakdown> getAvailableUtxoCommitments() throws DatabaseException {
+        final MutableList<NodeSpecificUtxoCommitmentBreakdown> utxoCommitmentBreakdowns = new MutableList<>();
 
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT utxo_commitments.id, blocks.hash AS block_hash, blocks.block_height, utxo_commitments.public_key AS public_key, SUM(utxo_commitment_files.byte_count) AS commitment_byte_count FROM utxo_commitments INNER JOIN blocks ON blocks.id = utxo_commitments.block_id INNER JOIN utxo_commitment_buckets ON utxo_commitment_buckets.utxo_commitment_id = utxo_commitments.id INNER JOIN utxo_commitment_files ON utxo_commitment_files.utxo_commitment_bucket_id = utxo_commitment_buckets.id GROUP BY utxo_commitments.id ORDER BY blocks.block_height DESC LIMIT " + UtxoCommitmentsMessage.MAX_COMMITMENT_COUNT)
@@ -57,7 +57,7 @@ public class UtxoCommitmentManagerCore implements UtxoCommitmentManager {
                 final Long bucketByteCount = bucketRow.getLong("byte_count");
                 final boolean hasSubBuckets = (bucketRow.getInteger("file_count") > 1);
 
-                final MutableList<MultisetBucket> subBuckets = new MutableList<>();
+                final MutableList<UtxoCommitmentSubBucket> subBuckets = new MutableList<>();
                 if (hasSubBuckets) {
                     final java.util.List<Row> subBucketRows = _databaseConnection.query(
                         new Query("SELECT public_key, byte_count FROM utxo_commitment_files WHERE utxo_commitment_bucket_id = ? ORDER BY sub_bucket_index ASC")
@@ -67,7 +67,7 @@ public class UtxoCommitmentManagerCore implements UtxoCommitmentManager {
                         final PublicKey subBucketPublicKey = PublicKey.fromBytes(subBucketRow.getBytes("public_key"));
                         final Long subBucketByteCount = subBucketRow.getLong("byte_count");
 
-                        final MultisetBucket subBucket = new MultisetBucket(subBucketPublicKey, subBucketByteCount);
+                        final UtxoCommitmentSubBucket subBucket = new UtxoCommitmentSubBucket(subBucketPublicKey, subBucketByteCount);
                         subBuckets.add(subBucket);
                     }
                 }
@@ -75,7 +75,7 @@ public class UtxoCommitmentManagerCore implements UtxoCommitmentManager {
                 final UtxoCommitmentBucket utxoCommitmentBucket = new UtxoCommitmentBucket(bucketPublicKey, bucketByteCount, subBuckets);
                 utxoCommitmentBuckets.add(utxoCommitmentBucket);
             }
-            final UtxoCommitmentBreakdown utxoCommitmentBreakdown = new UtxoCommitmentBreakdown(utxoCommitmentMetadata, utxoCommitmentBuckets);
+            final NodeSpecificUtxoCommitmentBreakdown utxoCommitmentBreakdown = new NodeSpecificUtxoCommitmentBreakdown(utxoCommitmentMetadata, utxoCommitmentBuckets);
             utxoCommitmentBreakdowns.add(utxoCommitmentBreakdown);
         }
 

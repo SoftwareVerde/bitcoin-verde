@@ -107,16 +107,18 @@ public class ConfigurationPropertiesExporter {
     }
 
     protected static void appendPropertiesMapToStringBuilder(final StringBuilder stringBuilder, final Map<String, String> propertiesMap, final Map<String, String> userInputMap) {
-        propertiesMap.forEach((key, value) -> {
-            final String exportedValue = userInputMap.getOrDefault(key, value);
+        for (final Map.Entry<String, String> entry : propertiesMap.entrySet()) {
+            final String key = entry.getKey();
+            final String value = entry.getValue();
 
+            final String exportedValue = userInputMap.getOrDefault(key, value);
             if (exportedValue.isEmpty()) {
                 ConfigurationPropertiesExporter.appendPropertyToStringBuilder(stringBuilder, key, value);
                 return;
             }
 
             ConfigurationPropertiesExporter.appendPropertyToStringBuilder(stringBuilder, key, exportedValue);
-        });
+        }
         stringBuilder.append("\n");
     }
 
