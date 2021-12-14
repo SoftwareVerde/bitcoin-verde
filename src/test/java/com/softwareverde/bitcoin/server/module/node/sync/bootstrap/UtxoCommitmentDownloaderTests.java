@@ -154,7 +154,7 @@ public class UtxoCommitmentDownloaderTests extends UnitTest {
         );
 
         // Action
-        final UtxoCommitmentDownloader.UtxoCommitment utxoCommit = utxoCommitmentDownloader._calculateUtxoCommitmentToDownload();
+        final UtxoCommitmentDownloader.DownloadableUtxoCommitment utxoCommit = utxoCommitmentDownloader._calculateUtxoCommitmentToDownload();
 
         // Assert
         Assert.assertEquals(Long.valueOf(690000L), utxoCommit.metadata.blockHeight);

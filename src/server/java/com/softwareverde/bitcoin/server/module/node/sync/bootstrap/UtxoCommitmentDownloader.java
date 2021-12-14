@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.sync.bootstrap;
 
 import com.softwareverde.bitcoin.chain.utxo.MultisetBucket;
+import com.softwareverde.bitcoin.chain.utxo.UtxoCommitment;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentBucket;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentMetadata;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentSubBucket;
@@ -58,7 +59,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class UtxoCommitmentDownloader {
-    protected static final Long MAX_TIMEOUT_MS = ((com.softwareverde.bitcoin.chain.utxo.UtxoCommitment.MAX_BUCKET_BYTE_COUNT * 1000L ) / BitcoinNode.MIN_BYTES_PER_SECOND);
+    protected static final Long MAX_TIMEOUT_MS = ((UtxoCommitment.MAX_BUCKET_BYTE_COUNT * 1000L ) / BitcoinNode.MIN_BYTES_PER_SECOND);
 
     protected static class BucketDownload {
         boolean isComplete = false;
@@ -78,12 +79,12 @@ public class UtxoCommitmentDownloader {
         }
     }
 
-    protected static class UtxoCommitment {
+    protected static class DownloadableUtxoCommitment {
         public final UtxoCommitmentMetadata metadata;
         public final UtxoCommitmentBreakdown breakdown; // Node-implementation-agnostic breakdown of a UtxoCommitmentBucket.
         public final Map<BitcoinNode, NodeSpecificUtxoCommitmentBreakdown> nodeBreakdowns;
 
-        public UtxoCommitment(final UtxoCommitmentMetadata utxoCommitmentMetadata, final UtxoCommitmentBreakdown utxoCommitmentBreakdown, final Map<BitcoinNode, NodeSpecificUtxoCommitmentBreakdown> utxoCommitmentBreakdowns) {
+        public DownloadableUtxoCommitment(final UtxoCommitmentMetadata utxoCommitmentMetadata, final UtxoCommitmentBreakdown utxoCommitmentBreakdown, final Map<BitcoinNode, NodeSpecificUtxoCommitmentBreakdown> utxoCommitmentBreakdowns) {
             this.metadata = utxoCommitmentMetadata;
             this.breakdown = utxoCommitmentBreakdown;
             this.nodeBreakdowns = utxoCommitmentBreakdowns;
@@ -98,13 +99,13 @@ public class UtxoCommitmentDownloader {
         for (final UtxoCommitmentBucket utxoCommitmentBucket : utxoCommitmentBuckets) {
             totalBucketByteCount += utxoCommitmentBucket.getByteCount();
 
-            if (utxoCommitmentBucket.getByteCount() > com.softwareverde.bitcoin.chain.utxo.UtxoCommitment.MAX_BUCKET_BYTE_COUNT) {
+            if (utxoCommitmentBucket.getByteCount() > UtxoCommitment.MAX_BUCKET_BYTE_COUNT) {
                 int subBucketsBelowMaxByteCount = 0;
 
                 long totalSubBucketByteCount = 0L;
                 final List<UtxoCommitmentSubBucket> subBuckets = utxoCommitmentBucket.getSubBuckets();
                 for (final UtxoCommitmentSubBucket subBucket : subBuckets) {
-                    if (subBucket.getByteCount() <= com.softwareverde.bitcoin.chain.utxo.UtxoCommitment.MAX_BUCKET_BYTE_COUNT) {
+                    if (subBucket.getByteCount() <= UtxoCommitment.MAX_BUCKET_BYTE_COUNT) {
                         subBucketsBelowMaxByteCount += 1;
                     }
                     totalSubBucketByteCount += subBucket.getByteCount();
@@ -186,7 +187,7 @@ public class UtxoCommitmentDownloader {
         });
     }
 
-    protected UtxoCommitment _calculateUtxoCommitmentToDownload() {
+    protected DownloadableUtxoCommitment _calculateUtxoCommitmentToDownload() {
         final ConcurrentHashMap<RequestId, Tuple<BitcoinNode, Pin>> requestPins = new ConcurrentHashMap<>();
         final ConcurrentHashMap<RequestId, List<NodeSpecificUtxoCommitmentBreakdown>> getUtxoCommitmentsResponses = new ConcurrentHashMap<>();
         {
@@ -316,7 +317,7 @@ public class UtxoCommitmentDownloader {
 
         final UtxoCommitmentMetadata selectedUtxoCommitmentMetadata = selectedUtxoCommitmentBreakdown.getMetadata();
         final HashMap<BitcoinNode, NodeSpecificUtxoCommitmentBreakdown> availableUtxoCommitmentsBreakdownsForUtxoCommitment = availableUtxoCommitmentBreakdownsByUtxoCommitment.get(selectedUtxoCommitmentMetadata);
-        return new UtxoCommitment(selectedUtxoCommitmentMetadata, selectedUtxoCommitmentBreakdown, availableUtxoCommitmentsBreakdownsForUtxoCommitment);
+        return new DownloadableUtxoCommitment(selectedUtxoCommitmentMetadata, selectedUtxoCommitmentBreakdown, availableUtxoCommitmentsBreakdownsForUtxoCommitment);
     }
 
     protected DownloadBucketResult _downloadBucket(final BitcoinNode bitcoinNode, final MultisetBucket bucket) {
@@ -445,11 +446,11 @@ public class UtxoCommitmentDownloader {
         return ((_fastSyncTimeoutMs - timer.getMillisecondsElapsed()) / 1000L);
     }
 
-    protected UtxoCommitment _waitForAvailableUtxoCommitment(final MilliTimer executionTimer) {
+    protected DownloadableUtxoCommitment _waitForAvailableUtxoCommitment(final MilliTimer executionTimer) {
         do {
-            final UtxoCommitment utxoCommitment = _calculateUtxoCommitmentToDownload();
-            if (utxoCommitment != null) {
-                return utxoCommitment;
+            final DownloadableUtxoCommitment downloadableUtxoCommitment = _calculateUtxoCommitmentToDownload();
+            if (downloadableUtxoCommitment != null) {
+                return downloadableUtxoCommitment;
             }
 
             final Long secondsRemaining = _calculateTimeoutRemainingInSeconds(executionTimer);
@@ -529,10 +530,10 @@ public class UtxoCommitmentDownloader {
         return candidateBitcoinNodes.get(nodeIndex);
     }
 
-    protected Boolean _downloadUtxoCommitment(final UtxoCommitment utxoCommitment, final MilliTimer executionTimer) {
-        Logger.info("Downloading " + utxoCommitment.metadata.blockHash + " - " + utxoCommitment.metadata.publicKey + " from " + utxoCommitment.nodeBreakdowns.size() + " nodes.");
+    protected Boolean _downloadUtxoCommitment(final DownloadableUtxoCommitment downloadableUtxoCommitment, final MilliTimer executionTimer) {
+        Logger.info("Downloading " + downloadableUtxoCommitment.metadata.blockHash + " - " + downloadableUtxoCommitment.metadata.publicKey + " from " + downloadableUtxoCommitment.nodeBreakdowns.size() + " nodes.");
 
-        final UtxoCommitmentBreakdown utxoCommitmentBreakdown = utxoCommitment.breakdown;
+        final UtxoCommitmentBreakdown utxoCommitmentBreakdown = downloadableUtxoCommitment.breakdown;
         final List<MultisetBucket> utxoCommitmentBuckets = utxoCommitmentBreakdown.getBuckets();
         final int utxoCommitmentBucketCount = utxoCommitmentBuckets.getCount();
         final BucketDownload[] bucketDownloads = new BucketDownload[utxoCommitmentBucketCount];
@@ -567,7 +568,7 @@ public class UtxoCommitmentDownloader {
                 final BitcoinNode selectedBitcoinNode;
                 final List<UtxoCommitmentBucket> utxoCommitmentBreakdownBuckets;
                 {
-                    final List<BitcoinNode> bitcoinNodes = new ImmutableList<>(utxoCommitment.nodeBreakdowns.keySet());
+                    final List<BitcoinNode> bitcoinNodes = new ImmutableList<>(downloadableUtxoCommitment.nodeBreakdowns.keySet());
                     final int bitcoinNodeCount = bitcoinNodes.getCount();
 
                     BitcoinNode bitcoinNode = null;
@@ -583,12 +584,12 @@ public class UtxoCommitmentDownloader {
                         break;
                     }
                     if (bitcoinNode != null) {
-                        final NodeSpecificUtxoCommitmentBreakdown nodeSpecificUtxoCommitmentBreakdown = utxoCommitment.nodeBreakdowns.get(bitcoinNode);
+                        final NodeSpecificUtxoCommitmentBreakdown nodeSpecificUtxoCommitmentBreakdown = downloadableUtxoCommitment.nodeBreakdowns.get(bitcoinNode);
                         selectedBitcoinNode = bitcoinNode;
                         utxoCommitmentBreakdownBuckets = nodeSpecificUtxoCommitmentBreakdown.getBuckets();
                     }
                     else {
-                        final UtxoCommitmentMetadata utxoCommitmentMetadata = utxoCommitment.metadata;
+                        final UtxoCommitmentMetadata utxoCommitmentMetadata = downloadableUtxoCommitment.metadata;
                         final Tuple<BitcoinNode, NodeSpecificUtxoCommitmentBreakdown> tuple = _findBitcoinNodeForUtxoCommitment(utxoCommitmentMetadata);
                         if (tuple == null) { return false; }
 
@@ -662,7 +663,7 @@ public class UtxoCommitmentDownloader {
             if (shouldAbort) { break; }
 
             if (completeCount >= utxoCommitmentBucketCount) {
-                final PublicKey multisetPublicKey = utxoCommitment.metadata.publicKey;
+                final PublicKey multisetPublicKey = downloadableUtxoCommitment.metadata.publicKey;
                 final File loadFileDestination = new File(_utxoCommitmentStore.getUtxoDataDirectory(), (multisetPublicKey + ".sql"));
                 try {
                     // Sort contents of any unsorted file...
@@ -685,7 +686,7 @@ public class UtxoCommitmentDownloader {
                         final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
                         final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
-                        final Long blockHeight = (utxoCommitment.metadata.blockHeight - 1L); // Utxo Commitments do not include the outputs of that block/blockHeight.
+                        final Long blockHeight = (downloadableUtxoCommitment.metadata.blockHeight - 1L); // Utxo Commitments do not include the outputs of that block/blockHeight.
 
                         UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.lock();
                         try {
@@ -710,7 +711,7 @@ public class UtxoCommitmentDownloader {
                             }
                             multiTimer.mark("setPrunedHeight");
 
-                            utxoCommitmentDatabaseManager.storeUtxoCommitment(utxoCommitment.metadata, localUtxoCommitmentFiles);
+                            utxoCommitmentDatabaseManager.storeUtxoCommitment(downloadableUtxoCommitment.metadata, localUtxoCommitmentFiles);
                             multiTimer.stop("storeDb");
 
                             didComplete = true;
@@ -752,10 +753,10 @@ public class UtxoCommitmentDownloader {
         if (_hasCompleted.get()) { return false; }
 
         while (! _hasTimedOut(executionTimer)) {
-            final UtxoCommitment utxoCommitment = _waitForAvailableUtxoCommitment(executionTimer);
-            if (utxoCommitment == null) { return false; }
+            final DownloadableUtxoCommitment downloadableUtxoCommitment = _waitForAvailableUtxoCommitment(executionTimer);
+            if (downloadableUtxoCommitment == null) { return false; }
 
-            final Boolean didComplete = _downloadUtxoCommitment(utxoCommitment, executionTimer);
+            final Boolean didComplete = _downloadUtxoCommitment(downloadableUtxoCommitment, executionTimer);
             if (didComplete) {
                 _hasCompleted.set(true);
                 break;
