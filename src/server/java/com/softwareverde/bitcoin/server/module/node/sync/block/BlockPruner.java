@@ -96,19 +96,19 @@ public class BlockPruner extends SleepyService {
                 TransactionUtil.startTransaction(databaseConnection);
                 // Drop rows from: indexed_transaction_outputs, indexed_transaction_inputs, validated_slp_transactions, double_spend_proofs
                 databaseConnection.executeSql(
-                    new Query("DELETE indexed_transaction_outputs FROM block_transactions INNER JOIN indexed_transaction_outputs ON indexed_transaction_outputs.id = block_transactions.transaction_id WHERE block_transactions.block_id = ?")
+                    new Query("DELETE indexed_transaction_outputs FROM block_transactions INNER JOIN indexed_transaction_outputs ON indexed_transaction_outputs.transaction_id = block_transactions.transaction_id WHERE block_transactions.block_id = ?")
                         .setParameter(prunedBlockId)
                 );
                 databaseConnection.executeSql(
-                    new Query("DELETE indexed_transaction_inputs FROM block_transactions INNER JOIN indexed_transaction_inputs ON indexed_transaction_inputs.id = block_transactions.transaction_id WHERE block_transactions.block_id = ?")
+                    new Query("DELETE indexed_transaction_inputs FROM block_transactions INNER JOIN indexed_transaction_inputs ON indexed_transaction_inputs.transaction_id = block_transactions.transaction_id WHERE block_transactions.block_id = ?")
                         .setParameter(prunedBlockId)
                 );
                 databaseConnection.executeSql(
-                    new Query("DELETE validated_slp_transactions FROM block_transactions INNER JOIN validated_slp_transactions ON validated_slp_transactions.id = block_transactions.transaction_id WHERE block_transactions.block_id = ?")
+                    new Query("DELETE validated_slp_transactions FROM block_transactions INNER JOIN validated_slp_transactions ON validated_slp_transactions.transaction_id = block_transactions.transaction_id WHERE block_transactions.block_id = ?")
                         .setParameter(prunedBlockId)
                 );
                 databaseConnection.executeSql(
-                    new Query("DELETE double_spend_proofs FROM block_transactions INNER JOIN double_spend_proofs ON double_spend_proofs.id = block_transactions.transaction_id WHERE block_transactions.block_id = ?")
+                    new Query("DELETE double_spend_proofs FROM block_transactions INNER JOIN double_spend_proofs ON double_spend_proofs.transaction_id = block_transactions.transaction_id WHERE block_transactions.block_id = ?")
                         .setParameter(prunedBlockId)
                 );
                 // Drop associated rows from: transactions, block_transactions
