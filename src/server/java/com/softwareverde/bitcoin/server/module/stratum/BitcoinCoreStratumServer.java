@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
+import com.softwareverde.bitcoin.rpc.BitcoinMiningRpcConnector;
 import com.softwareverde.bitcoin.rpc.BitcoinNodeRpcAddress;
 import com.softwareverde.bitcoin.rpc.BlockTemplate;
 import com.softwareverde.bitcoin.rpc.RpcCredentials;
@@ -117,7 +118,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
         return mutableByteArray;
     }
 
-    protected BitcoinCoreRpcConnector _getBitcoinRpcConnector() {
+    protected BitcoinMiningRpcConnector _getBitcoinRpcConnector() {
         final String bitcoinRpcUrl = _stratumProperties.getBitcoinRpcUrl();
         final Integer bitcoinRpcPort = _stratumProperties.getBitcoinRpcPort();
 
@@ -145,7 +146,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
         final AddressInflater addressInflater = _masterInflater.getAddressInflater();
         final Address address = addressInflater.fromPrivateKey(_privateKey, true);
 
-        final BitcoinCoreRpcConnector bitcoinRpcConnector = _getBitcoinRpcConnector();
+        final BitcoinMiningRpcConnector bitcoinRpcConnector = _getBitcoinRpcConnector();
         final BlockTemplate blockTemplate = bitcoinRpcConnector.getBlockTemplate();
 
         final Long blockHeight = blockTemplate.getBlockHeight();
@@ -328,7 +329,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
                 final Block block = mineBlockTask.assembleBlock(stratumNonce, stratumExtraNonce2, stratumTimestamp);
                 Logger.info(blockDeflater.toBytes(block));
 
-                final BitcoinCoreRpcConnector bitcoinRpcConnector = _getBitcoinRpcConnector();
+                final BitcoinMiningRpcConnector bitcoinRpcConnector = _getBitcoinRpcConnector();
                 final Boolean submitBlockResponse = bitcoinRpcConnector.submitBlock(block);
                 if (! submitBlockResponse) {
                     submissionWasAccepted = false;
@@ -511,7 +512,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
     public void start() {
         _rebuildNewMiningTask();
 
-        final BitcoinCoreRpcConnector notificationBitcoinRpcConnector = _getBitcoinRpcConnector();
+        final BitcoinMiningRpcConnector notificationBitcoinRpcConnector = _getBitcoinRpcConnector();
         notificationBitcoinRpcConnector.subscribeToNotifications(new RpcNotificationCallback() {
             @Override
             public void onNewNotification(final RpcNotification rpcNotification) {

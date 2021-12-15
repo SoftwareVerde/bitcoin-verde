@@ -68,6 +68,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.VolatileNetworkTime;
+import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 import com.softwareverde.util.type.time.SystemTime;
@@ -586,7 +587,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     }
 
     @Override
-    public Block getPrototypeBlock() {
+    public Tuple<Block, Long> getPrototypeBlock() {
         Logger.debug("Generating prototype block.");
         final NanoTimer nanoTimer = new NanoTimer();
 
@@ -645,7 +646,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                 nanoTimer.stop();
                 Logger.debug("Generated prototype block " + prototypeBlock.getHash() + "in " + nanoTimer.getMillisecondsElapsed() + "ms.");
 
-                return prototypeBlock;
+                return new Tuple<>(prototypeBlock, blockHeight);
             }
             catch (final DatabaseException exception) {
                 Logger.debug(exception);

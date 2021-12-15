@@ -47,6 +47,7 @@ import com.softwareverde.network.socket.JsonSocket;
 import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 
 import java.util.HashMap;
@@ -150,7 +151,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         Difficulty getDifficulty();
         List<Transaction> getUnconfirmedTransactions();
         List<TransactionWithFee> getUnconfirmedTransactionsWithFees();
-        Block getPrototypeBlock();
+        Tuple<Block, Long> getPrototypeBlock();
 
         Long getBlockReward();
 
@@ -831,20 +832,21 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         final Boolean shouldReturnInRawFormat = parameters.getBoolean("rawFormat");
 
-        final Block block = dataHandler.getPrototypeBlock();
-        if (block == null) {
+        final Tuple<Block, Long> blockAndBlockHeight = dataHandler.getPrototypeBlock();
+        if (blockAndBlockHeight == null) {
             response.put(ERROR_MESSAGE_KEY, "Unable to generate template.");
             return;
         }
 
         if (shouldReturnInRawFormat) {
             final BlockDeflater blockDeflater = _masterInflater.getBlockDeflater();
-            final ByteArray bytes = blockDeflater.toBytes(block);
+            final ByteArray bytes = blockDeflater.toBytes(blockAndBlockHeight.first);
             response.put("block", bytes);
         }
         else {
-            response.put("block", block);
+            response.put("block", blockAndBlockHeight.first);
         }
+        response.put("blockHeight", blockAndBlockHeight.second);
 
         response.put(WAS_SUCCESS_KEY, 1);
     }

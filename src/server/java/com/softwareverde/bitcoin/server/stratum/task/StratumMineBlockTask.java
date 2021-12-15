@@ -190,4 +190,8 @@ public class StratumMineBlockTask {
         return _createRequest(abandonOldJobs);
     }
 
+    public BlockHeader getPrototypeBlock() {
+        return _prototypeBlock;
+    }
+
 }
