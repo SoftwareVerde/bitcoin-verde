@@ -145,7 +145,6 @@ import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.network.socket.BinarySocketServer;
 import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.network.time.MutableNetworkTime;
-import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
@@ -204,6 +203,8 @@ public class NodeModule {
     protected final LowMemoryMonitor _lowMemoryMonitor;
 
     protected final AtomicBoolean _isShuttingDown = new AtomicBoolean(false);
+
+    protected Boolean _fastSyncHasCompleted = false;
 
     protected Long _getUtxoCommitFrequency() {
         final Long utxoCommitProperty = _bitcoinProperties.getUtxoCacheCommitFrequency();
@@ -818,7 +819,6 @@ public class NodeModule {
         _utxoCommitmentGenerator = new UtxoCommitmentGenerator(databaseManagerFactory, _utxoCommitmentStore.getUtxoDataDirectory());
         _utxoCommitmentDownloader = new UtxoCommitmentDownloader(databaseManagerFactory, _bitcoinNodeManager, _utxoCommitmentStore, _blockPruner, fastSyncTimeout);
 
-        final Container<Boolean> wasFastSyncCompleted;
         { // Set the synchronization elements to cascade to each component...
             _blockchainBuilder.setAsynchronousNewBlockProcessedCallback(new BlockchainBuilder.NewBlockProcessedCallback() {
                 @Override
@@ -907,7 +907,6 @@ public class NodeModule {
 
             final long maxCommitmentBlockHeight;
             final long minCommitmentBlockHeight;
-            wasFastSyncCompleted = new Container<>(false);
             {
                 long maxBlockHeight = 0L;
                 long minBlockHeight = Long.MAX_VALUE;
@@ -929,7 +928,7 @@ public class NodeModule {
                     final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
                     final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
                     if (Util.coalesce(headBlockHeight) >= minCommitmentBlockHeight) {
-                        wasFastSyncCompleted.value = true;
+                        _fastSyncHasCompleted = true;
                     }
                 }
                 catch (final DatabaseException exception) {
@@ -973,32 +972,34 @@ public class NodeModule {
                         }
                     }
 
-                    if ( _bitcoinProperties.isFastSyncEnabled() && (! wasFastSyncCompleted.value) ) {
+                    if ( _bitcoinProperties.isFastSyncEnabled() && (!_fastSyncHasCompleted) ) {
                         if (blockHeaderDownloaderBlockHeight >= maxCommitmentBlockHeight) {
                             Logger.debug("Pausing BlockHeaderDownloader for UTXO import...");
                             _blockHeaderDownloader.pause();
                             try {
                                 final Boolean didComplete = _utxoCommitmentDownloader.runOnceSynchronously();
-                                if (didComplete) {
-                                    if (indexModeIsEnabled) {
-                                        final UtxoCommitIndexer utxoCommitIndexer = new UtxoCommitIndexer(_blockchainIndexer, databaseManagerFactory);
-                                        try {
-                                            utxoCommitIndexer.indexUtxosAfterUtxoCommitmentImport();
-                                        }
-                                        catch (final DatabaseException exception) {
-                                            Logger.debug(exception);
-                                        }
-                                    }
+                                _fastSyncHasCompleted = didComplete;
 
-                                    wasFastSyncCompleted.value = true;
+                                if (didComplete && indexModeIsEnabled) {
+                                    final UtxoCommitmentIndexer utxoCommitmentIndexer = new UtxoCommitmentIndexer(_blockchainIndexer, databaseManagerFactory);
+                                    try {
+                                        Logger.info("[Indexing FastSync UTXOs]");
+                                        utxoCommitmentIndexer.indexUtxosAfterUtxoCommitmentImport();
+
+                                        // Only re-enable indexing upon successful UTXO import so that the lastIndexedTransactionId does not become corrupted.
+                                        _blockchainIndexer.resume();
+                                        _blockchainIndexer.wakeUp();
+                                    }
+                                    catch (final DatabaseException exception) {
+                                        Logger.debug(exception);
+                                    }
                                 }
                             }
                             finally {
                                 // Blocks that are requested during the UTXO import should be cleared since they are usually early blocks...
                                 _blockDownloader.clearQueue();
 
-                                Logger.debug("Resuming services for UTXO import...");
-                                _blockchainIndexer.resume();
+                                Logger.debug("Resuming essential services for UTXO import...");
                                 _utxoCommitmentGenerator.resume();
                                 _blockDownloader.resume();
                                 _blockHeaderDownloader.resume();
@@ -1006,7 +1007,6 @@ public class NodeModule {
                                 _blockHeaderDownloader.wakeUp();
                                 _blockDownloader.wakeUp();
                                 _utxoCommitmentGenerator.wakeUp();
-                                _blockchainIndexer.wakeUp();
                                 Logger.debug("Services resumed.");
                             }
                         }
@@ -1109,13 +1109,28 @@ public class NodeModule {
             }
         });
 
-        if ( _bitcoinProperties.isFastSyncEnabled() && (! wasFastSyncCompleted.value) ) {
-            _bitcoinNodeManager.setFastSyncIsEnabled(true); // Allow pruned nodes with UTXO Commitments when fast sync is enabled.
 
-            Logger.debug("Pausing services for fast sync...");
-            _blockDownloader.pause();
-            _utxoCommitmentGenerator.pause();
-            _blockchainIndexer.pause();
+        if (_bitcoinProperties.isFastSyncEnabled()) {
+            if (! _fastSyncHasCompleted) {
+                _bitcoinNodeManager.setFastSyncIsEnabled(true); // Allow connection with pruned nodes with UTXO Commitments when fast sync is enabled.
+
+                Logger.debug("Pausing services for fast sync...");
+                _blockDownloader.pause();
+                _utxoCommitmentGenerator.pause();
+                _blockchainIndexer.pause();
+            }
+            else if (indexModeIsEnabled) {
+                try {
+                    final UtxoCommitmentIndexer utxoCommitmentIndexer = new UtxoCommitmentIndexer(_blockchainIndexer, databaseManagerFactory);
+                    final Boolean postFastSyncIndexingHasCompleted = utxoCommitmentIndexer.hasPostFastSyncIndexingCompleted();
+                    if (! postFastSyncIndexingHasCompleted) {
+                        _blockchainIndexer.pause();
+                    }
+                }
+                catch (final Exception exception) {
+                    Logger.debug(exception);
+                }
+            }
         }
 
         {
@@ -1355,6 +1370,24 @@ public class NodeModule {
             }
             catch (final DatabaseException exception) {
                 Logger.warn(exception);
+            }
+        }
+
+        final boolean fastSyncIsEnabled = _bitcoinProperties.isFastSyncEnabled();
+        final boolean indexModeIsEnabled = _bitcoinProperties.isIndexingModeEnabled();
+        if (fastSyncIsEnabled && _fastSyncHasCompleted && indexModeIsEnabled) {
+            try {
+                final UtxoCommitmentIndexer utxoCommitmentIndexer = new UtxoCommitmentIndexer(_blockchainIndexer, databaseManagerFactory);
+                final Boolean postFastSyncIndexingHasCompleted = utxoCommitmentIndexer.hasPostFastSyncIndexingCompleted();
+                if (! postFastSyncIndexingHasCompleted) {
+                    Logger.info("[Indexing FastSync UTXOs]");
+                    utxoCommitmentIndexer.indexUtxosAfterUtxoCommitmentImport();
+                    _blockchainIndexer.resume(); // Paused during initialization if fastSync and indexing are enabled but post-utxo indexing has not completed.
+                }
+            }
+            catch (final Exception exception) {
+                Logger.debug(exception);
+                Logger.info("Unable to complete FastSync UTXO indexing...");
             }
         }
 

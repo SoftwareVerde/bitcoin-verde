@@ -9,6 +9,8 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.indexer.BlockchainIndexerDatabaseManager;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.logging.LogLevel;
+import com.softwareverde.logging.Logger;
 
 public class LazyTransactionOutputIndexerContext implements TransactionOutputIndexerContext {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
@@ -48,7 +50,10 @@ public class LazyTransactionOutputIndexerContext implements TransactionOutputInd
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = databaseManager.getBlockchainIndexerDatabaseManager();
             blockchainIndexerDatabaseManager.markTransactionProcessed(transactionId);
-            _indexerCache.debug();
+
+            if (Logger.isTraceEnabled()) {
+                _indexerCache.debug(LogLevel.TRACE);
+            }
         }
         catch (final Exception exception) {
             throw new ContextException(exception);

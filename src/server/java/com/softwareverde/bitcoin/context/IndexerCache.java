@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.context;
 
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.logging.LogLevel;
 import com.softwareverde.logging.Logger;
 
 import java.util.ArrayList;
@@ -88,7 +89,7 @@ public class IndexerCache {
         }
     }
 
-    public void debug() {
-        Logger.debug("cachesDestroyed=" + _cachesDestroyed.get() + ", cacheHits=" + _cacheHits.get() + ", _cacheMisses=" + _cacheMisses.get());
+    public void debug(final LogLevel logLevel) {
+        Logger.log(logLevel, "cachesDestroyed=" + _cachesDestroyed.get() + ", cacheHits=" + _cacheHits.get() + ", _cacheMisses=" + _cacheMisses.get());
     }
 }

@@ -466,7 +466,7 @@ public class BlockchainIndexer extends PausableSleepyService {
         _onSleepCallback = onSleepCallback;
     }
 
-    public synchronized void indexUtxosFromUtxoCommitmentImport(final List<TransactionOutputIdentifier> transactionOutputIdentifiers, final List<TransactionOutput> transactionOutputs) throws Exception {
+    public synchronized TransactionId indexUtxosFromUtxoCommitmentImport(final List<TransactionOutputIdentifier> transactionOutputIdentifiers, final List<TransactionOutput> transactionOutputs) throws Exception {
         final int outputCount = transactionOutputs.getCount();
         {
             final int identifiersCount = transactionOutputIdentifiers.getCount();
@@ -497,7 +497,16 @@ public class BlockchainIndexer extends PausableSleepyService {
             }
 
             final TransactionId lastFinishedTransactionId = context.finish();
-            _context.commitLastProcessedTransactionId(lastFinishedTransactionId);
+
+            // NOTE: The TransactionIds from the UTXO commitment are not updated until all of them are completed.
+            //  This is done to prevent Transactions from being skipped during a shutdown/restart before UTXO indexing completes.
+            // _context.commitLastProcessedTransactionId(lastFinishedTransactionId);
+
+            return lastFinishedTransactionId;
         }
+    }
+
+    public void commitLastProcessedTransactionIdFromUtxoCommitmentImport(final TransactionId transactionId) throws Exception {
+        _context.commitLastProcessedTransactionId(transactionId);
     }
 }
