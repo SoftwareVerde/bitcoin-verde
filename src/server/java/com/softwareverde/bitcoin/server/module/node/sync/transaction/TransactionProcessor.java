@@ -147,6 +147,7 @@ public class TransactionProcessor extends SleepyService {
                     }
                     transactionsToStore = listBuilder.build();
                 }
+                if (transactionsToStore.isEmpty()) { return false; }
 
                 final BlockId blockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
                 final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
