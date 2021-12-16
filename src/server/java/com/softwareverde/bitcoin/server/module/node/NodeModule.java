@@ -1110,27 +1110,13 @@ public class NodeModule {
         });
 
 
-        if (_bitcoinProperties.isFastSyncEnabled()) {
-            if (! _fastSyncHasCompleted) {
-                _bitcoinNodeManager.setFastSyncIsEnabled(true); // Allow connection with pruned nodes with UTXO Commitments when fast sync is enabled.
+        if  ( _bitcoinProperties.isFastSyncEnabled() && (! _fastSyncHasCompleted) ) {
+            _bitcoinNodeManager.setFastSyncIsEnabled(true); // Allow connection with pruned nodes with UTXO Commitments when fast sync is enabled.
 
-                Logger.debug("Pausing services for fast sync...");
-                _blockDownloader.pause();
-                _utxoCommitmentGenerator.pause();
-                _blockchainIndexer.pause();
-            }
-            else if (indexModeIsEnabled) {
-                try {
-                    final UtxoCommitmentIndexer utxoCommitmentIndexer = new UtxoCommitmentIndexer(_blockchainIndexer, databaseManagerFactory);
-                    final Boolean postFastSyncIndexingHasCompleted = utxoCommitmentIndexer.hasPostFastSyncIndexingCompleted();
-                    if (! postFastSyncIndexingHasCompleted) {
-                        _blockchainIndexer.pause();
-                    }
-                }
-                catch (final Exception exception) {
-                    Logger.debug(exception);
-                }
-            }
+            Logger.debug("Pausing services for fast sync...");
+            _blockDownloader.pause();
+            _utxoCommitmentGenerator.pause();
+            _blockchainIndexer.pause();
         }
 
         {
@@ -1381,8 +1367,9 @@ public class NodeModule {
                 final Boolean postFastSyncIndexingHasCompleted = utxoCommitmentIndexer.hasPostFastSyncIndexingCompleted();
                 if (! postFastSyncIndexingHasCompleted) {
                     Logger.info("[Indexing FastSync UTXOs]");
+                    _blockchainIndexer.pause();
                     utxoCommitmentIndexer.indexUtxosAfterUtxoCommitmentImport();
-                    _blockchainIndexer.resume(); // Paused during initialization if fastSync and indexing are enabled but post-utxo indexing has not completed.
+                    _blockchainIndexer.resume();
                 }
             }
             catch (final Exception exception) {

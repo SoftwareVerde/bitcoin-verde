@@ -87,9 +87,9 @@ public class UtxoCommitmentIndexer {
 
     public void indexUtxosAfterUtxoCommitmentImport() throws DatabaseException {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            _indexUtxosAfterUtxoCommitmentImport(databaseManager);
-
             final PropertiesStore propertiesStore = databaseManager.getPropertiesStore();
+
+            _indexUtxosAfterUtxoCommitmentImport(databaseManager);
             propertiesStore.set(UtxoCommitmentIndexer.UTXO_COMMIT_INDEXING_COMPLETED_KEY, 1L);
         }
         catch (final Exception exception) {
