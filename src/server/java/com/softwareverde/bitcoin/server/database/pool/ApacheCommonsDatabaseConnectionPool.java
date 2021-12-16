@@ -84,7 +84,7 @@ public class ApacheCommonsDatabaseConnectionPool implements DatabaseConnectionPo
         //  https://bugs.mysql.com/bug.php?id=31353
         //  https://bugs.mysql.com/bug.php?id=56411
         //  https://bugs.mysql.com/bug.php?id=9515
-        _dataSource.setConnectionProperties("useUnbufferedInput=true;useReadAheadInput=false;socketTimeout=600000");
+        _dataSource.setConnectionProperties("useUnbufferedInput=true;useReadAheadInput=false;socketTimeout=1800000");
 
         try {
             _dataSource.setLogWriter(new PrintWriter(new Writer() {
