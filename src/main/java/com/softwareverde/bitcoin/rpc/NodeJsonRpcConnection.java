@@ -37,11 +37,12 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         void onNewTransaction(Transaction transaction, Long fee);
     }
 
-    public static final Long RPC_DURATION_TIMEOUT_MS = 30000L;
+    public static final Long DEFAULT_RPC_DURATION_TIMEOUT_MS = 30000L;
 
     protected final MasterInflater _masterInflater;
     protected final JsonSocket _jsonSocket;
     protected final Object _newMessageNotifier = new Object();
+    protected Long _rpcDurationTimeoutMs = NodeJsonRpcConnection.DEFAULT_RPC_DURATION_TIMEOUT_MS;
 
     protected final Runnable _onNewMessageCallback = new Runnable() {
         @Override
@@ -66,7 +67,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         JsonProtocolMessage jsonProtocolMessage;
         {
             jsonProtocolMessage = _jsonSocket.popMessage();
-            while ((jsonProtocolMessage == null) && (totalWaitTimeMs < RPC_DURATION_TIMEOUT_MS)) {
+            while ((jsonProtocolMessage == null) && (totalWaitTimeMs < _rpcDurationTimeoutMs)) {
                 final NanoTimer nanoTimer = new NanoTimer();
                 nanoTimer.start();
                 try {
@@ -334,6 +335,10 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         if (_jsonSocket != null) {
             _jsonSocket.setMessageReceivedCallback(_onNewMessageCallback);
         }
+    }
+
+    public void setRpcDurationTimeoutMs(final Long maxRequestDurationMs) {
+        _rpcDurationTimeoutMs = maxRequestDurationMs;
     }
 
     public Json getBlockHeadersBefore(final Long blockHeight, final Integer maxBlockCount, final Boolean returnRawFormat) {
