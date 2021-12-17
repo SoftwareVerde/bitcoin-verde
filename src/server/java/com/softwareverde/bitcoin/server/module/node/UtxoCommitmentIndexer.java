@@ -1,8 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node;
 
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainIndexer;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
@@ -20,8 +18,7 @@ public class UtxoCommitmentIndexer {
     protected final BlockchainIndexer _blockchainIndexer;
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
 
-    protected TransactionId _indexUtxoBatch(final List<TransactionOutputIdentifier> batchIdentifiers, final List<TransactionOutput> batchOutputs, final FullNodeDatabaseManager databaseManager) throws Exception {
-        final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+    protected TransactionId _indexUtxoBatch(final List<TransactionOutputIdentifier> batchIdentifiers, final List<TransactionOutput> batchOutputs) throws Exception {
         final HashSet<Sha256Hash> transactionHashDuplicateSet = new HashSet<>();
 
         final int batchCount = batchIdentifiers.getCount();
@@ -38,9 +35,10 @@ public class UtxoCommitmentIndexer {
             transactionByteCounts.add(byteCount);
         }
 
-        // TODO: Inject the TransactionId -> TransactionHash mapping into the IndexerCache...
-        transactionDatabaseManager.storeTransactionHashes(transactionHashes, transactionByteCounts);
-        return _blockchainIndexer.indexUtxosFromUtxoCommitmentImport(batchIdentifiers, batchOutputs);
+        // Store the TransactionHashes via the BlockchainIndexer so its cache may be also be updated...
+        _blockchainIndexer.storeFastSyncTransactionHashes(transactionHashes, transactionByteCounts);
+
+        return _blockchainIndexer.indexFastSyncUtxos(batchIdentifiers, batchOutputs);
     }
 
     public UtxoCommitmentIndexer(final BlockchainIndexer blockchainIndexer, final FullNodeDatabaseManagerFactory databaseManagerFactory) {
@@ -48,12 +46,12 @@ public class UtxoCommitmentIndexer {
         _databaseManagerFactory = databaseManagerFactory;
     }
 
-    public void indexUtxosAfterUtxoCommitmentImport(final List<TransactionOutputIdentifier> transactionOutputIdentifiers, final List<TransactionOutput> transactionOutputs) throws DatabaseException {
-        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+    public void indexFastSyncUtxos(final List<TransactionOutputIdentifier> transactionOutputIdentifiers, final List<TransactionOutput> transactionOutputs) throws DatabaseException {
+        try {
             final MilliTimer milliTimer = new MilliTimer();
             milliTimer.start();
 
-            final TransactionId transactionId = _indexUtxoBatch(transactionOutputIdentifiers, transactionOutputs, databaseManager);
+            final TransactionId transactionId = _indexUtxoBatch(transactionOutputIdentifiers, transactionOutputs);
             _blockchainIndexer.commitLastProcessedTransactionIdFromUtxoCommitmentImport(transactionId);
 
             milliTimer.stop();

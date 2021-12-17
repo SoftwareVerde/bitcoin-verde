@@ -469,7 +469,13 @@ public class BlockchainIndexer extends PausableSleepyService {
         _onSleepCallback = onSleepCallback;
     }
 
-    public synchronized TransactionId indexUtxosFromUtxoCommitmentImport(final List<TransactionOutputIdentifier> transactionOutputIdentifiers, final List<TransactionOutput> transactionOutputs) throws Exception {
+    public void storeFastSyncTransactionHashes(final List<Sha256Hash> transactionHashes, final List<Integer> byteCounts) throws Exception {
+        try (final AtomicTransactionOutputIndexerContext context = _context.newTransactionOutputIndexerContext()) {
+            context.storeTransactions(transactionHashes, byteCounts);
+        }
+    }
+
+    public synchronized TransactionId indexFastSyncUtxos(final List<TransactionOutputIdentifier> transactionOutputIdentifiers, final List<TransactionOutput> transactionOutputs) throws Exception {
         final int outputCount = transactionOutputs.getCount();
         {
             final int identifiersCount = transactionOutputIdentifiers.getCount();

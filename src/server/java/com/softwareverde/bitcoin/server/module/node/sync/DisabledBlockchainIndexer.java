@@ -20,7 +20,7 @@ public class DisabledBlockchainIndexer extends BlockchainIndexer {
     protected void _onSleep() { }
 
     @Override
-    public TransactionId indexUtxosFromUtxoCommitmentImport(final List<TransactionOutputIdentifier> transactionOutputIdentifiers, final List<TransactionOutput> transactionOutputs) {
+    public TransactionId indexFastSyncUtxos(final List<TransactionOutputIdentifier> transactionOutputIdentifiers, final List<TransactionOutput> transactionOutputs) {
         return null;
     }
 }

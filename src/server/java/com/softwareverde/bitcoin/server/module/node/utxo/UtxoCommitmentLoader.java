@@ -69,7 +69,7 @@ public class UtxoCommitmentLoader {
         }
     }
 
-    public void createLoadFile(final List<File> utxoCommitmentFiles, final File outputLoadFile, final UnspentTransactionOutputVisitor visitor) throws Exception {
+    public void createLoadFile(final List<File> utxoCommitmentFiles, final File outputLoadFile, final UnspentTransactionOutputVisitor unspentTransactionOutputVisitor) throws Exception {
         final CommittedUnspentTransactionOutputInflater committedUnspentTransactionOutputInflater = new CommittedUnspentTransactionOutputInflater();
 
         final NanoTimer nanoTimer = new NanoTimer();
@@ -138,9 +138,9 @@ public class UtxoCommitmentLoader {
                 fileOutputStream.write(bytes);
                 bytesWrittenCount += bytes.length;
 
-                if (visitor != null) {
+                if (unspentTransactionOutputVisitor != null) {
                     final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
-                    visitor.run(transactionOutputIdentifier, committedUnspentTransactionOutput);
+                    unspentTransactionOutputVisitor.run(transactionOutputIdentifier, committedUnspentTransactionOutput);
                 }
             }
 

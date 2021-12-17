@@ -19,6 +19,7 @@ public interface AtomicTransactionOutputIndexerContext extends AutoCloseable {
     List<TransactionId> getUnprocessedTransactions(Integer batchSize) throws ContextException;
     void markTransactionProcessed(TransactionId transactionId) throws ContextException;
 
+    void storeTransactions(List<Sha256Hash> transactionHashes, List<Integer> byteCounts) throws ContextException;
     TransactionId getTransactionId(Sha256Hash transactionHash) throws ContextException;
     TransactionId getTransactionId(SlpTokenId slpTokenId) throws ContextException;
     Map<Sha256Hash, TransactionId> getTransactionIds(List<Sha256Hash> transactionHashes) throws ContextException;

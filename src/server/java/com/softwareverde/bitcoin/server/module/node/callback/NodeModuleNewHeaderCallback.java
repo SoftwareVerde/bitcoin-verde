@@ -121,18 +121,13 @@ class NodeModuleNewHeaderCallbackWithFastSync extends NodeModuleNewHeaderCallbac
                 unspentTransactionOutputVisitor = new UnspentTransactionOutputVisitor() {
                     @Override
                     public void run(final TransactionOutputIdentifier transactionOutputIdentifier, final UnspentTransactionOutput transactionOutput) throws Exception {
-                        try {
-                            transactionOutputIdentifierIndexBatch.add(transactionOutputIdentifier);
-                            transactionOutputIndexBatch.add(transactionOutput);
+                        transactionOutputIdentifierIndexBatch.add(transactionOutputIdentifier);
+                        transactionOutputIndexBatch.add(transactionOutput);
 
-                            if (transactionOutputIdentifierIndexBatch.getCount() >= 1024) {
-                                utxoCommitmentIndexer.indexUtxosAfterUtxoCommitmentImport(transactionOutputIdentifierIndexBatch, transactionOutputIndexBatch);
-                                transactionOutputIdentifierIndexBatch.clear();
-                                transactionOutputIndexBatch.clear();
-                            }
-                        }
-                        catch (final DatabaseException exception) {
-                            Logger.debug(exception);
+                        if (transactionOutputIdentifierIndexBatch.getCount() >= 1024) {
+                            utxoCommitmentIndexer.indexFastSyncUtxos(transactionOutputIdentifierIndexBatch, transactionOutputIndexBatch);
+                            transactionOutputIdentifierIndexBatch.clear();
+                            transactionOutputIndexBatch.clear();
                         }
                     }
                 };
@@ -147,7 +142,7 @@ class NodeModuleNewHeaderCallbackWithFastSync extends NodeModuleNewHeaderCallbac
             if (didComplete && _indexModeIsEnabled) {
                 try {
                     if (! transactionOutputIdentifierIndexBatch.isEmpty()) {
-                        utxoCommitmentIndexer.indexUtxosAfterUtxoCommitmentImport(transactionOutputIdentifierIndexBatch, transactionOutputIndexBatch);
+                        utxoCommitmentIndexer.indexFastSyncUtxos(transactionOutputIdentifierIndexBatch, transactionOutputIndexBatch);
                         transactionOutputIdentifierIndexBatch.clear();
                         transactionOutputIndexBatch.clear();
                     }
