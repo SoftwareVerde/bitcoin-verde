@@ -14,10 +14,13 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.timer.MilliTimer;
 
 import java.util.HashSet;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class UtxoCommitmentIndexer {
     protected static final String UTXO_COMMIT_INDEXING_COMPLETED_KEY = "utxo_import_indexing_has_completed";
@@ -54,9 +57,14 @@ public class UtxoCommitmentIndexer {
         final MutableList<TransactionOutputIdentifier> batchIdentifiers = new MutableList<>(batchSize);
         final MutableList<TransactionOutput> batchOutputs = new MutableList<>(batchSize);
         final Container<TransactionId> lastCompletedTransactionId = new Container<>();
+        final AtomicLong outputCounter = new AtomicLong(0);
+        final MilliTimer milliTimer = new MilliTimer();
+        milliTimer.start();
         unspentTransactionOutputDatabaseManager.visitUnspentTransactionOutputs(new UnspentTransactionOutputDatabaseManager.UnspentTransactionOutputVisitor() {
             @Override
             public void run(final TransactionOutputIdentifier transactionOutputIdentifier, final UnspentTransactionOutput transactionOutput) throws Exception {
+                outputCounter.getAndIncrement();
+
                 batchIdentifiers.add(transactionOutputIdentifier);
                 batchOutputs.add(transactionOutput);
 
@@ -69,6 +77,7 @@ public class UtxoCommitmentIndexer {
             }
         });
         if (! batchIdentifiers.isEmpty()) {
+            outputCounter.getAndAdd(batchIdentifiers.getCount());
             lastCompletedTransactionId.value = _indexUtxoBatch(batchIdentifiers, batchOutputs, databaseManager);
             batchIdentifiers.clear();
             batchOutputs.clear();
@@ -78,6 +87,9 @@ public class UtxoCommitmentIndexer {
         if (transactionId != null) {
             _blockchainIndexer.commitLastProcessedTransactionIdFromUtxoCommitmentImport(transactionId);
         }
+
+        milliTimer.stop();
+        Logger.debug("Indexed " + outputCounter.get() + " outputs in " + milliTimer.getMillisecondsElapsed() + "ms.");
     }
 
     public UtxoCommitmentIndexer(final BlockchainIndexer blockchainIndexer, final FullNodeDatabaseManagerFactory databaseManagerFactory) {
