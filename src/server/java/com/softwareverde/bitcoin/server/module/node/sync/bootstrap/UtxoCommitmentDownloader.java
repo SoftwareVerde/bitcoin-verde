@@ -15,6 +15,7 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.CommitAsyncMode;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputVisitor;
 import com.softwareverde.bitcoin.server.module.node.database.utxo.UtxoCommitmentDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.manager.NodeFilter;
@@ -641,7 +642,7 @@ public class UtxoCommitmentDownloader {
         return true;
     }
 
-    protected Boolean _downloadUtxoCommitment(final DownloadableUtxoCommitment downloadableUtxoCommitment, final MilliTimer executionTimer) {
+    protected Boolean _downloadUtxoCommitment(final DownloadableUtxoCommitment downloadableUtxoCommitment, final MilliTimer executionTimer, final UnspentTransactionOutputVisitor unspentTransactionOutputVisitor) {
         Logger.info("Downloading " + downloadableUtxoCommitment.metadata.blockHash + " - " + downloadableUtxoCommitment.metadata.publicKey + " from " + downloadableUtxoCommitment.nodeBreakdowns.size() + " nodes.");
 
         final UtxoCommitmentBreakdown utxoCommitmentBreakdown = downloadableUtxoCommitment.breakdown;
@@ -687,7 +688,7 @@ public class UtxoCommitmentDownloader {
 
             final MultiTimer multiTimer = new MultiTimer();
             multiTimer.start();
-            _utxoCommitmentLoader.createLoadFile(utxoCommitmentFiles, loadFileDestination);
+            _utxoCommitmentLoader.createLoadFile(utxoCommitmentFiles, loadFileDestination, unspentTransactionOutputVisitor);
             multiTimer.mark("createLoadFile");
 
             try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
@@ -751,7 +752,7 @@ public class UtxoCommitmentDownloader {
         _fastSyncTimeoutMs = fastSyncTimeoutMs;
     }
 
-    public Boolean runOnceSynchronously() {
+    public Boolean runOnceSynchronously(final UnspentTransactionOutputVisitor unspentTransactionOutputVisitor) {
         final MilliTimer executionTimer = new MilliTimer();
         executionTimer.start();
 
@@ -763,7 +764,7 @@ public class UtxoCommitmentDownloader {
             final DownloadableUtxoCommitment downloadableUtxoCommitment = _waitForAvailableUtxoCommitment(executionTimer);
             if (downloadableUtxoCommitment == null) { return false; }
 
-            final Boolean didComplete = _downloadUtxoCommitment(downloadableUtxoCommitment, executionTimer);
+            final Boolean didComplete = _downloadUtxoCommitment(downloadableUtxoCommitment, executionTimer, unspentTransactionOutputVisitor);
             if (didComplete) {
                 _hasCompleted.set(true);
                 break;

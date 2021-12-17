@@ -27,7 +27,6 @@ import com.softwareverde.bitcoin.transaction.script.slp.send.SlpSendScript;
 import com.softwareverde.concurrent.service.PausableSleepyService;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
@@ -166,6 +165,54 @@ public class BlockchainIndexer extends PausableSleepyService {
         return inputIndexDataList;
     }
 
+    protected OutputIndexData _indexTransactionOutputWithoutSlpData(final TransactionId transactionId, final Integer outputIndex, final TransactionOutput transactionOutput) {
+        final LockingScript lockingScript = transactionOutput.getLockingScript();
+
+        final ScriptType scriptType;
+        final Address address;
+        final Sha256Hash scriptHash;
+        {
+            scriptType = _scriptPatternMatcher.getScriptType(lockingScript);
+            address = _scriptPatternMatcher.extractAddress(scriptType, lockingScript);
+            scriptHash = ScriptBuilder.computeScriptHash(lockingScript);
+        }
+
+        final ByteArray memoActionType;
+        final ByteArray memoActionIdentifier;
+        {
+            final boolean isMemoScriptType = (scriptType == ScriptType.MEMO_SCRIPT);
+            if (isMemoScriptType) {
+                // Mark the Receiving Output as a Memo-Action Output.
+                // Unlike SLP, any output may be an Memo-Action Output (i.e. not necessarily the first).
+                // NOTE: Memo actions are applied to ALL INPUTS of a Transaction, not the Outputs.
+                //  Confirmed via: 3971682E94E08AABA660D1D16DDF6F582656FD6BE9C4FA8F360856D982481C39
+                final MemoScriptType memoScriptType = MemoScriptInflater.getScriptType(lockingScript);
+                memoActionType = (memoScriptType != null ? memoScriptType.getBytes() : null);
+            }
+            else {
+                memoActionType = null;
+            }
+
+            if (memoActionType != null) {
+                memoActionIdentifier = _memoScriptInflater.getActionIdentifier(lockingScript);
+            }
+            else { memoActionIdentifier = null; }
+        }
+
+        final OutputIndexData indexData = new OutputIndexData();
+        indexData.transactionId = transactionId;
+        indexData.outputIndex = outputIndex;
+        indexData.amount = transactionOutput.getAmount();
+        indexData.scriptType = scriptType;
+        indexData.address = address;
+        indexData.scriptHash = scriptHash;
+        indexData.slpTransactionId = null; // Handled later within parent function...
+        indexData.memoActionType = memoActionType;
+        indexData.memoActionIdentifier = memoActionIdentifier;
+
+        return indexData;
+    }
+
     protected Map<TransactionOutputIdentifier, OutputIndexData> _indexTransactionOutputs(final TransactionId transactionId, final Sha256Hash transactionHash, final List<TransactionOutput> transactionOutputs) throws ContextException {
         final HashMap<TransactionOutputIdentifier, OutputIndexData> outputIndexData = new HashMap<>();
 
@@ -180,53 +227,9 @@ public class BlockchainIndexer extends PausableSleepyService {
         for (int outputIndex = 0; outputIndex < transactionOutputCount; ++outputIndex) {
             final TransactionOutput transactionOutput = transactionOutputs.get(outputIndex);
             final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
-            if (! outputIndexData.containsKey(transactionOutputIdentifier)) {
-                final LockingScript lockingScript = transactionOutput.getLockingScript();
 
-                final ScriptType scriptType;
-                final Address address;
-                final Sha256Hash scriptHash;
-                {
-                    scriptType = _scriptPatternMatcher.getScriptType(lockingScript);
-                    address = _scriptPatternMatcher.extractAddress(scriptType, lockingScript);
-                    scriptHash = ScriptBuilder.computeScriptHash(lockingScript);
-                }
-
-                final ByteArray memoActionType;
-                final ByteArray memoActionIdentifier;
-                {
-                    final boolean isMemoScriptType = (scriptType == ScriptType.MEMO_SCRIPT);
-                    if (isMemoScriptType) {
-                        // Mark the Receiving Output as a Memo-Action Output.
-                        // Unlike SLP, any output may be an Memo-Action Output (i.e. not necessarily the first).
-                        // NOTE: Memo actions are applied to ALL INPUTS of a Transaction, not the Outputs.
-                        //  Confirmed via: 3971682E94E08AABA660D1D16DDF6F582656FD6BE9C4FA8F360856D982481C39
-                        final MemoScriptType memoScriptType = MemoScriptInflater.getScriptType(lockingScript);
-                        memoActionType = (memoScriptType != null ? memoScriptType.getBytes() : null);
-                    }
-                    else {
-                        memoActionType = null;
-                    }
-
-                    if (memoActionType != null) {
-                        memoActionIdentifier = _memoScriptInflater.getActionIdentifier(lockingScript);
-                    }
-                    else { memoActionIdentifier = null; }
-                }
-
-                final OutputIndexData indexData = new OutputIndexData();
-                indexData.transactionId = transactionId;
-                indexData.outputIndex = outputIndex;
-                indexData.amount = transactionOutput.getAmount();
-                indexData.scriptType = scriptType;
-                indexData.address = address;
-                indexData.scriptHash = scriptHash;
-                indexData.slpTransactionId = null; // Handled later within this function...
-                indexData.memoActionType = memoActionType;
-                indexData.memoActionIdentifier = memoActionIdentifier;
-
-                outputIndexData.put(transactionOutputIdentifier, indexData);
-            }
+            final OutputIndexData indexDataWithoutSlpData = _indexTransactionOutputWithoutSlpData(transactionId, outputIndex, transactionOutput);
+            outputIndexData.put(transactionOutputIdentifier, indexDataWithoutSlpData);
         }
 
         final ScriptType scriptType = _scriptPatternMatcher.getScriptType(firstOutputLockingScript);
@@ -485,14 +488,12 @@ public class BlockchainIndexer extends PausableSleepyService {
 
                 final TransactionId transactionId = context.getTransactionId(transactionHash);
 
-                // NOTE: Normally the whole Transaction's Outputs are provided to _indexTransactionOutputs in order to process SLP/MEMO/etc,
-                //  however, since all of these special transactions' first output is an OP_RETURN, they will never be included in the UTXO set,
-                //  and therefore the order/size of the TransactionOutputs list does not matter.
-                final Map<TransactionOutputIdentifier, OutputIndexData> outputIndexData = _indexTransactionOutputs(transactionId, transactionHash, new ImmutableList<>(transactionOutput));
-                for (final OutputIndexData indexData : outputIndexData.values()) {
-                    context.indexTransactionOutput(indexData.transactionId, indexData.outputIndex, indexData.amount, indexData.scriptType, indexData.address, indexData.scriptHash, indexData.slpTransactionId, indexData.memoActionType, indexData.memoActionIdentifier);
-                }
-
+                // NOTE: Normally the whole Transaction's Outputs are provided to _indexTransactionOutputs in order to process SLP,
+                //  however, since all SLP Transactions' first output is an OP_RETURN, they will never be included in the UTXO set,
+                //  and therefore SLP data cannot be collected.
+                final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
+                final OutputIndexData outputIndexData = _indexTransactionOutputWithoutSlpData(transactionId, outputIndex, transactionOutput);
+                context.indexTransactionOutput(outputIndexData.transactionId, outputIndexData.outputIndex, outputIndexData.amount, outputIndexData.scriptType, outputIndexData.address, outputIndexData.scriptHash, outputIndexData.slpTransactionId, outputIndexData.memoActionType, outputIndexData.memoActionIdentifier);
                 context.markTransactionProcessed(transactionId);
             }
 

@@ -3,28 +3,20 @@ package com.softwareverde.bitcoin.server.module.node;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainIndexer;
-import com.softwareverde.bitcoin.server.properties.PropertiesStore;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.util.Container;
-import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
 import java.util.HashSet;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class UtxoCommitmentIndexer {
-    protected static final String UTXO_COMMIT_INDEXING_COMPLETED_KEY = "utxo_import_indexing_has_completed";
-
     protected final BlockchainIndexer _blockchainIndexer;
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
 
@@ -46,50 +38,9 @@ public class UtxoCommitmentIndexer {
             transactionByteCounts.add(byteCount);
         }
 
+        // TODO: Inject the TransactionId -> TransactionHash mapping into the IndexerCache...
         transactionDatabaseManager.storeTransactionHashes(transactionHashes, transactionByteCounts);
         return _blockchainIndexer.indexUtxosFromUtxoCommitmentImport(batchIdentifiers, batchOutputs);
-    }
-
-    protected void _indexUtxosAfterUtxoCommitmentImport(final FullNodeDatabaseManager databaseManager) throws Exception {
-        final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
-
-        final int batchSize = 1024;
-        final MutableList<TransactionOutputIdentifier> batchIdentifiers = new MutableList<>(batchSize);
-        final MutableList<TransactionOutput> batchOutputs = new MutableList<>(batchSize);
-        final Container<TransactionId> lastCompletedTransactionId = new Container<>();
-        final AtomicLong outputCounter = new AtomicLong(0);
-        final MilliTimer milliTimer = new MilliTimer();
-        milliTimer.start();
-        unspentTransactionOutputDatabaseManager.visitUnspentTransactionOutputs(new UnspentTransactionOutputDatabaseManager.UnspentTransactionOutputVisitor() {
-            @Override
-            public void run(final TransactionOutputIdentifier transactionOutputIdentifier, final UnspentTransactionOutput transactionOutput) throws Exception {
-                outputCounter.getAndIncrement();
-
-                batchIdentifiers.add(transactionOutputIdentifier);
-                batchOutputs.add(transactionOutput);
-
-                final int batchCount = batchIdentifiers.getCount();
-                if (batchCount >= batchSize) {
-                    lastCompletedTransactionId.value = _indexUtxoBatch(batchIdentifiers, batchOutputs, databaseManager);
-                    batchIdentifiers.clear();
-                    batchOutputs.clear();
-                }
-            }
-        });
-        if (! batchIdentifiers.isEmpty()) {
-            outputCounter.getAndAdd(batchIdentifiers.getCount());
-            lastCompletedTransactionId.value = _indexUtxoBatch(batchIdentifiers, batchOutputs, databaseManager);
-            batchIdentifiers.clear();
-            batchOutputs.clear();
-        }
-
-        final TransactionId transactionId = lastCompletedTransactionId.value;
-        if (transactionId != null) {
-            _blockchainIndexer.commitLastProcessedTransactionIdFromUtxoCommitmentImport(transactionId);
-        }
-
-        milliTimer.stop();
-        Logger.debug("Indexed " + outputCounter.get() + " outputs in " + milliTimer.getMillisecondsElapsed() + "ms.");
     }
 
     public UtxoCommitmentIndexer(final BlockchainIndexer blockchainIndexer, final FullNodeDatabaseManagerFactory databaseManagerFactory) {
@@ -97,12 +48,16 @@ public class UtxoCommitmentIndexer {
         _databaseManagerFactory = databaseManagerFactory;
     }
 
-    public void indexUtxosAfterUtxoCommitmentImport() throws DatabaseException {
+    public void indexUtxosAfterUtxoCommitmentImport(final List<TransactionOutputIdentifier> transactionOutputIdentifiers, final List<TransactionOutput> transactionOutputs) throws DatabaseException {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final PropertiesStore propertiesStore = databaseManager.getPropertiesStore();
+            final MilliTimer milliTimer = new MilliTimer();
+            milliTimer.start();
 
-            _indexUtxosAfterUtxoCommitmentImport(databaseManager);
-            propertiesStore.set(UtxoCommitmentIndexer.UTXO_COMMIT_INDEXING_COMPLETED_KEY, 1L);
+            final TransactionId transactionId = _indexUtxoBatch(transactionOutputIdentifiers, transactionOutputs, databaseManager);
+            _blockchainIndexer.commitLastProcessedTransactionIdFromUtxoCommitmentImport(transactionId);
+
+            milliTimer.stop();
+            Logger.trace("Indexed " + transactionOutputIdentifiers.getCount() + " outputs in " + milliTimer.getMillisecondsElapsed() + "ms.");
         }
         catch (final Exception exception) {
             if (exception instanceof DatabaseException) {
@@ -110,14 +65,6 @@ public class UtxoCommitmentIndexer {
             }
 
             throw new DatabaseException(exception);
-        }
-    }
-
-    public Boolean hasPostFastSyncIndexingCompleted() throws DatabaseException {
-        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final PropertiesStore propertiesStore = databaseManager.getPropertiesStore();
-            final Long hasCompletedLong = propertiesStore.get(UtxoCommitmentIndexer.UTXO_COMMIT_INDEXING_COMPLETED_KEY);
-            return (Util.coalesce(hasCompletedLong) > 0L);
         }
     }
 }

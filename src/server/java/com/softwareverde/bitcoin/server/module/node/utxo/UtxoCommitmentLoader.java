@@ -4,10 +4,13 @@ import com.softwareverde.bitcoin.chain.utxo.UtxoCommitment;
 import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputVisitor;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.EcMultiset;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.StringUtil;
@@ -66,7 +69,7 @@ public class UtxoCommitmentLoader {
         }
     }
 
-    public void createLoadFile(final List<File> utxoCommitmentFiles, final File outputLoadFile) throws Exception {
+    public void createLoadFile(final List<File> utxoCommitmentFiles, final File outputLoadFile, final UnspentTransactionOutputVisitor visitor) throws Exception {
         final CommittedUnspentTransactionOutputInflater committedUnspentTransactionOutputInflater = new CommittedUnspentTransactionOutputInflater();
 
         final NanoTimer nanoTimer = new NanoTimer();
@@ -110,23 +113,35 @@ public class UtxoCommitmentLoader {
 
                 final String separator = "\t";
 
+                final Sha256Hash transactionHash = committedUnspentTransactionOutput.getTransactionHash();
+                final Integer outputIndex = committedUnspentTransactionOutput.getIndex();
+                final Long blockHeight = committedUnspentTransactionOutput.getBlockHeight();
+                final Boolean isCoinbase = committedUnspentTransactionOutput.isCoinbase();
+                final Long amount = committedUnspentTransactionOutput.getAmount();
+                final LockingScript lockingScript = committedUnspentTransactionOutput.getLockingScript();
+
                 final StringBuilder stringBuilder = new StringBuilder();
-                stringBuilder.append(committedUnspentTransactionOutput.getTransactionHash());
+                stringBuilder.append(transactionHash);
                 stringBuilder.append(separator);
-                stringBuilder.append(committedUnspentTransactionOutput.getIndex());
+                stringBuilder.append(outputIndex);
                 stringBuilder.append(separator);
-                stringBuilder.append(committedUnspentTransactionOutput.getBlockHeight());
+                stringBuilder.append(blockHeight);
                 stringBuilder.append(separator);
-                stringBuilder.append(committedUnspentTransactionOutput.isCoinbase() ? "1" : "0");
+                stringBuilder.append(isCoinbase ? "1" : "0");
                 stringBuilder.append(separator);
-                stringBuilder.append(committedUnspentTransactionOutput.getAmount());
+                stringBuilder.append(amount);
                 stringBuilder.append(separator);
-                stringBuilder.append(committedUnspentTransactionOutput.getLockingScript());
+                stringBuilder.append(lockingScript);
                 stringBuilder.append(System.lineSeparator());
 
                 final byte[] bytes = StringUtil.stringToBytes(stringBuilder.toString());
                 fileOutputStream.write(bytes);
                 bytesWrittenCount += bytes.length;
+
+                if (visitor != null) {
+                    final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+                    visitor.run(transactionOutputIdentifier, committedUnspentTransactionOutput);
+                }
             }
 
             fileOutputStream.flush();

@@ -43,6 +43,7 @@ import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
+import com.softwareverde.bitcoin.server.module.node.callback.NewBlockHeadersAvailableCallbackBuilder;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
@@ -132,7 +133,6 @@ import com.softwareverde.concurrent.threadpool.ThreadPoolThrottle;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
-import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
@@ -203,8 +203,6 @@ public class NodeModule {
     protected final LowMemoryMonitor _lowMemoryMonitor;
 
     protected final AtomicBoolean _isShuttingDown = new AtomicBoolean(false);
-
-    protected Boolean _fastSyncHasCompleted = false;
 
     protected Long _getUtxoCommitFrequency() {
         final Long utxoCommitProperty = _bitcoinProperties.getUtxoCacheCommitFrequency();
@@ -485,6 +483,9 @@ public class NodeModule {
 
         final boolean indexModeIsEnabled = bitcoinProperties.isIndexingModeEnabled();
         final boolean pruningModeIsEnabled = bitcoinProperties.isPruningModeEnabled();
+        final boolean fastSyncIsEnabled = bitcoinProperties.isFastSyncEnabled();
+        final Long fastSyncTimeout = _bitcoinProperties.getFastSyncTimeoutMs();
+
         final LocalNodeFeatures localNodeFeatures = new LocalNodeFeatures() {
             @Override
             public NodeFeatures getNodeFeatures() {
@@ -815,7 +816,38 @@ public class NodeModule {
             });
         }
 
-        final Long fastSyncTimeout = _bitcoinProperties.getFastSyncTimeoutMs();
+        final boolean fastSyncHasCompleted;
+        final long maxCommitmentBlockHeight;
+        final long minCommitmentBlockHeight;
+        {
+            long maxBlockHeight = 0L;
+            long minBlockHeight = Long.MAX_VALUE;
+            for (final UtxoCommitmentMetadata utxoCommitments : BitcoinConstants.getUtxoCommitments()) {
+                if (utxoCommitments.blockHeight > maxBlockHeight) {
+                    maxBlockHeight = utxoCommitments.blockHeight;
+                }
+                if (utxoCommitments.blockHeight < minBlockHeight) {
+                    minBlockHeight = utxoCommitments.blockHeight;
+                }
+            }
+            maxCommitmentBlockHeight = maxBlockHeight;
+            minCommitmentBlockHeight = minBlockHeight;
+
+            Long headBlockHeight = null;
+            try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+
+                final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+                headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
+            }
+            catch (final DatabaseException exception) {
+                Logger.debug(exception);
+            }
+
+            fastSyncHasCompleted = (Util.coalesce(headBlockHeight) >= minCommitmentBlockHeight);
+        }
+
         _utxoCommitmentGenerator = new UtxoCommitmentGenerator(databaseManagerFactory, _utxoCommitmentStore.getUtxoDataDirectory());
         _utxoCommitmentDownloader = new UtxoCommitmentDownloader(databaseManagerFactory, _bitcoinNodeManager, _utxoCommitmentStore, _blockPruner, fastSyncTimeout);
 
@@ -905,114 +937,23 @@ public class NodeModule {
                 }
             });
 
-            final long maxCommitmentBlockHeight;
-            final long minCommitmentBlockHeight;
-            {
-                long maxBlockHeight = 0L;
-                long minBlockHeight = Long.MAX_VALUE;
-                for (final UtxoCommitmentMetadata utxoCommitments : BitcoinConstants.getUtxoCommitments()) {
-                    if (utxoCommitments.blockHeight > maxBlockHeight) {
-                        maxBlockHeight = utxoCommitments.blockHeight;
-                    }
-                    if (utxoCommitments.blockHeight < minBlockHeight) {
-                        minBlockHeight = utxoCommitments.blockHeight;
-                    }
-                }
-                maxCommitmentBlockHeight = maxBlockHeight;
-                minCommitmentBlockHeight = minBlockHeight;
+            final NewBlockHeadersAvailableCallbackBuilder blockHeadersAvailableCallbackBuilder = new NewBlockHeadersAvailableCallbackBuilder(databaseManagerFactory, _blockHeaderDownloader, _blockDownloader, synchronizationStatusHandler, blockInventoryMessageHandler);
+            if (fastSyncIsEnabled && (! fastSyncHasCompleted) ) {
+                blockHeadersAvailableCallbackBuilder.enableFastSync(maxCommitmentBlockHeight, indexModeIsEnabled, _utxoCommitmentDownloader, _blockchainIndexer, new Runnable() {
+                    @Override
+                    public void run() {
+                        Logger.debug("Resuming paused services...");
+                        _blockDownloader.resume();
+                        _utxoCommitmentGenerator.resume();
+                        _blockchainIndexer.resume();
 
-                try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-                    final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-
-                    final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-                    final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
-                    if (Util.coalesce(headBlockHeight) >= minCommitmentBlockHeight) {
-                        _fastSyncHasCompleted = true;
+                        _blockDownloader.wakeUp();
+                        _utxoCommitmentGenerator.wakeUp();
+                        _blockchainIndexer.wakeUp();
                     }
-                }
-                catch (final DatabaseException exception) {
-                    Logger.debug(exception);
-                }
+                });
             }
-
-            _blockHeaderDownloader.setNewBlockHeaderAvailableCallback(new BlockHeaderDownloader.NewBlockHeadersAvailableCallback() {
-                @Override
-                public void onNewHeadersReceived(final BitcoinNode bitcoinNode, final List<BlockHeader> blockHeaders) {
-                    if (bitcoinNode != null) {
-                        final MutableList<Sha256Hash> blockHashes = new MutableList<>(blockHeaders.getCount());
-                        for (final BlockHeader blockHeader : blockHeaders) {
-                            final Sha256Hash blockHash = blockHeader.getHash();
-                            blockHashes.add(blockHash);
-                        }
-                        blockInventoryMessageHandler.onNewInventory(bitcoinNode, blockHashes);
-                    }
-
-                    _blockDownloader.wakeUp();
-
-                    // TODO: If the BlockHeader(s) are on the main chain and the node is (mostly) synced, then prioritize the download
-                    //  of the new block via BlockDownloader::requestBlock(blockHash, 0L, bitcoinNode)
-
-                    final Long blockHeaderDownloaderBlockHeight = Util.coalesce(_blockHeaderDownloader.getBlockHeight());
-
-                    if (synchronizationStatusHandler.getState() == State.ONLINE) {
-                        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-                            final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-
-                            final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-                            final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
-
-                            if (blockHeaderDownloaderBlockHeight > Util.coalesce(headBlockHeight, -1L)) {
-                                synchronizationStatusHandler.setState(State.SYNCHRONIZING);
-                            }
-                        }
-                        catch (final DatabaseException exception) {
-                            Logger.warn(exception);
-                        }
-                    }
-
-                    if ( _bitcoinProperties.isFastSyncEnabled() && (!_fastSyncHasCompleted) ) {
-                        if (blockHeaderDownloaderBlockHeight >= maxCommitmentBlockHeight) {
-                            Logger.debug("Pausing BlockHeaderDownloader for UTXO import...");
-                            _blockHeaderDownloader.pause();
-                            try {
-                                final Boolean didComplete = _utxoCommitmentDownloader.runOnceSynchronously();
-                                _fastSyncHasCompleted = didComplete;
-
-                                if (didComplete && indexModeIsEnabled) {
-                                    final UtxoCommitmentIndexer utxoCommitmentIndexer = new UtxoCommitmentIndexer(_blockchainIndexer, databaseManagerFactory);
-                                    try {
-                                        Logger.info("[Indexing FastSync UTXOs]");
-                                        utxoCommitmentIndexer.indexUtxosAfterUtxoCommitmentImport();
-
-                                        // Only re-enable indexing upon successful UTXO import so that the lastIndexedTransactionId does not become corrupted.
-                                        _blockchainIndexer.resume();
-                                        _blockchainIndexer.wakeUp();
-                                    }
-                                    catch (final DatabaseException exception) {
-                                        Logger.debug(exception);
-                                    }
-                                }
-                            }
-                            finally {
-                                // Blocks that are requested during the UTXO import should be cleared since they are usually early blocks...
-                                _blockDownloader.clearQueue();
-
-                                Logger.debug("Resuming essential services for UTXO import...");
-                                _utxoCommitmentGenerator.resume();
-                                _blockDownloader.resume();
-                                _blockHeaderDownloader.resume();
-
-                                _blockHeaderDownloader.wakeUp();
-                                _blockDownloader.wakeUp();
-                                _utxoCommitmentGenerator.wakeUp();
-                                Logger.debug("Services resumed.");
-                            }
-                        }
-                    }
-                }
-            });
+            _blockHeaderDownloader.setNewBlockHeaderAvailableCallback(blockHeadersAvailableCallbackBuilder.build());
 
             _blockDownloader.setBlockDownloadedCallback(new BlockDownloader.BlockDownloadCallback() {
                 @Override
@@ -1110,7 +1051,7 @@ public class NodeModule {
         });
 
 
-        if  ( _bitcoinProperties.isFastSyncEnabled() && (! _fastSyncHasCompleted) ) {
+        if  ( fastSyncIsEnabled && (! fastSyncHasCompleted) ) {
             _bitcoinNodeManager.setFastSyncIsEnabled(true); // Allow connection with pruned nodes with UTXO Commitments when fast sync is enabled.
 
             Logger.debug("Pausing services for fast sync...");
@@ -1269,6 +1210,11 @@ public class NodeModule {
     }
 
     public void loop() {
+        final boolean indexModeIsEnabled = _bitcoinProperties.isIndexingModeEnabled();
+        final boolean pruningModeIsEnabled = _bitcoinProperties.isPruningModeEnabled();
+        final boolean fastSyncIsEnabled = _bitcoinProperties.isFastSyncEnabled();
+        final boolean bootstrapIsEnabled = _bitcoinProperties.isBootstrapEnabled();
+
         _propertiesStore.start();
         _networkThreadPool.start();
         _blockProcessingThreadPool.start();
@@ -1292,7 +1238,7 @@ public class NodeModule {
             _bitcoinProperties.getUtxoCachePurgePercent()
         );
 
-        if (_bitcoinProperties.isBootstrapEnabled()) {
+        if (bootstrapIsEnabled) {
             final HeadersBootstrapper headersBootstrapper = new FullNodeHeadersBootstrapper(databaseManagerFactory);
             if (headersBootstrapper.shouldRun()) {
                 Logger.info("[Bootstrapping Headers]");
@@ -1336,7 +1282,6 @@ public class NodeModule {
                     final UnspentTransactionOutputJvmManager unspentTransactionOutputJvmManager = (UnspentTransactionOutputJvmManager) unspentTransactionOutputDatabaseManager;
                     final Boolean utxoCacheFileExists = unspentTransactionOutputJvmManager.doesUtxoCacheLoadFileExist();
                     // The LOAD_VIA_RECENT_TRANSACTIONS depends on the transactions table being populated which is (effectively) unavailable in pruning mode.
-                    final Boolean pruningModeIsEnabled = _bitcoinProperties.isPruningModeEnabled();
 
                     final CacheLoadingMethod cacheLoadingMethod;
                     if (utxoCacheFileExists && _utxoCacheLoadFileIsEnabled) {
@@ -1356,25 +1301,6 @@ public class NodeModule {
             }
             catch (final DatabaseException exception) {
                 Logger.warn(exception);
-            }
-        }
-
-        final boolean fastSyncIsEnabled = _bitcoinProperties.isFastSyncEnabled();
-        final boolean indexModeIsEnabled = _bitcoinProperties.isIndexingModeEnabled();
-        if (fastSyncIsEnabled && _fastSyncHasCompleted && indexModeIsEnabled) {
-            try {
-                final UtxoCommitmentIndexer utxoCommitmentIndexer = new UtxoCommitmentIndexer(_blockchainIndexer, databaseManagerFactory);
-                final Boolean postFastSyncIndexingHasCompleted = utxoCommitmentIndexer.hasPostFastSyncIndexingCompleted();
-                if (! postFastSyncIndexingHasCompleted) {
-                    Logger.info("[Indexing FastSync UTXOs]");
-                    _blockchainIndexer.pause();
-                    utxoCommitmentIndexer.indexUtxosAfterUtxoCommitmentImport();
-                    _blockchainIndexer.resume();
-                }
-            }
-            catch (final Exception exception) {
-                Logger.debug(exception);
-                Logger.info("Unable to complete FastSync UTXO indexing...");
             }
         }
 
