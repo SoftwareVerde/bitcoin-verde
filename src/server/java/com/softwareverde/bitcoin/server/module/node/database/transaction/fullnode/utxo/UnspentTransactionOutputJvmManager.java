@@ -1298,6 +1298,23 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
     }
 
     @Override
+    public List<TransactionOutputIdentifier> getFastSyncOutputIdentifiers(final Sha256Hash transactionHash) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT transaction_hash, `index` FROM committed_unspent_transaction_outputs WHERE transaction_hash = ? ORDER BY `index` ASC")
+                .setParameter(transactionHash)
+        );
+
+        final MutableList<TransactionOutputIdentifier> transactionOutputIdentifiers = new MutableList<>(rows.size());
+        for (final Row row : rows) {
+            final Integer outputIndex = row.getInteger("index");
+            final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+            transactionOutputIdentifiers.add(transactionOutputIdentifier);
+        }
+        return transactionOutputIdentifiers;
+    }
+
+    @Override
     public Boolean commitUnspentTransactionOutputs(final DatabaseManagerFactory databaseManagerFactory, final CommitAsyncMode commitAsyncMode) throws DatabaseException {
         if (! UtxoCacheStaticState.isUtxoCacheReady()) {
             // Prevent committing a UTXO set that has been invalidated or empty...
