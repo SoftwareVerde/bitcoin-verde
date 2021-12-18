@@ -353,7 +353,7 @@ public class BlockHeaderDownloader extends PausableSleepyService {
         if (blockHeaderCount == 0) { return true; }
 
         final BlockHeader firstBlockHeader = blockHeaders.get(0);
-        Logger.debug("Downloaded Block headers: " + firstBlockHeader.getHash() + " + " + blockHeaderCount);
+        Logger.info("Downloaded Block headers: " + firstBlockHeader.getHash() + " +" + (blockHeaderCount - 1));
 
         final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
 
