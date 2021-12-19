@@ -156,13 +156,13 @@ class FakeStratumServerSocket extends StratumServerSocket {
 }
 
 class BitcoinVerdeStratumServerPartialMock extends BitcoinVerdeStratumServer {
-    protected static Configuration configuration;
+    protected static Configuration CONFIGURATION;
 
     static {
         try {
             final File tempFile = File.createTempFile("tmp", ".dat");
             tempFile.deleteOnExit();
-            configuration = new Configuration(tempFile);
+            CONFIGURATION = new Configuration(tempFile);
         }
         catch (final Exception exception) {
             exception.printStackTrace();
@@ -172,7 +172,7 @@ class BitcoinVerdeStratumServerPartialMock extends BitcoinVerdeStratumServer {
     protected final MutableList<Json> _fakeJsonResponses = new MutableList<>();
 
     public BitcoinVerdeStratumServerPartialMock() {
-        super(configuration.getStratumProperties(), new InMemoryPropertiesStore(), new CachedThreadPool(1, 1L));
+        super(CONFIGURATION.getStratumProperties(), new InMemoryPropertiesStore(), new CachedThreadPool(1, 1L));
         ((CachedThreadPool) _threadPool).start();
 
         ReflectionUtil.setValue(this, "_stratumServerSocket", new FakeStratumServerSocket());

@@ -1,5 +1,7 @@
 package com.softwareverde.bitcoin.server.module.stratum;
 
+import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.miner.pool.WorkerId;
 import com.softwareverde.bitcoin.server.Environment;
@@ -21,24 +23,31 @@ import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolHas
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolPrototypeBlockApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolWorkerApi;
 import com.softwareverde.bitcoin.server.module.stratum.database.AccountDatabaseManager;
+import com.softwareverde.bitcoin.server.module.stratum.key.ServerEncryptionKey;
 import com.softwareverde.bitcoin.server.module.stratum.rpc.StratumRpcServer;
 import com.softwareverde.bitcoin.server.properties.DatabasePropertiesStore;
 import com.softwareverde.concurrent.threadpool.CachedThreadPool;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.http.server.HttpServer;
 import com.softwareverde.http.server.endpoint.Endpoint;
 import com.softwareverde.http.server.servlet.DirectoryServlet;
 import com.softwareverde.http.server.servlet.Servlet;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.io.File;
 
 public class StratumModule {
+    protected static final String COINBASE_PRIVATE_KEY_KEY = "private_key_cipher";
+
     protected final SystemTime _systemTime = new SystemTime();
 
     protected final Environment _environment;
     protected final StratumProperties _stratumProperties;
+    protected final DatabasePropertiesStore _databasePropertiesStore;
     protected final StratumServer _stratumServer;
     protected final StratumRpcServer _stratumRpcServer;
     protected final HttpServer _apiServer = new HttpServer();
@@ -65,12 +74,12 @@ public class StratumModule {
         final Database database = _environment.getDatabase();
         final DatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
 
-        final DatabasePropertiesStore databasePropertiesStore = new DatabasePropertiesStore(databaseConnectionFactory);
+        _databasePropertiesStore = new DatabasePropertiesStore(databaseConnectionFactory);
         if (useBitcoinCoreStratumServer) {
-            _stratumServer = new BitcoinCoreStratumServer(_stratumProperties, databasePropertiesStore, _stratumThreadPool);
+            _stratumServer = new BitcoinCoreStratumServer(_stratumProperties, _databasePropertiesStore, _stratumThreadPool);
         }
         else {
-            _stratumServer = new BitcoinVerdeStratumServer(_stratumProperties, databasePropertiesStore, _stratumThreadPool);
+            _stratumServer = new BitcoinVerdeStratumServer(_stratumProperties, _databasePropertiesStore, _stratumThreadPool);
         }
 
         _stratumServer.setWorkerShareCallback(new WorkerShareCallback() {
@@ -160,8 +169,56 @@ public class StratumModule {
     }
 
     public void loop() {
+        final ServerEncryptionKey serverEncryptionKey;
+        {
+            final String dataDirectory = _stratumProperties.getDataDirectory();
+            final File dataDirectoryFile = new File(dataDirectory);
+            if (! dataDirectoryFile.isDirectory()) {
+                dataDirectoryFile.mkdirs();
+            }
+
+            serverEncryptionKey = ServerEncryptionKey.load(dataDirectoryFile);
+        }
+
         _rpcThreadPool.start();
         _stratumThreadPool.start();
+        _databasePropertiesStore.start();
+
+        { // Ensure the StratumServer's PropertiesStore has the correct payout address; if a payout address does not exist, then create an encrypted one.
+            final Address coinbaseAddress;
+            {
+                final AddressInflater addressInflater = new AddressInflater();
+                final String privateKeyCipher = _databasePropertiesStore.getString(StratumModule.COINBASE_PRIVATE_KEY_KEY);
+                if (Util.isBlank(privateKeyCipher)) {
+                    final PrivateKey privateKey = PrivateKey.createNewKey();
+                    final String encryptedPrivateKey;
+                    {
+                        final ByteArray encryptedPrivateKeyBytes = serverEncryptionKey.encrypt(privateKey);
+                        encryptedPrivateKey = encryptedPrivateKeyBytes.toString();
+                    }
+                    _databasePropertiesStore.set(StratumModule.COINBASE_PRIVATE_KEY_KEY, encryptedPrivateKey);
+
+                    coinbaseAddress = addressInflater.fromPrivateKey(privateKey, true);
+                }
+                else {
+                    final ByteArray privateKeyCipherBytes = ByteArray.fromHexString(privateKeyCipher);
+                    final ByteArray privateKeyBytes = serverEncryptionKey.decrypt(privateKeyCipherBytes);
+                    final PrivateKey privateKey = PrivateKey.fromBytes(privateKeyBytes);
+
+                    coinbaseAddress = addressInflater.fromPrivateKey(privateKey, true);
+                }
+            }
+
+            final String coinbaseAddressString = coinbaseAddress.toBase32CheckEncoded();
+            _databasePropertiesStore.set(BitcoinCoreStratumServer.COINBASE_ADDRESS_KEY, coinbaseAddressString);
+        }
+
+        { // Ensure the StratumServer has a share difficulty set...
+            final Long shareDifficulty = _databasePropertiesStore.getLong(BitcoinCoreStratumServer.SHARE_DIFFICULTY_KEY);
+            if (shareDifficulty == null || shareDifficulty < 1) {
+                _databasePropertiesStore.set(BitcoinCoreStratumServer.SHARE_DIFFICULTY_KEY, 2048L);
+            }
+        }
 
         _stratumRpcServer.start();
         _stratumServer.start();
@@ -175,6 +232,7 @@ public class StratumModule {
         _stratumServer.stop();
         _stratumRpcServer.stop();
 
+        _databasePropertiesStore.stop();
         _stratumThreadPool.stop();
         _rpcThreadPool.stop();
     }

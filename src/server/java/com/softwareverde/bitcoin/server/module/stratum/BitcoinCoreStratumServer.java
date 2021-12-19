@@ -68,6 +68,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
     protected final StagnantStratumMineBlockTaskBuilderFactory _stratumMineBlockTaskBuilderFactory;
     protected final PropertiesStore _propertiesStore;
 
+
     protected final Integer _extraNonceByteCount = 4;
     protected final Integer _extraNonce2ByteCount = 4;
     protected final Integer _totalExtraNonceByteCount = (_extraNonceByteCount + _extraNonce2ByteCount);
@@ -546,6 +547,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
         _stratumServerSocket.start();
 
         Logger.info("[Server Online]");
+        Logger.debug("Coinbase Address: " + _getCoinbaseAddress().toBase58CheckEncoded());
 
         _rebuildTaskThread.start();
     }
