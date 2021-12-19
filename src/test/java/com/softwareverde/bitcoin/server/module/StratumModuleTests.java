@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.rpc.NodeJsonRpcConnection;
 import com.softwareverde.bitcoin.server.configuration.Configuration;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.module.stratum.BitcoinVerdeStratumServer;
+import com.softwareverde.bitcoin.server.properties.InMemoryPropertiesStore;
 import com.softwareverde.bitcoin.server.stratum.socket.StratumServerSocket;
 import com.softwareverde.bitcoin.server.stratum.task.MutableStratumMineBlockTaskBuilder;
 import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTask;
@@ -171,7 +172,7 @@ class BitcoinVerdeStratumServerPartialMock extends BitcoinVerdeStratumServer {
     protected final MutableList<Json> _fakeJsonResponses = new MutableList<>();
 
     public BitcoinVerdeStratumServerPartialMock() {
-        super(configuration.getStratumProperties(), new CachedThreadPool(1, 1L));
+        super(configuration.getStratumProperties(), new InMemoryPropertiesStore(), new CachedThreadPool(1, 1L));
         ((CachedThreadPool) _threadPool).start();
 
         ReflectionUtil.setValue(this, "_stratumServerSocket", new FakeStratumServerSocket());

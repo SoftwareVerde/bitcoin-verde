@@ -6,7 +6,7 @@ public interface StratumServer {
     Long getCurrentBlockStartTimeInSeconds();
     Long getStartTimeInSeconds();
     Long getShareCount();
-    Integer getShareDifficulty();
+    Long getShareDifficulty();
     Long getBlockHeight();
     Block getPrototypeBlock();
     void setWorkerShareCallback(final WorkerShareCallback workerShareCallback);

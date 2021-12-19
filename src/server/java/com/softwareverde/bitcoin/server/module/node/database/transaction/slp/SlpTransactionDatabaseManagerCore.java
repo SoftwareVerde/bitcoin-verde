@@ -20,7 +20,7 @@ public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabase
 
     protected BlockId _getLastSlpValidatedBlockId() {
         final PropertiesStore propertiesStore = _databaseManager.getPropertiesStore();
-        return BlockId.wrap(Util.coalesce(propertiesStore.get(LAST_SLP_VALIDATED_BLOCK_ID_KEY)));
+        return BlockId.wrap(Util.coalesce(propertiesStore.getLong(LAST_SLP_VALIDATED_BLOCK_ID_KEY)));
     }
 
     protected List<TransactionId> _getConfirmedPendingValidationSlpTransactions(final BlockId blockId) throws DatabaseException {

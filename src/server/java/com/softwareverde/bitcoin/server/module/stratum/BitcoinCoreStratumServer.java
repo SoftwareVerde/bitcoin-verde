@@ -19,6 +19,7 @@ import com.softwareverde.bitcoin.rpc.RpcNotificationType;
 import com.softwareverde.bitcoin.rpc.core.BitcoinCoreRpcConnector;
 import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
+import com.softwareverde.bitcoin.server.properties.PropertiesStore;
 import com.softwareverde.bitcoin.server.stratum.message.RequestMessage;
 import com.softwareverde.bitcoin.server.stratum.message.ResponseMessage;
 import com.softwareverde.bitcoin.server.stratum.message.server.MinerSubmitBlockResult;
@@ -36,7 +37,6 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
-import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
 import com.softwareverde.json.Json;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.socket.JsonProtocolMessage;
@@ -56,6 +56,9 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 
 public class BitcoinCoreStratumServer implements StratumServer {
+    public static final String SHARE_DIFFICULTY_KEY = "default_share_difficulty";
+    public static final String COINBASE_ADDRESS_KEY = "coinbase_address";
+
     protected static final Boolean PROXY_VIABTC = false;
 
     protected final MasterInflater _masterInflater;
@@ -63,8 +66,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
     protected final StratumServerSocket _stratumServerSocket;
     protected final ThreadPool _threadPool;
     protected final StagnantStratumMineBlockTaskBuilderFactory _stratumMineBlockTaskBuilderFactory;
-
-    protected final PrivateKey _privateKey;
+    protected final PropertiesStore _propertiesStore;
 
     protected final Integer _extraNonceByteCount = 4;
     protected final Integer _extraNonce2ByteCount = 4;
@@ -82,8 +84,6 @@ public class BitcoinCoreStratumServer implements StratumServer {
     protected final MilliTimer _lastTransactionQueueProcessTimer = new MilliTimer();
     protected final ConcurrentLinkedQueue<TransactionWithFee> _queuedTransactions = new ConcurrentLinkedQueue<>();
 
-    protected final Integer _shareDifficulty = 2048;
-
     protected final Thread _rebuildTaskThread;
 
     protected final Long _startTime = _systemTime.getCurrentTimeInSeconds();
@@ -93,6 +93,16 @@ public class BitcoinCoreStratumServer implements StratumServer {
     protected final ConcurrentLinkedQueue<JsonSocket> _connections = new ConcurrentLinkedQueue<>();
 
     protected WorkerShareCallback _workerShareCallback;
+
+    protected Long _getShareDifficulty() {
+        return _propertiesStore.getLong(BitcoinCoreStratumServer.SHARE_DIFFICULTY_KEY);
+    }
+
+    protected Address _getCoinbaseAddress() {
+        final AddressInflater addressInflater = new AddressInflater();
+        final String addressString = _propertiesStore.getString(BitcoinCoreStratumServer.COINBASE_ADDRESS_KEY);
+        return Util.coalesce(addressInflater.fromBase58Check(addressString), addressInflater.fromBase32Check(addressString));
+    }
 
     protected void _broadcastNewTask(final Boolean abandonOldJobs) {
         final Iterator<JsonSocket> iterator = _connections.iterator();
@@ -143,8 +153,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
         final String coinbaseMessage = BitcoinConstants.getCoinbaseMessage();
 
         final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
-        final AddressInflater addressInflater = _masterInflater.getAddressInflater();
-        final Address address = addressInflater.fromPrivateKey(_privateKey, true);
+        final Address address = _getCoinbaseAddress();
 
         final BitcoinMiningRpcConnector bitcoinRpcConnector = _getBitcoinRpcConnector();
         final BlockTemplate blockTemplate = bitcoinRpcConnector.getBlockTemplate();
@@ -221,10 +230,11 @@ public class BitcoinCoreStratumServer implements StratumServer {
     }
 
     protected void _setDifficulty(final JsonSocket socketConnection) {
-        final RequestMessage mineBlockMessage = new RequestMessage(RequestMessage.ServerCommand.SET_DIFFICULTY.getValue());
+        final Long shareDifficulty = _getShareDifficulty();
 
+        final RequestMessage mineBlockMessage = new RequestMessage(RequestMessage.ServerCommand.SET_DIFFICULTY.getValue());
         final Json parametersJson = new Json(true);
-        parametersJson.add(_shareDifficulty); // Difficulty::getDifficultyRatio
+        parametersJson.add(shareDifficulty); // Difficulty::getDifficultyRatio
         mineBlockMessage.setParameters(parametersJson);
 
         Logger.debug("Sent: "+ mineBlockMessage);
@@ -308,7 +318,8 @@ public class BitcoinCoreStratumServer implements StratumServer {
         }
 
         if (mineBlockTask != null) {
-            final Difficulty shareDifficulty = Difficulty.BASE_DIFFICULTY.divideBy(_shareDifficulty);
+            final Long baseShareDifficulty = _getShareDifficulty();
+            final Difficulty shareDifficulty = Difficulty.BASE_DIFFICULTY.divideBy(baseShareDifficulty);
 
             final BlockHeader blockHeader = mineBlockTask.assembleBlockHeader(stratumNonce, stratumExtraNonce2, stratumTimestamp);
             final Sha256Hash hash = blockHeader.getHash();
@@ -348,7 +359,8 @@ public class BitcoinCoreStratumServer implements StratumServer {
                 _threadPool.execute(new Runnable() {
                     @Override
                     public void run() {
-                        workerShareCallback.onNewWorkerShare(workerUsername, _shareDifficulty);
+                        final Long shareDifficulty = _getShareDifficulty();
+                        workerShareCallback.onNewWorkerShare(workerUsername, shareDifficulty);
                     }
                 });
             }
@@ -360,17 +372,19 @@ public class BitcoinCoreStratumServer implements StratumServer {
         socketConnection.write(new JsonProtocolMessage(blockAcceptedMessage));
     }
 
-    public BitcoinCoreStratumServer(final StratumProperties stratumProperties, final ThreadPool threadPool) {
+    public BitcoinCoreStratumServer(final StratumProperties stratumProperties, final PropertiesStore propertiesStore, final ThreadPool threadPool) {
         this(
             stratumProperties,
+            propertiesStore,
             threadPool,
             new CoreInflater()
         );
     }
 
-    public BitcoinCoreStratumServer(final StratumProperties stratumProperties, final ThreadPool threadPool, final MasterInflater masterInflater) {
+    public BitcoinCoreStratumServer(final StratumProperties stratumProperties, final PropertiesStore propertiesStore, final ThreadPool threadPool, final MasterInflater masterInflater) {
         this(
             stratumProperties,
+            propertiesStore,
             threadPool,
             masterInflater,
             new StagnantStratumMineBlockTaskBuilderFactory() {
@@ -382,17 +396,13 @@ public class BitcoinCoreStratumServer implements StratumServer {
         );
     }
 
-    public BitcoinCoreStratumServer(final StratumProperties stratumProperties, final ThreadPool threadPool, final MasterInflater masterInflater, final StagnantStratumMineBlockTaskBuilderFactory stratumMineBlockTaskBuilderFactory) {
+    public BitcoinCoreStratumServer(final StratumProperties stratumProperties, final PropertiesStore propertiesStore, final ThreadPool threadPool, final MasterInflater masterInflater, final StagnantStratumMineBlockTaskBuilderFactory stratumMineBlockTaskBuilderFactory) {
         _stratumMineBlockTaskBuilderFactory = stratumMineBlockTaskBuilderFactory;
         _masterInflater = masterInflater;
         _stratumProperties = stratumProperties;
         _threadPool = threadPool;
 
-        final AddressInflater addressInflater = _masterInflater.getAddressInflater();
-
-        _privateKey = PrivateKey.createNewKey();
-        Logger.info("Private Key: " + _privateKey);
-        Logger.info("Address:     " + addressInflater.fromPrivateKey(_privateKey, true).toBase58CheckEncoded());
+        _propertiesStore = propertiesStore;
 
         _extraNonce = _createRandomBytes(_extraNonceByteCount);
 
@@ -559,8 +569,8 @@ public class BitcoinCoreStratumServer implements StratumServer {
     }
 
     @Override
-    public Integer getShareDifficulty() {
-        return _shareDifficulty;
+    public Long getShareDifficulty() {
+        return _getShareDifficulty();
     }
 
     @Override

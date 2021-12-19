@@ -26,16 +26,16 @@ public class DatabasePropertiesStoreTests extends IntegrationTest {
         final String key = "KEY";
 
         // Action
-        final Long value0 = databasePropertiesStore.get(key);
+        final Long value0 = databasePropertiesStore.getLong(key);
         databasePropertiesStore.set(key, 1L);
-        final Long value1 = databasePropertiesStore.get(key);
-        databasePropertiesStore.getAndSet(key, new PropertiesStore.GetAndSetter() {
+        final Long value1 = databasePropertiesStore.getLong(key);
+        databasePropertiesStore.getAndSetLong(key, new PropertiesStore.GetAndSetter<Long>() {
             @Override
             public Long run(final Long value) {
                 return (value + 1L);
             }
         });
-        final Long value2 = databasePropertiesStore.get(key);
+        final Long value2 = databasePropertiesStore.getLong(key);
 
         // Assert
         Assert.assertNull(value0);

@@ -15,7 +15,7 @@ public class DatabasePropertiesStore implements PropertiesStore {
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final Thread _thread;
     protected final Object _mutex = new Object();
-    protected final ConcurrentHashMap<String, Tuple<Long, Boolean>> _values = new ConcurrentHashMap<>(); // Map<Key, Tuple<Value,isSynced>>
+    protected final ConcurrentHashMap<String, Tuple<String, Boolean>> _values = new ConcurrentHashMap<>(); // Map<Key, Tuple<Value,isSynced>>
 
     protected Boolean _hasLoaded = false;
 
@@ -29,7 +29,7 @@ public class DatabasePropertiesStore implements PropertiesStore {
 
     protected void _flush() {
         for (final String key : _values.keySet()) {
-            final Tuple<Long, Boolean> value = _values.get(key);
+            final Tuple<String, Boolean> value = _values.get(key);
 
             final Boolean isSynced = value.second;
             if (isSynced) { continue; }
@@ -69,11 +69,85 @@ public class DatabasePropertiesStore implements PropertiesStore {
 
             final Row row = rows.get(0);
 
-            final Long value = row.getLong("value");
+            final String value = row.getString("value");
             _values.put(key, new Tuple<>(value, true));
         }
         catch (final Exception exception) {
             Logger.debug(exception);
+        }
+    }
+
+    protected <T> T _getValue(final String key, final Converter<T> converter) {
+        if (! _hasLoaded) {
+            Logger.debug("NOTICE: Requested value before start. (" + key + ")", new Exception());
+            _loadValue(key);
+        }
+
+        final Tuple<String, Boolean> tuple = _values.get(key);
+        if (tuple == null) { return null; }
+
+        return converter.toType(tuple.first);
+    }
+
+    protected <T> void _setValue(final String key, final T value, final Converter<T> converter) {
+        final String stringValue = converter.toString(value);
+
+        final boolean flushIsRequired;
+        if (_values.containsKey(key)) {
+            final Tuple<String, Boolean> tuple = _values.get(key);
+            if (! Util.areEqual(tuple.first, value)) {
+                tuple.first = stringValue;
+                tuple.second = false;
+                flushIsRequired = true;
+            }
+            else {
+                flushIsRequired = false;
+            }
+        }
+        else {
+            _values.put(key, new Tuple<>(stringValue, false));
+            flushIsRequired = true;
+        }
+
+        if (flushIsRequired) {
+            synchronized (_mutex) {
+                _mutex.notifyAll();
+            }
+        }
+    }
+
+    protected <T> void _getAndSet(final String key, final GetAndSetter<T> getAndSetter, final Converter<T> converter) {
+        if (! _hasLoaded) {
+            Logger.debug("NOTICE: Requested value before start.");
+            _loadValue(key);
+        }
+
+        final Tuple<String, Boolean> tuple;
+        if (_values.containsKey(key)) {
+            tuple = _values.get(key);
+        }
+        else {
+            tuple = new Tuple<>(null, true);
+            _values.put(key, tuple);
+        }
+
+        final boolean flushIsRequired;
+        final T previousValue = converter.toType(tuple.first);
+        final T newValue = getAndSetter.run(previousValue);
+        tuple.first = converter.toString(newValue);
+
+        if (! Util.areEqual(previousValue, tuple.first)) {
+            tuple.second = false;
+            flushIsRequired = true;
+        }
+        else {
+            flushIsRequired = false;
+        }
+
+        if (flushIsRequired) {
+            synchronized (_mutex) {
+                _mutex.notifyAll();
+            }
         }
     }
 
@@ -119,7 +193,7 @@ public class DatabasePropertiesStore implements PropertiesStore {
 
             for (final Row row : rows) {
                 final String key = row.getString("key");
-                final Long value = row.getLong("value");
+                final String value = row.getString("value");
 
                 _values.put(key, new Tuple<>(value, true));
             }
@@ -141,76 +215,31 @@ public class DatabasePropertiesStore implements PropertiesStore {
 
     @Override
     public synchronized void set(final String key, final Long value) {
-        final boolean flushIsRequired;
-
-        if (_values.containsKey(key)) {
-            final Tuple<Long, Boolean> tuple = _values.get(key);
-            if (! Util.areEqual(tuple.first, value)) {
-                tuple.first = value;
-                tuple.second = false;
-                flushIsRequired = true;
-            }
-            else {
-                flushIsRequired = false;
-            }
-        }
-        else {
-            _values.put(key, new Tuple<>(value, false));
-            flushIsRequired = true;
-        }
-
-        if (flushIsRequired) {
-            synchronized (_mutex) {
-                _mutex.notifyAll();
-            }
-        }
+        _setValue(key, value, Converter.LONG);
     }
 
     @Override
-    public synchronized Long get(final String key) {
-        if (! _hasLoaded) {
-            Logger.debug("NOTICE: Requested value before start. (" + key + ")", new Exception());
-            _loadValue(key);
-        }
-
-        final Tuple<Long, Boolean> tuple = _values.get(key);
-        if (tuple == null) { return null; }
-
-        return tuple.first;
+    public synchronized void set(final String key, final String value) {
+        _setValue(key, value, Converter.STRING);
     }
 
     @Override
-    public synchronized void getAndSet(final String key, final GetAndSetter getAndSetter) {
-        if (! _hasLoaded) {
-            Logger.debug("NOTICE: Requested value before start.");
-            _loadValue(key);
-        }
+    public synchronized Long getLong(final String key) {
+        return _getValue(key, Converter.LONG);
+    }
 
-        final Tuple<Long, Boolean> tuple;
-        if (_values.containsKey(key)) {
-            tuple = _values.get(key);
-        }
-        else {
-            tuple = new Tuple<>(null, true);
-            _values.put(key, tuple);
-        }
+    @Override
+    public String getString(final String key) {
+        return _getValue(key, Converter.STRING);
+    }
 
-        final boolean flushIsRequired;
-        final Long previousValue = tuple.first;
-        tuple.first = getAndSetter.run(previousValue);
+    @Override
+    public synchronized void getAndSetLong(final String key, final GetAndSetter<Long> getAndSetter) {
+        _getAndSet(key, getAndSetter, Converter.LONG);
+    }
 
-        if (! Util.areEqual(previousValue, tuple.first)) {
-            tuple.second = false;
-            flushIsRequired = true;
-        }
-        else {
-            flushIsRequired = false;
-        }
-
-        if (flushIsRequired) {
-            synchronized (_mutex) {
-                _mutex.notifyAll();
-            }
-        }
+    @Override
+    public void getAndSetString(final String key, final GetAndSetter<String> getAndSetter) {
+        _getAndSet(key, getAndSetter, Converter.STRING);
     }
 }

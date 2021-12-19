@@ -36,7 +36,7 @@ public class BlockPruner extends SleepyService {
 
     protected Long _getLastPrunedBlockHeight(final DatabaseManager databaseManager) throws DatabaseException {
         final PropertiesStore propertiesStore = databaseManager.getPropertiesStore();
-        return Util.coalesce(propertiesStore.get(PRUNED_BLOCK_HEIGHT_KEY));
+        return Util.coalesce(propertiesStore.getLong(PRUNED_BLOCK_HEIGHT_KEY));
     }
 
     protected void _setLastPrunedBlockHeight(final Long blockHeight, final DatabaseManager databaseManager) throws DatabaseException {

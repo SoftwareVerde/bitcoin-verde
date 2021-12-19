@@ -22,6 +22,7 @@ import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolPro
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolWorkerApi;
 import com.softwareverde.bitcoin.server.module.stratum.database.AccountDatabaseManager;
 import com.softwareverde.bitcoin.server.module.stratum.rpc.StratumRpcServer;
+import com.softwareverde.bitcoin.server.properties.DatabasePropertiesStore;
 import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.http.server.HttpServer;
@@ -64,16 +65,17 @@ public class StratumModule {
         final Database database = _environment.getDatabase();
         final DatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
 
+        final DatabasePropertiesStore databasePropertiesStore = new DatabasePropertiesStore(databaseConnectionFactory);
         if (useBitcoinCoreStratumServer) {
-            _stratumServer = new BitcoinCoreStratumServer(_stratumProperties, _stratumThreadPool);
+            _stratumServer = new BitcoinCoreStratumServer(_stratumProperties, databasePropertiesStore, _stratumThreadPool);
         }
         else {
-            _stratumServer = new BitcoinVerdeStratumServer(_stratumProperties, _stratumThreadPool);
+            _stratumServer = new BitcoinVerdeStratumServer(_stratumProperties, databasePropertiesStore, _stratumThreadPool);
         }
 
         _stratumServer.setWorkerShareCallback(new WorkerShareCallback() {
             @Override
-            public void onNewWorkerShare(final String workerUsername, final Integer shareDifficulty) {
+            public void onNewWorkerShare(final String workerUsername, final Long shareDifficulty) {
                 try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
                     final AccountDatabaseManager accountDatabaseManager = new AccountDatabaseManager(databaseConnection);
                     final WorkerId workerId = accountDatabaseManager.getWorkerId(workerUsername);
@@ -116,7 +118,7 @@ public class StratumModule {
             @Override
             public Long getHashesPerSecond() {
                 final Long hashesPerSecondMultiplier = (1L << 32);
-                final Integer shareDifficulty = _stratumServer.getShareDifficulty();
+                final Long shareDifficulty = _stratumServer.getShareDifficulty();
                 final Long startTimeInSeconds = _stratumServer.getCurrentBlockStartTimeInSeconds();
                 final Long shareCount = _stratumServer.getShareCount();
 

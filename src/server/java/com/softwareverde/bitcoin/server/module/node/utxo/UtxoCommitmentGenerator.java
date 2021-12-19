@@ -71,7 +71,7 @@ public class UtxoCommitmentGenerator extends PausableSleepyService {
 
     protected Long _getStagedUtxoCommitmentBlockHeight(final DatabaseManager databaseManager) throws DatabaseException {
         final PropertiesStore propertiesStore = databaseManager.getPropertiesStore();
-        final Long blockHeight = Util.coalesce(propertiesStore.get(STAGED_COMMITMENT_BLOCK_HEIGHT_KEY));
+        final Long blockHeight = Util.coalesce(propertiesStore.getLong(STAGED_COMMITMENT_BLOCK_HEIGHT_KEY));
 
         _cachedStagedUtxoCommitmentBlockHeight = blockHeight;
 

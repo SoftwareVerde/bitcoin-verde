@@ -289,7 +289,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
 
     protected Long _getLastIndexedTransactionId() {
         final PropertiesStore propertiesStore = _databaseManager.getPropertiesStore();
-        return Util.coalesce(propertiesStore.get(LAST_INDEXED_TRANSACTION_KEY));
+        return Util.coalesce(propertiesStore.getLong(LAST_INDEXED_TRANSACTION_KEY));
     }
 
     @Override
@@ -394,7 +394,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
     @Override
     public void markTransactionProcessed(final TransactionId transactionId) {
         final PropertiesStore propertiesStore = _databaseManager.getPropertiesStore();
-        propertiesStore.getAndSet(LAST_INDEXED_TRANSACTION_KEY, new PropertiesStore.GetAndSetter() {
+        propertiesStore.getAndSetLong(LAST_INDEXED_TRANSACTION_KEY, new PropertiesStore.GetAndSetter<Long>() {
             @Override
             public Long run(final Long value) {
                 return Math.max(Util.coalesce(value), (transactionId == null ? 0L : transactionId.longValue()));

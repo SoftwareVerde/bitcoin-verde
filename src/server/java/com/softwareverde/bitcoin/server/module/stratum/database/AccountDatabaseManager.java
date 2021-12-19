@@ -221,7 +221,7 @@ public class AccountDatabaseManager {
         return WorkerId.wrap(workerId);
     }
 
-    public void addWorkerShare(final WorkerId workerId, final Integer difficulty) throws DatabaseException {
+    public void addWorkerShare(final WorkerId workerId, final Long difficulty) throws DatabaseException {
         final SystemTime systemTime = new SystemTime();
 
         _databaseConnection.executeSql(
