@@ -5,7 +5,7 @@
         <link rel="stylesheet" href="/css/main.css" />
         <link rel="stylesheet" href="/css/bree-serif.css" />
         <link rel="stylesheet" href="/css/blocks.css" />
-        <link rel="stylesheet" href="/css/account.css" />
+        <link rel="stylesheet" href="/css/admin.css" />
         <link rel="stylesheet" href="/css/dialog.css" />
         <link rel="stylesheet" href="/css/font-awesome.css" />
 
@@ -18,27 +18,17 @@
         <script src="/js/hash-resizer.js"></script>
         <script src="/js/dialog.js"></script>
         <script src="/js/core.js"></script>
-        <script src="/js/account.js"></script>
+        <script src="/js/admin.js"></script>
 
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
-        <title>Bitcoin Verde Mining Pool</title>
+        <title>Bitcoin Verde Mining Pool Admin</title>
     </head>
     <body>
         <div id="header">
             <div class="brand">
                 <img class="logo" src="/img/bitcoin-cash-logo.png">
-                <span class="title bold">Mining Pool</span>
-            </div>
-            <div class="navigation">
-                <ul>
-                    <li><a href="/"><i class="fas fa-flask"></i>Status</a></li>
-                    <li><a href="/account/"><i class="fas fa-user"></i>Account</a></li>
-                </ul>
-            </div>
-            <div class="search">
-                <input id="search" />
-                <img id="search-loading-image" class="loading" src="/img/loading.gif" />
+                <span class="title bold">Mining Pool Admin</span>
             </div>
         </div>
         <div id="main">
@@ -50,10 +40,6 @@
         </div>
 
         <div id="templates">
-            <ul class="unauthenticated-navigation navigation">
-                <li class="authenticate-nav-button"><i class="fas fa-sign-in-alt"></i>Sign In</li>
-                <li class="create-account-nav-button"><i class="fas fa-user-plus"></i>Create Account</li>
-            </ul>
             <ul class="authenticated-navigation navigation">
                 <li class="set-payout-address-nav-button"><i class="fas fa-credit-card"></i>Set Payout Address</li>
                 <li class="manage-workers-nav-button"><i class="fas fa-network-wired"></i>Manage Workers</li>
@@ -92,10 +78,9 @@
             <div class="manage-workers-container container">
                 <div class="title">Workers <i class="fas fa-network-wired"></i></div>
                 <table class="workers"></table>
-                <div class="title">Add Worker <i class="fas fa-plus-square"></i></div>
+                <div class="title">Set Min Worker Difficulty</div>
                 <p class="results"></p>
-                <input class="username" type="text" placeholder="worker username"/>
-                <input class="password" type="password" placeholder="worker password" />
+                <input class="worker-difficulty" type="text" placeholder="Difficulty"/>
                 <div class="submit-button button">Submit</div>
             </div>
             <table class="workers-table">

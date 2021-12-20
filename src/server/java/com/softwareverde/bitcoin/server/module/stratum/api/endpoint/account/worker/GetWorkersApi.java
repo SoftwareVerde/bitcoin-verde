@@ -6,7 +6,7 @@ import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumApiResult;
-import com.softwareverde.bitcoin.server.module.stratum.database.AccountDatabaseManager;
+import com.softwareverde.bitcoin.server.module.stratum.database.WorkerDatabaseManager;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.http.HttpMethod;
@@ -41,14 +41,14 @@ public class GetWorkersApi extends AuthenticatedServlet {
             // Requires POST:
 
             try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                final AccountDatabaseManager accountDatabaseManager = new AccountDatabaseManager(databaseConnection);
-                final List<WorkerId> workerIds = accountDatabaseManager.getWorkerIds(accountId);
+                final WorkerDatabaseManager workerDatabaseManager = new WorkerDatabaseManager(databaseConnection);
+                final List<WorkerId> workerIds = workerDatabaseManager.getWorkerIds(accountId);
 
                 final Json workersJson = new Json(true);
 
                 for (final WorkerId workerId : workerIds) {
-                    final String workerUsername = accountDatabaseManager.getWorkerUsername(workerId);
-                    final Long workerSharesCount = accountDatabaseManager.getWorkerSharesCount(workerId);
+                    final String workerUsername = workerDatabaseManager.getWorkerUsername(workerId);
+                    final Long workerSharesCount = workerDatabaseManager.getWorkerSharesCount(workerId);
 
                     final Json workerJson = new Json(false);
                     workerJson.put("id", workerId);

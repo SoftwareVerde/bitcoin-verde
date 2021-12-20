@@ -6,7 +6,7 @@ import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumApiResult;
-import com.softwareverde.bitcoin.server.module.stratum.database.AccountDatabaseManager;
+import com.softwareverde.bitcoin.server.module.stratum.database.WorkerDatabaseManager;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.http.HttpMethod;
 import com.softwareverde.http.querystring.GetParameters;
@@ -46,13 +46,13 @@ public class CreateWorkerApi extends AuthenticatedServlet {
             }
 
             try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                final AccountDatabaseManager accountDatabaseManager = new AccountDatabaseManager(databaseConnection);
-                final WorkerId existingWorkerId = accountDatabaseManager.getWorkerId(username);
+                final WorkerDatabaseManager workerDatabaseManager = new WorkerDatabaseManager(databaseConnection);
+                final WorkerId existingWorkerId = workerDatabaseManager.getWorkerId(username);
                 if (existingWorkerId != null) {
                     return new JsonResponse(Response.Codes.OK, new StratumApiResult(false, "A worker with that username already exists."));
                 }
 
-                final WorkerId workerId = accountDatabaseManager.createWorker(accountId, username, password);
+                final WorkerId workerId = workerDatabaseManager.createWorker(accountId, username, password);
                 if (workerId == null) {
                     return new JsonResponse(Response.Codes.SERVER_ERROR, new StratumApiResult(false, "Unable to create worker."));
                 }

@@ -19,6 +19,8 @@ import com.softwareverde.bitcoin.rpc.RpcNotificationType;
 import com.softwareverde.bitcoin.rpc.core.BitcoinCoreRpcConnector;
 import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
+import com.softwareverde.bitcoin.server.module.stratum.callback.BlockFoundCallback;
+import com.softwareverde.bitcoin.server.module.stratum.callback.WorkerShareCallback;
 import com.softwareverde.bitcoin.server.properties.PropertiesStore;
 import com.softwareverde.bitcoin.server.stratum.message.RequestMessage;
 import com.softwareverde.bitcoin.server.stratum.message.ResponseMessage;
@@ -56,7 +58,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 
 public class BitcoinCoreStratumServer implements StratumServer {
-    public static final String SHARE_DIFFICULTY_KEY = "default_share_difficulty";
     public static final String COINBASE_ADDRESS_KEY = "coinbase_address";
 
     protected static final Boolean PROXY_VIABTC = false;
@@ -67,7 +68,6 @@ public class BitcoinCoreStratumServer implements StratumServer {
     protected final ThreadPool _threadPool;
     protected final StagnantStratumMineBlockTaskBuilderFactory _stratumMineBlockTaskBuilderFactory;
     protected final PropertiesStore _propertiesStore;
-
 
     protected final Integer _extraNonceByteCount = 4;
     protected final Integer _extraNonce2ByteCount = 4;
@@ -94,10 +94,9 @@ public class BitcoinCoreStratumServer implements StratumServer {
     protected final ConcurrentLinkedQueue<JsonSocket> _connections = new ConcurrentLinkedQueue<>();
 
     protected WorkerShareCallback _workerShareCallback;
+    protected BlockFoundCallback _blockFoundCallback;
 
-    protected Long _getShareDifficulty() {
-        return _propertiesStore.getLong(BitcoinCoreStratumServer.SHARE_DIFFICULTY_KEY);
-    }
+    protected Long _baseShareDifficulty = 2048L;
 
     protected Address _getCoinbaseAddress() {
         final AddressInflater addressInflater = new AddressInflater();
@@ -231,7 +230,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
     }
 
     protected void _setDifficulty(final JsonSocket socketConnection) {
-        final Long shareDifficulty = _getShareDifficulty();
+        final Long shareDifficulty = _baseShareDifficulty;
 
         final RequestMessage mineBlockMessage = new RequestMessage(RequestMessage.ServerCommand.SET_DIFFICULTY.getValue());
         final Json parametersJson = new Json(true);
@@ -319,7 +318,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
         }
 
         if (mineBlockTask != null) {
-            final Long baseShareDifficulty = _getShareDifficulty();
+            final Long baseShareDifficulty = _baseShareDifficulty;
             final Difficulty shareDifficulty = Difficulty.BASE_DIFFICULTY.divideBy(baseShareDifficulty);
 
             final BlockHeader blockHeader = mineBlockTask.assembleBlockHeader(stratumNonce, stratumExtraNonce2, stratumTimestamp);
@@ -349,6 +348,11 @@ public class BitcoinCoreStratumServer implements StratumServer {
 
                 _rebuildNewMiningTask();
                 _broadcastNewTask(true);
+
+                final BlockFoundCallback blockFoundCallback = _blockFoundCallback;
+                if (blockFoundCallback != null) {
+                    blockFoundCallback.run(block, workerUsername);
+                }
             }
         }
 
@@ -360,7 +364,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
                 _threadPool.execute(new Runnable() {
                     @Override
                     public void run() {
-                        final Long shareDifficulty = _getShareDifficulty();
+                        final Long shareDifficulty = _baseShareDifficulty;
                         workerShareCallback.onNewWorkerShare(workerUsername, shareDifficulty);
                     }
                 });
@@ -572,7 +576,13 @@ public class BitcoinCoreStratumServer implements StratumServer {
 
     @Override
     public Long getShareDifficulty() {
-        return _getShareDifficulty();
+        return _baseShareDifficulty;
+    }
+
+    @Override
+    public void setShareDifficulty(final Long baseShareDifficulty) {
+        _baseShareDifficulty = baseShareDifficulty;
+        _broadcastNewTask(true);
     }
 
     @Override
@@ -591,5 +601,10 @@ public class BitcoinCoreStratumServer implements StratumServer {
     @Override
     public void setWorkerShareCallback(final WorkerShareCallback workerShareCallback) {
         _workerShareCallback = workerShareCallback;
+    }
+
+    @Override
+    public void setBlockFoundCallback(final BlockFoundCallback blockFoundCallback) {
+        _blockFoundCallback = blockFoundCallback;
     }
 }

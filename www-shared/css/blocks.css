@@ -419,6 +419,11 @@
     right: 0;
     text-align: right;
     vertical-align: top;
+    z-index: 1;
+    background: none;
+}
+.transaction.collapsed .floating-properties-container {
+    display: none;
 }
 
 .transaction .floating-property {
@@ -573,6 +578,9 @@
 .transaction > .lock-time > .value {
     display: inline-block;
     font-size: 0.75em;
+}
+.transaction.collapsed > .lock-time {
+    display: none !important;
 }
 
 .transaction.collapsed > div > div {

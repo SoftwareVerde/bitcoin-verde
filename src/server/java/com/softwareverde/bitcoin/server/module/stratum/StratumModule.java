@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.module.stratum;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.miner.pool.WorkerId;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.configuration.StratumProperties;
@@ -16,18 +17,25 @@ import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.Pass
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.PayoutAddressApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.UnauthenticateApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.ValidateAuthenticationApi;
+import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.admin.AuthenticateAdminApi;
+import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.admin.UnauthenticateAdminApi;
+import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.admin.ValidateAdminAuthenticationApi;
+import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.admin.WorkerDifficultyApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.worker.CreateWorkerApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.worker.DeleteWorkerApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.worker.GetWorkersApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolHashRateApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolPrototypeBlockApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolWorkerApi;
-import com.softwareverde.bitcoin.server.module.stratum.database.AccountDatabaseManager;
+import com.softwareverde.bitcoin.server.module.stratum.callback.BlockFoundCallback;
+import com.softwareverde.bitcoin.server.module.stratum.callback.WorkerShareCallback;
+import com.softwareverde.bitcoin.server.module.stratum.database.WorkerDatabaseManager;
 import com.softwareverde.bitcoin.server.module.stratum.key.ServerEncryptionKey;
 import com.softwareverde.bitcoin.server.module.stratum.rpc.StratumRpcServer;
 import com.softwareverde.bitcoin.server.properties.DatabasePropertiesStore;
 import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.http.server.HttpServer;
@@ -35,6 +43,7 @@ import com.softwareverde.http.server.endpoint.Endpoint;
 import com.softwareverde.http.server.servlet.DirectoryServlet;
 import com.softwareverde.http.server.servlet.Servlet;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
@@ -86,18 +95,41 @@ public class StratumModule {
             @Override
             public void onNewWorkerShare(final String workerUsername, final Long shareDifficulty) {
                 try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
-                    final AccountDatabaseManager accountDatabaseManager = new AccountDatabaseManager(databaseConnection);
-                    final WorkerId workerId = accountDatabaseManager.getWorkerId(workerUsername);
+                    final WorkerDatabaseManager workerDatabaseManager = new WorkerDatabaseManager(databaseConnection);
+                    final WorkerId workerId = workerDatabaseManager.getWorkerId(workerUsername);
                     if (workerId == null) {
                         Logger.debug("Unknown worker: " + workerUsername);
                     }
                     else {
-                        accountDatabaseManager.addWorkerShare(workerId, shareDifficulty);
+                        workerDatabaseManager.addWorkerShare(workerId, shareDifficulty);
                         Logger.debug("Added worker share: " + workerUsername + " " + shareDifficulty);
                     }
                 }
                 catch (final DatabaseException databaseException) {
                     Logger.warn("Unable to add worker share: " + workerUsername + " " + shareDifficulty, databaseException);
+                }
+            }
+        });
+
+        _stratumServer.setBlockFoundCallback(new BlockFoundCallback() {
+            @Override
+            public void run(final Block block, final String workerName) {
+                final Sha256Hash blockHash = block.getHash();
+                try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+                    final WorkerDatabaseManager workerDatabaseManager = new WorkerDatabaseManager(databaseConnection);
+                    final WorkerId workerId = workerDatabaseManager.getWorkerId(workerName);
+
+                    workerDatabaseManager.recordFoundBlock(blockHash, workerId);
+
+                    // Store block...
+                    final BlockDeflater blockDeflater = new BlockDeflater();
+                    final ByteArray blockBytes = blockDeflater.toBytes(block);
+                    final String dataDirectory = _stratumProperties.getDataDirectory();
+                    final File blockFile = new File(dataDirectory, blockHash.toString());
+                    IoUtil.putFileContents(blockFile, blockBytes);
+                }
+                catch (final DatabaseException databaseException) {
+                    Logger.warn("Unable to record found block: " + blockHash, databaseException);
                 }
             }
         });
@@ -139,6 +171,23 @@ public class StratumModule {
         };
 
         { // Api Endpoints
+            final WorkerDifficultyApi workerDifficultyApi;
+            {
+                workerDifficultyApi = new WorkerDifficultyApi(stratumProperties, _databasePropertiesStore);
+                workerDifficultyApi.setShareDifficultyUpdatedCallback(new Runnable() {
+                    @Override
+                    public void run() {
+                        final Long workerDifficulty = WorkerDifficultyApi.getShareDifficulty(_databasePropertiesStore);
+                        _stratumServer.setShareDifficulty(workerDifficulty);
+                    }
+                });
+            }
+
+            _assignEndpoint("/api/v1/admin/authenticate", new AuthenticateAdminApi(stratumProperties, _databasePropertiesStore));
+            _assignEndpoint("/api/v1/admin/validate", new ValidateAdminAuthenticationApi(stratumProperties));
+            _assignEndpoint("/api/v1/admin/unauthenticate", new UnauthenticateAdminApi(stratumProperties));
+            _assignEndpoint("/api/v1/admin/worker/difficulty", workerDifficultyApi);
+
             _assignEndpoint("/api/v1/worker", new PoolWorkerApi(stratumProperties, stratumDataHandler));
             _assignEndpoint("/api/v1/pool/prototype-block", new PoolPrototypeBlockApi(stratumProperties, stratumDataHandler));
             _assignEndpoint("/api/v1/pool/hash-rate", new PoolHashRateApi(stratumProperties, stratumDataHandler));
@@ -214,9 +263,14 @@ public class StratumModule {
         }
 
         { // Ensure the StratumServer has a share difficulty set...
-            final Long shareDifficulty = _databasePropertiesStore.getLong(BitcoinCoreStratumServer.SHARE_DIFFICULTY_KEY);
-            if (shareDifficulty == null || shareDifficulty < 1) {
-                _databasePropertiesStore.set(BitcoinCoreStratumServer.SHARE_DIFFICULTY_KEY, 2048L);
+            if (! WorkerDifficultyApi.isShareDifficultySet(_databasePropertiesStore)) {
+                WorkerDifficultyApi.setShareDifficulty(2048L, _databasePropertiesStore);
+            }
+        }
+
+        { // Ensure the StratumServer has an admin password...
+            if (! AuthenticateAdminApi.isAdminPasswordSet(_databasePropertiesStore)) {
+                AuthenticateAdminApi.setDefaultAdminPassword(_databasePropertiesStore);
             }
         }
 

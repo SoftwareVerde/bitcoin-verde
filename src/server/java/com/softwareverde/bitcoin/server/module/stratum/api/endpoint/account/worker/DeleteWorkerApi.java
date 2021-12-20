@@ -6,7 +6,7 @@ import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumApiResult;
-import com.softwareverde.bitcoin.server.module.stratum.database.AccountDatabaseManager;
+import com.softwareverde.bitcoin.server.module.stratum.database.WorkerDatabaseManager;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.http.HttpMethod;
 import com.softwareverde.http.querystring.GetParameters;
@@ -45,13 +45,13 @@ public class DeleteWorkerApi extends AuthenticatedServlet {
             }
 
             try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                final AccountDatabaseManager accountDatabaseManager = new AccountDatabaseManager(databaseConnection);
-                final AccountId workerAccountId = accountDatabaseManager.getWorkerAccountId(workerId);
+                final WorkerDatabaseManager workerDatabaseManager = new WorkerDatabaseManager(databaseConnection);
+                final AccountId workerAccountId = workerDatabaseManager.getWorkerAccountId(workerId);
                 if (! Util.areEqual(accountId, workerAccountId)) {
                     return new JsonResponse(Response.Codes.BAD_REQUEST, new StratumApiResult(false, "Invalid worker id."));
                 }
 
-                accountDatabaseManager.deleteWorker(workerId);
+                workerDatabaseManager.deleteWorker(workerId);
 
                 return new JsonResponse(Response.Codes.OK, new StratumApiResult(true, null));
             }

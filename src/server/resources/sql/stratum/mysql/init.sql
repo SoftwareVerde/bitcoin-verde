@@ -36,4 +36,13 @@ CREATE TABLE worker_shares (
     FOREIGN KEY worker_shares_worker_id_fk (worker_id) REFERENCES workers (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
+CREATE TABLE found_blocks (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    hash BINARY(32) NOT NULL,
+    worker_id INT UNSIGNED NULL,
+    timestamp BIGINT UNSIGNED NOT NULL,
+    PRIMARY KEY (id),
+    FOREIGN KEY found_blocks_worker_id_fk (worker_id) REFERENCES workers (id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
+
 INSERT INTO metadata (version, timestamp) VALUES (9, UNIX_TIMESTAMP());
