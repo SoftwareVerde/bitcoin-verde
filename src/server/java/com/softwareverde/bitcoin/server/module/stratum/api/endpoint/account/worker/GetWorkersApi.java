@@ -21,10 +21,15 @@ import com.softwareverde.servlet.AuthenticatedServlet;
 
 public class GetWorkersApi extends AuthenticatedServlet {
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
+    protected Long _shareDifficulty;
 
     public GetWorkersApi(final StratumProperties stratumProperties, final DatabaseConnectionFactory databaseConnectionFactory) {
         super(stratumProperties);
         _databaseConnectionFactory = databaseConnectionFactory;
+    }
+
+    public void setShareDifficulty(final Long shareDifficulty) {
+        _shareDifficulty = shareDifficulty;
     }
 
     @Override
@@ -48,7 +53,15 @@ public class GetWorkersApi extends AuthenticatedServlet {
 
                 for (final WorkerId workerId : workerIds) {
                     final String workerUsername = workerDatabaseManager.getWorkerUsername(workerId);
-                    final Long workerSharesCount = workerDatabaseManager.getWorkerSharesCount(workerId);
+
+                    final Long shareDifficulty = _shareDifficulty;
+                    final Long workerSharesCount;
+                    if (shareDifficulty != null) {
+                        workerSharesCount = workerDatabaseManager.getWorkerSharesCount(workerId, shareDifficulty);
+                    }
+                    else {
+                        workerSharesCount = workerDatabaseManager.getWorkerSharesCount(workerId);
+                    }
 
                     final Json workerJson = new Json(false);
                     workerJson.put("id", workerId);

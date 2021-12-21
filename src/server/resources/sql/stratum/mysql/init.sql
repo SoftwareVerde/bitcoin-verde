@@ -31,8 +31,10 @@ CREATE TABLE worker_shares (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     worker_id INT UNSIGNED NOT NULL,
     difficulty INT UNSIGNED NOT NULL,
+    hash BINARY(32) NOT NULL,
     timestamp BIGINT UNSIGNED NOT NULL,
     PRIMARY KEY (id),
+    UNIQUE KEY worker_shares_uq (hash),
     FOREIGN KEY worker_shares_worker_id_fk (worker_id) REFERENCES workers (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 

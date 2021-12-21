@@ -10,7 +10,6 @@ import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.properties.PropertiesStore;
 import com.softwareverde.bitcoin.server.stratum.task.StagnantStratumMineBlockTaskBuilderFactory;
 import com.softwareverde.concurrent.threadpool.ThreadPool;
-import com.softwareverde.json.Json;
 
 public class BitcoinVerdeStratumServer extends BitcoinCoreStratumServer {
 
@@ -27,14 +26,7 @@ public class BitcoinVerdeStratumServer extends BitcoinCoreStratumServer {
             protected NodeJsonRpcConnection _getRpcConnection() {
                 final String host = _bitcoinNodeRpcAddress.getHost();
                 final Integer port = _bitcoinNodeRpcAddress.getPort();
-                return new NodeJsonRpcConnection(host, port, _threadPool) {
-                    @Override
-                    protected Json _executeJsonRequest(final Json rpcRequestJson) {
-                        final Json response = super._executeJsonRequest(rpcRequestJson);
-                        System.out.println(response);
-                        return response;
-                    }
-                };
+                return new NodeJsonRpcConnection(host, port, _threadPool);
             }
         };
     }

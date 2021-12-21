@@ -33,7 +33,6 @@ import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTask;
 import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTaskBuilder;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
-import com.softwareverde.bitcoin.transaction.TransactionWithFee;
 import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
@@ -47,6 +46,7 @@ import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
+import com.softwareverde.util.timer.NanoTimer;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.net.Socket;
@@ -82,8 +82,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
     protected StratumMineBlockTask _currentMineBlockTask = null;
     protected final ConcurrentHashMap<Long, StratumMineBlockTask> _mineBlockTasks = new ConcurrentHashMap<>();
 
-    protected final MilliTimer _lastTransactionQueueProcessTimer = new MilliTimer();
-    protected final ConcurrentLinkedQueue<TransactionWithFee> _queuedTransactions = new ConcurrentLinkedQueue<>();
+    protected final MilliTimer _lastTemplateRefreshTimer = new MilliTimer();
 
     protected final Thread _rebuildTaskThread;
 
@@ -147,7 +146,15 @@ public class BitcoinCoreStratumServer implements StratumServer {
         return mineBlockTask.assembleBlock(stratumNonce, stratumExtraNonce2, stratumTimestamp);
     }
 
-    protected void _rebuildNewMiningTask() {
+    protected void _resetHashCountMonitoring() {
+        _currentBlockStartTime = _systemTime.getCurrentTimeInSeconds();
+        _shareCount.set(0L);
+    }
+
+    protected synchronized void _rebuildNewMiningTask() {
+        final NanoTimer nanoTimer = new NanoTimer();
+        nanoTimer.start();
+
         final StagnantStratumMineBlockTaskBuilderCore stratumMineBlockTaskBuilder = _stratumMineBlockTaskBuilderFactory.newStratumMineBlockTaskBuilder(_totalExtraNonceByteCount);
 
         final String coinbaseMessage = BitcoinConstants.getCoinbaseMessage();
@@ -185,19 +192,20 @@ public class BitcoinCoreStratumServer implements StratumServer {
             _mineBlockTasks.clear();
             _mineBlockTasks.put(_currentMineBlockTask.getId(), _currentMineBlockTask);
 
-            _queuedTransactions.clear();
-            _lastTransactionQueueProcessTimer.reset();
+            _lastTemplateRefreshTimer.reset();
         }
         finally {
             _mineBlockTaskWriteLock.unlock();
         }
 
-        _currentBlockStartTime = _systemTime.getCurrentTimeInSeconds();
-        _shareCount.set(0L);
+        _resetHashCountMonitoring();
+
+        nanoTimer.stop();
+        Logger.trace("Rebuild mining task from prototype block in " + nanoTimer.getMillisecondsElapsed() + "ms.");
     }
 
     /**
-     * Builds a new task from the factory.  New tasks have a new timestamp and include any new transactions added to the factory.
+     * Builds a new task from the factory.  New tasks have a new timestamp.
      */
     protected void _updateCurrentMiningTask() {
         try {
@@ -301,8 +309,6 @@ public class BitcoinCoreStratumServer implements StratumServer {
         final String stratumExtraNonce2 = messageParameters.getString(2);
         final String stratumTimestamp = messageParameters.getString(3);
 
-        boolean submissionWasAccepted = true;
-
         final Long taskIdLong = ByteUtil.bytesToLong(taskId.getBytes());
         final StratumMineBlockTask mineBlockTask;
         try {
@@ -313,67 +319,68 @@ public class BitcoinCoreStratumServer implements StratumServer {
         finally {
             _mineBlockTaskReadLock.unlock();
         }
+
         if (mineBlockTask == null) {
-            submissionWasAccepted = false;
+            final ResponseMessage blockAcceptedMessage = new MinerSubmitBlockResult(requestMessage.getId(), false);
+            socketConnection.write(new JsonProtocolMessage(blockAcceptedMessage));
+            return;
         }
 
-        if (mineBlockTask != null) {
-            final Long baseShareDifficulty = _baseShareDifficulty;
-            final Difficulty shareDifficulty = Difficulty.BASE_DIFFICULTY.divideBy(baseShareDifficulty);
+        final Long baseShareDifficulty = _baseShareDifficulty;
+        final Difficulty shareDifficulty = Difficulty.BASE_DIFFICULTY.divideBy(baseShareDifficulty);
 
-            final BlockHeader blockHeader = mineBlockTask.assembleBlockHeader(stratumNonce, stratumExtraNonce2, stratumTimestamp);
-            final Sha256Hash hash = blockHeader.getHash();
-            Logger.debug(workerUsername + ": " + hash);
-            if (! shareDifficulty.isSatisfiedBy(hash)) {
-                submissionWasAccepted = false;
-                Logger.warn("Share Difficulty not satisfied.");
+        final BlockHeader blockHeader = mineBlockTask.assembleBlockHeader(stratumNonce, stratumExtraNonce2, stratumTimestamp);
+        final Sha256Hash blockHash = blockHeader.getHash();
+        Logger.debug(workerUsername + ": " + blockHash);
 
-                final RequestMessage newRequestMessage = mineBlockTask.createRequest(false);
-                Logger.debug("Resending Task: "+ newRequestMessage.toString());
-                socketConnection.write(new JsonProtocolMessage(newRequestMessage));
+        if (! shareDifficulty.isSatisfiedBy(blockHash)) {
+            Logger.warn("Share Difficulty not satisfied.");
+
+            final ResponseMessage blockAcceptedMessage = new MinerSubmitBlockResult(requestMessage.getId(), false);
+            socketConnection.write(new JsonProtocolMessage(blockAcceptedMessage));
+
+            _sendWork(socketConnection, true);
+            return;
+        }
+
+        if (blockHeader.isValid()) {
+            final BlockHeaderDeflater blockHeaderDeflater = _masterInflater.getBlockHeaderDeflater();
+            Logger.info("Valid Block: " + blockHeaderDeflater.toBytes(blockHeader));
+
+            final BlockDeflater blockDeflater = _masterInflater.getBlockDeflater();
+            final Block block = mineBlockTask.assembleBlock(stratumNonce, stratumExtraNonce2, stratumTimestamp);
+            Logger.info(blockDeflater.toBytes(block));
+
+            final BitcoinMiningRpcConnector bitcoinRpcConnector = _getBitcoinRpcConnector();
+            final Boolean submitBlockResponse = bitcoinRpcConnector.submitBlock(block);
+            if (! submitBlockResponse) {
+                Logger.warn("Unable to submit block: " + blockHash);
             }
-            else if (blockHeader.isValid()) {
-                final BlockHeaderDeflater blockHeaderDeflater = _masterInflater.getBlockHeaderDeflater();
-                Logger.info("Valid Block: " + blockHeaderDeflater.toBytes(blockHeader));
 
-                final BlockDeflater blockDeflater = _masterInflater.getBlockDeflater();
-                final Block block = mineBlockTask.assembleBlock(stratumNonce, stratumExtraNonce2, stratumTimestamp);
-                Logger.info(blockDeflater.toBytes(block));
+            _rebuildNewMiningTask();
+            _resetHashCountMonitoring();
+            _broadcastNewTask(true);
 
-                final BitcoinMiningRpcConnector bitcoinRpcConnector = _getBitcoinRpcConnector();
-                final Boolean submitBlockResponse = bitcoinRpcConnector.submitBlock(block);
-                if (! submitBlockResponse) {
-                    submissionWasAccepted = false;
+            final BlockFoundCallback blockFoundCallback = _blockFoundCallback;
+            if (blockFoundCallback != null) {
+                blockFoundCallback.run(block, workerUsername);
+            }
+        }
+
+        _shareCount.incrementAndGet();
+
+        final WorkerShareCallback workerShareCallback = _workerShareCallback;
+        if (workerShareCallback != null) {
+            _threadPool.execute(new Runnable() {
+                @Override
+                public void run() {
+                    final Long shareDifficulty = _baseShareDifficulty;
+                    workerShareCallback.onNewWorkerShare(workerUsername, shareDifficulty, blockHash);
                 }
-
-                _rebuildNewMiningTask();
-                _broadcastNewTask(true);
-
-                final BlockFoundCallback blockFoundCallback = _blockFoundCallback;
-                if (blockFoundCallback != null) {
-                    blockFoundCallback.run(block, workerUsername);
-                }
-            }
+            });
         }
 
-        if (submissionWasAccepted) {
-            _shareCount.incrementAndGet();
-
-            final WorkerShareCallback workerShareCallback = _workerShareCallback;
-            if (workerShareCallback != null) {
-                _threadPool.execute(new Runnable() {
-                    @Override
-                    public void run() {
-                        final Long shareDifficulty = _baseShareDifficulty;
-                        workerShareCallback.onNewWorkerShare(workerUsername, shareDifficulty);
-                    }
-                });
-            }
-        }
-
-        final ResponseMessage blockAcceptedMessage = new MinerSubmitBlockResult(requestMessage.getId(), submissionWasAccepted);
-
-        Logger.debug("Sent: "+ blockAcceptedMessage);
+        final ResponseMessage blockAcceptedMessage = new MinerSubmitBlockResult(requestMessage.getId(), true);
         socketConnection.write(new JsonProtocolMessage(blockAcceptedMessage));
     }
 
@@ -514,9 +521,9 @@ public class BitcoinCoreStratumServer implements StratumServer {
             @Override
             public void run() {
                 while (! Thread.interrupted()) {
-                    try { Thread.sleep(60000); } catch (final InterruptedException exception) { break; }
+                    try { Thread.sleep(15000); } catch (final InterruptedException exception) { break; }
 
-                    _updateCurrentMiningTask();
+                    _rebuildNewMiningTask();
                     _broadcastNewTask(false);
                 }
             }
@@ -542,6 +549,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
                     case BLOCK_HASH: {
                         Logger.info("New Block received.");
                         _rebuildNewMiningTask();
+                        _resetHashCountMonitoring();
                         _broadcastNewTask(true);
                     }
                 }
@@ -582,6 +590,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
     @Override
     public void setShareDifficulty(final Long baseShareDifficulty) {
         _baseShareDifficulty = baseShareDifficulty;
+        _resetHashCountMonitoring();
         _broadcastNewTask(true);
     }
 

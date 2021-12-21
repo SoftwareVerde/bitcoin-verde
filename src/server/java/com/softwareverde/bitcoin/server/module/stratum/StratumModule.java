@@ -60,6 +60,7 @@ public class StratumModule {
     protected final StratumServer _stratumServer;
     protected final StratumRpcServer _stratumRpcServer;
     protected final HttpServer _apiServer = new HttpServer();
+    protected final Runnable _updateShareDifficulty;
 
     protected final CachedThreadPool _stratumThreadPool = new CachedThreadPool(256, 60000L);
     protected final CachedThreadPool _rpcThreadPool = new CachedThreadPool(256, 60000L);
@@ -93,7 +94,7 @@ public class StratumModule {
 
         _stratumServer.setWorkerShareCallback(new WorkerShareCallback() {
             @Override
-            public void onNewWorkerShare(final String workerUsername, final Long shareDifficulty) {
+            public void onNewWorkerShare(final String workerUsername, final Long shareDifficulty, final Sha256Hash blockHash) {
                 try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
                     final WorkerDatabaseManager workerDatabaseManager = new WorkerDatabaseManager(databaseConnection);
                     final WorkerId workerId = workerDatabaseManager.getWorkerId(workerUsername);
@@ -101,8 +102,7 @@ public class StratumModule {
                         Logger.debug("Unknown worker: " + workerUsername);
                     }
                     else {
-                        // TODO: ensure worker share is unique...
-                        workerDatabaseManager.addWorkerShare(workerId, shareDifficulty);
+                        workerDatabaseManager.addWorkerShare(workerId, shareDifficulty, blockHash);
                         Logger.debug("Added worker share: " + workerUsername + " " + shareDifficulty);
                     }
                 }
@@ -172,16 +172,22 @@ public class StratumModule {
         };
 
         { // Api Endpoints
+            final GetWorkersApi getWorkersApi;
             final WorkerDifficultyApi workerDifficultyApi;
             {
-                workerDifficultyApi = new WorkerDifficultyApi(stratumProperties, _databasePropertiesStore);
-                workerDifficultyApi.setShareDifficultyUpdatedCallback(new Runnable() {
+                getWorkersApi = new GetWorkersApi(stratumProperties, databaseConnectionFactory);
+
+                _updateShareDifficulty = new Runnable() {
                     @Override
                     public void run() {
-                        final Long workerDifficulty = WorkerDifficultyApi.getShareDifficulty(_databasePropertiesStore);
-                        _stratumServer.setShareDifficulty(workerDifficulty);
+                        final Long shareDifficulty = WorkerDifficultyApi.getShareDifficulty(_databasePropertiesStore);
+                        _stratumServer.setShareDifficulty(shareDifficulty);
+                        getWorkersApi.setShareDifficulty(shareDifficulty);
                     }
-                });
+                };
+
+                workerDifficultyApi = new WorkerDifficultyApi(stratumProperties, _databasePropertiesStore);
+                workerDifficultyApi.setShareDifficultyUpdatedCallback(_updateShareDifficulty);
             }
 
             _assignEndpoint("/api/v1/admin/authenticate", new AuthenticateAdminApi(stratumProperties, _databasePropertiesStore));
@@ -200,7 +206,7 @@ public class StratumModule {
             _assignEndpoint("/api/v1/account/password", new PasswordApi(stratumProperties, databaseConnectionFactory));
             _assignEndpoint("/api/v1/account/workers/create", new CreateWorkerApi(stratumProperties, databaseConnectionFactory));
             _assignEndpoint("/api/v1/account/workers/delete", new DeleteWorkerApi(stratumProperties, databaseConnectionFactory));
-            _assignEndpoint("/api/v1/account/workers", new GetWorkersApi(stratumProperties, databaseConnectionFactory));
+            _assignEndpoint("/api/v1/account/workers", getWorkersApi);
         }
 
         { // Static Content
@@ -267,8 +273,8 @@ public class StratumModule {
             if (! WorkerDifficultyApi.isShareDifficultySet(_databasePropertiesStore)) {
                 WorkerDifficultyApi.setShareDifficulty(2048L, _databasePropertiesStore);
             }
-            final Long shareDifficulty = WorkerDifficultyApi.getShareDifficulty(_databasePropertiesStore);
-            _stratumServer.setShareDifficulty(shareDifficulty);
+
+            _updateShareDifficulty.run();
         }
 
         { // Ensure the StratumServer has an admin password...

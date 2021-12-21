@@ -131,13 +131,14 @@ public class WorkerDatabaseManager {
         return WorkerId.wrap(workerId);
     }
 
-    public void addWorkerShare(final WorkerId workerId, final Long difficulty) throws DatabaseException {
+    public void addWorkerShare(final WorkerId workerId, final Long difficulty, final Sha256Hash blockHash) throws DatabaseException {
         final SystemTime systemTime = new SystemTime();
 
         _databaseConnection.executeSql(
-            new Query("INSERT INTO worker_shares (worker_id, difficulty, timestamp) VALUES (?, ?, ?)")
+            new Query("INSERT INTO worker_shares (worker_id, difficulty, hash, timestamp) VALUES (?, ?, ?, ?)")
                 .setParameter(workerId)
                 .setParameter(difficulty)
+                .setParameter(blockHash)
                 .setParameter(systemTime.getCurrentTimeInSeconds())
         );
     }
@@ -151,5 +152,20 @@ public class WorkerDatabaseManager {
 
         final Row row = rows.get(0);
         return row.getLong("shares_count");
+    }
+
+    /**
+     * Returns the normalized share difficulty for the provided worker.
+     */
+    public Long getWorkerSharesCount(final WorkerId workerId, final Long shareDifficulty) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT SUM(difficulty) AS shares_count FROM worker_shares WHERE worker_id = ?")
+                .setParameter(workerId)
+        );
+        if (rows.isEmpty()) { return 0L; }
+
+        final Row row = rows.get(0);
+        final Long sharesCount = Util.coalesce(row.getLong("shares_count"));
+        return (sharesCount / shareDifficulty);
     }
 }
