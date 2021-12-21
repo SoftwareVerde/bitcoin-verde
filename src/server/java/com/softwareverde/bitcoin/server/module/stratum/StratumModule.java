@@ -101,6 +101,7 @@ public class StratumModule {
                         Logger.debug("Unknown worker: " + workerUsername);
                     }
                     else {
+                        // TODO: ensure worker share is unique...
                         workerDatabaseManager.addWorkerShare(workerId, shareDifficulty);
                         Logger.debug("Added worker share: " + workerUsername + " " + shareDifficulty);
                     }
@@ -266,6 +267,8 @@ public class StratumModule {
             if (! WorkerDifficultyApi.isShareDifficultySet(_databasePropertiesStore)) {
                 WorkerDifficultyApi.setShareDifficulty(2048L, _databasePropertiesStore);
             }
+            final Long shareDifficulty = WorkerDifficultyApi.getShareDifficulty(_databasePropertiesStore);
+            _stratumServer.setShareDifficulty(shareDifficulty);
         }
 
         { // Ensure the StratumServer has an admin password...
