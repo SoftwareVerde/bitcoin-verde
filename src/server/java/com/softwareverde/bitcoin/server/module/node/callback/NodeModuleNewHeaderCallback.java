@@ -139,16 +139,18 @@ class NodeModuleNewHeaderCallbackWithFastSync extends NodeModuleNewHeaderCallbac
             final Boolean didComplete = _utxoCommitmentDownloader.runOnceSynchronously(unspentTransactionOutputVisitor);
             _fastSyncHasCompleted = didComplete;
 
-            if (didComplete && _indexModeIsEnabled) {
-                try {
-                    if (! transactionOutputIdentifierIndexBatch.isEmpty()) {
-                        utxoCommitmentIndexer.indexFastSyncUtxos(transactionOutputIdentifierIndexBatch, transactionOutputIndexBatch);
-                        transactionOutputIdentifierIndexBatch.clear();
-                        transactionOutputIndexBatch.clear();
+            if (didComplete) {
+                if (_indexModeIsEnabled) {
+                    try {
+                        if (! transactionOutputIdentifierIndexBatch.isEmpty()) {
+                            utxoCommitmentIndexer.indexFastSyncUtxos(transactionOutputIdentifierIndexBatch, transactionOutputIndexBatch);
+                            transactionOutputIdentifierIndexBatch.clear();
+                            transactionOutputIndexBatch.clear();
+                        }
                     }
-                }
-                catch (final DatabaseException exception) {
-                    Logger.debug(exception);
+                    catch (final DatabaseException exception) {
+                        Logger.debug(exception);
+                    }
                 }
 
                 if (_onFastSyncComplete != null) {
