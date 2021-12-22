@@ -16,6 +16,7 @@ import com.softwareverde.http.server.servlet.response.JsonResponse;
 import com.softwareverde.http.server.servlet.response.Response;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.servlet.AuthenticatedServlet;
+import com.softwareverde.util.Util;
 
 public class CreateWorkerApi extends AuthenticatedServlet {
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
@@ -49,6 +50,16 @@ public class CreateWorkerApi extends AuthenticatedServlet {
                 final WorkerDatabaseManager workerDatabaseManager = new WorkerDatabaseManager(databaseConnection);
                 final WorkerId existingWorkerId = workerDatabaseManager.getWorkerId(username);
                 if (existingWorkerId != null) {
+                    final Boolean workerHasBeenDeleted = workerDatabaseManager.hasWorkedBeenDeleted(existingWorkerId);
+                    final AccountId existingWorkerAccountId = workerDatabaseManager.getWorkerAccountId(existingWorkerId);
+                    if ( workerHasBeenDeleted && Util.areEqual(accountId, existingWorkerAccountId) ) {
+                        // Undelete an existing worker from the account...
+                        workerDatabaseManager.restoreWorker(existingWorkerId, password);
+
+                        final StratumApiResult result = new StratumApiResult(true, null);
+                        result.put("workerId", existingWorkerId);
+                        return new JsonResponse(Response.Codes.OK, result);
+                    }
                     return new JsonResponse(Response.Codes.OK, new StratumApiResult(false, "A worker with that username already exists."));
                 }
 

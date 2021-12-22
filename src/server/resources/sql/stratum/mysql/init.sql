@@ -22,6 +22,7 @@ CREATE TABLE workers (
     password VARCHAR(255) NOT NULL,
     salt VARCHAR(255) NOT NULL,
     iterations INT UNSIGNED NOT NULL,
+    was_deleted TINYINT(1) NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY workers_uq (username),
     FOREIGN KEY workers_accounts_fk (account_id) REFERENCES accounts (id) ON DELETE CASCADE

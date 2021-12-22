@@ -261,17 +261,16 @@ class StratumMiner {
         final String stratumExtraNonce2 = messageParameters.getString(2);
         final String stratumTimestamp = messageParameters.getString(3);
 
-        boolean submissionWasAccepted = true;
-
         final Long taskIdLong = ByteUtil.bytesToLong(taskId.getBytes());
         final StratumMineBlockTask mineBlockTask = _currentMineBlockTask;
-        if (mineBlockTask == null) {
-            submissionWasAccepted = false;
-        }
 
         boolean shouldExit = false;
 
-        if (mineBlockTask != null) {
+        final ResponseMessage.Error error;
+        if (mineBlockTask == null) {
+            error = ResponseMessage.Error.NOT_FOUND;
+        }
+        else {
             final Difficulty shareDifficulty = Difficulty.BASE_DIFFICULTY.divideBy(_shareDifficulty);
 
             final BlockHeader blockHeader = mineBlockTask.assembleBlockHeader(stratumNonce, stratumExtraNonce2, stratumTimestamp);
@@ -281,27 +280,31 @@ class StratumMiner {
             Logger.info(shareDifficulty.getBytes());
 
             if (! shareDifficulty.isSatisfiedBy(hash)) {
-                submissionWasAccepted = false;
+                error = ResponseMessage.Error.LOW_DIFFICULTY;
                 Logger.info("NOTICE: Share Difficulty not satisfied.");
 
                 final RequestMessage newRequestMessage = mineBlockTask.createRequest(false);
                 Logger.info("Resending Task: "+ newRequestMessage.toString());
                 socketConnection.write(new JsonProtocolMessage(newRequestMessage));
             }
-            else if (blockHeader.isValid()) {
-                final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
-                Logger.info("Valid Block: " + blockHeaderDeflater.toBytes(blockHeader));
+            else {
+                error = null; // Share accepted.
 
-                final BlockDeflater blockDeflater = new BlockDeflater();
-                final Block block = mineBlockTask.assembleBlock(stratumNonce, stratumExtraNonce2, stratumTimestamp);
-                Logger.info(blockDeflater.toBytes(block));
+                if (blockHeader.isValid()) {
+                    final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
+                    Logger.info("Valid Block: " + blockHeaderDeflater.toBytes(blockHeader));
 
-                shouldExit = true;
-                BitcoinUtil.exitSuccess();
+                    final BlockDeflater blockDeflater = new BlockDeflater();
+                    final Block block = mineBlockTask.assembleBlock(stratumNonce, stratumExtraNonce2, stratumTimestamp);
+                    Logger.info(blockDeflater.toBytes(block));
+
+                    shouldExit = true;
+                    BitcoinUtil.exitSuccess();
+                }
             }
         }
 
-        final ResponseMessage blockAcceptedMessage = new MinerSubmitBlockResult(requestMessage.getId(), submissionWasAccepted);
+        final ResponseMessage blockAcceptedMessage = new MinerSubmitBlockResult(requestMessage.getId(), error);
 
         Logger.info("Sent: "+ blockAcceptedMessage);
         socketConnection.write(new JsonProtocolMessage(blockAcceptedMessage));

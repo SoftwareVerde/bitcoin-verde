@@ -57,6 +57,7 @@ public class StratumModule {
     protected final Environment _environment;
     protected final StratumProperties _stratumProperties;
     protected final DatabasePropertiesStore _databasePropertiesStore;
+    protected final WorkerShareQueue _workerShareQueue;
     protected final StratumServer _stratumServer;
     protected final StratumRpcServer _stratumRpcServer;
     protected final HttpServer _apiServer = new HttpServer();
@@ -92,23 +93,11 @@ public class StratumModule {
             _stratumServer = new BitcoinVerdeStratumServer(_stratumProperties, _databasePropertiesStore, _stratumThreadPool);
         }
 
+        _workerShareQueue = new WorkerShareQueue(databaseConnectionFactory);
         _stratumServer.setWorkerShareCallback(new WorkerShareCallback() {
             @Override
-            public void onNewWorkerShare(final String workerUsername, final Long shareDifficulty, final Sha256Hash blockHash) {
-                try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
-                    final WorkerDatabaseManager workerDatabaseManager = new WorkerDatabaseManager(databaseConnection);
-                    final WorkerId workerId = workerDatabaseManager.getWorkerId(workerUsername);
-                    if (workerId == null) {
-                        Logger.debug("Unknown worker: " + workerUsername);
-                    }
-                    else {
-                        workerDatabaseManager.addWorkerShare(workerId, shareDifficulty, blockHash);
-                        Logger.debug("Added worker share: " + workerUsername + " " + shareDifficulty);
-                    }
-                }
-                catch (final DatabaseException databaseException) {
-                    Logger.warn("Unable to add worker share: " + workerUsername + " " + shareDifficulty, databaseException);
-                }
+            public Boolean onNewWorkerShare(final String workerUsername, final Long shareDifficulty, final Sha256Hash blockHash) {
+                return _workerShareQueue.addWorkerShare(workerUsername, shareDifficulty, blockHash);
             }
         });
 
@@ -284,6 +273,7 @@ public class StratumModule {
         }
 
         _stratumRpcServer.start();
+        _workerShareQueue.start();
         _stratumServer.start();
         _apiServer.start();
 
@@ -293,6 +283,7 @@ public class StratumModule {
 
         _apiServer.stop();
         _stratumServer.stop();
+        _workerShareQueue.stop();
         _stratumRpcServer.stop();
 
         _databasePropertiesStore.stop();

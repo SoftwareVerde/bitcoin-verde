@@ -302,6 +302,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
     protected void _handleSubmitMessage(final RequestMessage requestMessage, final JsonSocket socketConnection) {
         // mining.submit("username", "job id", "ExtraNonce2", "nTime", "nOnce")
 
+        final Integer messageId = requestMessage.getId();
         final Json messageParameters = requestMessage.getParameters();
         final String workerUsername = messageParameters.getString(0);
         final ByteArray taskId = MutableByteArray.wrap(HexUtil.hexStringToByteArray(messageParameters.getString(1)));
@@ -321,7 +322,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
         }
 
         if (mineBlockTask == null) {
-            final ResponseMessage blockAcceptedMessage = new MinerSubmitBlockResult(requestMessage.getId(), false);
+            final ResponseMessage blockAcceptedMessage = new MinerSubmitBlockResult(messageId, ResponseMessage.Error.NOT_FOUND);
             socketConnection.write(new JsonProtocolMessage(blockAcceptedMessage));
             return;
         }
@@ -336,7 +337,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
         if (! shareDifficulty.isSatisfiedBy(blockHash)) {
             Logger.warn("Share Difficulty not satisfied.");
 
-            final ResponseMessage blockAcceptedMessage = new MinerSubmitBlockResult(requestMessage.getId(), false);
+            final ResponseMessage blockAcceptedMessage = new MinerSubmitBlockResult(messageId, ResponseMessage.Error.LOW_DIFFICULTY);
             socketConnection.write(new JsonProtocolMessage(blockAcceptedMessage));
 
             _sendWork(socketConnection, true);
@@ -371,17 +372,15 @@ public class BitcoinCoreStratumServer implements StratumServer {
 
         final WorkerShareCallback workerShareCallback = _workerShareCallback;
         if (workerShareCallback != null) {
-            _threadPool.execute(new Runnable() {
-                @Override
-                public void run() {
-                    final Long shareDifficulty = _baseShareDifficulty;
-                    workerShareCallback.onNewWorkerShare(workerUsername, shareDifficulty, blockHash);
-                }
-            });
+            final Boolean wasAccepted = workerShareCallback.onNewWorkerShare(workerUsername, baseShareDifficulty, blockHash);
+            if (! wasAccepted) {
+                final ResponseMessage shareAcceptedMessage = new MinerSubmitBlockResult(messageId, ResponseMessage.Error.DUPLICATE);
+                socketConnection.write(new JsonProtocolMessage(shareAcceptedMessage));
+            }
         }
 
-        final ResponseMessage blockAcceptedMessage = new MinerSubmitBlockResult(requestMessage.getId(), true);
-        socketConnection.write(new JsonProtocolMessage(blockAcceptedMessage));
+        final ResponseMessage shareAcceptedMessage = new MinerSubmitBlockResult(messageId);
+        socketConnection.write(new JsonProtocolMessage(shareAcceptedMessage));
     }
 
     public BitcoinCoreStratumServer(final StratumProperties stratumProperties, final PropertiesStore propertiesStore, final ThreadPool threadPool) {
@@ -418,7 +417,8 @@ public class BitcoinCoreStratumServer implements StratumServer {
 
         _extraNonce = _createRandomBytes(_extraNonceByteCount);
 
-        _stratumServerSocket = new StratumServerSocket(stratumProperties.getPort(), _threadPool);
+        final Integer stratumPort = stratumProperties.getPort();
+        _stratumServerSocket = new StratumServerSocket(stratumPort, _threadPool);
 
         _stratumServerSocket.setSocketEventCallback(new StratumServerSocket.SocketEventCallback() {
             @Override

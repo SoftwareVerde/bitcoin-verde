@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.module.stratum.database;
 import com.softwareverde.bitcoin.miner.pool.AccountId;
 import com.softwareverde.bitcoin.miner.pool.WorkerId;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
@@ -40,6 +41,20 @@ public class WorkerDatabaseManager {
         return WorkerId.wrap(workerId);
     }
 
+    public void restoreWorker(final WorkerId workerId, final String password) throws DatabaseException {
+        final Pbkdf2Key pbkdf2Key = new Pbkdf2Key(password, WORKER_PASSWORD_ITERATIONS, Pbkdf2Key.generateRandomSalt(), Pbkdf2Key.DEFAULT_KEY_BIT_COUNT);
+        final ByteArray keyByteArray = pbkdf2Key.getKey();
+        final ByteArray saltByteArray = pbkdf2Key.getSalt();
+
+        _databaseConnection.executeSql(
+            new Query("UPDATE workers SET password = ?, salt = ?, iterations = ?, was_deleted = 0 WHERE id = ?")
+                .setParameter(keyByteArray.toString())
+                .setParameter(saltByteArray.toString())
+                .setParameter(pbkdf2Key.getIterations())
+                .setParameter(workerId)
+        );
+    }
+
     public WorkerId getWorkerId(final String username) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id FROM workers WHERE username = ?")
@@ -64,6 +79,17 @@ public class WorkerDatabaseManager {
         );
     }
 
+    public Boolean hasWorkedBeenDeleted(final WorkerId workerId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id, was_deleted FROM workers WHERE id = ?")
+                .setParameter(workerId)
+        );
+        if (rows.isEmpty()) { return false; }
+
+        final Row row = rows.get(0);
+        return row.getBoolean("was_deleted");
+    }
+
     public AccountId getWorkerAccountId(final WorkerId workerId) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id, account_id FROM workers WHERE id = ?")
@@ -76,16 +102,23 @@ public class WorkerDatabaseManager {
         return AccountId.wrap(accountId);
     }
 
-    public void deleteWorker(final WorkerId workerId) throws DatabaseException {
+    public void destroyWorker(final WorkerId workerId) throws DatabaseException {
         _databaseConnection.executeSql(
             new Query("DELETE FROM workers WHERE id = ?")
                 .setParameter(workerId)
         );
     }
 
+    public void deleteWorker(final WorkerId workerId) throws DatabaseException {
+        _databaseConnection.executeSql(
+            new Query("UPDATE workers SET was_deleted = 1 WHERE id = ?")
+                .setParameter(workerId)
+        );
+    }
+
     public List<WorkerId> getWorkerIds(final AccountId accountId) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id FROM workers WHERE account_id = ?")
+            new Query("SELECT id FROM workers WHERE account_id = ? AND was_deleted = 0")
                 .setParameter(accountId)
         );
 
@@ -135,12 +168,26 @@ public class WorkerDatabaseManager {
         final SystemTime systemTime = new SystemTime();
 
         _databaseConnection.executeSql(
-            new Query("INSERT INTO worker_shares (worker_id, difficulty, hash, timestamp) VALUES (?, ?, ?, ?)")
+            new Query("INSERT IGNORE INTO worker_shares (worker_id, difficulty, hash, timestamp) VALUES (?, ?, ?, ?)")
                 .setParameter(workerId)
                 .setParameter(difficulty)
                 .setParameter(blockHash)
                 .setParameter(systemTime.getCurrentTimeInSeconds())
         );
+    }
+
+    public void addWorkerShares(final List<WorkerShare> workerShares) throws DatabaseException {
+        if (workerShares.isEmpty()) { return; }
+
+        final BatchedInsertQuery query = new BatchedInsertQuery("INSERT IGNORE INTO worker_shares (worker_id, difficulty, hash, timestamp) VALUES (?, ?, ?, ?)");
+        for (final WorkerShare workerShare : workerShares) {
+            query.setParameter(workerShare.workerId);
+            query.setParameter(workerShare.shareDifficulty);
+            query.setParameter(workerShare.blockHash);
+            query.setParameter(workerShare.timestamp);
+        }
+
+        _databaseConnection.executeSql(query);
     }
 
     public Long getWorkerSharesCount(final WorkerId workerId) throws DatabaseException {

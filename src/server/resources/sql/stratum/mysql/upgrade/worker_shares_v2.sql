@@ -16,3 +16,4 @@ CREATE TABLE found_blocks (
 DELETE FROM worker_shares;
 ALTER TABLE worker_shares ADD COLUMN hash BINARY(32) NOT NULL AFTER difficulty;
 ALTER TABLE worker_shares ADD CONSTRAINT worker_shares_uq UNIQUE (hash);
+ALTER TABLE workers ADD COLUMN was_deleted TINYINT(1) NOT NULL DEFAULT 0;

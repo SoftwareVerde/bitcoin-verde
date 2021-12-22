@@ -51,7 +51,7 @@ public class DeleteWorkerApi extends AuthenticatedServlet {
                     return new JsonResponse(Response.Codes.BAD_REQUEST, new StratumApiResult(false, "Invalid worker id."));
                 }
 
-                workerDatabaseManager.deleteWorker(workerId);
+                workerDatabaseManager.deleteWorker(workerId); // Marks worker as deleted.
 
                 return new JsonResponse(Response.Codes.OK, new StratumApiResult(true, null));
             }
