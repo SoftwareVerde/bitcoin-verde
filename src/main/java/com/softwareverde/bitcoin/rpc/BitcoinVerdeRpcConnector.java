@@ -181,9 +181,7 @@ public class BitcoinVerdeRpcConnector implements BitcoinMiningRpcConnector {
     }
 
     @Override
-    public Boolean validateBlockTemplate(final BlockTemplate blockTemplate, final Monitor monitor) {
-        final Block block = blockTemplate.toBlock();
-
+    public Boolean validateBlockTemplate(final Block block, final Monitor monitor) {
         final Json responseJson;
         try (final NodeJsonRpcConnection nodeJsonRpcConnection = _getRpcConnection()) {
             responseJson = nodeJsonRpcConnection.validatePrototypeBlock(block);

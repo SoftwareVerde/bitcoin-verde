@@ -341,7 +341,7 @@ public class BitcoinCoreRpcConnector implements BitcoinMiningRpcConnector {
     }
 
     @Override
-    public Boolean validateBlockTemplate(final BlockTemplate blockTemplate, final Monitor monitor) {
+    public Boolean validateBlockTemplate(final Block block, final Monitor monitor) {
         final byte[] requestPayload;
         { // Build request payload
             final Json json = new Json(false);
@@ -350,7 +350,6 @@ public class BitcoinCoreRpcConnector implements BitcoinMiningRpcConnector {
 
             { // Method Parameters
                 final BlockDeflater blockDeflater = new BlockDeflater();
-                final Block block = blockTemplate.toBlock();
                 final ByteArray blockTemplateBytes = blockDeflater.toBytes(block);
 
                 final Json paramsJson = new Json(true);

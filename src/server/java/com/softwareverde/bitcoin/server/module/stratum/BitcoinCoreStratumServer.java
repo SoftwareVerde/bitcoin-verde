@@ -43,7 +43,6 @@ import com.softwareverde.network.socket.JsonSocket;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
-import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.timer.NanoTimer;
 import com.softwareverde.util.type.time.SystemTime;
 
@@ -79,9 +78,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
     protected ConcurrentHashMap<Long, StratumMineBlockTask> _olderMineBlockTasks2 = new ConcurrentHashMap<>();
     protected ConcurrentHashMap<Long, StratumMineBlockTask> _olderMineBlockTasks3 = new ConcurrentHashMap<>(); // Older
 
-    protected final MilliTimer _lastTemplateRefreshTimer = new MilliTimer();
-
-    protected final Thread _rebuildTaskThread;
+    protected final Thread _rebuildBlockTemplateThread;
     protected BlockTemplate _blockTemplate;
 
     protected final Long _startTime = _systemTime.getCurrentTimeInSeconds();
@@ -243,20 +240,33 @@ public class BitcoinCoreStratumServer implements StratumServer {
         stratumMineBlockTaskBuilder.setTransactions(transactions);
 
         final StratumMineBlockTask mineBlockTask = stratumMineBlockTaskBuilder.buildMineBlockTask();
-        final Long mineBlockTaskId = mineBlockTask.getId();
-        _mineBlockTasks.put(mineBlockTaskId, mineBlockTask);
-
-        _lastTemplateRefreshTimer.reset();
 
         nanoTimer.stop();
         Logger.trace("Built mining task from prototype block in " + nanoTimer.getMillisecondsElapsed() + "ms.");
+
+        final boolean templateValidationIsEnabled = false;
+        if (templateValidationIsEnabled) { // Validate template...
+            final NanoTimer validateTimer = new NanoTimer();
+            validateTimer.start();
+            final Block block = mineBlockTask.assembleBlockTemplate(_extraNonceByteCount, _extraNonce2ByteCount);
+            final Boolean isValid;
+            try (final BitcoinMiningRpcConnector rpcConnection = _getBitcoinRpcConnector()) {
+                isValid = rpcConnection.validateBlockTemplate(block);
+            }
+            validateTimer.stop();
+            Logger.trace("Validated block template (" + isValid + ") in " + validateTimer.getMillisecondsElapsed() + "ms.");
+        }
 
         return mineBlockTask;
     }
 
     protected void _sendWork(final JsonSocket jsonSocket, final Boolean abandonOldJobs) {
         final Long jsonSocketId = jsonSocket.getId();
+
         final StratumMineBlockTask mineBlockTask = _buildNewMiningTask(jsonSocketId);
+        final Long mineBlockTaskId = mineBlockTask.getId();
+        _mineBlockTasks.put(mineBlockTaskId, mineBlockTask);
+
         final RequestMessage mineBlockRequest = mineBlockTask.createRequest(abandonOldJobs);
 
         Logger.debug("Sent: "+ mineBlockRequest.toString());
@@ -515,7 +525,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
             }
         });
 
-        _rebuildTaskThread = new Thread(new Runnable() {
+        _rebuildBlockTemplateThread = new Thread(new Runnable() {
             @Override
             public void run() {
                 while (! Thread.interrupted()) {
@@ -525,6 +535,14 @@ public class BitcoinCoreStratumServer implements StratumServer {
                     _deprecateMiningTasks();
                     _broadcastNewTask(false);
                 }
+            }
+        });
+        _rebuildBlockTemplateThread.setName("StratumServer - Block Template Thread");
+        _rebuildBlockTemplateThread.setDaemon(true);
+        _rebuildBlockTemplateThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+            @Override
+            public void uncaughtException(final Thread thread, final Throwable exception) {
+                Logger.debug(exception);
             }
         });
     }
@@ -561,21 +579,21 @@ public class BitcoinCoreStratumServer implements StratumServer {
         Logger.info("[Server Online]");
         Logger.debug("Coinbase Address: " + _getCoinbaseAddress().toBase58CheckEncoded());
 
-        _rebuildTaskThread.start();
+        _rebuildBlockTemplateThread.start();
     }
 
     @Override
     public void stop() {
-        _rebuildTaskThread.interrupt();
-        try { _rebuildTaskThread.join(15000L); } catch (final Exception exception) { }
+        _rebuildBlockTemplateThread.interrupt();
+        try { _rebuildBlockTemplateThread.join(15000L); } catch (final Exception exception) { }
 
         _stratumServerSocket.stop();
     }
 
     @Override
     public Block getPrototypeBlock() {
-        final BlockTemplate blockTemplate = _blockTemplate;
-        return blockTemplate.toBlock();
+        final StratumMineBlockTask mineBlockTask = _buildNewMiningTask(0L);
+        return mineBlockTask.assembleBlockTemplate(_extraNonceByteCount, _extraNonce2ByteCount);
     }
 
     @Override
