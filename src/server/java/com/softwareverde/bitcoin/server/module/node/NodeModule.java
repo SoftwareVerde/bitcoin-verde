@@ -786,7 +786,7 @@ public class NodeModule {
                         final Boolean blockIsOnMainChain = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANY);
 
                         if (blockIsOnMainChain) {
-                            Logger.debug("Requesting Block: " + blockHash + ":" + blockHeight);
+                            Logger.debug("Requesting Block: " + blockHash + ":" + blockHeight + " (paused=" + _blockDownloader.isPaused() +")");
                             _blockDownloader.requestBlock(blockHash, blockHeight, null);
                         }
                     }

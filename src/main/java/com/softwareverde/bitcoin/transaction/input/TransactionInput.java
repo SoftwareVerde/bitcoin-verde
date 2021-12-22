@@ -5,7 +5,9 @@ import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutput
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.Constable;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Jsonable;
 
@@ -33,12 +35,16 @@ public interface TransactionInput extends Constable<ImmutableTransactionInput>, 
         return coinbaseTransactionInput;
     }
 
+    static TransactionInput createCoinbaseTransactionInputWithExtraNonce(final Long blockHeight, final String coinbaseMessage, final Integer extraNonceByteCount) {
+        return TransactionInput.createCoinbaseTransactionInputWithExtraNonce(blockHeight, coinbaseMessage, null, extraNonceByteCount);
+    }
+
     /**
      * Creates a coinbase transaction with the provided blockHeight and coinbaseMessage as the contents of the TransactionInput's UnlockingScript.
      *  This function is nearly identical to TransactionInput.createCoinbaseTransactionInput(), except an additional PushOperation is added to the end of the UnlockingScript.
      *  This value is all zeroes, and is extraNonceByteCount bytes long.
      */
-    static TransactionInput createCoinbaseTransactionInputWithExtraNonce(final Long blockHeight, final String coinbaseMessage, final Integer extraNonceByteCount) {
+    static TransactionInput createCoinbaseTransactionInputWithExtraNonce(final Long blockHeight, final String coinbaseMessage, final List<ByteArray> extraBytes, final Integer extraNonceByteCount) {
         final UnlockingScript unlockingScript;
         { // Initialize unlockingScript...
             final ScriptBuilder scriptBuilder = new ScriptBuilder();
@@ -46,6 +52,12 @@ public interface TransactionInput extends Constable<ImmutableTransactionInput>, 
                 scriptBuilder.pushInteger(blockHeight);
             }
             scriptBuilder.pushString(coinbaseMessage);
+            if (extraBytes != null) {
+                for (final ByteArray byteArray : extraBytes) {
+                    if (byteArray == null) { continue; }
+                    scriptBuilder.pushBytes(byteArray);
+                }
+            }
             scriptBuilder.pushBytes(new MutableByteArray(extraNonceByteCount)); // Pad the coinbaseTransactionInput with extraNonceByteCount bytes. (Which adds the appropriate opcode in addition to extraNonceByteCount bytes...)
             unlockingScript = scriptBuilder.buildUnlockingScript();
         }
