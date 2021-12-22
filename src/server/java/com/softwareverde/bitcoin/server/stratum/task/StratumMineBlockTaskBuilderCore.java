@@ -10,13 +10,14 @@ import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-public abstract class StratumMineBlockTaskBuilderCore implements MutableStratumMineBlockTaskBuilder {
+public class StratumMineBlockTaskBuilderCore implements MutableStratumMineBlockTaskBuilder {
     final static Object _mutex = new Object();
     private static Long _nextId = 1L;
     protected static Long getNextId() {
@@ -185,6 +186,23 @@ public abstract class StratumMineBlockTaskBuilderCore implements MutableStratumM
         }
         finally {
             _prototypeBlockReadLock.unlock();
+        }
+    }
+
+    @Override
+    public void setTransactions(final List<Transaction> transactions) {
+        _prototypeBlockWriteLock.lock();
+        try {
+            final Transaction coinbaseTransaction = _prototypeBlock.getCoinbaseTransaction();
+
+            _prototypeBlock.clearTransactions();
+            _prototypeBlock.addTransaction(coinbaseTransaction);
+            for (final Transaction transaction : transactions) {
+                _prototypeBlock.addTransaction(transaction);
+            }
+        }
+        finally {
+            _prototypeBlockWriteLock.unlock();
         }
     }
 }

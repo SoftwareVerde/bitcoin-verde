@@ -1,9 +1,11 @@
 package com.softwareverde.bitcoin.server.module.stratum;
 
+import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
+import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.miner.pool.WorkerId;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.configuration.StratumProperties;
@@ -86,11 +88,13 @@ public class StratumModule {
         final DatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
 
         _databasePropertiesStore = new DatabasePropertiesStore(databaseConnectionFactory);
+
+        final MasterInflater masterInflater = new CoreInflater();
         if (useBitcoinCoreStratumServer) {
-            _stratumServer = new BitcoinCoreStratumServer(_stratumProperties, _databasePropertiesStore, _stratumThreadPool);
+            _stratumServer = new BitcoinCoreStratumServer(_stratumProperties, _databasePropertiesStore, _stratumThreadPool, masterInflater);
         }
         else {
-            _stratumServer = new BitcoinVerdeStratumServer(_stratumProperties, _databasePropertiesStore, _stratumThreadPool);
+            _stratumServer = new BitcoinVerdeStratumServer(_stratumProperties, _databasePropertiesStore, _stratumThreadPool, masterInflater);
         }
 
         _workerShareQueue = new WorkerShareQueue(databaseConnectionFactory);

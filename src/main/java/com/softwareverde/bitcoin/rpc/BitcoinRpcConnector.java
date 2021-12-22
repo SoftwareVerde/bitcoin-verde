@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.rpc.monitor.Monitor;
 import com.softwareverde.http.server.servlet.request.Request;
 import com.softwareverde.http.server.servlet.response.Response;
 
-public interface BitcoinRpcConnector {
+public interface BitcoinRpcConnector extends AutoCloseable {
     String getHost();
     Integer getPort();
 
@@ -15,4 +15,7 @@ public interface BitcoinRpcConnector {
     default Response handleRequest(Request request) {
         return this.handleRequest(request, null);
     }
+
+    @Override
+    void close();
 }

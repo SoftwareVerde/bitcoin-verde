@@ -8,7 +8,6 @@ import com.softwareverde.bitcoin.rpc.NodeJsonRpcConnection;
 import com.softwareverde.bitcoin.rpc.RpcCredentials;
 import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.properties.PropertiesStore;
-import com.softwareverde.bitcoin.server.stratum.task.StagnantStratumMineBlockTaskBuilderFactory;
 import com.softwareverde.concurrent.threadpool.ThreadPool;
 
 public class BitcoinVerdeStratumServer extends BitcoinCoreStratumServer {
@@ -31,15 +30,7 @@ public class BitcoinVerdeStratumServer extends BitcoinCoreStratumServer {
         };
     }
 
-    public BitcoinVerdeStratumServer(final StratumProperties stratumProperties, final PropertiesStore propertiesStore, final ThreadPool threadPool) {
-        super(stratumProperties, propertiesStore, threadPool);
-    }
-
     public BitcoinVerdeStratumServer(final StratumProperties stratumProperties, final PropertiesStore propertiesStore, final ThreadPool threadPool, final MasterInflater masterInflater) {
         super(stratumProperties, propertiesStore, threadPool, masterInflater);
-    }
-
-    public BitcoinVerdeStratumServer(final StratumProperties stratumProperties, final PropertiesStore propertiesStore, final ThreadPool threadPool, final MasterInflater masterInflater, final StagnantStratumMineBlockTaskBuilderFactory stratumMineBlockTaskBuilderFactory) {
-        super(stratumProperties, propertiesStore, threadPool, masterInflater, stratumMineBlockTaskBuilderFactory);
     }
 }

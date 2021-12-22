@@ -17,7 +17,7 @@ import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
-public class BitcoinVerdeRpcConnector implements BitcoinMiningRpcConnector, AutoCloseable {
+public class BitcoinVerdeRpcConnector implements BitcoinMiningRpcConnector {
     public static final String IDENTIFIER = "VERDE";
 
     public static BlockTemplate toBlockTemplate(final Block block, final Long blockHeight, final SystemTime systemTime) {
@@ -261,7 +261,7 @@ public class BitcoinVerdeRpcConnector implements BitcoinMiningRpcConnector, Auto
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         _threadPool.stop();
     }
 }

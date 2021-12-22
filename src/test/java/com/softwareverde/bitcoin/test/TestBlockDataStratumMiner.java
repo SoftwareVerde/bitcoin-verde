@@ -14,13 +14,11 @@ import com.softwareverde.bitcoin.server.stratum.message.RequestMessage;
 import com.softwareverde.bitcoin.server.stratum.message.ResponseMessage;
 import com.softwareverde.bitcoin.server.stratum.message.server.MinerSubmitBlockResult;
 import com.softwareverde.bitcoin.server.stratum.socket.StratumServerSocket;
-import com.softwareverde.bitcoin.server.stratum.task.LiveStratumMineBlockTaskBuilderCore;
 import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTask;
 import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTaskBuilderCore;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
-import com.softwareverde.bitcoin.transaction.TransactionWithFee;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -172,7 +170,7 @@ class StratumMiner {
     }
 
     protected void _buildMiningTask() {
-        final LiveStratumMineBlockTaskBuilderCore stratumMineBlockTaskBuilder = new LiveStratumMineBlockTaskBuilderCore(totalExtraNonceByteCount, new TransactionDeflater());
+        final StratumMineBlockTaskBuilderCore stratumMineBlockTaskBuilder = new StratumMineBlockTaskBuilderCore(totalExtraNonceByteCount, new TransactionDeflater());
 
         stratumMineBlockTaskBuilder.setBlockVersion(_blockConfiguration.blockVersion);
         stratumMineBlockTaskBuilder.setPreviousBlockHash(_blockConfiguration.previousBlockHash);
@@ -180,9 +178,7 @@ class StratumMiner {
         stratumMineBlockTaskBuilder.setCoinbaseTransaction(_blockConfiguration.coinbaseTransaction);
         stratumMineBlockTaskBuilder.setExtraNonce(_extraNonce);
 
-        for (final Transaction transaction : _blockConfiguration.transactions) {
-            stratumMineBlockTaskBuilder.addTransaction(new TransactionWithFee(transaction, 0L));
-        }
+        stratumMineBlockTaskBuilder.setTransactions(_blockConfiguration.transactions);
 
         _stratumMineBlockTaskBuilder = stratumMineBlockTaskBuilder;
         _currentMineBlockTask = stratumMineBlockTaskBuilder.buildMineBlockTask();

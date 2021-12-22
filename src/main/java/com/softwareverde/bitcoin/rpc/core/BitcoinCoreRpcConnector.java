@@ -471,4 +471,9 @@ public class BitcoinCoreRpcConnector implements BitcoinMiningRpcConnector {
     public String toString() {
         return _toString();
     }
+
+    @Override
+    public void close() {
+        // Nothing.
+    }
 }
