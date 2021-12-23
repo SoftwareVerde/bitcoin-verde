@@ -657,10 +657,8 @@ public class UtxoCommitmentDownloader {
         final MutableList<File> utxoCommitmentFiles = new MutableList<>();
         final MutableList<UtxoDatabaseSubBucket> localUtxoCommitmentFiles = new MutableList<>(); // Used to store the Utxo Commitment metadata in the database for serving to new peers.
 
-        boolean didComplete = false;
+        final Container<Integer> completeCount = new Container<>(0);
         while (executionTimer.getMillisecondsElapsed() <= _fastSyncTimeoutMs) {
-            final Container<Integer> completeCount = new Container<>(0);
-
             for (int bucketIndex = 0; bucketIndex < utxoCommitmentBucketCount; ++bucketIndex) {
                 final BucketDownload bucketDownload = bucketDownloads[bucketIndex];
                 final Boolean shouldContinue = _downloadUtxoCommitmentBucket(downloadableUtxoCommitment, bucketIndex, bucketDownload, completeCount, unsortedCommitmentFiles, utxoCommitmentFiles, localUtxoCommitmentFiles);
@@ -674,6 +672,13 @@ public class UtxoCommitmentDownloader {
             }
         }
 
+        // Ensure all files were downloaded (and that the timer did not expire)...
+        if (! Util.areEqual(utxoCommitmentBucketCount, completeCount.value)) {
+            Logger.info("Unable to complete download of UTXO commitment: " + downloadableUtxoCommitment.metadata.publicKey);
+            return false;
+        }
+
+        boolean didComplete = false;
         final PublicKey multisetPublicKey = downloadableUtxoCommitment.metadata.publicKey;
         final File loadFileDestination = new File(_utxoCommitmentStore.getUtxoDataDirectory(), (multisetPublicKey + ".sql"));
         try {
