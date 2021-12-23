@@ -1,6 +1,11 @@
 package com.softwareverde.bitcoin.server.module.stratum;
 
+import com.softwareverde.bitcoin.CoreInflater;
+import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockDeflater;
+import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.miner.pool.WorkerId;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.configuration.StratumProperties;
@@ -14,33 +19,51 @@ import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.Pass
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.PayoutAddressApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.UnauthenticateApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.ValidateAuthenticationApi;
+import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.admin.AuthenticateAdminApi;
+import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.admin.UnauthenticateAdminApi;
+import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.admin.ValidateAdminAuthenticationApi;
+import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.admin.WorkerDifficultyApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.worker.CreateWorkerApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.worker.DeleteWorkerApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.worker.GetWorkersApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolHashRateApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolPrototypeBlockApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolWorkerApi;
-import com.softwareverde.bitcoin.server.module.stratum.database.AccountDatabaseManager;
+import com.softwareverde.bitcoin.server.module.stratum.callback.BlockFoundCallback;
+import com.softwareverde.bitcoin.server.module.stratum.callback.WorkerShareCallback;
+import com.softwareverde.bitcoin.server.module.stratum.database.WorkerDatabaseManager;
+import com.softwareverde.bitcoin.server.module.stratum.key.ServerEncryptionKey;
 import com.softwareverde.bitcoin.server.module.stratum.rpc.StratumRpcServer;
+import com.softwareverde.bitcoin.server.properties.DatabasePropertiesStore;
 import com.softwareverde.concurrent.threadpool.CachedThreadPool;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.http.server.HttpServer;
 import com.softwareverde.http.server.endpoint.Endpoint;
 import com.softwareverde.http.server.servlet.DirectoryServlet;
 import com.softwareverde.http.server.servlet.Servlet;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.IoUtil;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.io.File;
 
 public class StratumModule {
+    protected static final String COINBASE_PRIVATE_KEY_KEY = "private_key_cipher";
+
     protected final SystemTime _systemTime = new SystemTime();
 
     protected final Environment _environment;
     protected final StratumProperties _stratumProperties;
+    protected final DatabasePropertiesStore _databasePropertiesStore;
+    protected final WorkerShareQueue _workerShareQueue;
     protected final StratumServer _stratumServer;
     protected final StratumRpcServer _stratumRpcServer;
     protected final HttpServer _apiServer = new HttpServer();
+    protected final Runnable _updateShareDifficulty;
 
     protected final CachedThreadPool _stratumThreadPool = new CachedThreadPool(256, 60000L);
     protected final CachedThreadPool _rpcThreadPool = new CachedThreadPool(256, 60000L);
@@ -64,29 +87,43 @@ public class StratumModule {
         final Database database = _environment.getDatabase();
         final DatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
 
+        _databasePropertiesStore = new DatabasePropertiesStore(databaseConnectionFactory);
+
+        final MasterInflater masterInflater = new CoreInflater();
         if (useBitcoinCoreStratumServer) {
-            _stratumServer = new BitcoinCoreStratumServer(_stratumProperties, _stratumThreadPool);
+            _stratumServer = new BitcoinCoreStratumServer(_stratumProperties, _databasePropertiesStore, _stratumThreadPool, masterInflater);
         }
         else {
-            _stratumServer = new BitcoinVerdeStratumServer(_stratumProperties, _stratumThreadPool);
+            _stratumServer = new BitcoinVerdeStratumServer(_stratumProperties, _databasePropertiesStore, _stratumThreadPool, masterInflater);
         }
 
+        _workerShareQueue = new WorkerShareQueue(databaseConnectionFactory);
         _stratumServer.setWorkerShareCallback(new WorkerShareCallback() {
             @Override
-            public void onNewWorkerShare(final String workerUsername, final Integer shareDifficulty) {
+            public Boolean onNewWorkerShare(final String workerUsername, final Long shareDifficulty, final Sha256Hash blockHash) {
+                return _workerShareQueue.addWorkerShare(workerUsername, shareDifficulty, blockHash);
+            }
+        });
+
+        _stratumServer.setBlockFoundCallback(new BlockFoundCallback() {
+            @Override
+            public void run(final Block block, final String workerName) {
+                final Sha256Hash blockHash = block.getHash();
                 try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
-                    final AccountDatabaseManager accountDatabaseManager = new AccountDatabaseManager(databaseConnection);
-                    final WorkerId workerId = accountDatabaseManager.getWorkerId(workerUsername);
-                    if (workerId == null) {
-                        Logger.debug("Unknown worker: " + workerUsername);
-                    }
-                    else {
-                        accountDatabaseManager.addWorkerShare(workerId, shareDifficulty);
-                        Logger.debug("Added worker share: " + workerUsername + " " + shareDifficulty);
-                    }
+                    final WorkerDatabaseManager workerDatabaseManager = new WorkerDatabaseManager(databaseConnection);
+                    final WorkerId workerId = workerDatabaseManager.getWorkerId(workerName);
+
+                    workerDatabaseManager.recordFoundBlock(blockHash, workerId);
+
+                    // Store block...
+                    final BlockDeflater blockDeflater = new BlockDeflater();
+                    final ByteArray blockBytes = blockDeflater.toBytes(block);
+                    final String dataDirectory = _stratumProperties.getDataDirectory();
+                    final File blockFile = new File(dataDirectory, blockHash.toString());
+                    IoUtil.putFileContents(blockFile, blockBytes);
                 }
                 catch (final DatabaseException databaseException) {
-                    Logger.warn("Unable to add worker share: " + workerUsername + " " + shareDifficulty, databaseException);
+                    Logger.warn("Unable to record found block: " + blockHash, databaseException);
                 }
             }
         });
@@ -116,7 +153,7 @@ public class StratumModule {
             @Override
             public Long getHashesPerSecond() {
                 final Long hashesPerSecondMultiplier = (1L << 32);
-                final Integer shareDifficulty = _stratumServer.getShareDifficulty();
+                final Long shareDifficulty = _stratumServer.getShareDifficulty();
                 final Long startTimeInSeconds = _stratumServer.getCurrentBlockStartTimeInSeconds();
                 final Long shareCount = _stratumServer.getShareCount();
 
@@ -128,6 +165,29 @@ public class StratumModule {
         };
 
         { // Api Endpoints
+            final GetWorkersApi getWorkersApi;
+            final WorkerDifficultyApi workerDifficultyApi;
+            {
+                getWorkersApi = new GetWorkersApi(stratumProperties, databaseConnectionFactory);
+
+                _updateShareDifficulty = new Runnable() {
+                    @Override
+                    public void run() {
+                        final Long shareDifficulty = WorkerDifficultyApi.getShareDifficulty(_databasePropertiesStore);
+                        _stratumServer.setShareDifficulty(shareDifficulty);
+                        getWorkersApi.setShareDifficulty(shareDifficulty);
+                    }
+                };
+
+                workerDifficultyApi = new WorkerDifficultyApi(stratumProperties, _databasePropertiesStore);
+                workerDifficultyApi.setShareDifficultyUpdatedCallback(_updateShareDifficulty);
+            }
+
+            _assignEndpoint("/api/v1/admin/authenticate", new AuthenticateAdminApi(stratumProperties, _databasePropertiesStore));
+            _assignEndpoint("/api/v1/admin/validate", new ValidateAdminAuthenticationApi(stratumProperties));
+            _assignEndpoint("/api/v1/admin/unauthenticate", new UnauthenticateAdminApi(stratumProperties));
+            _assignEndpoint("/api/v1/admin/worker/difficulty", workerDifficultyApi);
+
             _assignEndpoint("/api/v1/worker", new PoolWorkerApi(stratumProperties, stratumDataHandler));
             _assignEndpoint("/api/v1/pool/prototype-block", new PoolPrototypeBlockApi(stratumProperties, stratumDataHandler));
             _assignEndpoint("/api/v1/pool/hash-rate", new PoolHashRateApi(stratumProperties, stratumDataHandler));
@@ -139,7 +199,7 @@ public class StratumModule {
             _assignEndpoint("/api/v1/account/password", new PasswordApi(stratumProperties, databaseConnectionFactory));
             _assignEndpoint("/api/v1/account/workers/create", new CreateWorkerApi(stratumProperties, databaseConnectionFactory));
             _assignEndpoint("/api/v1/account/workers/delete", new DeleteWorkerApi(stratumProperties, databaseConnectionFactory));
-            _assignEndpoint("/api/v1/account/workers", new GetWorkersApi(stratumProperties, databaseConnectionFactory));
+            _assignEndpoint("/api/v1/account/workers", getWorkersApi);
         }
 
         { // Static Content
@@ -158,10 +218,66 @@ public class StratumModule {
     }
 
     public void loop() {
+        final ServerEncryptionKey serverEncryptionKey;
+        {
+            final String dataDirectory = _stratumProperties.getDataDirectory();
+            final File dataDirectoryFile = new File(dataDirectory);
+            if (! dataDirectoryFile.isDirectory()) {
+                dataDirectoryFile.mkdirs();
+            }
+
+            serverEncryptionKey = ServerEncryptionKey.load(dataDirectoryFile);
+        }
+
         _rpcThreadPool.start();
         _stratumThreadPool.start();
+        _databasePropertiesStore.start();
+
+        { // Ensure the StratumServer's PropertiesStore has the correct payout address; if a payout address does not exist, then create an encrypted one.
+            final Address coinbaseAddress;
+            {
+                final AddressInflater addressInflater = new AddressInflater();
+                final String privateKeyCipher = _databasePropertiesStore.getString(StratumModule.COINBASE_PRIVATE_KEY_KEY);
+                if (Util.isBlank(privateKeyCipher)) {
+                    final PrivateKey privateKey = PrivateKey.createNewKey();
+                    final String encryptedPrivateKey;
+                    {
+                        final ByteArray encryptedPrivateKeyBytes = serverEncryptionKey.encrypt(privateKey);
+                        encryptedPrivateKey = encryptedPrivateKeyBytes.toString();
+                    }
+                    _databasePropertiesStore.set(StratumModule.COINBASE_PRIVATE_KEY_KEY, encryptedPrivateKey);
+
+                    coinbaseAddress = addressInflater.fromPrivateKey(privateKey, true);
+                }
+                else {
+                    final ByteArray privateKeyCipherBytes = ByteArray.fromHexString(privateKeyCipher);
+                    final ByteArray privateKeyBytes = serverEncryptionKey.decrypt(privateKeyCipherBytes);
+                    final PrivateKey privateKey = PrivateKey.fromBytes(privateKeyBytes);
+
+                    coinbaseAddress = addressInflater.fromPrivateKey(privateKey, true);
+                }
+            }
+
+            final String coinbaseAddressString = coinbaseAddress.toBase32CheckEncoded();
+            _databasePropertiesStore.set(BitcoinCoreStratumServer.COINBASE_ADDRESS_KEY, coinbaseAddressString);
+        }
+
+        { // Ensure the StratumServer has a share difficulty set...
+            if (! WorkerDifficultyApi.isShareDifficultySet(_databasePropertiesStore)) {
+                WorkerDifficultyApi.setShareDifficulty(2048L, _databasePropertiesStore);
+            }
+
+            _updateShareDifficulty.run();
+        }
+
+        { // Ensure the StratumServer has an admin password...
+            if (! AuthenticateAdminApi.isAdminPasswordSet(_databasePropertiesStore)) {
+                AuthenticateAdminApi.setDefaultAdminPassword(_databasePropertiesStore);
+            }
+        }
 
         _stratumRpcServer.start();
+        _workerShareQueue.start();
         _stratumServer.start();
         _apiServer.start();
 
@@ -171,8 +287,10 @@ public class StratumModule {
 
         _apiServer.stop();
         _stratumServer.stop();
+        _workerShareQueue.stop();
         _stratumRpcServer.stop();
 
+        _databasePropertiesStore.stop();
         _stratumThreadPool.stop();
         _rpcThreadPool.stop();
     }

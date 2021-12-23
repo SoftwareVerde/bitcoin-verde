@@ -53,7 +53,10 @@ public class SessionManager {
         final SessionId sessionId = SessionManager.getSessionId(request);
         if (sessionId == null) { return null; }
 
-        final String sessionData = StringUtil.bytesToString(IoUtil.getFileContents(_cookiesDirectory + sessionId));
+        final byte[] sessionBytes = IoUtil.getFileContents(_cookiesDirectory + sessionId);
+        if (sessionBytes == null) { return null; }
+
+        final String sessionData = StringUtil.bytesToString(sessionBytes);
         if (sessionData.isEmpty()) { return null; }
 
         return Session.newSession(sessionId, sessionData);

@@ -465,6 +465,10 @@ public class Main {
                     break;
                 }
 
+                Logger.setLogLevel("com.softwareverde.bitcoin.rpc.NodeJsonRpcConnection", LogLevel.DEBUG);
+                Logger.setLogLevel("com.softwareverde.bitcoin.rpc.BitcoinVerdeRpcConnector", LogLevel.DEBUG);
+                Logger.setLogLevel("com.softwareverde.bitcoin.rpc.core.BitcoinCoreRpcConnector", LogLevel.DEBUG);
+
                 final String configurationFile = _arguments[1];
 
                 final Configuration configuration = _loadConfigurationFile(configurationFile);

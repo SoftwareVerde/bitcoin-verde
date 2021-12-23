@@ -17,6 +17,7 @@ public class StratumProperties {
     protected RpcCredentials _rpcCredentials;
 
     protected Integer _httpPort;
+    protected String _dataDirectory;
     protected String _rootDirectory;
     protected Integer _tlsPort;
     protected String _tlsKeyFile;
@@ -36,6 +37,7 @@ public class StratumProperties {
     }
 
     public Integer getHttpPort() { return _httpPort; }
+    public String getDataDirectory() { return _dataDirectory; }
     public String getRootDirectory() { return _rootDirectory; }
     public Integer getTlsPort() { return _tlsPort; }
     public String getTlsKeyFile() { return _tlsKeyFile; }

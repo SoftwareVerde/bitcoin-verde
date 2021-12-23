@@ -167,7 +167,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
 
     protected Long _getCommittedUnspentTransactionOutputBlockHeight() {
         final PropertiesStore propertiesStore = _databaseManager.getPropertiesStore();
-        return Util.coalesce(propertiesStore.get(COMMITTED_UTXO_BLOCK_HEIGHT_KEY));
+        return Util.coalesce(propertiesStore.getLong(COMMITTED_UTXO_BLOCK_HEIGHT_KEY));
     }
 
     protected void _markTransactionOutputsAsSpent(final List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers) {

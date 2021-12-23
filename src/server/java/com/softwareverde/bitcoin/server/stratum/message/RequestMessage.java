@@ -84,7 +84,7 @@ public class RequestMessage implements Jsonable {
     }
 
     public  RequestMessage(final String command) {
-        _id = createId();
+        _id = RequestMessage.createId();
         _command = command;
     }
 

@@ -17,7 +17,33 @@ public class DiskPropertiesStore implements PropertiesStore, Jsonable {
     protected final File _file;
     protected final Thread _thread;
     protected final Object _mutex = new Object();
-    protected final ConcurrentHashMap<String, Long> _values = new ConcurrentHashMap<>();
+    protected final ConcurrentHashMap<String, String> _values = new ConcurrentHashMap<>();
+
+    protected <T> void _setValue(final String key, final T value, final Converter<T> converter) {
+        final String stringValue = converter.toString(value);
+        _values.put(key, stringValue);
+
+        synchronized (_mutex) {
+            _mutex.notifyAll();
+        }
+    }
+
+    protected <T> T _getValue(final String key, final Converter<T> converter) {
+        final String stringValue = _values.get(key);
+        return converter.toType(stringValue);
+    }
+
+    protected <T> void _getAndSet(final String key, final GetAndSetter<T> getAndSetter, final Converter<T> converter) {
+        final String stringValue = _values.get(key);
+        final T oldValue = converter.toType(stringValue);
+        final T newValue = getAndSetter.run(oldValue);
+        final String newValueString = converter.toString(newValue);
+        _values.put(key, newValueString);
+
+        synchronized (_mutex) {
+            _mutex.notifyAll();
+        }
+    }
 
     public DiskPropertiesStore(final File dataDirectory) {
         _file = new File(dataDirectory, "properties.dat");
@@ -71,7 +97,7 @@ public class DiskPropertiesStore implements PropertiesStore, Jsonable {
         final String oldContent = StringUtil.bytesToString(Util.coalesce(IoUtil.getFileContents(_file), new byte[0]));
         final Json json = Json.parse(oldContent);
         for (final String key : json.getKeys()) {
-            final Long value = json.getLong(key);
+            final String value = json.getString(key);
             _values.put(key, value);
         }
     }
@@ -89,27 +115,32 @@ public class DiskPropertiesStore implements PropertiesStore, Jsonable {
 
     @Override
     public synchronized void set(final String key, final Long value) {
-        _values.put(key, value);
-
-        synchronized (_mutex) {
-            _mutex.notifyAll();
-        }
+        _setValue(key, value, Converter.LONG);
     }
 
     @Override
-    public synchronized Long get(final String key) {
-        return _values.get(key);
+    public synchronized void set(final String key, final String value) {
+        _setValue(key, value, Converter.STRING);
     }
 
     @Override
-    public synchronized void getAndSet(final String key, final GetAndSetter getAndSetter) {
-        final Long value = _values.get(key);
-        final Long newValue = getAndSetter.run(value);
-        _values.put(key, newValue);
+    public synchronized Long getLong(final String key) {
+        return _getValue(key, Converter.LONG);
+    }
 
-        synchronized (_mutex) {
-            _mutex.notifyAll();
-        }
+    @Override
+    public String getString(final String key) {
+        return _getValue(key, Converter.STRING);
+    }
+
+    @Override
+    public synchronized void getAndSetLong(final String key, final GetAndSetter<Long> getAndSetter) {
+        _getAndSet(key, getAndSetter, Converter.LONG);
+    }
+
+    @Override
+    public void getAndSetString(final String key, final GetAndSetter<String> getAndSetter) {
+
     }
 
     @Override

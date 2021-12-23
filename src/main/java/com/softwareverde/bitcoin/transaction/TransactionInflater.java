@@ -11,6 +11,7 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputInflater;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.bytearray.Endian;
 
@@ -115,6 +116,13 @@ public class TransactionInflater {
     public Transaction createCoinbaseTransactionWithExtraNonce(final Long blockHeight, final String coinbaseMessage, final Integer extraNonceByteCount, final Address address, final Long satoshis) {
         final MutableTransaction coinbaseTransaction = new MutableTransaction();
         coinbaseTransaction.addTransactionInput(TransactionInput.createCoinbaseTransactionInputWithExtraNonce(blockHeight, coinbaseMessage, extraNonceByteCount));
+        coinbaseTransaction.addTransactionOutput(TransactionOutput.createPayToAddressTransactionOutput(address, satoshis));
+        return coinbaseTransaction;
+    }
+
+    public Transaction createCoinbaseTransactionWithExtraNonce(final Long blockHeight, final String coinbaseMessage, final List<ByteArray> extraBytes, final Integer extraNonceByteCount, final Address address, final Long satoshis) {
+        final MutableTransaction coinbaseTransaction = new MutableTransaction();
+        coinbaseTransaction.addTransactionInput(TransactionInput.createCoinbaseTransactionInputWithExtraNonce(blockHeight, coinbaseMessage, extraBytes, extraNonceByteCount));
         coinbaseTransaction.addTransactionOutput(TransactionOutput.createPayToAddressTransactionOutput(address, satoshis));
         return coinbaseTransaction;
     }
