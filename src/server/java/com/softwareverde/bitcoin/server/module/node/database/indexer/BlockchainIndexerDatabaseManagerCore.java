@@ -259,15 +259,27 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
                     balance += previousTransactionOutput.getAmount();
                 }
             }
-            else {
+            else { // Attempt to load available UTXOs for pruned+indexed mode...
                 if (! isPruningMode) { continue; } // Should not happen.
                 if (! Util.areEqual(blockchainSegmentId, headBlockchainSegmentId)) { continue; } // Alternate blockchains are not supported with pruning mode...
 
-                final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
-                final List<TransactionOutputIdentifier> transactionOutputIdentifiers = unspentTransactionOutputDatabaseManager.getFastSyncOutputIdentifiers(transactionHash);
-                final List<UnspentTransactionOutput> unspentTransactionOutputs = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutputs(transactionOutputIdentifiers);
-                for (final UnspentTransactionOutput unspentTransactionOutput : unspentTransactionOutputs) {
-                    balance += unspentTransactionOutput.getAmount();
+                final HashMap<Integer, TransactionOutput> unspentTransactionOutputMap;
+                { // Collect the UTXOs...
+                    final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
+                    final List<TransactionOutputIdentifier> transactionOutputIdentifiers = unspentTransactionOutputDatabaseManager.getFastSyncOutputIdentifiers(transactionHash);
+                    final List<UnspentTransactionOutput> unspentTransactionOutputs = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutputs(transactionOutputIdentifiers);
+                    unspentTransactionOutputMap = new HashMap<>();
+                    for (final UnspentTransactionOutput unspentTransactionOutput : unspentTransactionOutputs) {
+                        final Integer unspentOutputIndex = unspentTransactionOutput.getIndex();
+                        unspentTransactionOutputMap.put(unspentOutputIndex, unspentTransactionOutput);
+                    }
+                }
+
+                for (final Integer outputIndex : Util.coalesce(addressTransactions.previousOutputs.get(transactionId), emptyList)) {
+                    final TransactionOutput transactionOutput = unspentTransactionOutputMap.get(outputIndex);
+                    if (transactionOutput == null) { continue; } // Should not happen.
+
+                    balance += transactionOutput.getAmount();
                 }
             }
         }
