@@ -164,8 +164,17 @@ public class UtxoCommitmentGenerator extends PausableSleepyService {
             final UtxoCommitmentManager utxoCommitmentManager = databaseManager.getUtxoCommitmentManager();
             final UtxoCommitmentId utxoCommitmentId = utxoCommitmentManager.getUtxoCommitmentId(blockId);
             if (utxoCommitmentId != null) {
-                Logger.debug("UTXO commitment already exists for block " + blockHash + ".");
-                return null;
+                final Sha256Hash utxoCommitmentHash = utxoCommitmentDatabaseManager.getUtxoCommitmentHash(utxoCommitmentId);
+                if (utxoCommitmentHash != null) {
+                    Logger.debug("UTXO commitment already exists for block " + blockHash + ".");
+                    return null;
+                }
+
+                final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+                databaseConnection.executeSql(
+                    new Query("DELETE FROM utxo_commitments WHERE id = ?")
+                        .setParameter(utxoCommitmentId)
+                );
             }
         }
 
@@ -459,7 +468,7 @@ public class UtxoCommitmentGenerator extends PausableSleepyService {
             }
 
             databaseConnection.executeSql(
-                new Query("DELETE utxo_commitments FROM utxo_commitments WHERE id = ?")
+                new Query("DELETE FROM utxo_commitments WHERE id = ?")
                     .setParameter(utxoCommitmentId)
             );
 

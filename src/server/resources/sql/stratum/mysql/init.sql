@@ -48,4 +48,4 @@ CREATE TABLE found_blocks (
     FOREIGN KEY found_blocks_worker_id_fk (worker_id) REFERENCES workers (id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
-INSERT INTO metadata (version, timestamp) VALUES (9, UNIX_TIMESTAMP());
+INSERT INTO metadata (version, timestamp) VALUES (10, UNIX_TIMESTAMP());

@@ -928,12 +928,7 @@ public class NodeModule {
                         _blockPruner.wakeUp();
                     }
 
-                    _generalThreadPool.execute(new Runnable() {
-                        @Override
-                        public void run() {
-                            _utxoCommitmentGenerator.wakeUp();
-                        }
-                    });
+                    _utxoCommitmentGenerator.wakeUp();
                 }
             });
 

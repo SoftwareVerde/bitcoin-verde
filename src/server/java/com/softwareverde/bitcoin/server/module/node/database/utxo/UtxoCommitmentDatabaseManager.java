@@ -14,6 +14,7 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.EcMultiset;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.row.Row;
 
 import java.util.Comparator;
 import java.util.HashMap;
@@ -91,6 +92,19 @@ public class UtxoCommitmentDatabaseManager {
 
     public void setUtxoCommitmentHash(final UtxoCommitmentId utxoCommitmentId, final Sha256Hash hash, final PublicKey publicKey) throws DatabaseException {
         _setUtxoCommitmentHash(utxoCommitmentId, hash, publicKey);
+    }
+
+    public Sha256Hash getUtxoCommitmentHash(final UtxoCommitmentId utxoCommitmentId) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id, hash utxo_commitments WHERE id = ?")
+                .setParameter(utxoCommitmentId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return Sha256Hash.wrap(row.getBytes("hash"));
     }
 
     public void storeUtxoCommitment(final UtxoCommitmentMetadata utxoCommitmentMetadata, final List<UtxoDatabaseSubBucket> utxoCommitmentFiles) throws DatabaseException {
