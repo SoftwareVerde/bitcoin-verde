@@ -117,8 +117,8 @@ public class BitcoinConstants {
         // SELECT blocks.hash, blocks.block_height, utxo_commitments.public_key, SUM(utxo_commitment_files.byte_count) AS byte_count FROM blocks INNER JOIN utxo_commitments ON utxo_commitments.block_id = blocks.id INNER JOIN utxo_commitment_buckets ON utxo_commitment_buckets.utxo_commitment_id = utxo_commitments.id INNER JOIN utxo_commitment_files ON utxo_commitment_files.utxo_commitment_bucket_id = utxo_commitment_buckets.id GROUP BY utxo_commitments.id ORDER BY blocks.block_height ASC;
         final String utxoCommitmentsString =
             // Sha256Hash blockHash, Long blockHeight, PublicKey multisetPublicKey, Long byteCount
-            "000000000000000003D908BA7463FD154902EDA89AC015A2E2630F4130674E77,700000,02641B76C7FF28490545ACE8745C88AA9ECC5C62C6901A1935FCCCDC77945F1223,4292677194;" +
-            "00000000000000000259AD550B5420E5418CDFC14873D6985BCF1DFA261DBC9C,710000,0386C0DF8BEF2E4C1D65CBF721E0699648F142415415F738D544FE649B9C5C7C47,4575578354";
+            "00000000000000000259AD550B5420E5418CDFC14873D6985BCF1DFA261DBC9C,710000,0386C0DF8BEF2E4C1D65CBF721E0699648F142415415F738D544FE649B9C5C7C47,4575578354;" +
+            "000000000000000001B08717BD8354AC6E81531FABDF074E1677A7AC867D2CC0,720000,03E27196CCDB02B64D1804B8C1058F91B69BFD508E5E6950519760CE646D396173,5036069516";
 
         GENESIS_BLOCK_HASH = System.getProperty("GENESIS_BLOCK_HASH", MainNet.genesisBlockHash);
         GENESIS_BLOCK_TIMESTAMP = Util.parseLong(System.getProperty("GENESIS_BLOCK_TIMESTAMP", String.valueOf(MainNet.genesisBlockTimestamp)));
