@@ -1,56 +1,62 @@
+class Data {
+    static paginateBlockTransactions(pageNumber, transactionsPerPage) {
+        if (Data.prototypeBlock == null) { return []; }
+
+        const transactions = Data.prototypeBlock.transactions;
+        const transactionCount = transactions.length;
+        const pageCount = Math.floor((transactionCount + transactionsPerPage - 1) / transactionsPerPage);
+
+        const page = [];
+        for (let i = 0; i < transactionsPerPage; ++i) {
+            const index = (pageNumber * transactionsPerPage + i);
+            if (index >= transactionCount) { break; }
+
+            const transaction = transactions[index];
+            page.push(transaction);
+        }
+        return page;
+    }
+}
+Data.prototypeBlock = null;
+
+Ui._superRenderBlock = Ui.renderBlock;
+Ui.renderBlock = function(block) {
+    const allTransactions = block.transactions;
+    block.transactions = Data.paginateBlockTransactions(0, 32);
+
+    Ui._superRenderBlock(block);
+    block.transactions = allTransactions;
+
+    const main = $("#main");
+    const blockUi = main.first();
+
+    const transactionCount = allTransactions.length;
+    $(".block-header .transaction-count .value", blockUi).text((transactionCount || "-").toLocaleString());
+};
+
+Api._superGetBlockTransactions = Api.getBlockTransactions;
+Api.getBlockTransactions = function(blockHash, parameters, callback) {
+    if (Data.prototypeBlock == null) { return; }
+
+    const transactionCount = Data.prototypeBlock.transactions.length;
+    const pageNumber = parseInt(parameters.pageNumber);
+    const pageSize = parseInt(parameters.pageSize);
+
+    const transactions = Data.paginateBlockTransactions(pageNumber, pageSize);
+
+    const response = {"transactions": transactions};
+    callback(response);
+};
+
 $(document).ready(function() {
-    Api.search = function(parameters, callback) {
-        const defaultParameters = {
-            query: null
-        };
-        const apiParameters = $.extend({ }, defaultParameters, parameters);
-
-        const query = apiParameters.query;
-
-        const searchInput = $("#search");
-        searchInput.val(query);
-
-        const queryParams = new URLSearchParams(window.location.search);
-        window.location.assign("//bitcoinverde.org/?search=" + window.encodeURIComponent(query));
-    };
-
-    const searchInput = $("#search");
-    const loadingImage = $("#search-loading-image");
-
-    searchInput.on("focus", function() {
-        searchInput.select();
-    });
-
-    searchInput.on("keyup", function(event) {
-        const value = searchInput.val();
-        searchInput.css("text-transform", (value.length == 64 ? "uppercase" : "none"));
-    });
-
-    searchInput.on("keypress", function(event) {
-        const value = searchInput.val();
-        if (value.length == 0) { return true; }
-
-        const key = event.which;
-        if (key != KeyCodes.ENTER) { return true; }
-
-        loadingImage.css("visibility", "visible");
-
-        Api.search({ query: value });
-
-        searchInput.blur();
-
-        return false;
-    });
-
     Api.getPrototypeBlock({ }, function(data) {
-        loadingImage.css("visibility", "hidden");
-
         const wasSuccess = data.wasSuccess;
         const errorMessage = data.errorMessage;
-        const object = data.block;
+        const block = data.block;
+        Data.prototypeBlock = block;
 
         if (wasSuccess) {
-            Ui.renderBlock(object);
+            Ui.renderBlock(block);
             $("#main .block .transaction:first-child").trigger("click");
         }
         else {
@@ -59,8 +65,6 @@ $(document).ready(function() {
     });
 
     Api.getPoolHashRate({ }, function(data) {
-        loadingImage.css("visibility", "hidden");
-
         const wasSuccess = data.wasSuccess;
         const errorMessage = data.errorMessage;
         const hashesPerSecond = parseInt(data.hashesPerSecond);
