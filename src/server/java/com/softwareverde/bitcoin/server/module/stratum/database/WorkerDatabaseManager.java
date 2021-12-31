@@ -164,13 +164,14 @@ public class WorkerDatabaseManager {
         return WorkerId.wrap(workerId);
     }
 
-    public void addWorkerShare(final WorkerId workerId, final Long difficulty, final Sha256Hash blockHash) throws DatabaseException {
+    public void addWorkerShare(final WorkerId workerId, final Long difficulty, final Long blockHeight, final Sha256Hash blockHash) throws DatabaseException {
         final SystemTime systemTime = new SystemTime();
 
         _databaseConnection.executeSql(
-            new Query("INSERT IGNORE INTO worker_shares (worker_id, difficulty, hash, timestamp) VALUES (?, ?, ?, ?)")
+            new Query("INSERT IGNORE INTO worker_shares (worker_id, difficulty, block_height, hash, timestamp) VALUES (?, ?, ?, ?, ?)")
                 .setParameter(workerId)
                 .setParameter(difficulty)
+                .setParameter(blockHeight)
                 .setParameter(blockHash)
                 .setParameter(systemTime.getCurrentTimeInSeconds())
         );
@@ -179,10 +180,11 @@ public class WorkerDatabaseManager {
     public void addWorkerShares(final List<WorkerShare> workerShares) throws DatabaseException {
         if (workerShares.isEmpty()) { return; }
 
-        final BatchedInsertQuery query = new BatchedInsertQuery("INSERT IGNORE INTO worker_shares (worker_id, difficulty, hash, timestamp) VALUES (?, ?, ?, ?)");
+        final BatchedInsertQuery query = new BatchedInsertQuery("INSERT IGNORE INTO worker_shares (worker_id, difficulty, block_height, hash, timestamp) VALUES (?, ?, ?, ?, ?)");
         for (final WorkerShare workerShare : workerShares) {
             query.setParameter(workerShare.workerId);
             query.setParameter(workerShare.shareDifficulty);
+            query.setParameter(workerShare.blockHeight);
             query.setParameter(workerShare.blockHash);
             query.setParameter(workerShare.timestamp);
         }
@@ -190,7 +192,7 @@ public class WorkerDatabaseManager {
         _databaseConnection.executeSql(query);
     }
 
-    public Long getWorkerSharesCount(final WorkerId workerId) throws DatabaseException {
+    public Long getWorkerShareCount(final WorkerId workerId) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT COUNT(*) AS shares_count FROM worker_shares WHERE worker_id = ?")
                 .setParameter(workerId)
@@ -201,10 +203,22 @@ public class WorkerDatabaseManager {
         return row.getLong("shares_count");
     }
 
+    public Long getWorkerShareCount(final WorkerId workerId, final Long blockHeight) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT COUNT(*) AS shares_count FROM worker_shares WHERE worker_id = ? AND block_height = ?")
+                .setParameter(workerId)
+                .setParameter(blockHeight)
+        );
+        if (rows.isEmpty()) { return 0L; }
+
+        final Row row = rows.get(0);
+        return row.getLong("shares_count");
+    }
+
     /**
      * Returns the normalized share difficulty for the provided worker.
      */
-    public Long getWorkerSharesCount(final WorkerId workerId, final Long shareDifficulty) throws DatabaseException {
+    public Long getTotalWorkerShares(final WorkerId workerId) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT SUM(difficulty) AS shares_count FROM worker_shares WHERE worker_id = ?")
                 .setParameter(workerId)
@@ -212,7 +226,21 @@ public class WorkerDatabaseManager {
         if (rows.isEmpty()) { return 0L; }
 
         final Row row = rows.get(0);
-        final Long sharesCount = Util.coalesce(row.getLong("shares_count"));
-        return (sharesCount / shareDifficulty);
+        return Util.coalesce(row.getLong("shares_count"));
+    }
+
+    /**
+     * Returns the normalized share difficulty for the provided worker for the block height.
+     */
+    public Long getTotalWorkerShares(final WorkerId workerId, final Long blockHeight) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT SUM(difficulty) AS shares_count FROM worker_shares WHERE worker_id = ? AND block_height = ?")
+                .setParameter(workerId)
+                .setParameter(blockHeight)
+        );
+        if (rows.isEmpty()) { return 0L; }
+
+        final Row row = rows.get(0);
+        return Util.coalesce(row.getLong("shares_count"));
     }
 }

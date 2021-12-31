@@ -100,8 +100,8 @@ public class StratumModule {
         _workerShareQueue = new WorkerShareQueue(databaseConnectionFactory);
         _stratumServer.setWorkerShareCallback(new WorkerShareCallback() {
             @Override
-            public Boolean onNewWorkerShare(final String workerUsername, final Long shareDifficulty, final Sha256Hash blockHash) {
-                return _workerShareQueue.addWorkerShare(workerUsername, shareDifficulty, blockHash);
+            public Boolean onNewWorkerShare(final String workerUsername, final Long shareDifficulty, final Long blockHeight, final Sha256Hash blockHash) {
+                return _workerShareQueue.addWorkerShare(workerUsername, shareDifficulty, blockHeight, blockHash);
             }
         });
 

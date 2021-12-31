@@ -153,7 +153,7 @@ public class WorkerShareQueue {
         _cacheThread.setDaemon(true);
     }
 
-    public Boolean addWorkerShare(final String workerUsername, final Long shareDifficulty, final Sha256Hash blockHash) {
+    public Boolean addWorkerShare(final String workerUsername, final Long shareDifficulty, final Long blockHeight, final Sha256Hash blockHash) {
         if (! _isStarted) {
             Logger.info("Attempted to add worker share while queue is inactive: " + workerUsername + " " + shareDifficulty + " " + blockHash);
             return false;
@@ -165,7 +165,7 @@ public class WorkerShareQueue {
             return false;
         }
 
-        final WorkerShare workerShare = new WorkerShare(workerId, shareDifficulty, blockHash);
+        final WorkerShare workerShare = new WorkerShare(workerId, shareDifficulty, blockHeight, blockHash);
         return _workerShares.add(workerShare);
     }
 

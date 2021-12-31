@@ -413,7 +413,8 @@ public class BitcoinCoreStratumServer implements StratumServer {
 
         final WorkerShareCallback workerShareCallback = _workerShareCallback;
         if (workerShareCallback != null) {
-            final Boolean wasAccepted = workerShareCallback.onNewWorkerShare(workerUsername, baseShareDifficulty, blockHash);
+            final Long blockHeight = mineBlockTask.getBlockHeight();
+            final Boolean wasAccepted = workerShareCallback.onNewWorkerShare(workerUsername, baseShareDifficulty, blockHeight, blockHash);
             if (! wasAccepted) {
                 final ResponseMessage responseMessage = new MinerSubmitBlockResult(messageId, ResponseMessage.Error.DUPLICATE);
                 jsonSocket.write(new JsonProtocolMessage(responseMessage));

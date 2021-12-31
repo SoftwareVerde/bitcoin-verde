@@ -158,7 +158,8 @@ public class StratumMineBlockTaskBuilderCore implements MutableStratumMineBlockT
 
             final Long nextId = StratumMineBlockTaskBuilderCore.getNextId();
             final ByteArray idBytes = MutableByteArray.wrap(ByteUtil.integerToBytes(nextId));
-            return new StratumMineBlockTask(idBytes, _prototypeBlock, _coinbaseTransactionHead, _coinbaseTransactionTail, _extraNonce1);
+            final Long blockHeight = _blockHeight;
+            return new StratumMineBlockTask(idBytes, blockHeight, _prototypeBlock, _coinbaseTransactionHead, _coinbaseTransactionTail, _extraNonce1);
         }
         finally {
             _prototypeBlockReadLock.unlock();

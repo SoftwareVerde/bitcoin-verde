@@ -10,12 +10,14 @@ public class WorkerShare {
 
     final WorkerId workerId;
     final Long shareDifficulty;
+    final Long blockHeight;
     final Sha256Hash blockHash;
     final Long timestamp;
 
-    public WorkerShare(final WorkerId workerId, final Long shareDifficulty, final Sha256Hash blockHash) {
+    public WorkerShare(final WorkerId workerId, final Long shareDifficulty, final Long blockHeight, final Sha256Hash blockHash) {
         this.workerId = workerId;
         this.shareDifficulty = shareDifficulty;
+        this.blockHeight = blockHeight;
         this.blockHash = blockHash;
 
         this.timestamp = SYSTEM_TIME.getCurrentTimeInSeconds();

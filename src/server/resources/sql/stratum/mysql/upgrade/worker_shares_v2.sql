@@ -14,6 +14,7 @@ CREATE TABLE stratum.found_blocks (
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 DELETE FROM stratum.worker_shares;
-ALTER TABLE stratum.worker_shares ADD COLUMN hash BINARY(32) NOT NULL AFTER difficulty;
-ALTER TABLE stratum.worker_shares ADD CONSTRAINT worker_shares_uq UNIQUE (hash);
+ALTER TABLE stratum.worker_shares ADD COLUMN block_height INT UNSIGNED NOT NULL AFTER difficulty;
+ALTER TABLE stratum.worker_shares ADD COLUMN hash BINARY(32) NOT NULL AFTER hash;
+ALTER TABLE stratum.worker_shares ADD CONSTRAINT worker_shares_uq UNIQUE (block_height, hash);
 ALTER TABLE stratum.workers ADD COLUMN was_deleted TINYINT(1) NOT NULL DEFAULT 0;

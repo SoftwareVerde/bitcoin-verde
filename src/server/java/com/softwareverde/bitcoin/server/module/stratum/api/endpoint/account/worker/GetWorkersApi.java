@@ -18,6 +18,7 @@ import com.softwareverde.http.server.servlet.response.Response;
 import com.softwareverde.json.Json;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.servlet.AuthenticatedServlet;
+import com.softwareverde.util.Util;
 
 public class GetWorkersApi extends AuthenticatedServlet {
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
@@ -55,18 +56,13 @@ public class GetWorkersApi extends AuthenticatedServlet {
                     final String workerUsername = workerDatabaseManager.getWorkerUsername(workerId);
 
                     final Long shareDifficulty = _shareDifficulty;
-                    final Long workerSharesCount;
-                    if (shareDifficulty != null) {
-                        workerSharesCount = workerDatabaseManager.getWorkerSharesCount(workerId, shareDifficulty);
-                    }
-                    else {
-                        workerSharesCount = workerDatabaseManager.getWorkerSharesCount(workerId);
-                    }
+                    final Long totalWorkerShareCount = workerDatabaseManager.getTotalWorkerShares(workerId);
+                    final Long normalizedWorkerShareCount = (totalWorkerShareCount / Util.coalesce(shareDifficulty, 1L));
 
                     final Json workerJson = new Json(false);
                     workerJson.put("id", workerId);
                     workerJson.put("username", workerUsername);
-                    workerJson.put("sharesCount", workerSharesCount);
+                    workerJson.put("sharesCount", normalizedWorkerShareCount);
                     workersJson.add(workerJson);
                 }
 

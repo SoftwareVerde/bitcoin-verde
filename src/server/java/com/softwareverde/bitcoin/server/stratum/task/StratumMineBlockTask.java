@@ -29,6 +29,7 @@ public class StratumMineBlockTask {
 
     protected final ByteArray _id;
     protected final Long _idLong;
+    protected final Long _blockHeight;
     protected final Block _prototypeBlock;
     protected final String _extraNonce1;
     protected final String _coinbaseTransactionHead;
@@ -119,8 +120,9 @@ public class StratumMineBlockTask {
         return mineBlockMessage;
     }
 
-    public StratumMineBlockTask(final ByteArray id, final Block prototypeBlock, final String coinbaseTransactionHead, final String coinbaseTransactionTail, final String extraNonce1) {
+    public StratumMineBlockTask(final ByteArray id, final Long blockHeight, final Block prototypeBlock, final String coinbaseTransactionHead, final String coinbaseTransactionTail, final String extraNonce1) {
         _id = id.asConst();
+        _blockHeight = blockHeight;
         _prototypeBlock = prototypeBlock.asConst();
         _coinbaseTransactionHead = coinbaseTransactionHead;
         _coinbaseTransactionTail = coinbaseTransactionTail;
@@ -210,6 +212,10 @@ public class StratumMineBlockTask {
 
     public BlockHeader getPrototypeBlock() {
         return _prototypeBlock;
+    }
+
+    public Long getBlockHeight() {
+        return _blockHeight;
     }
 
 }
