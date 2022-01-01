@@ -111,12 +111,9 @@ public class BitcoinVerdeDatabase implements Database {
                 upgradedVersion = 9;
             }
 
-            // v9 -> v10 (Stratum DB Worker Shares)
-            if ( (upgradedVersion == 8) && (requiredVersion >= 9) ) {
+            // v9 -> v10 (Stratum DB Worker Shares, Bitcoin NO-OP)
+            if ( (upgradedVersion == 9) && (requiredVersion >= 10) ) {
                 Logger.info("[Upgrading DB to v10]");
-                final Boolean wasSuccessful = BitcoinVerdeDatabase.upgradeStratumWorkerShares(maintenanceDatabaseConnection);
-                if (! wasSuccessful) { return false; }
-
                 upgradedVersion = 10;
             }
 
@@ -136,6 +133,7 @@ public class BitcoinVerdeDatabase implements Database {
     }
 
     public static BitcoinVerdeDatabase newInstance(final InitFile sqlInitFile, final StratumProperties stratumProperties, final BitcoinVerdeDatabaseProperties bitcoinVerdeDatabaseProperties) {
+        // TODO: Use StratumCredentials and Stratum db upgrade handler...
         return BitcoinVerdeDatabase.newInstance(sqlInitFile, TARGET_MAX_DATABASE_CONNECTION_COUNT, bitcoinVerdeDatabaseProperties);
     }
 
