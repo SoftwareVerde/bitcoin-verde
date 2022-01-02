@@ -103,11 +103,18 @@ public class BitcoinCoreStratumServer implements StratumServer {
         final NanoTimer nanoTimer = new NanoTimer();
         nanoTimer.start();
 
+        final BlockTemplate blockTemplate;
         try (final BitcoinMiningRpcConnector rpcConnection = _getBitcoinRpcConnector()) {
-            _blockTemplate = rpcConnection.getBlockTemplate();
+            blockTemplate = rpcConnection.getBlockTemplate();
+        }
+        nanoTimer.stop();
+
+        if (blockTemplate == null) {
+            Logger.info("Unable to acquire new block template. (" + nanoTimer.getMillisecondsElapsed() + "ms)");
+            return;
         }
 
-        nanoTimer.stop();
+        _blockTemplate = blockTemplate;
         Logger.trace("Acquired new block template in " + nanoTimer.getMillisecondsElapsed() + "ms.");
     }
 
@@ -224,6 +231,11 @@ public class BitcoinCoreStratumServer implements StratumServer {
         final Address address = _getCoinbaseAddress();
 
         final BlockTemplate blockTemplate = _blockTemplate;
+        if (blockTemplate == null) {
+            Logger.debug("Block template not available.");
+            return null;
+        }
+
         final Long blockHeight = blockTemplate.getBlockHeight();
         final Sha256Hash previousBlockHash = blockTemplate.getPreviousBlockHash();
         final Difficulty difficulty = blockTemplate.getDifficulty();
@@ -276,6 +288,11 @@ public class BitcoinCoreStratumServer implements StratumServer {
         final Long jsonSocketId = jsonSocket.getId();
 
         final StratumMineBlockTask mineBlockTask = _buildNewMiningTask(jsonSocketId);
+        if (mineBlockTask == null) {
+            Logger.debug("Unable to send work to " + jsonSocket + ".");
+            return;
+        }
+
         final Long mineBlockTaskId = mineBlockTask.getId();
         _mineBlockTasks.put(mineBlockTaskId, mineBlockTask);
 
@@ -603,12 +620,16 @@ public class BitcoinCoreStratumServer implements StratumServer {
     @Override
     public Block getPrototypeBlock() {
         final StratumMineBlockTask mineBlockTask = _buildNewMiningTask(0L);
+        if (mineBlockTask == null) { return null; }
+
         return mineBlockTask.assembleBlockTemplate(_extraNonceByteCount, _extraNonce2ByteCount);
     }
 
     @Override
     public Long getBlockHeight() {
         final BlockTemplate blockTemplate = _blockTemplate;
+        if (blockTemplate == null) { return 0L; }
+
         return blockTemplate.getBlockHeight();
     }
 
