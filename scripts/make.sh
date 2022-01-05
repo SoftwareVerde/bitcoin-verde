@@ -27,6 +27,7 @@ cp README.md out/.
 
 # Create SSL Placeholder Directory
 mkdir -p out/ssl
+cp scripts/ssl/* out/ssl/.
 
 # Copy Web/HTML Files
 ./scripts/copy-www-data.sh
