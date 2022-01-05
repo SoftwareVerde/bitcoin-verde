@@ -78,7 +78,7 @@ public class Wallet {
         public final MutableSlpSendScript slpSendScript = new MutableSlpSendScript();
     }
 
-    protected static final Address DUMMY_ADDRESS = (new AddressInflater()).fromBytes(new MutableByteArray(Address.BYTE_COUNT));
+    protected static final Address DUMMY_ADDRESS = (new AddressInflater()).fromBytes(Address.Type.P2PKH, new MutableByteArray(Address.BYTE_COUNT), true);
 
     protected final UpgradeSchedule _upgradeSchedule;
     protected final HashMap<Address, PublicKey> _publicKeys = new HashMap<>();
@@ -891,11 +891,29 @@ public class Wallet {
 
         final ScriptRunner scriptRunner = new ScriptRunner(_upgradeSchedule);
         final List<TransactionInput> signedTransactionInputs = signedTransaction.getTransactionInputs();
-        for (int i = 0; i < signedTransactionInputs.getCount(); ++i) {
+        final int transactionInputCount = signedTransactionInputs.getCount();
+        final List<TransactionOutput> previousTransactionOutputs;
+        {
+            final ImmutableListBuilder<TransactionOutput> listBuilder = new ImmutableListBuilder<>(transactionInputCount);
+            for (int i = 0; i < transactionInputCount; ++i) {
+                final TransactionInput signedTransactionInput = signedTransactionInputs.get(i);
+                final Sha256Hash transactionHash = signedTransactionInput.getPreviousOutputTransactionHash();
+                final Integer outputIndex = signedTransactionInput.getPreviousOutputIndex();
+                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+
+                final SpendableTransactionOutput spendableTransactionOutput = _transactionOutputs.get(transactionOutputIdentifier);
+                listBuilder.add(spendableTransactionOutput.getTransactionOutput());
+            }
+            previousTransactionOutputs = listBuilder.build();
+        }
+        for (int i = 0; i < transactionInputCount; ++i) {
             final TransactionInput signedTransactionInput = signedTransactionInputs.get(i);
             final TransactionOutput transactionOutputBeingSpent;
             {
-                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(signedTransactionInput.getPreviousOutputTransactionHash(), signedTransactionInput.getPreviousOutputIndex());
+                final Sha256Hash transactionHash = signedTransactionInput.getPreviousOutputTransactionHash();
+                final Integer outputIndex = signedTransactionInput.getPreviousOutputIndex();
+                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+
                 final SpendableTransactionOutput spendableTransactionOutput = _transactionOutputs.get(transactionOutputIdentifier);
                 transactionOutputBeingSpent = spendableTransactionOutput.getTransactionOutput();
 
@@ -906,7 +924,7 @@ public class Wallet {
                 }
             }
 
-            final MutableTransactionContext context = MutableTransactionContext.getContextForVerification(signedTransaction, i, transactionOutputBeingSpent, _medianBlockTime, _upgradeSchedule);
+            final MutableTransactionContext context = MutableTransactionContext.getContextForVerification(signedTransaction, i, previousTransactionOutputs, _medianBlockTime, _upgradeSchedule);
             final ScriptRunner.ScriptRunnerResult scriptRunnerResult = scriptRunner.runScript(transactionOutputBeingSpent.getLockingScript(), signedTransactionInput.getUnlockingScript(), context);
             final boolean outputIsUnlocked = scriptRunnerResult.isValid;
 
@@ -1089,7 +1107,7 @@ public class Wallet {
         final List<PaymentAmount> expectedPaymentAmounts = slpTokenTransactionConfiguration.mutablePaymentAmounts;
         final List<PaymentAmount> bundlePaymentAmounts = transactionBundle.paymentAmountsWithChange;
         boolean shouldUpdateSlpTokenConfiguration = false;
-        for (int i=0; i<bundlePaymentAmounts.getCount(); i++) {
+        for (int i = 0; i < bundlePaymentAmounts.getCount(); i++) {
             final PaymentAmount bundlePaymentAmount = bundlePaymentAmounts.get(i);
             if (bundlePaymentAmount instanceof SlpPaymentAmount) {
                 if (expectedPaymentAmounts.getCount() <= i) {

@@ -5,7 +5,6 @@ import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.merkleroot.Hashable;
 import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
-import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.constable.Constable;
@@ -44,7 +43,7 @@ abstract class BlockHeaderCore implements BlockHeader {
 
     protected Long _version;
     protected Sha256Hash _previousBlockHash = Sha256Hash.EMPTY_HASH;
-    protected MerkleRoot _merkleRoot = new MutableMerkleRoot();
+    protected MerkleRoot _merkleRoot = null;
     protected Long _timestamp;
     protected Difficulty _difficulty;
     protected Long _nonce;

@@ -23,7 +23,7 @@ public class PartialMerkleTreeNode<T> {
         this.depth = depth;
         this.maxDepth = maxDepth;
 
-        if (depth > maxDepth) { throw new IndexOutOfBoundsException(); }
+        if (depth > maxDepth) { throw new IndexOutOfBoundsException(depth + " > " + maxDepth); }
     }
 
     public final int depth;

@@ -47,8 +47,8 @@ import com.softwareverde.bitcoin.server.message.type.query.response.hash.Invento
 import com.softwareverde.bitcoin.server.message.type.query.response.transaction.TransactionMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.utxo.UtxoCommitmentMessage;
 import com.softwareverde.bitcoin.server.message.type.query.slp.QuerySlpStatusMessage;
+import com.softwareverde.bitcoin.server.message.type.query.utxo.NodeSpecificUtxoCommitmentBreakdown;
 import com.softwareverde.bitcoin.server.message.type.query.utxo.QueryUtxoCommitmentsMessage;
-import com.softwareverde.bitcoin.server.message.type.query.utxo.UtxoCommitmentBreakdown;
 import com.softwareverde.bitcoin.server.message.type.query.utxo.UtxoCommitmentsMessage;
 import com.softwareverde.bitcoin.server.message.type.slp.EnableSlpTransactionsMessage;
 import com.softwareverde.bitcoin.server.message.type.thin.block.ExtraThinBlockMessage;
@@ -140,7 +140,7 @@ public class BitcoinNode extends Node {
         List<BitcoinNodeIpAddress> getConnectedPeers();
     }
 
-    public interface UtxoCommitmentsCallback extends BitcoinNodeRequestCallback<List<UtxoCommitmentBreakdown>> { }
+    public interface UtxoCommitmentsCallback extends BitcoinNodeRequestCallback<List<NodeSpecificUtxoCommitmentBreakdown>> { }
 
     public interface BlockInventoryAnnouncementHandler extends BitcoinNodeHandler {
         void onNewInventory(BitcoinNode bitcoinNode, List<Sha256Hash> blockHashes);
@@ -1507,7 +1507,7 @@ public class BitcoinNode extends Node {
     }
 
     protected void _onUtxoCommitmentsReceived(final UtxoCommitmentsMessage utxoCommitmentsMessage) {
-        final List<UtxoCommitmentBreakdown> utxoCommitmentBreakdowns = utxoCommitmentsMessage.getUtxoCommitments();
+        final List<NodeSpecificUtxoCommitmentBreakdown> utxoCommitmentBreakdowns = utxoCommitmentsMessage.getUtxoCommitments();
 
         synchronized (_utxoCommitmentsCallbacks) {
             for (final Map.Entry<RequestId, UtxoCommitmentsCallback> callbackEntry : _utxoCommitmentsCallbacks.entrySet()) {
@@ -2144,9 +2144,25 @@ public class BitcoinNode extends Node {
             //  3. Finally, since the receiving node has no way to determine if the transaction stream is complete, a ping message is sent to interrupt the flow.
             final MutableList<ProtocolMessage> messages = new MutableList<>();
 
+            final PartialMerkleTree partialMerkleTree;
+            try {
+                partialMerkleTree = block.getPartialMerkleTree(bloomFilter);
+            }
+            catch (final RuntimeException exception) {
+                // 2021-12-16: There is a bug causing an IndexOutOfBounds exception for some BloomFilter/Block combination.  Remove this once resolved.
+                if (Logger.isDebugEnabled()) {
+                    final BloomFilterDeflater bloomFilterDeflater = new BloomFilterDeflater();
+                    final Sha256Hash blockHash = block.getHash();
+                    final ByteArray bloomFilterBytes = bloomFilterDeflater.toBytes(bloomFilter);
+                    Logger.debug("Unable to calculate PartialMerkleTree: " + blockHash + " " + bloomFilterBytes, exception);
+                }
+
+                throw exception;
+            }
+
             final MerkleBlockMessage merkleBlockMessage = _protocolMessageFactory.newMerkleBlockMessage();
             merkleBlockMessage.setBlockHeader(block);
-            merkleBlockMessage.setPartialMerkleTree(block.getPartialMerkleTree(bloomFilter));
+            merkleBlockMessage.setPartialMerkleTree(partialMerkleTree);
             messages.add(merkleBlockMessage);
 
             // BIP37 dictates that matched transactions be separately relayed...

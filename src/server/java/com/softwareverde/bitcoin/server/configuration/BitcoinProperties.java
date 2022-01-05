@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.configuration;
 
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
+import com.softwareverde.bitcoin.server.main.NetworkType;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.logging.LogLevel;
@@ -34,6 +35,7 @@ public class BitcoinProperties {
     protected Float _utxoPurgePercent;
     protected Boolean _bootstrapIsEnabled;
     protected Boolean _fastSyncIsEnabled;
+    protected Long _fastSyncTimeoutInSeconds;
     protected Boolean _indexingModeIsEnabled;
     protected Integer _maxMessagesPerSecond;
     protected String _dataDirectory;
@@ -92,6 +94,16 @@ public class BitcoinProperties {
     public LogLevel getLogLevel() { return _logLevel; }
     public Boolean isTestNet() { return _isTestNet(); }
     public Integer getTestNetVersion() { return _testNet; }
+    public NetworkType getNetworkType() {
+        switch (_testNet) {
+            case 4: return NetworkType.TEST_NET4;
+
+            case 1:
+            case 3: return NetworkType.TEST_NET;
+
+            default: return NetworkType.MAIN_NET;
+        }
+    }
     public Boolean isPruningModeEnabled() { return _pruningModeIsEnabled; }
 
     public Long getMaxUtxoCacheByteCount() { return _maxUtxoCacheByteCount; }
@@ -106,6 +118,7 @@ public class BitcoinProperties {
     public Integer getMaxMessagesPerSecond() { return _maxMessagesPerSecond; }
     public Boolean isBootstrapEnabled() { return (_isTestNet() ? false : _bootstrapIsEnabled); }
     public Boolean isFastSyncEnabled() { return (_pruningModeIsEnabled && _fastSyncIsEnabled); }
+    public Long getFastSyncTimeoutMs() { return (_fastSyncTimeoutInSeconds < 0L ? -1L : (_fastSyncTimeoutInSeconds * 1000L)); }
     public String getDataDirectory() { return _dataDirectory; }
     public Boolean isInvalidSlpTransactionRelayEnabled() { return _shouldRelayInvalidSlpTransactions; }
 

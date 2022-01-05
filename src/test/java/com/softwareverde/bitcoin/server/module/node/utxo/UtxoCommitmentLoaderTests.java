@@ -65,7 +65,7 @@ public class UtxoCommitmentLoaderTests extends UnitTest {
         final File file = File.createTempFile("utxo-out", ".dat");
         file.deleteOnExit();
 
-        utxoCommitmentLoader.createLoadFile(inputFiles, file);
+        utxoCommitmentLoader.createLoadFile(inputFiles, file, null);
 
         final String fileContents = StringUtil.bytesToString(IoUtil.getFileContents(file));
         for (final String line : fileContents.split("\n")) {

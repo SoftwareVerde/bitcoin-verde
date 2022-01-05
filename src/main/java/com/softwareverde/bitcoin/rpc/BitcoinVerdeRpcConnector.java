@@ -17,7 +17,7 @@ import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
-public class BitcoinVerdeRpcConnector implements BitcoinMiningRpcConnector, AutoCloseable {
+public class BitcoinVerdeRpcConnector implements BitcoinMiningRpcConnector {
     public static final String IDENTIFIER = "VERDE";
 
     public static BlockTemplate toBlockTemplate(final Block block, final Long blockHeight, final SystemTime systemTime) {
@@ -80,6 +80,12 @@ public class BitcoinVerdeRpcConnector implements BitcoinMiningRpcConnector, Auto
         return (this.getHost() + ":" + this.getPort());
     }
 
+    protected NodeJsonRpcConnection _getRpcConnection() {
+        final String host = _bitcoinNodeRpcAddress.getHost();
+        final Integer port = _bitcoinNodeRpcAddress.getPort();
+        return new NodeJsonRpcConnection(host, port, _threadPool);
+    }
+
     public BitcoinVerdeRpcConnector(final BitcoinNodeRpcAddress bitcoinNodeRpcAddress, final RpcCredentials rpcCredentials) {
         _systemTime = new SystemTime();
         _bitcoinNodeRpcAddress = bitcoinNodeRpcAddress;
@@ -112,9 +118,7 @@ public class BitcoinVerdeRpcConnector implements BitcoinMiningRpcConnector, Auto
         final Integer requestId = requestJson.getInteger("id");
         final String query = requestJson.getString("method").toLowerCase();
 
-        final String host = _bitcoinNodeRpcAddress.getHost();
-        final Integer port = _bitcoinNodeRpcAddress.getPort();
-        try (final NodeJsonRpcConnection nodeJsonRpcConnection = new NodeJsonRpcConnection(host, port, _threadPool)) {
+        try (final NodeJsonRpcConnection nodeJsonRpcConnection = _getRpcConnection()) {
             if (monitor instanceof BitcoinVerdeRpcMonitor) {
                 ((BitcoinVerdeRpcMonitor) monitor).beforeRequestStart(nodeJsonRpcConnection);
             }
@@ -140,11 +144,8 @@ public class BitcoinVerdeRpcConnector implements BitcoinMiningRpcConnector, Auto
 
     @Override
     public BlockTemplate getBlockTemplate(final Monitor monitor) {
-        final String host = _bitcoinNodeRpcAddress.getHost();
-        final Integer port = _bitcoinNodeRpcAddress.getPort();
-
         final Json prototypeBlockJson;
-        try (final NodeJsonRpcConnection nodeJsonRpcConnection = new NodeJsonRpcConnection(host, port, _threadPool)) {
+        try (final NodeJsonRpcConnection nodeJsonRpcConnection = _getRpcConnection()) {
             prototypeBlockJson = nodeJsonRpcConnection.getPrototypeBlock(true);
         }
         if (prototypeBlockJson == null) {
@@ -161,28 +162,28 @@ public class BitcoinVerdeRpcConnector implements BitcoinMiningRpcConnector, Auto
         }
 
         final long blockHeight;
-        try (final NodeJsonRpcConnection blockHeightNodeJsonRpcConnection = new NodeJsonRpcConnection(host, port, _threadPool)) {
-            final Json responseJson = blockHeightNodeJsonRpcConnection.getBlockHeight();
-            if (responseJson == null) {
-                Logger.warn("Error executing get-prototype from node.");
-                return null;
-            }
+        if (prototypeBlockJson.hasKey("blockHeight")) {
+            blockHeight = prototypeBlockJson.getLong("blockHeight");
+        }
+        else { // Backwards compatibility...
+            try (final NodeJsonRpcConnection blockHeightNodeJsonRpcConnection = _getRpcConnection()) {
+                final Json responseJson = blockHeightNodeJsonRpcConnection.getBlockHeight();
+                if (responseJson == null) {
+                    Logger.warn("Error executing get-prototype from node.");
+                    return null;
+                }
 
-            blockHeight = (responseJson.getLong("blockHeight") + 1L);
+                blockHeight = (responseJson.getLong("blockHeight") + 1L);
+            }
         }
 
         return BitcoinVerdeRpcConnector.toBlockTemplate(block, blockHeight, _systemTime);
     }
 
     @Override
-    public Boolean validateBlockTemplate(final BlockTemplate blockTemplate, final Monitor monitor) {
-        final String host = _bitcoinNodeRpcAddress.getHost();
-        final Integer port = _bitcoinNodeRpcAddress.getPort();
-
-        final Block block = blockTemplate.toBlock();
-
+    public Boolean validateBlockTemplate(final Block block, final Monitor monitor) {
         final Json responseJson;
-        try (final NodeJsonRpcConnection nodeJsonRpcConnection = new NodeJsonRpcConnection(host, port, _threadPool)) {
+        try (final NodeJsonRpcConnection nodeJsonRpcConnection = _getRpcConnection()) {
             responseJson = nodeJsonRpcConnection.validatePrototypeBlock(block);
         }
         if (responseJson == null) {
@@ -196,11 +197,8 @@ public class BitcoinVerdeRpcConnector implements BitcoinMiningRpcConnector, Auto
 
     @Override
     public Boolean submitBlock(final Block block, final Monitor monitor) {
-        final String host = _bitcoinNodeRpcAddress.getHost();
-        final Integer port = _bitcoinNodeRpcAddress.getPort();
-
         final Json responseJson;
-        try (final NodeJsonRpcConnection nodeJsonRpcConnection = new NodeJsonRpcConnection(host, port, _threadPool)) {
+        try (final NodeJsonRpcConnection nodeJsonRpcConnection = _getRpcConnection()) {
             responseJson = nodeJsonRpcConnection.submitBlock(block);
         }
         if (responseJson == null) {
@@ -225,9 +223,7 @@ public class BitcoinVerdeRpcConnector implements BitcoinMiningRpcConnector, Auto
     public void subscribeToNotifications(final RpcNotificationCallback notificationCallback) {
         if (_socketConnection != null) { return; }
 
-        final String host = _bitcoinNodeRpcAddress.getHost();
-        final Integer port = _bitcoinNodeRpcAddress.getPort();
-        final NodeJsonRpcConnection nodeJsonRpcConnection = new NodeJsonRpcConnection(host, port, _threadPool);
+        final NodeJsonRpcConnection nodeJsonRpcConnection = _getRpcConnection();
         nodeJsonRpcConnection.upgradeToAnnouncementHook(new NodeJsonRpcConnection.AnnouncementHookCallback() {
             @Override
             public void onNewBlockHeader(final Json json) {
@@ -263,7 +259,7 @@ public class BitcoinVerdeRpcConnector implements BitcoinMiningRpcConnector, Auto
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         _threadPool.stop();
     }
 }

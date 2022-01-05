@@ -36,6 +36,7 @@ import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStoreCore;
 import com.softwareverde.bitcoin.server.module.node.store.UtxoCommitmentStore;
 import com.softwareverde.bitcoin.server.module.node.store.UtxoCommitmentStoreCore;
+import com.softwareverde.bitcoin.server.properties.DatabasePropertiesStore;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
@@ -53,6 +54,7 @@ import com.softwareverde.util.type.time.SystemTime;
 public class ChainValidationModule {
     protected final BitcoinProperties _bitcoinProperties;
     protected final Environment _environment;
+    protected final DatabasePropertiesStore _propertiesStore;
     protected final Sha256Hash _startingBlockHash;
     protected final PendingBlockStore _blockStore;
     protected final UtxoCommitmentStore _utxoCommitmentStore;
@@ -61,6 +63,9 @@ public class ChainValidationModule {
     public ChainValidationModule(final BitcoinProperties bitcoinProperties, final Environment environment, final String startingBlockHash) {
         _bitcoinProperties = bitcoinProperties;
         _environment = environment;
+
+        final DatabaseConnectionFactory databaseConnectionFactory = _environment.getDatabaseConnectionFactory();
+        _propertiesStore = new DatabasePropertiesStore(databaseConnectionFactory);
 
         final MasterInflater masterInflater = new CoreInflater();
         _startingBlockHash = Util.coalesce(Sha256Hash.fromHexString(startingBlockHash), BlockHeader.GENESIS_BLOCK_HASH);
@@ -92,13 +97,22 @@ public class ChainValidationModule {
         mainThread.setPriority(Thread.MAX_PRIORITY);
 
         final Database database = _environment.getDatabase();
+        _propertiesStore.start();
         // final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
 
         final MasterInflater masterInflater = new CoreInflater();
 
         final BlockchainSegmentId blockchainSegmentId;
         final DatabaseConnectionFactory databaseConnectionPool = _environment.getDatabaseConnectionFactory();
-        final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, database.getMaxQueryBatchSize(), _blockStore, _utxoCommitmentStore, masterInflater, _checkpointConfiguration);
+        final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(
+            databaseConnectionPool,
+            database.getMaxQueryBatchSize(),
+            _propertiesStore,
+            _blockStore,
+            _utxoCommitmentStore,
+            masterInflater,
+            _checkpointConfiguration
+        );
         try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
@@ -116,6 +130,7 @@ public class ChainValidationModule {
             final FullNodeDatabaseManager databaseManager = new FullNodeDatabaseManager(
                 databaseConnection,
                 database.getMaxQueryBatchSize(),
+                _propertiesStore,
                 _blockStore,
                 _utxoCommitmentStore,
                 masterInflater,
@@ -236,6 +251,8 @@ public class ChainValidationModule {
                     }
                 }
             }
+
+            _propertiesStore.stop();
         }
         catch (final DatabaseException exception) {
             Logger.error("Last validated block: " + nextBlockHash, exception);

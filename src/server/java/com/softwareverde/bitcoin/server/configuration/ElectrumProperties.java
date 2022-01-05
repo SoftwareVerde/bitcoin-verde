@@ -1,6 +1,10 @@
 package com.softwareverde.bitcoin.server.configuration;
 
-import com.softwareverde.bitcoin.rpc.RpcCredentials;
+import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.server.main.NetworkType;
+import com.softwareverde.logging.LogLevel;
+
+import java.io.File;
 
 public class ElectrumProperties {
     public static final Integer HTTP_PORT = 50001;
@@ -8,12 +12,16 @@ public class ElectrumProperties {
 
     protected String _bitcoinRpcUrl;
     protected Integer _bitcoinRpcPort;
-    protected RpcCredentials _rpcCredentials;
+    protected LogLevel _logLevel;
+    protected File _dataDirectory;
+    protected Integer _testNet;
 
     protected Integer _httpPort;
     protected Integer _tlsPort;
     protected String _tlsKeyFile;
     protected String _tlsCertificateFile;
+
+    protected Address _donationAddress;
 
     public String getBitcoinRpcUrl() {
         return _bitcoinRpcUrl;
@@ -21,10 +29,6 @@ public class ElectrumProperties {
 
     public Integer getBitcoinRpcPort() {
         return _bitcoinRpcPort;
-    }
-
-    public RpcCredentials getRpcCredentials() {
-        return _rpcCredentials;
     }
 
     public Integer getHttpPort() {
@@ -41,5 +45,29 @@ public class ElectrumProperties {
 
     public String getTlsCertificateFile() {
         return _tlsCertificateFile;
+    }
+
+    public Address getDonationAddress() {
+        return _donationAddress;
+    }
+
+    public LogLevel getLogLevel() {
+        return _logLevel;
+    }
+
+    public File getDataDirectory() {
+        return _dataDirectory;
+    }
+
+    public Integer getTestNetVersion() { return _testNet; }
+    public NetworkType getNetworkType() {
+        switch (_testNet) {
+            case 4: return NetworkType.TEST_NET4;
+
+            case 1:
+            case 3: return NetworkType.TEST_NET;
+
+            default: return NetworkType.MAIN_NET;
+        }
     }
 }

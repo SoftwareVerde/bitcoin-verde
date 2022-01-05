@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.indexer.BlockchainIndexerDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
+import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
@@ -39,7 +40,12 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
         }
     }
 
-    protected List<Transaction> _getAddressTransactions(final Address address, final Sha256Hash scriptHash, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
+    protected static class GetAddressTransactionsReturnType {
+        public static final Sha256Hash TRANSACTION_HASH = Sha256Hash.EMPTY_HASH;
+        public static final Transaction TRANSACTION = new MutableTransaction();
+    }
+
+    protected <T> List<T> _getAddressTransactions(final Address address, final Sha256Hash scriptHash, final T returnType, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
@@ -55,17 +61,23 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
             transactionIds = blockchainIndexerDatabaseManager.getTransactionIds(headChainSegmentId, scriptHash, true);
         }
 
-        final MutableList<Transaction> pendingTransactions = new MutableList<>(0);
-        final HashMap<Long, MutableList<Transaction>> transactionTimestamps = new HashMap<>(transactionIds.getCount());
+        final MutableList<T> pendingTransactions = new MutableList<>(0);
+        final HashMap<Long, MutableList<T>> transactionTimestamps = new HashMap<>(transactionIds.getCount());
 
         for (final TransactionId transactionId : transactionIds) {
             final BlockId blockId = transactionDatabaseManager.getBlockId(headChainSegmentId, transactionId);
-            final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+            final T transaction;
+            if (returnType instanceof Sha256Hash) {
+                transaction = (T) transactionDatabaseManager.getTransactionHash(transactionId);
+            }
+            else {
+                transaction = (T) transactionDatabaseManager.getTransaction(transactionId);
+            }
 
             if (blockId != null) {
                 final Long transactionTimestamp = blockHeaderDatabaseManager.getBlockTimestamp(blockId);
 
-                MutableList<Transaction> transactions = transactionTimestamps.get(transactionTimestamp);
+                MutableList<T> transactions = transactionTimestamps.get(transactionTimestamp);
                 if (transactions == null) {
                     transactions = new MutableList<>(1);
                     transactionTimestamps.put(transactionTimestamp, transactions);
@@ -80,7 +92,7 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
             }
         }
 
-        final ImmutableListBuilder<Transaction> transactions = new ImmutableListBuilder<>(transactionIds.getCount());
+        final ImmutableListBuilder<T> transactions = new ImmutableListBuilder<>(transactionIds.getCount());
         { // Add the Transactions in descending order by timestamp...
             final MutableList<Long> timestamps = new MutableList<>(transactionTimestamps.keySet());
             timestamps.sort(SortUtil.longComparator.reversed());
@@ -124,7 +136,7 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
     @Override
     public List<Transaction> getAddressTransactions(final Address address) {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            return _getAddressTransactions(address, null, databaseManager);
+            return _getAddressTransactions(address, null, GetAddressTransactionsReturnType.TRANSACTION, databaseManager);
         }
         catch (final Exception exception) {
             Logger.warn(exception);
@@ -135,7 +147,29 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
     @Override
     public List<Transaction> getAddressTransactions(final Sha256Hash scriptHash) {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            return _getAddressTransactions(null, scriptHash, databaseManager);
+            return _getAddressTransactions(null, scriptHash, GetAddressTransactionsReturnType.TRANSACTION, databaseManager);
+        }
+        catch (final Exception exception) {
+            Logger.warn(exception);
+            return null;
+        }
+    }
+
+    @Override
+    public List<Sha256Hash> getAddressTransactionHashes(final Address address) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            return _getAddressTransactions(address, null, GetAddressTransactionsReturnType.TRANSACTION_HASH, databaseManager);
+        }
+        catch (final Exception exception) {
+            Logger.warn(exception);
+            return null;
+        }
+    }
+
+    @Override
+    public List<Sha256Hash> getAddressTransactionHashes(final Sha256Hash scriptHash) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            return _getAddressTransactions(null, scriptHash, GetAddressTransactionsReturnType.TRANSACTION_HASH, databaseManager);
         }
         catch (final Exception exception) {
             Logger.warn(exception);

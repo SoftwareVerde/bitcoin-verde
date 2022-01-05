@@ -1,9 +1,9 @@
 package com.softwareverde.bitcoin.server.message.type.query.utxo;
 
-import com.softwareverde.bitcoin.chain.utxo.MultisetBucket;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitment;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentBucket;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentMetadata;
+import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentSubBucket;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
@@ -45,14 +45,14 @@ public class UtxoCommitmentsMessageInflater extends BitcoinProtocolMessageInflat
                 final Long bucketByteCount = byteArrayReader.readLong(8, Endian.LITTLE);
                 final Long subBucketCount = byteArrayReader.readVariableLengthInteger();
 
-                final MutableList<MultisetBucket> subBuckets = new MutableList<>(subBucketCount.intValue());
+                final MutableList<UtxoCommitmentSubBucket> subBuckets = new MutableList<>(subBucketCount.intValue());
                 for (int k = 0; k < subBucketCount; ++k) {
                     final ByteArray subBucketPublicKeyBytes = ByteArray.wrap(byteArrayReader.readBytes(PublicKey.COMPRESSED_BYTE_COUNT));
                     final PublicKey subBucketPublicKey = PublicKey.fromBytes(subBucketPublicKeyBytes);
                     final Long subBucketByteCount = byteArrayReader.readLong(8, Endian.LITTLE);
                     if (bucketCount > UtxoCommitmentsMessage.MAX_SUB_BUCKET_COUNT) { return null; }
 
-                    final MultisetBucket subBucket = new MultisetBucket(subBucketPublicKey, subBucketByteCount);
+                    final UtxoCommitmentSubBucket subBucket = new UtxoCommitmentSubBucket(subBucketPublicKey, subBucketByteCount);
                     subBuckets.add(subBucket);
                 }
 

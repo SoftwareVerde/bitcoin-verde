@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.test.fake.FakeUpgradeSchedule;
 import com.softwareverde.bitcoin.test.util.TestUtil;
+import com.softwareverde.bitcoin.test.util.TransactionTestUtil;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
@@ -89,13 +90,14 @@ public class TransactionSignerTests {
         context.setBlockHeight(0L);
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-        for (int inputIndex=0; inputIndex<transactionInputs.getCount(); ++inputIndex) {
+        final int transactionInputCount = transactionInputs.getCount();
+        for (int inputIndex = 0; inputIndex < transactionInputCount; ++inputIndex) {
             final TransactionInput transactionInput = transactionInputs.get(inputIndex);
             final TransactionOutput transactionOutputBeingSpent = transactionBeingSpent.getTransactionOutputs().get(inputIndex);
 
             context.setTransactionInputIndex(inputIndex);
             context.setTransactionInput(transactionInput);
-            context.setTransactionOutputBeingSpent(transactionOutputBeingSpent);
+            context.setPreviousTransactionOutputs(TransactionTestUtil.createPreviousTransactionOutputsList(transactionInputCount, inputIndex, transactionOutputBeingSpent));
 
             final LockingScript lockingScript = transactionOutputBeingSpent.getLockingScript();
             final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();

@@ -318,8 +318,15 @@ public class BlockDownloadPlannerCore implements BlockDownloader.BlockDownloadPl
         }
     }
 
+    @Override
+    public void clearQueue() {
+        _requestedInventory.clear();
+        _bestCompletedInventory = null;
+    }
+
     public synchronized void requestInventory(final Sha256Hash blockHash, final Long blockHeight) {
-        _requestedInventory.add(new PendingBlockInventory(0L, blockHash, blockHeight));
+        final PendingBlockInventory pendingBlockInventory = new PendingBlockInventory(0L, blockHash, blockHeight);
+        _requestedInventory.add(pendingBlockInventory);
     }
 
     public void setMaxDownloadAheadDepth(final Integer maxDownloadAheadDepth) {

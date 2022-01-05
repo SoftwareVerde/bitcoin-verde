@@ -1,6 +1,28 @@
-# Bitcoin Verde v2.1.0
+# Bitcoin Verde v2.2.0
 
 ## Patch Notes
+
+**v2.2.0**
+- Electrum Server
+  - Run your own electron server with Bitcoin Verde.
+  - Enable `bitcoin.indexBlocks = 1` in `server.conf` and start the node.
+  (NOTE: Indexing may take a long time to complete and requires around 600GB of disk space.)
+  Once indexing has completed (the status may be checked via the explorer), run the electrum module
+  via the `run-electrum.sh` script.
+  NOTE: Most electrum clients require an SSL certificate (self-signed certificates are supported).
+  Self-signed SSL scripts may be generated via the ssl directory; the keyfile myst be converted via
+  the pem2pkcs script and be configured within `server.conf`.
+- May 2022 Upgrade Support
+  - Upgrade and activation support for the 2022-05-15 BCH upgrade has been added.
+  - Includes 64-bit Script Integers, Multiplication opcode, and Transaction Introspection opcodes.
+- Added support for Pruning Mode + Indexing Mode enabled.
+  - The Pruning/Indexing combination is not (yet) supported with the Electrum module, however the
+  Explorer module is supported.
+- Stratum/Pool Module improvements (this feature is still in early-release/beta).
+- Fixed an issue preventing the node from running on fresh installations of MacOS 11+. 
+- Misc. minor IBD bug fixes.
+- Misc. minor explorer bug fixes.
+- Java 17 support.
 
 **v2.1.0**
 - FastSync support and UTXO Commitment generation.

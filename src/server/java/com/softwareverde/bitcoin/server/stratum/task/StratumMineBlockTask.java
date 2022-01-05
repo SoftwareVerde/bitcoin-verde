@@ -13,6 +13,7 @@ import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -28,6 +29,7 @@ public class StratumMineBlockTask {
 
     protected final ByteArray _id;
     protected final Long _idLong;
+    protected final Long _blockHeight;
     protected final Block _prototypeBlock;
     protected final String _extraNonce1;
     protected final String _coinbaseTransactionHead;
@@ -118,8 +120,9 @@ public class StratumMineBlockTask {
         return mineBlockMessage;
     }
 
-    public StratumMineBlockTask(final ByteArray id, final Block prototypeBlock, final String coinbaseTransactionHead, final String coinbaseTransactionTail, final String extraNonce1) {
+    public StratumMineBlockTask(final ByteArray id, final Long blockHeight, final Block prototypeBlock, final String coinbaseTransactionHead, final String coinbaseTransactionTail, final String extraNonce1) {
         _id = id.asConst();
+        _blockHeight = blockHeight;
         _prototypeBlock = prototypeBlock.asConst();
         _coinbaseTransactionHead = coinbaseTransactionHead;
         _coinbaseTransactionTail = coinbaseTransactionTail;
@@ -160,7 +163,7 @@ public class StratumMineBlockTask {
                 _coinbaseTransactionHead + _extraNonce1 + stratumExtraNonce2 + _coinbaseTransactionTail
             ));
 
-            merkleRoot = calculateMerkleRoot(coinbaseTransaction, _merkleTreeBranches);
+            merkleRoot = StratumMineBlockTask.calculateMerkleRoot(coinbaseTransaction, _merkleTreeBranches);
         }
         blockHeader.setMerkleRoot(merkleRoot);
 
@@ -170,6 +173,23 @@ public class StratumMineBlockTask {
         blockHeader.setTimestamp(timestamp);
 
         return blockHeader;
+    }
+
+    public Block assembleBlockTemplate(final Integer nonceByteCount, final Integer extraNonce2ByteCount) {
+        final String extraNonce2String = (new MutableByteArray(extraNonce2ByteCount)).toString();
+        final Transaction coinbaseTransaction = _assembleCoinbaseTransaction(extraNonce2String);
+
+        final String stratumTimestamp = HexUtil.toHexString(ByteUtil.longToBytes(_timestampInSeconds));
+        final String stratumNonceString = (new MutableByteArray(nonceByteCount)).toString();
+        final BlockHeader blockHeader = _assembleBlockHeader(stratumNonceString, coinbaseTransaction, stratumTimestamp);
+        final List<Transaction> transactions;
+        {
+            final List<Transaction> prototypeBlockTransaction = _prototypeBlock.getTransactions();
+            final MutableList<Transaction> mutableList = new MutableList<>(prototypeBlockTransaction);
+            mutableList.set(0, coinbaseTransaction);
+            transactions = mutableList;
+        }
+        return new ImmutableBlock(blockHeader, transactions);
     }
 
     public Block assembleBlock(final String stratumNonce, final String stratumExtraNonce2, final String stratumTimestamp) {
@@ -188,6 +208,14 @@ public class StratumMineBlockTask {
 
     public RequestMessage createRequest(final Boolean abandonOldJobs) {
         return _createRequest(abandonOldJobs);
+    }
+
+    public BlockHeader getPrototypeBlock() {
+        return _prototypeBlock;
+    }
+
+    public Long getBlockHeight() {
+        return _blockHeight;
     }
 
 }

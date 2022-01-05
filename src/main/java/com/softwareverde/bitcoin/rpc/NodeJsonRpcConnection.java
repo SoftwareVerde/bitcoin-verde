@@ -37,11 +37,12 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         void onNewTransaction(Transaction transaction, Long fee);
     }
 
-    public static final Long RPC_DURATION_TIMEOUT_MS = 30000L;
+    public static final Long DEFAULT_RPC_DURATION_TIMEOUT_MS = 30000L;
 
     protected final MasterInflater _masterInflater;
     protected final JsonSocket _jsonSocket;
     protected final Object _newMessageNotifier = new Object();
+    protected Long _rpcDurationTimeoutMs = NodeJsonRpcConnection.DEFAULT_RPC_DURATION_TIMEOUT_MS;
 
     protected final Runnable _onNewMessageCallback = new Runnable() {
         @Override
@@ -66,7 +67,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         JsonProtocolMessage jsonProtocolMessage;
         {
             jsonProtocolMessage = _jsonSocket.popMessage();
-            while ((jsonProtocolMessage == null) && (totalWaitTimeMs < RPC_DURATION_TIMEOUT_MS)) {
+            while ((jsonProtocolMessage == null) && (totalWaitTimeMs < _rpcDurationTimeoutMs)) {
                 final NanoTimer nanoTimer = new NanoTimer();
                 nanoTimer.start();
                 try {
@@ -243,7 +244,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return _executeJsonRequest(rpcRequestJson);
     }
 
-    protected Json _getAddressTransactions(final Address address, final Sha256Hash scriptHash, final Boolean hexFormat) {
+    protected Json _getAddressTransactions(final Address address, final Sha256Hash scriptHash, final Boolean hexFormat, final Boolean shouldReturnTransactionHashes) {
         if (_jsonSocket == null) { return null; } // Socket was unable to connect.
 
         final Json rpcParametersJson = new Json();
@@ -253,7 +254,10 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         else {
             rpcParametersJson.put("scriptHash", scriptHash);
         }
-        if (hexFormat != null) {
+        if (shouldReturnTransactionHashes != null) {
+            rpcParametersJson.put("transactionHashesOnly", (shouldReturnTransactionHashes ? 1 : 0));
+        }
+        else if (hexFormat != null) {
             rpcParametersJson.put("rawFormat", (hexFormat ? 1 : 0));
         }
 
@@ -331,6 +335,10 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         if (_jsonSocket != null) {
             _jsonSocket.setMessageReceivedCallback(_onNewMessageCallback);
         }
+    }
+
+    public void setRpcDurationTimeoutMs(final Long maxRequestDurationMs) {
+        _rpcDurationTimeoutMs = maxRequestDurationMs;
     }
 
     public Json getBlockHeadersBefore(final Long blockHeight, final Integer maxBlockCount, final Boolean returnRawFormat) {
@@ -450,11 +458,19 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json getAddressTransactions(final Address address, final Boolean hexFormat) {
-        return _getAddressTransactions(address, null, hexFormat);
+        return _getAddressTransactions(address, null, hexFormat, false);
     }
 
     public Json getAddressTransactions(final Sha256Hash scriptHash, final Boolean hexFormat) {
-        return _getAddressTransactions(null, scriptHash, hexFormat);
+        return _getAddressTransactions(null, scriptHash, hexFormat, false);
+    }
+
+    public Json getAddressTransactionHashes(final Address address) {
+        return _getAddressTransactions(address, null, null, true);
+    }
+
+    public Json getAddressTransactionHashes(final Sha256Hash scriptHash) {
+        return _getAddressTransactions(null, scriptHash, null, true);
     }
 
     public Json getAddressBalance(final Address address) {
@@ -880,6 +896,26 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         rpcRequestJson.put("parameters", rpcParametersJson);
 
         _executeJsonRequest(rpcRequestJson);
+    }
+
+    public Long ping() {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
+        final NanoTimer nanoTimer = new NanoTimer();
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "POST");
+        rpcRequestJson.put("query", "PING");
+
+        nanoTimer.start();
+        final Json response = _executeJsonRequest(rpcRequestJson);
+        nanoTimer.stop();
+
+        if (response == null || (! response.getBoolean("wasSuccess"))) {
+            return null;
+        }
+
+        return nanoTimer.getMillisecondsElapsed().longValue();
     }
 
     @Override

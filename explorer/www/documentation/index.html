@@ -87,44 +87,43 @@
                 <div class="section purpose">
                     <p>
                         Bitcoin (Core) (BTC) is the sole group responsible for development on BTC's client.  In the past, lack of a diversified development team
-                        and node implementation, have caused bugs to become a part of the protocol.  BCH currently has roughly three full-node implementations
-                        (Bitcoin ABC, Bitcoin XT, Bitcoin Unlimited).  However, these implementations are forked versions of the same Bitcoin (Core) reference
-                        client, which means they may share the same (undiscovered) bugs.  With a diverse network of nodes, bugs in the implementation of the
-                        protocol will result in incompatible blocks, causing a temporary fork.  This situation is healthy for the network in the long term, as
-                        the temporary forks will resolve over time, with the intended implementation becoming the consensus.
+                        and node implementation, have caused bugs to become a part of the protocol.  BCH currently has  one mining full-node implementation
+                        (Bitcoin Cash Node).  This implementation is a forked version of the Bitcoin (Core) reference client, which means it may share the same
+                        (undiscovered) bugs.  With a diverse network of nodes, bugs in the implementation of the protocol will result in incompatible blocks,
+                        causing a temporary fork.  This situation is healthy for the network in the long term, as the temporary forks will resolve over time,
+                        with the intended implementation becoming the consensus.
                     </p>
                     <p>
                         Bitcoin Verde is a ground-up implementation of the Bitcoin (Cash) protocol.  This primary function of this project is to be a unique
                         java implementaion of a BCH full node to diversify the BCH network's implementation.
                     </p>
                     <p>
-                        Bitcoin Verde is also a blockchain explorer and library.  Incomplete (as of v1.0.0) ambitions include a wallet module and mining-pool
-                        module (via the Stratum protocol).
+                        Bitcoin Verde is a full node, blockchain explorer, library, SPV wallet, electrum server, and stratum server, with a mining pool in
+                        active development.
                     </p>
                     <p>
-                        Unlike the reference client, Bitcoin Verde stores the blockchain completely within a database and does not rely on <tt>dat</tt> files
-                        to serve past blocks--instead, they are inflated from the database.  In this way, the database <i>is</i> the blockchain.  The database
-                        allows for insightful queries to be run within the entire history of Bitcoin--for instance, via a query, Bitcoin Verde can report the
-                        ratio of P2PKH vs P2SH outputs, or easily report the number of transactions added to the network per a historic date.
+                        Unlike the reference client, Bitcoin Verde stores most of the blockchain within a traditional SQL database.  The SQL database
+                        allows for tracking multiple BCH forks/orphans and enables insightful queries to be run within the entire history of Bitcoin--for
+                        instance, via a query, Bitcoin Verde can report the ratio of P2PKH vs P2SH outputs, or easily report the number of transactions added
+                        to the network per period of time.
                     </p>
                     <p>
                         Bitcoin Verde tracks and syncs forks; it determines the <i>head</i> blockchain by respecting the chain with the most Proof of Work
-                        (with a compatible ruleset). Forked/Orphaned blockchains may be visualized within the explorer.
-                        Forked blocks are stored as BlockchainSegments.  These segments are stored as a Nested Set, allowing efficient queries to determine
-                        relationship among one another.
+                        (with a compatible ruleset). Forked/Orphaned blockchains may be visualized within the explorer.  Forked blocks are stored as
+                        BlockchainSegments.  These segments are stored as a Nested Set, allowing efficient queries to determine relationship among one another.
                     </p>
                     <p>
-                        Transactions are stored with referential integrity to their spent inputs and are inserted when they are received (assuming validity and
-                        its dependant outputs have been stored).  In this sense, Bitcoin Verde has an unlimited mempool size, since transactions are written
-                        to disk.  Transactions attempting to spend outputs that have not yet been received are stored in a separate table until their dependent
-                        transactions have been received; in theory, this is also of unlimited size but may need to be limited in order to prevent exhaustion attacks.
-                        Since transactions are stored as they are received, they are not stored a second time once they are included in a block.
-                        Stored transactions respect the first-seen principle and not inserted into the database unless provided within a mined block.
+                        Unconfirmed Transactions are stored with referential integrity to their spent inputs and are inserted when they are received (assuming
+                        validity and its dependant outputs have been stored).  In this sense, Bitcoin Verde has an unlimited mempool size, since transactions are
+                        written to disk.  Transactions attempting to spend outputs that have not yet been received are stored in a separate table until their
+                        dependent transactions have been received; in theory, this is also of unlimited size but is limited in order to prevent resource exhaustion
+                        attacks.  Stored transactions respect the first-seen principle and not inserted into the database unless provided within a mined block.
                     </p>
                     <p>
                         TransactionOutput addresses are indexed as transactions are received.  This functionality is required for the Explorer to be able to
                         query the balance of addresses.  With addresses indexed, it is possible to instantly sync SPV wallets in the future, once privacy concerns
-                        have been addressed and the protocol is expanded to support this functionality.
+                        have been addressed and the protocol is expanded to support this functionality.  As of Bitcoin Verde v2.2.0, an the node is compatible with
+                        the Electrum protocol, allowing Bitcoin Verde nodes to serve as Electrum Cash Wallet servers.
                     </p>
                     <p>
                         Reorgs are handled slightly differently than the reference client.  Since all forked blocks are tracked and validated, and a full ledger is
@@ -136,43 +135,29 @@
                         Nodes are also tracked within the database.  In this way, Bitcoin Verde can report on the distribution of node versions and supported features.
                     </p>
                     <p>
-                        Transactions may be trimmed from Bitcoin Verde once they are spent.  This feature is experimental.  With trimming enabled, spent
-                        TransactionOutputs are deleted from the database once they are a certain number of blocks old (currently 144).  Currently, with this feature
-                        enabled, the Node no longer becomes a Full Node as it loses the ability to serve past blocks.  Additionally, the Explorer fails to
-                        display blocks that include a transaction that has been trimmed.  In the future, it possible that trimmed blocks may be stored on disk
-                        as dat files to still serve to peers; at first thought, this defeats the purpose of trimming, but still serves to reduce the disk-space
-                        footprint since these trimmed blocks will not be indexed in the database which incurs hefty space overhead due to row indexing.  Without
-                        trimming enabled, a fully synced node uses 600+ GB (as of Block #562933).
+                        Blocks and Transactions may be trimmed from Bitcoin Verde once they are spent.  With trimming enabled, spent Blocks, Transactions, and
+                        TransactionOutputs are deleted from the database and disk once they are sufficiently old.  With this feature enabled, the Node is no longer
+                        considered a Full Node as it loses the ability to serve historic blocks.  Additionally, the Explorer fails to display blocks that have been
+                        pruned.
                     </p>
                     <p>
-                        Bitcoin Verde's initial sync is more complex than the reference client, which includes indexing TransactionOutput Addresses, maintaining
-                        referential constraints between transactions, and storing metadata on spent transactions.  Despite a lot of effort to optimize the performance
-                        of the the initial sync, the increased complexity causes Bitcoin Verde to take significantly longer to finish synchronization compared to
-                        the refence client--about 3 to 7 days depending on hardware.  Once synchronized, the Bitcoin Verde node can process upwards
-                        of 4,000 transactions per second.  At 4,000 tx/s, a 32 MB block would take about 30 seconds to validate; there is still quite a bit
-                        of optimization to that must be done before Bitcoin Verde is ready to be a competitive implementation for a mining node.
-                    </p>
-                    <p>
-                        Despite the storing and validating complexity drawbacks, all functionality, including networking, within Bitcoin Verde is multi-threaded.
-                        The multithreaded nature of Bitcoin Verde should allow the node process, validate, and relay more transactions per second than the
-                        reference client; furthermore, Bitcoin Verde's unlimited mempool size should help to mitigate some problems encountered during past
-                        stress-tests on the network.  These claims are currently lacking data to substantiate them, and will be tested during the next network
-                        stress-test.
+                        All functionality, including networking, within Bitcoin Verde is multi-threaded.  The multithreaded nature of Bitcoin Verde should allow the
+                        node process, validate, and relay more transactions per second than the reference client; furthermore, Bitcoin Verde's unlimited mempool size
+                        should help to mitigate some problems encountered during past stress-tests on the network.  These claims are hypothetical, and will be proven
+                        (or disproven) during the next network stress-test.
                     </p>
                 </div>
 
                 <a name="project-structure"></a>
                 <div class="section project-structure">
                     <p>
-                        The project's scripts are located within <tt>scripts</tt>, its java source code is located within <tt>src</tt>, its html assets are
-                        located within <tt>www</tt>, its jni-libraries are located within <tt>jni</tt>, its default configuration is located within
-                        <tt>conf</tt>, and the built project is located within <tt>out</tt>.  The <tt>sql</tt> directory contains sometimes-useful sql scripts
-                        for development and debugging.  When deploying the application to a server, the <tt>out</tt> is intended to contain everything necessary
-                        for the application to run.
+                        The project's scripts are located within <tt>scripts</tt>, its java source code is located within <tt>src</tt>, its html assets are located
+                        within <tt>www</tt>, its jni-libraries are located within <tt>jni</tt>, its default configuration is located within <tt>conf</tt>, and the
+                        built project is located within <tt>out</tt>.  When deploying the application to a server, the <tt>out</tt> is intended to contain everything
+                        necessary for the application to run.
                     </p>
                     <p>
-                        In general, all scripts located within any <tt>scripts</tt> directory are expected to be ran from the project root-directory.  Scripts
-                        for sub-projects, such as utxo-cache, are expected to be ran from their respective sub-project root-directory.
+                        In general, all scripts located within any <tt>scripts</tt> directory are expected to be ran from the project root-directory.
                     </p>
                 </div>
 
@@ -182,11 +167,6 @@
                         At a minimum, the build process consists of a single script: <tt>scripts/make.sh</tt> .  The make script
                         creates an <tt>out</tt> directory, builds the application, copies dependencies, loads assets, creates a default configuration file,
                         and creates scripts to run the application.
-                    </p>
-                    <p>
-                        NOTE: Currently, the <tt>scripts/make.sh</tt> deletes the <tt>out</tt> directory, so re-running <tt>make.sh</tt> after a sync has
-                        started will cause all synchronization progress and configuration changes to be lost.  It is instead recommended to run
-                        <tt>scripts/make-jar.sh</tt> when making incremental changes to the application jar.
                     </p>
                     <p>
                         To update the Explorer HTML/CSS/JS, run <tt>scripts/copy-www-data.sh</tt>.  Changes made to the
@@ -217,23 +197,6 @@
                                 will fallback to using <i>Bouncy Castle</i>'s implementation of secp256k1.
                             </p>
                         </div>
-                        <h3>NativeUnspentTransactionOutputCache</h3>
-                        <div class="h3-content">
-                            <p>
-                                NativeUnspentTransactionOutputCache is a C++ library written specifically for Bitcoin Verde.  It uses <tt>cpp-btree</tt>, a B-Tree template
-                                library, written by Josh MacDonald to store Utxos in-memory with little overhead.  The sourcecode for the
-                                NativeUnspentTransactionOutputCache is included in this project within <tt>jni/utxo-cache</tt>.  It may be built from source via the scripts
-                                located within the <tt>jni/utxo-cache</tt> directory.  The rebuilt library must be copied to <tt>src/main/resources/lib/utxocache.[so, dylib, dll]</tt>.
-                            </p>
-                            <p>
-                                The <tt>cpp-btree</tt> source code is included in this projected but may also be located at:
-                                <a href="http://code.google.com/p/cpp-btree/" target="_blank">http://code.google.com/p/cpp-btree/</a> .
-                            </p>
-                            <p>
-                                It is not necessary to use the NativeUnspentTransactionOutputCache, and if the binaries are removed before building, then the application
-                                will not use any in-memory utxo caching.
-                            </p>
-                        </div>
                     </div>
                     <h2>Enabling SSL/TLS</h2>
                     <div class="h2-content">
@@ -262,8 +225,9 @@
                         <tbody>
                             <tr><td data-label="Module">Full Node</td>              <td data-label="Command">NODE</td>      <td data-label="Parameters"><span class="parameter">Configuration File</span></td>  <td data-label="Description">Syncs with the Bitcoin network and validates blocks.  Once fully synchronized, the node will relay transactions and new blocks to its peers.</td></tr>
                             <tr><td data-label="Module">Block Explorer</td>         <td data-label="Command">EXPLORER</td>  <td data-label="Parameters"><span class="parameter">Configuration File</span></td>  <td data-label="Description">Starts a web-server to search blocks, transactions, and addresses.  The explorer also monitors synchronization progress, server load, and peers.  Additionally, the Block Explorer visualizes forks and orphaned blocks.  Currently, the Block Explorer also displays this documentation.</td></tr>
+                            <tr><td data-label="Module">Electrum Server</td>        <td data-label="Command">ELECTRUM</td>  <td data-label="Parameters"><span class="parameter">Configuration File</span></td>  <td data-label="Description">Starts an Electrum server.  This server is compatible with Electron-Cash-like wallets, and requires the Node module be running, with <tt>indexBlocks</tt> enabled and its synchronization/indexing completed.</td></tr>
+                            <tr><td data-label="Module">Stratum Server</td>         <td data-label="Command">STRATUM</td>   <td data-label="Parameters"><span class="parameter">Configuration File</span></td>  <td data-label="Description">Starts a Stratum server.  Stratum servers are used to mine and coordinate ASIC miners for generating new blocks.  This module also includes a simplistic pool framework.  The Node module must be running and its synchronization must be complete before starting the stratum server.</td></tr>
                             <tr><td data-label="Module">Chain (Re)Validation</td>   <td data-label="Command">VALIDATE</td>  <td data-label="Parameters"><span class="parameter">Configuration File</span></td>  <td data-label="Description">Iterates through the already-synced blockchain to check for any data corruption.  This tool is primarily a debug module, but can improve confidence in the history of the chain in case a bug is found in the future to determine if it's been exploited without having to re-download and store the whole chain.</td></tr>
-                            <tr><td data-label="Module">Repair Chain</td>           <td data-label="Command">REPAIR</td>    <td data-label="Parameters"><span class="parameter">Configuration File</span> <span class="parameter">Block Hash</span></td><td data-label="Description">(Re)Downloads the provided block from the first node within the configuration's seedNodes array, validates the block, and replaces the corrupted block with the new data.  This module can repair corrupted blocks without revalidating the whole chain.  This module can also be used to "undo" trimmed blocks.</td></tr>
                             <tr><td data-label="Module">Database-Only</td>          <td data-label="Command">DATABASE</td>  <td data-label="Parameters"><span class="parameter">Configuration File</span></td>  <td data-label="Description">Starts the internal database; this module does not connect to any nodes nor does it start any of the blockchain services.  The DATABASE module is primarily a debug module, but can be used to run manual queries against the state of the blockchain via <tt>./scripts/connect-to-database.sh</tt>.</td></tr>
                             <tr><td data-label="Module">Address Generator</td>      <td data-label="Command">ADDRESS</td>   <td data-label="Parameters"></td>                                                   <td data-label="Description">Generates a private key from secure-random and outputs the hex-encoded private key, its public key, and compressed and uncompressed addresses.</td></tr>
                             <tr><td data-label="Module">Test-Block Miner</td>       <td data-label="Command">MINER</td>     <td data-label="Parameters"><span class="parameter">Previous Block Hash</span> <span class="parameter">Bitcoin Address</span> <span class="parameter">CPU Thread Count</span> <span class="parameter">GPU Thread Count</span></td><td data-label="Description">Creates a block based off the provided previous-block-hash, with a single coinbase transaction to the address provided.  The block created will satisfy the initial Bitcoin difficulty.  This mode is intended to be used to generate test-blocks.</td></tr>

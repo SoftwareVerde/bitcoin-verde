@@ -19,11 +19,11 @@ import com.softwareverde.bitcoin.server.module.DatabaseModule;
 import com.softwareverde.bitcoin.server.module.EciesModule;
 import com.softwareverde.bitcoin.server.module.MinerModule;
 import com.softwareverde.bitcoin.server.module.SignatureModule;
+import com.softwareverde.bitcoin.server.module.electrum.ElectrumModule;
 import com.softwareverde.bitcoin.server.module.explorer.ExplorerModule;
 import com.softwareverde.bitcoin.server.module.node.NodeModule;
 import com.softwareverde.bitcoin.server.module.proxy.ProxyModule;
 import com.softwareverde.bitcoin.server.module.spv.SpvModule;
-import com.softwareverde.bitcoin.server.module.stratum.ElectrumModule;
 import com.softwareverde.bitcoin.server.module.stratum.StratumModule;
 import com.softwareverde.bitcoin.server.module.wallet.WalletModule;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -263,11 +263,6 @@ public class Main {
                 final BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
                 final BitcoinVerdeDatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
 
-                if (bitcoinProperties.isTestNet()) {
-                    BitcoinConstants.configureForNetwork(NetworkType.TEST_NET);
-                }
-                BitcoinConstants.setBlockMaxByteCount(bitcoinProperties.getBlockMaxByteCount());
-
                 { // Set Log Level...
                     try {
                         final String logDirectory = bitcoinProperties.getLogDirectory();
@@ -295,6 +290,15 @@ public class Main {
 
                 final Thread loggerFlushThread = _createLoggerFlusher();
                 loggerFlushThread.start();
+
+                if (bitcoinProperties.isTestNet()) {
+                    final NetworkType networkType = bitcoinProperties.getNetworkType();
+                    BitcoinConstants.configureForNetwork(networkType);
+                    Logger.info("[Network " + networkType + "]");
+                }
+
+                final Integer blockMaxByteCount = bitcoinProperties.getBlockMaxByteCount();
+                BitcoinConstants.setBlockMaxByteCount(blockMaxByteCount);
 
                 final Container<NodeModule> nodeModuleContainer = new Container<>();
                 final BitcoinVerdeDatabase database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, bitcoinProperties, databaseProperties);
@@ -336,7 +340,9 @@ public class Main {
                 final BitcoinVerdeDatabaseProperties databaseProperties = configuration.getSpvDatabaseProperties();
 
                 if (bitcoinProperties.isTestNet()) {
-                    BitcoinConstants.configureForNetwork(NetworkType.TEST_NET);
+                    final NetworkType networkType = bitcoinProperties.getNetworkType();
+                    BitcoinConstants.configureForNetwork(networkType);
+                    Logger.info("[Network " + networkType + "]");
                 }
                 BitcoinConstants.setBlockMaxByteCount(bitcoinProperties.getBlockMaxByteCount());
 
@@ -397,6 +403,7 @@ public class Main {
                 final Configuration configuration = _loadConfigurationFile(configurationFilename);
                 final ExplorerProperties explorerProperties = configuration.getExplorerProperties();
                 final ExplorerModule explorerModule = new ExplorerModule(explorerProperties);
+
                 explorerModule.start();
                 explorerModule.loop();
                 explorerModule.stop();
@@ -458,6 +465,10 @@ public class Main {
                     break;
                 }
 
+                Logger.setLogLevel("com.softwareverde.bitcoin.rpc.NodeJsonRpcConnection", LogLevel.DEBUG);
+                Logger.setLogLevel("com.softwareverde.bitcoin.rpc.BitcoinVerdeRpcConnector", LogLevel.DEBUG);
+                Logger.setLogLevel("com.softwareverde.bitcoin.rpc.core.BitcoinCoreRpcConnector", LogLevel.DEBUG);
+
                 final String configurationFile = _arguments[1];
 
                 final Configuration configuration = _loadConfigurationFile(configurationFile);
@@ -474,7 +485,7 @@ public class Main {
                 final DatabaseConnectionPool databaseConnectionPool = new ApacheCommonsDatabaseConnectionPool(databaseProperties, database.getMaxDatabaseConnectionCount());
                 final Environment environment = new Environment(database, databaseConnectionPool);
 
-                final StratumModule stratumModule = new StratumModule(stratumProperties, environment);
+                final StratumModule stratumModule = new StratumModule(stratumProperties, environment, false);
                 stratumModule.loop();
                 Logger.flush();
             } break;
@@ -490,9 +501,8 @@ public class Main {
 
                 final Configuration configuration = _loadConfigurationFile(configurationFile);
                 final ElectrumProperties electrumProperties = configuration.getElectrumProperties();
-                final BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
 
-                final LogLevel logLevel = bitcoinProperties.getLogLevel();
+                final LogLevel logLevel = electrumProperties.getLogLevel();
                 if (logLevel != null) {
                     Logger.setLogLevel(logLevel);
                 }

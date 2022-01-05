@@ -12,6 +12,13 @@ import com.softwareverde.util.bytearray.ByteArrayReader;
 public class BitwiseOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_BITWISE;
 
+    public static BitwiseOperation BITWISE_INVERT = new BitwiseOperation(Opcode.BITWISE_INVERT);
+    public static BitwiseOperation BITWISE_AND = new BitwiseOperation(Opcode.BITWISE_AND);
+    public static BitwiseOperation BITWISE_OR = new BitwiseOperation(Opcode.BITWISE_OR);
+    public static BitwiseOperation BITWISE_XOR = new BitwiseOperation(Opcode.BITWISE_XOR);
+    public static BitwiseOperation SHIFT_LEFT = new BitwiseOperation(Opcode.SHIFT_LEFT);
+    public static BitwiseOperation SHIFT_RIGHT = new BitwiseOperation(Opcode.SHIFT_RIGHT);
+
     protected static BitwiseOperation fromBytes(final ByteArrayReader byteArrayReader) {
         if (! byteArrayReader.hasBytes()) { return null; }
 
@@ -136,6 +143,7 @@ public class BitwiseOperation extends SubTypedOperation {
                 final MutableByteArray value = new MutableByteArray(stack.pop());
 
                 if (! bitShiftCountValue.isMinimallyEncodedInteger()) { return false; }
+                if (! bitShiftCountValue.isWithinIntegerRange()) { return false; }
                 final Integer bitShiftCount = bitShiftCountValue.asInteger();
                 if (bitShiftCount < 0) { return false; }
 
@@ -163,6 +171,7 @@ public class BitwiseOperation extends SubTypedOperation {
                 final MutableByteArray value = new MutableByteArray(stack.pop());
 
                 if (! bitShiftCountValue.isMinimallyEncodedInteger()) { return false; }
+                if (! bitShiftCountValue.isWithinIntegerRange()) { return false; }
                 final Integer bitShiftCount = bitShiftCountValue.asInteger();
                 if (bitShiftCount < 0) { return false; }
 

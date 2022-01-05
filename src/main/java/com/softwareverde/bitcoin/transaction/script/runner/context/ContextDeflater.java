@@ -11,7 +11,7 @@ public class ContextDeflater {
         json.put("transaction", transactionContext.getTransaction());
         json.put("transactionInputIndex", transactionContext.getTransactionInputIndex());
         json.put("transactionInput", transactionContext.getTransactionInput());
-        json.put("transactionOutput", transactionContext.getTransactionOutput());
+        json.put("transactionOutput", transactionContext.getTransactionOutputBeingSpent());
 
         json.put("currentScript", transactionContext.getCurrentScript());
         json.put("scriptIndex", transactionContext.getScriptIndex());

@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
 import com.softwareverde.constable.Const;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.json.Json;
 
 public class ImmutableTransactionContext implements TransactionContext, Const {
@@ -20,7 +21,8 @@ public class ImmutableTransactionContext implements TransactionContext, Const {
 
     protected final Integer _transactionInputIndex;
     protected final TransactionInput _transactionInput;
-    protected final TransactionOutput _transactionOutput;
+    protected final TransactionOutput _transactionOutputBeingSpent;
+    protected final List<TransactionOutput> _previousTransactionOutputs;
 
     protected final Script _currentScript;
     protected final Integer _currentScriptIndex;
@@ -36,7 +38,10 @@ public class ImmutableTransactionContext implements TransactionContext, Const {
         _transaction = ConstUtil.asConstOrNull(transactionContext.getTransaction());
         _transactionInputIndex = transactionContext.getTransactionInputIndex();
         _transactionInput = ConstUtil.asConstOrNull(transactionContext.getTransactionInput());
-        _transactionOutput = ConstUtil.asConstOrNull(transactionContext.getTransactionOutput());
+        _transactionOutputBeingSpent = ConstUtil.asConstOrNull(transactionContext.getTransactionOutputBeingSpent());
+
+        final List<TransactionOutput> transactionOutputs = transactionContext.getPreviousTransactionOutputs();
+        _previousTransactionOutputs = (transactionOutputs != null ? transactionOutputs.asConst() : null);
 
         final Script currentScript = transactionContext.getCurrentScript();
         _currentScript = (currentScript != null ? ConstUtil.asConstOrNull(currentScript) : null);
@@ -63,8 +68,20 @@ public class ImmutableTransactionContext implements TransactionContext, Const {
     }
 
     @Override
-    public TransactionOutput getTransactionOutput() {
-        return _transactionOutput;
+    public TransactionOutput getTransactionOutputBeingSpent() {
+        if (_transactionInputIndex >= _previousTransactionOutputs.getCount()) { return null; }
+        return _previousTransactionOutputs.get(_transactionInputIndex);
+    }
+
+    @Override
+    public TransactionOutput getPreviousTransactionOutput(final Integer outputIndex) {
+        if (outputIndex >= _previousTransactionOutputs.getCount()) { return null; }
+        return _previousTransactionOutputs.get(outputIndex);
+    }
+
+    @Override
+    public List<TransactionOutput> getPreviousTransactionOutputs() {
+        return _previousTransactionOutputs;
     }
 
     @Override

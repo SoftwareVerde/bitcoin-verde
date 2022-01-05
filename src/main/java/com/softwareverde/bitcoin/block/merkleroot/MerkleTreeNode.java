@@ -62,11 +62,11 @@ public class MerkleTreeNode<T extends Hashable> implements MutableMerkleTree<T> 
         if (_itemCount == 0) { return; }
         if ( (_item0 != null) || (_item1 != null) ) {
             if (_item0 != null) {
-                // This node is a leaf node, therefore index is either 0 or 1, and therefore add the hash of the opposite element.
-                if (index == 1 || _item1 == null) {
+                // The hash for the item at `index` is omitted; therefore, include the other leaf's hash if it exists.
+                if (index == 1) { // NOTE: _item0 cannot be null if index == 1
                     partialTreeBuilder.add(_item0.getHash());
                 }
-                else {
+                else if (_item1 != null) { // index == 0
                     partialTreeBuilder.add(_item1.getHash());
                 }
             }
@@ -174,7 +174,7 @@ public class MerkleTreeNode<T extends Hashable> implements MutableMerkleTree<T> 
         return itemCount;
     }
 
-    private void _addItemsTo(final ImmutableListBuilder<T> immutableListBuilder) {
+    protected void _addItemsTo(final ImmutableListBuilder<T> immutableListBuilder) {
         if (_item0 != null) {
             immutableListBuilder.add(_item0);
 
@@ -191,6 +191,28 @@ public class MerkleTreeNode<T extends Hashable> implements MutableMerkleTree<T> 
                 }
             }
         }
+    }
+
+    protected T _getItem(final int index) {
+        if ( (_item0 != null) || (_item1 != null) ) {
+            if (index == 0) {
+                return _item0;
+            }
+            else if (index == 1) {
+                return _item1;
+            }
+        }
+        else {
+            final int childNode0ItemCount = _childNode0.getItemCount();
+            if (index < childNode0ItemCount) {
+                return _childNode0.getItem(index);
+            }
+            else {
+                return _childNode1.getItem(index - childNode0ItemCount);
+            }
+        }
+
+        return null; // Invalid state...
     }
 
     protected PartialMerkleTreeNode<T> _toPartialMerkleTreeNode(final int depth, final int maxDepth) {
@@ -275,25 +297,7 @@ public class MerkleTreeNode<T extends Hashable> implements MutableMerkleTree<T> 
 
     @Override
     public T getItem(final int index) {
-        if ( (_item0 != null) || (_item1 != null) ) {
-            if (index == 0) {
-                return _item0;
-            }
-            else if (index == 1) {
-                return _item1;
-            }
-        }
-        else {
-            final int childNode0ItemCount = _childNode0.getItemCount();
-            if (index < childNode0ItemCount) {
-                return _childNode0.getItem(index);
-            }
-            else {
-                return _childNode1.getItem(index - childNode0ItemCount);
-            }
-        }
-
-        return null; // Invalid state...
+        return _getItem(index);
     }
 
     @Override
@@ -344,6 +348,18 @@ public class MerkleTreeNode<T extends Hashable> implements MutableMerkleTree<T> 
     @Override
     public List<Sha256Hash> getPartialTree(final int index) {
         final ImmutableListBuilder<Sha256Hash> partialTreeBuilder = new ImmutableListBuilder<>();
+        _getPartialTree(index, partialTreeBuilder);
+        return partialTreeBuilder.build();
+    }
+
+    @Override
+    public List<Sha256Hash> getPartialTree(final int index, final boolean inclusive) {
+        final ImmutableListBuilder<Sha256Hash> partialTreeBuilder = new ImmutableListBuilder<>();
+        if (inclusive) {
+            final T item = _getItem(index);
+            final Sha256Hash itemHash = item.getHash();
+            partialTreeBuilder.add(itemHash);
+        }
         _getPartialTree(index, partialTreeBuilder);
         return partialTreeBuilder.build();
     }

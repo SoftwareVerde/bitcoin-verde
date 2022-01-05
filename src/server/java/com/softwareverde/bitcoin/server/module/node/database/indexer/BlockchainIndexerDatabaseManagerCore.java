@@ -13,10 +13,14 @@ import com.softwareverde.bitcoin.server.module.node.database.blockchain.Blockcha
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.properties.PropertiesStore;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.ScriptTypeId;
@@ -56,13 +60,30 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
      * Inflates a unique set of TransactionId -> BlockchainSegmentId from the provided rows.
      *  Each row must contain two key/value sets, with labels: {blockchain_segment_id, transaction_id}
      */
-    protected final Set<Tuple<TransactionId, BlockchainSegmentId>> _extractTransactionBlockchainSegmentIds(final java.util.List<Row> rows) {
+    protected final Set<Tuple<TransactionId, BlockchainSegmentId>> _extractTransactionBlockchainSegmentIds(final java.util.List<Row> rows) throws DatabaseException {
+        final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
+        final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
+        final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+        final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+
         final HashSet<Tuple<TransactionId, BlockchainSegmentId>> transactionBlockchainSegmentIds = new HashSet<>();
         for (final Row row : rows) {
             final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
             final BlockchainSegmentId transactionBlockchainSegmentId = BlockchainSegmentId.wrap(row.getLong("blockchain_segment_id"));
-
             final Tuple<TransactionId, BlockchainSegmentId> tuple = new Tuple<>(transactionId, transactionBlockchainSegmentId);
+
+            // For pruned+index mode, some outputs will have had their transaction data pruned; if the output is in the UTXO database, then it is on the head blockchain segment.
+            if (transactionBlockchainSegmentId == null) {
+                final Integer outputIndex = row.getInteger("output_index");
+                final Sha256Hash transactionHash = transactionDatabaseManager.getTransactionHash(transactionId);
+                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+
+                final Object transactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifier);
+                if (transactionOutput != null) {
+                    tuple.second = headBlockchainSegmentId;
+                }
+            }
+
             transactionBlockchainSegmentIds.add(tuple);
         }
         return transactionBlockchainSegmentIds;
@@ -216,25 +237,56 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
     }
 
     protected Long _getAddressBalance(final BlockchainSegmentId blockchainSegmentId, final Address address, final Sha256Hash scriptHash, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
-        final AddressTransactions addressTransactions = _getAddressTransactions(blockchainSegmentId, address, scriptHash, includeUnconfirmedTransactions);
+        final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+        final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
+        final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
         final List<Integer> emptyList = new MutableList<>(0);
 
-        long balance = 0L;
-        final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
-        for (final TransactionId transactionId : addressTransactions.transactionIds) {
-            final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+        final AddressTransactions addressTransactions = _getAddressTransactions(blockchainSegmentId, address, scriptHash, includeUnconfirmedTransactions);
 
-            // Collect the previousTransactions, and add the remembered outputs that credit into this account...
-            final List<TransactionOutput> previousTransactionOutputs = transaction.getTransactionOutputs();
-            for (final Integer outputIndex : Util.coalesce(addressTransactions.previousOutputs.get(transactionId), emptyList)) {
-                final TransactionOutput previousTransactionOutput = previousTransactionOutputs.get(outputIndex);
-                balance += previousTransactionOutput.getAmount();
+        long balance = 0L;
+        for (final TransactionId transactionId : addressTransactions.transactionIds) {
+            final Sha256Hash transactionHash = transactionDatabaseManager.getTransactionHash(transactionId);
+            final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+            final boolean isPruningMode = (transactionHash != null && transaction == null);
+
+            if (transaction != null) {
+                // Collect the previousTransactions, and add the remembered outputs that credit into this account...
+                final List<TransactionOutput> previousTransactionOutputs = transaction.getTransactionOutputs();
+                for (final Integer outputIndex : Util.coalesce(addressTransactions.previousOutputs.get(transactionId), emptyList)) {
+                    final TransactionOutput previousTransactionOutput = previousTransactionOutputs.get(outputIndex);
+                    balance += previousTransactionOutput.getAmount();
+                }
+            }
+            else { // Attempt to load available UTXOs for pruned+indexed mode...
+                if (! isPruningMode) { continue; } // Should not happen.
+                if (! Util.areEqual(blockchainSegmentId, headBlockchainSegmentId)) { continue; } // Alternate blockchains are not supported with pruning mode...
+
+                final HashMap<Integer, TransactionOutput> unspentTransactionOutputMap;
+                { // Collect the UTXOs...
+                    final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
+                    final List<TransactionOutputIdentifier> transactionOutputIdentifiers = unspentTransactionOutputDatabaseManager.getFastSyncOutputIdentifiers(transactionHash);
+                    final List<UnspentTransactionOutput> unspentTransactionOutputs = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutputs(transactionOutputIdentifiers);
+                    unspentTransactionOutputMap = new HashMap<>();
+                    for (final UnspentTransactionOutput unspentTransactionOutput : unspentTransactionOutputs) {
+                        final Integer unspentOutputIndex = unspentTransactionOutput.getIndex();
+                        unspentTransactionOutputMap.put(unspentOutputIndex, unspentTransactionOutput);
+                    }
+                }
+
+                for (final Integer outputIndex : Util.coalesce(addressTransactions.previousOutputs.get(transactionId), emptyList)) {
+                    final TransactionOutput transactionOutput = unspentTransactionOutputMap.get(outputIndex);
+                    if (transactionOutput == null) { continue; } // Should not happen.
+
+                    balance += transactionOutput.getAmount();
+                }
             }
         }
 
         for (final TransactionId transactionId : addressTransactions.spentOutputs.keySet()) {
             final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+            if (transaction == null) { continue; } // Should not happen.
 
             // Deduct all debits from the account for this transaction's outputs...
             final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
@@ -247,17 +299,9 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         return balance;
     }
 
-    protected Long _getLastIndexedTransactionId() throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT value FROM properties WHERE `key` = ?")
-                .setParameter(LAST_INDEXED_TRANSACTION_KEY)
-        );
-        if (rows.isEmpty()) { return 0L; }
-
-        final Row row = rows.get(0);
-        return row.getLong("value");
+    protected Long _getLastIndexedTransactionId() {
+        final PropertiesStore propertiesStore = _databaseManager.getPropertiesStore();
+        return Util.coalesce(propertiesStore.getLong(LAST_INDEXED_TRANSACTION_KEY));
     }
 
     @Override
@@ -360,16 +404,14 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
     }
 
     @Override
-    public void markTransactionProcessed(final TransactionId transactionId) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        databaseConnection.executeSql(
-            // NOTE: See SlpTransactionDatabaseManagerCore for GREATEST(value, VALUES(value)) discussion.
-            new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = GREATEST(value, ?)")
-                .setParameter(LAST_INDEXED_TRANSACTION_KEY)
-                .setParameter(transactionId)
-                .setParameter(transactionId)
-        );
+    public void markTransactionProcessed(final TransactionId transactionId) {
+        final PropertiesStore propertiesStore = _databaseManager.getPropertiesStore();
+        propertiesStore.getAndSetLong(LAST_INDEXED_TRANSACTION_KEY, new PropertiesStore.GetAndSetter<Long>() {
+            @Override
+            public Long run(final Long value) {
+                return Math.max(Util.coalesce(value), (transactionId == null ? 0L : transactionId.longValue()));
+            }
+        });
     }
 
     @Override

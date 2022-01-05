@@ -79,6 +79,13 @@ public interface UnspentTransactionOutputDatabaseManager {
     // List<UnspentTransactionOutput> loadUnspentTransactionOutputs(List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException;
 
     /**
+     * Searches the Committed UTXO set for TransactionOutputIdentifiers belonging to the provided transactionHash.
+     *  Identifiers may be spent or unspent, depending on the synchronization state of the chain and the disk flush state.
+     *  This function returns identifiers on a best-effort basis and should not be used for enforcing consensus.
+     */
+    List<TransactionOutputIdentifier> getFastSyncOutputIdentifiers(Sha256Hash transactionHash) throws DatabaseException;
+
+    /**
      * Flushes all queued UTXO set changes to disk.  The UTXO set is locked during commit duration.
      *  Returns true if the UTXO set was committed or false if it was not (i.e. if CommitAsyncMode.SKIP_IF_BUSY was provided).
      */
@@ -102,4 +109,6 @@ public interface UnspentTransactionOutputDatabaseManager {
     Long getMaxUtxoCount();
 
     UnspentTransactionOutput findOutputData(TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException;
+
+    void visitUnspentTransactionOutputs(UnspentTransactionOutputVisitor visitor) throws DatabaseException;
 }

@@ -414,6 +414,20 @@ public class MerkleTreeTests {
         final List<Sha256Hash> partialMerkleTree = merkleTree.getPartialTree(0);
 
         // Assert
+        Assert.assertEquals(0, partialMerkleTree.getCount());
+    }
+
+    @Test
+    public void should_create_partial_tree_for_coinbase_transaction_with_item_count_1_inclusive() {
+        // Setup
+        final Item item = new Item(0);
+        final MutableMerkleTree<Item> merkleTree = new MerkleTreeNode<>();
+        merkleTree.addItem(item);
+
+        // Action
+        final List<Sha256Hash> partialMerkleTree = merkleTree.getPartialTree(0, true);
+
+        // Assert
         Assert.assertEquals(1, partialMerkleTree.getCount());
         final MerkleRoot expectedMerkleRoot = merkleTree.getMerkleRoot();
 

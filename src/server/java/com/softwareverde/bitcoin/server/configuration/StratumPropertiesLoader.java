@@ -15,6 +15,7 @@ public class StratumPropertiesLoader {
         final Integer bitcoinRpcPort = Util.parseInt(properties.getProperty("stratum.bitcoinRpcPort", null));
         final Integer httpPort = Util.parseInt(properties.getProperty("stratum.httpPort", String.valueOf(StratumProperties.HTTP_PORT)));
         final Integer tlsPort = Util.parseInt(properties.getProperty("stratum.tlsPort", String.valueOf(StratumProperties.TLS_PORT)));
+        final String dataDirectory = properties.getProperty("stratum.dataDirectory", "stratum/data");
         final String rootDirectory = properties.getProperty("stratum.rootDirectory", "stratum/www");
         final String tlsKeyFile = properties.getProperty("stratum.tlsKeyFile", "");
         final String tlsCertificateFile = properties.getProperty("stratum.tlsCertificateFile", "");
@@ -28,6 +29,7 @@ public class StratumPropertiesLoader {
         stratumProperties._bitcoinRpcPort = bitcoinRpcPort;
         stratumProperties._rpcCredentials = (Util.isBlank(bitcoinRpcUsername) ? null : new RpcCredentials(bitcoinRpcUsername, bitcoinRpcPassword));
 
+        stratumProperties._dataDirectory = dataDirectory;
         stratumProperties._rootDirectory = rootDirectory;
         stratumProperties._httpPort = httpPort;
         stratumProperties._tlsPort = tlsPort;

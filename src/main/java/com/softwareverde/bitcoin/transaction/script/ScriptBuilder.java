@@ -2,7 +2,6 @@ package com.softwareverde.bitcoin.transaction.script;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
-import com.softwareverde.bitcoin.address.PayToScriptHashAddress;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.ComparisonOperation;
 import com.softwareverde.bitcoin.transaction.script.opcode.CryptographicOperation;
@@ -69,11 +68,11 @@ public class ScriptBuilder {
     }
 
     /**
-     * Reverse engineers an Address's LockingScript to compute its hash...
+     * Reverse engineer an Address's LockingScript to compute its hash...
      */
     public static Sha256Hash computeScriptHash(final Address address) {
         final LockingScript lockingScript;
-        if (address instanceof PayToScriptHashAddress) {
+        if (address.getType() == Address.Type.P2SH) {
             final Ripemd160Hash payToScriptHash = Ripemd160Hash.wrap(address.getBytes());
             lockingScript = ScriptBuilder.payToScriptHash(payToScriptHash);
         }

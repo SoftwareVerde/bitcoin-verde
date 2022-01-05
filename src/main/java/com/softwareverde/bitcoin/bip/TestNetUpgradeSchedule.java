@@ -3,6 +3,9 @@ package com.softwareverde.bitcoin.bip;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 
 public class TestNetUpgradeSchedule implements UpgradeSchedule {
+    // NOTE: BCH-specific activation heights are usually one greater than the BCHN activation heights
+    //       since BCHN uses the previous block height for activations.
+
     private static final long BIP16_ACTIVATION_BLOCK_HEIGHT = 514L;
     private static final long BIP34_ACTIVATION_BLOCK_HEIGHT = 21111L;
     private static final long BIP65_ACTIVATION_BLOCK_HEIGHT = 581885L;
@@ -10,8 +13,6 @@ public class TestNetUpgradeSchedule implements UpgradeSchedule {
     private static final long BIP68_ACTIVATION_BLOCK_HEIGHT = 770112L;
     private static final long BIP112_ACTIVATION_BLOCK_HEIGHT = 770112L;
     private static final long BIP113_ACTIVATION_BLOCK_HEIGHT = 770112L;
-    // NOTE: BCH-specific activation heights are usually one ahead of the BCHN activation heights
-    //       since BCHN uses the previous block height for activations.
     private static final long BUIP55_ACTIVATION_BLOCK_HEIGHT = 1155876L; // a.k.a. UAHF
     private static final long HF20171113_ACTIVATION_BLOCK_HEIGHT = 1188698L;
     private static final long HF20181115_ACTIVATION_BLOCK_HEIGHT = 1267997L;
@@ -20,6 +21,7 @@ public class TestNetUpgradeSchedule implements UpgradeSchedule {
     private static final long HF20191115_ACTIVATION_TIME = 1573820238L;
     private static final long HF20200515_ACTIVATION_TIME = 1589544294L;
     private static final long HF20201115_ACTIVATION_TIME = 1605441600L;
+    private static final long HF20220515_ACTIVATION_TIME = 1637694000L;
 
     @Override
     public Boolean isMinimalNumberEncodingRequired(final MedianBlockTime medianBlockTime) {
@@ -145,5 +147,20 @@ public class TestNetUpgradeSchedule implements UpgradeSchedule {
     @Override
     public Boolean isReverseBytesOperationEnabled(final MedianBlockTime medianBlockTime) {
         return (medianBlockTime.getCurrentTimeInSeconds() >= HF20200515_ACTIVATION_TIME);
+    }
+
+    @Override
+    public Boolean areIntrospectionOperationsEnabled(final MedianBlockTime medianBlockTime) {
+        return (medianBlockTime.getCurrentTimeInSeconds() >= HF20220515_ACTIVATION_TIME);
+    }
+
+    @Override
+    public Boolean are64BitScriptIntegersEnabled(final MedianBlockTime medianBlockTime) {
+        return (medianBlockTime.getCurrentTimeInSeconds() >= HF20220515_ACTIVATION_TIME);
+    }
+
+    @Override
+    public Boolean isMultiplyOperationEnabled(final MedianBlockTime medianBlockTime) {
+        return (medianBlockTime.getCurrentTimeInSeconds() >= HF20220515_ACTIVATION_TIME);
     }
 }

@@ -101,6 +101,7 @@ public class BitcoinPropertiesLoader {
 
         bitcoinProperties._bootstrapIsEnabled = Util.parseBool(properties.getProperty("bitcoin.enableBootstrap", "1"));
         bitcoinProperties._fastSyncIsEnabled = Util.parseBool(properties.getProperty("bitcoin.enableFastSync", "0"));
+        bitcoinProperties._fastSyncTimeoutInSeconds = Util.parseLong(properties.getProperty("bitcoin.fastSyncTimeoutSeconds", "14400"));
         bitcoinProperties._indexingModeIsEnabled = Util.parseBool(properties.getProperty("bitcoin.indexBlocks", "1"));
         bitcoinProperties._maxMessagesPerSecond = Util.parseInt(properties.getProperty("bitcoin.maxMessagesPerSecondPerNode", "250"));
         bitcoinProperties._dataDirectory = properties.getProperty("bitcoin.dataDirectory", "data");

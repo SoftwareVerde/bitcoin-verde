@@ -47,6 +47,7 @@ import com.softwareverde.bitcoin.server.module.spv.handler.SpvSynchronizationSta
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.server.node.RequestId;
+import com.softwareverde.bitcoin.server.properties.DatabasePropertiesStore;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionBloomFilterMatcher;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -110,6 +111,7 @@ public class SpvModule {
 
     protected final List<NodeProperties> _seedNodes;
     protected final Environment _environment;
+    protected final DatabasePropertiesStore _propertiesStore;
     protected final CheckpointConfiguration _checkpointConfiguration;
 
     protected final MasterInflater _masterInflater;
@@ -182,7 +184,7 @@ public class SpvModule {
             public void run() {
                 final Database database = _environment.getDatabase();
                 try (final DatabaseConnection databaseConnection = database.newConnection()) {
-                    final SpvDatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection, database.getMaxQueryBatchSize(), _checkpointConfiguration);
+                    final SpvDatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection, database.getMaxQueryBatchSize(), _propertiesStore, _checkpointConfiguration);
                     final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
                     final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
@@ -246,6 +248,8 @@ public class SpvModule {
         _networkThreadPool.stop();
         _generalThreadPool.stop();
 
+        _propertiesStore.stop();
+
         Logger.flush();
         _setStatus(Status.OFFLINE);
     }
@@ -253,7 +257,7 @@ public class SpvModule {
     protected void _loadDownloadedTransactionsIntoWallet() {
         final Database database = _environment.getDatabase();
         try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final SpvDatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection, database.getMaxQueryBatchSize(), _checkpointConfiguration);
+            final SpvDatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection, database.getMaxQueryBatchSize(), _propertiesStore, _checkpointConfiguration);
             final SpvBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
@@ -333,7 +337,8 @@ public class SpvModule {
 
         final Database database = _environment.getDatabase();
         _databaseConnectionFactory = database.newConnectionFactory();
-        _databaseManagerFactory = new SpvDatabaseManagerFactory(_databaseConnectionFactory, database.getMaxQueryBatchSize(), _checkpointConfiguration);
+        _propertiesStore = new DatabasePropertiesStore(_databaseConnectionFactory);
+        _databaseManagerFactory = new SpvDatabaseManagerFactory(_databaseConnectionFactory, database.getMaxQueryBatchSize(), _propertiesStore, _checkpointConfiguration);
         _banFilter = new BanFilterCore(_databaseManagerFactory);
     }
 
@@ -345,6 +350,7 @@ public class SpvModule {
         final Thread mainThread = Thread.currentThread();
         _setStatus(Status.INITIALIZING);
 
+        _propertiesStore.start();
         _generalThreadPool.start();
         _networkThreadPool.start();
 
@@ -380,7 +386,7 @@ public class SpvModule {
             }
         };
 
-        final SpvDatabaseManagerFactory databaseManagerFactory = new SpvDatabaseManagerFactory(_databaseConnectionFactory, maxQueryBatchSize, _checkpointConfiguration);
+        final SpvDatabaseManagerFactory databaseManagerFactory = new SpvDatabaseManagerFactory(_databaseConnectionFactory, maxQueryBatchSize, _propertiesStore, _checkpointConfiguration);
 
         _merkleBlockDownloader = new MerkleBlockDownloader(databaseManagerFactory, new MerkleBlockDownloader.Downloader() {
             @Override
@@ -497,7 +503,7 @@ public class SpvModule {
                         }
 
                         try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                            final SpvDatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection, maxQueryBatchSize, _checkpointConfiguration);
+                            final SpvDatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection, maxQueryBatchSize, _propertiesStore, _checkpointConfiguration);
                             final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
                             TransactionUtil.startTransaction(databaseConnection);
@@ -740,7 +746,7 @@ public class SpvModule {
         }
 
         try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final DatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection, maxQueryBatchSize, _checkpointConfiguration);
+            final DatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection, maxQueryBatchSize, _propertiesStore, _checkpointConfiguration);
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
             final BlockId headBlockHeaderId = blockHeaderDatabaseManager.getHeadBlockHeaderId();

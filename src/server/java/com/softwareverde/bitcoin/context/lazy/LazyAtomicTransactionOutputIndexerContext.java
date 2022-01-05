@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.indexer.BlockchainIndexerDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputId;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -18,6 +19,7 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 
 import java.util.HashMap;
@@ -85,7 +87,9 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
             final NanoTimer nanoTimer = new NanoTimer();
             nanoTimer.start();
             final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
-            _indexerCache.cacheTransactionId(_cacheIdentifier, transactionHash, transactionId);
+            if (transactionId != null) {
+                _indexerCache.cacheTransactionId(_cacheIdentifier, transactionHash, transactionId);
+            }
             nanoTimer.stop();
             _getTransactionIdMs += nanoTimer.getMillisecondsElapsed();
             return transactionId;
@@ -234,6 +238,25 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
 
         if ( (_greatestProcessedTransactionId == null) || (_greatestProcessedTransactionId.longValue() < transactionId.longValue()) ) {
             _greatestProcessedTransactionId = transactionId;
+        }
+    }
+
+    @Override
+    public void storeTransactions(final List<Sha256Hash> transactionHashes, final List<Integer> byteCounts) throws ContextException {
+        final int transactionCount = transactionHashes.getCount();
+        if (! Util.areEqual(transactionCount, byteCounts.getCount())) { throw new ContextException("transactionHash / byteCount mismatch."); }
+
+        try {
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+            final List<TransactionId> transactionIds = transactionDatabaseManager.storeTransactionHashes(transactionHashes, byteCounts);
+            for (int i = 0; i < transactionCount; ++i) {
+                final Sha256Hash transactionHash = transactionHashes.get(i);
+                final TransactionId transactionId = transactionIds.get(i);
+                _indexerCache.cacheTransactionId(_cacheIdentifier, transactionHash, transactionId);
+            }
+        }
+        catch (final DatabaseException databaseException) {
+            throw new ContextException(databaseException);
         }
     }
 

@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node;
 
 import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
+import com.softwareverde.bitcoin.bip.TestNet4UpgradeSchedule;
 import com.softwareverde.bitcoin.bip.TestNetUpgradeSchedule;
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.Block;
@@ -35,12 +36,14 @@ import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.DatabaseMaintainer;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
+import com.softwareverde.bitcoin.server.main.NetworkType;
 import com.softwareverde.bitcoin.server.memory.LowMemoryMonitor;
 import com.softwareverde.bitcoin.server.message.BitcoinBinaryPacketFormat;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
+import com.softwareverde.bitcoin.server.module.node.callback.NewBlockHeadersAvailableCallbackBuilder;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
@@ -114,6 +117,7 @@ import com.softwareverde.bitcoin.server.module.node.utxo.UtxoCommitmentGenerator
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.server.node.RequestId;
+import com.softwareverde.bitcoin.server.properties.DatabasePropertiesStore;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProof;
@@ -129,7 +133,6 @@ import com.softwareverde.concurrent.threadpool.ThreadPoolThrottle;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
-import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
@@ -142,7 +145,6 @@ import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.network.socket.BinarySocketServer;
 import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.network.time.MutableNetworkTime;
-import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
@@ -159,6 +161,7 @@ public class NodeModule {
     protected final SystemTime _systemTime;
     protected final BitcoinProperties _bitcoinProperties;
     protected final Environment _environment;
+    protected final DatabasePropertiesStore _propertiesStore;
     protected final PendingBlockStoreCore _blockStore;
     protected final CheckpointConfiguration _checkpointConfiguration;
     protected final MasterInflater _masterInflater;
@@ -219,8 +222,18 @@ public class NodeModule {
         {
             final Database database = _environment.getDatabase();
             final DatabaseConnectionFactory databaseConnectionFactory = _environment.getDatabaseConnectionFactory();
-            databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionFactory, database.getMaxQueryBatchSize(), _blockStore, _utxoCommitmentStore, _masterInflater, _checkpointConfiguration);
+            databaseManagerFactory = new FullNodeDatabaseManagerFactory(
+                databaseConnectionFactory,
+                database.getMaxQueryBatchSize(),
+                _propertiesStore,
+                _blockStore,
+                _utxoCommitmentStore,
+                _masterInflater,
+                _checkpointConfiguration
+            );
         }
+
+        _utxoCommitmentDownloader.shutdown();
 
         Logger.info("[Stopping Request Handler]");
         _requestDataHandler.shutdown();
@@ -331,6 +344,8 @@ public class NodeModule {
 
         try { _databaseMaintenanceThread.join(30000L); } catch (final InterruptedException exception) { }
 
+        _propertiesStore.stop();
+
         Logger.flush();
 
         synchronized (_isShuttingDown) {
@@ -359,7 +374,15 @@ public class NodeModule {
 
         { // Upgrade Schedule
             if (bitcoinProperties.isTestNet()) {
-                _upgradeSchedule = new TestNetUpgradeSchedule();
+                final NetworkType networkType = bitcoinProperties.getNetworkType();
+                switch (networkType) {
+                    case TEST_NET4: {
+                        _upgradeSchedule = new TestNet4UpgradeSchedule();
+                    } break;
+                    default: {
+                        _upgradeSchedule = new TestNetUpgradeSchedule();
+                    }
+                }
             }
             else {
                 _upgradeSchedule = new CoreUpgradeSchedule();
@@ -417,9 +440,12 @@ public class NodeModule {
 
         final Database database = _environment.getDatabase();
         final DatabaseConnectionFactory databaseConnectionFactory = _environment.getDatabaseConnectionFactory();
+        _propertiesStore = new DatabasePropertiesStore(databaseConnectionFactory);
+
         final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(
             databaseConnectionFactory,
             database.getMaxQueryBatchSize(),
+            _propertiesStore,
             _blockStore,
             _utxoCommitmentStore,
             _masterInflater,
@@ -457,6 +483,9 @@ public class NodeModule {
 
         final boolean indexModeIsEnabled = bitcoinProperties.isIndexingModeEnabled();
         final boolean pruningModeIsEnabled = bitcoinProperties.isPruningModeEnabled();
+        final boolean fastSyncIsEnabled = bitcoinProperties.isFastSyncEnabled();
+        final Long fastSyncTimeout = _bitcoinProperties.getFastSyncTimeoutMs();
+
         final LocalNodeFeatures localNodeFeatures = new LocalNodeFeatures() {
             @Override
             public NodeFeatures getNodeFeatures() {
@@ -695,7 +724,7 @@ public class NodeModule {
         }
 
         if (pruningModeIsEnabled) {
-            _blockPruner = new BlockPruner(databaseManagerFactory, _blockStore, new BlockPruner.RequiredBlockChecker() {
+            _blockPruner = new BlockPruner(databaseManagerFactory, _blockStore, indexModeIsEnabled, new BlockPruner.RequiredBlockChecker() {
                 @Override
                 public Boolean isBlockRequired(final Long blockHeight, final Sha256Hash blockHash) {
                     final boolean utxoCommitmentGeneratorRequiresBlock = _utxoCommitmentGenerator.requiresBlock(blockHeight, blockHash);
@@ -729,10 +758,6 @@ public class NodeModule {
 
             _blockDownloader = new BlockDownloader(_blockStore, bitcoinNodeCollector, blockInventoryTracker, blockDownloadPlanner, _generalThreadPool);
 
-            if (_bitcoinProperties.isFastSyncEnabled()) {
-                _blockDownloader.setPaused(true);
-            }
-
             final int maxConcurrentDownloadCount = bitcoinProperties.getMinPeerCount();
             final int maxConcurrentDownloadCountPerNode = 2;
             _blockDownloader.setMaxConcurrentDownloadCount(maxConcurrentDownloadCount);
@@ -761,7 +786,7 @@ public class NodeModule {
                         final Boolean blockIsOnMainChain = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANY);
 
                         if (blockIsOnMainChain) {
-                            Logger.debug("Requesting Block: " + blockHash + ":" + blockHeight);
+                            Logger.debug("Requesting Block: " + blockHash + ":" + blockHeight + " (paused=" + _blockDownloader.isPaused() +")");
                             _blockDownloader.requestBlock(blockHash, blockHeight, null);
                         }
                     }
@@ -791,8 +816,40 @@ public class NodeModule {
             });
         }
 
+        final boolean fastSyncHasCompleted;
+        final long maxCommitmentBlockHeight;
+        final long minCommitmentBlockHeight;
+        {
+            long maxBlockHeight = 0L;
+            long minBlockHeight = Long.MAX_VALUE;
+            for (final UtxoCommitmentMetadata utxoCommitments : BitcoinConstants.getUtxoCommitments()) {
+                if (utxoCommitments.blockHeight > maxBlockHeight) {
+                    maxBlockHeight = utxoCommitments.blockHeight;
+                }
+                if (utxoCommitments.blockHeight < minBlockHeight) {
+                    minBlockHeight = utxoCommitments.blockHeight;
+                }
+            }
+            maxCommitmentBlockHeight = maxBlockHeight;
+            minCommitmentBlockHeight = minBlockHeight;
+
+            Long headBlockHeight = null;
+            try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+
+                final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+                headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
+            }
+            catch (final DatabaseException exception) {
+                Logger.debug(exception);
+            }
+
+            fastSyncHasCompleted = (Util.coalesce(headBlockHeight) >= minCommitmentBlockHeight);
+        }
+
         _utxoCommitmentGenerator = new UtxoCommitmentGenerator(databaseManagerFactory, _utxoCommitmentStore.getUtxoDataDirectory());
-        _utxoCommitmentDownloader = new UtxoCommitmentDownloader(databaseManagerFactory, _bitcoinNodeManager, _utxoCommitmentStore, _utxoCommitmentGenerator, _blockPruner);
+        _utxoCommitmentDownloader = new UtxoCommitmentDownloader(databaseManagerFactory, _bitcoinNodeManager, _utxoCommitmentStore, _blockPruner, fastSyncTimeout);
 
         { // Set the synchronization elements to cascade to each component...
             _blockchainBuilder.setAsynchronousNewBlockProcessedCallback(new BlockchainBuilder.NewBlockProcessedCallback() {
@@ -871,95 +928,27 @@ public class NodeModule {
                         _blockPruner.wakeUp();
                     }
 
-                    _generalThreadPool.execute(new Runnable() {
-                        @Override
-                        public void run() {
-                            _utxoCommitmentGenerator.wakeUp();
-                        }
-                    });
+                    _utxoCommitmentGenerator.wakeUp();
                 }
             });
 
-            final long maxCommitmentBlockHeight;
-            final long minCommitmentBlockHeight;
-            final Container<Boolean> wasFastSyncCompleted = new Container<>(false);
-            {
-                long maxBlockHeight = 0L;
-                long minBlockHeight = Long.MAX_VALUE;
-                for (final UtxoCommitmentMetadata utxoCommitments : BitcoinConstants.getUtxoCommitments()) {
-                    if (utxoCommitments.blockHeight > maxBlockHeight) {
-                        maxBlockHeight = utxoCommitments.blockHeight;
-                    }
-                    if (utxoCommitments.blockHeight < minBlockHeight) {
-                        minBlockHeight = utxoCommitments.blockHeight;
-                    }
-                }
-                maxCommitmentBlockHeight = maxBlockHeight;
-                minCommitmentBlockHeight = minBlockHeight;
+            final NewBlockHeadersAvailableCallbackBuilder blockHeadersAvailableCallbackBuilder = new NewBlockHeadersAvailableCallbackBuilder(databaseManagerFactory, _blockHeaderDownloader, _blockDownloader, synchronizationStatusHandler, blockInventoryMessageHandler);
+            if (fastSyncIsEnabled && (! fastSyncHasCompleted) ) {
+                blockHeadersAvailableCallbackBuilder.enableFastSync(maxCommitmentBlockHeight, indexModeIsEnabled, _utxoCommitmentDownloader, _blockchainIndexer, new Runnable() {
+                    @Override
+                    public void run() {
+                        Logger.debug("Resuming paused services...");
+                        _blockDownloader.resume();
+                        _utxoCommitmentGenerator.resume();
+                        _blockchainIndexer.resume();
 
-                try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-                    final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-
-                    final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-                    final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
-                    if (Util.coalesce(headBlockHeight) >= minCommitmentBlockHeight) {
-                        wasFastSyncCompleted.value = true;
+                        _blockDownloader.wakeUp();
+                        _utxoCommitmentGenerator.wakeUp();
+                        _blockchainIndexer.wakeUp();
                     }
-                }
-                catch (final DatabaseException exception) {
-                    Logger.debug(exception);
-                }
+                });
             }
-
-            _blockHeaderDownloader.setNewBlockHeaderAvailableCallback(new BlockHeaderDownloader.NewBlockHeadersAvailableCallback() {
-                @Override
-                public void onNewHeadersReceived(final BitcoinNode bitcoinNode, final List<BlockHeader> blockHeaders) {
-                    {
-                        final MutableList<Sha256Hash> blockHashes = new MutableList<>(blockHeaders.getCount());
-                        for (final BlockHeader blockHeader : blockHeaders) {
-                            final Sha256Hash blockHash = blockHeader.getHash();
-                            blockHashes.add(blockHash);
-                        }
-                        blockInventoryMessageHandler.onNewInventory(bitcoinNode, blockHashes);
-                    }
-
-                    _blockDownloader.wakeUp();
-
-                    // TODO: If the BlockHeader(s) are on the main chain and the node is (mostly) synced, then prioritize the download
-                    //  of the new block via BlockDownloader::requestBlock(blockHash, 0L, bitcoinNode)
-
-                    final Long blockHeaderDownloaderBlockHeight = Util.coalesce(_blockHeaderDownloader.getBlockHeight());
-
-                    if (synchronizationStatusHandler.getState() == State.ONLINE) {
-                        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-                            final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-
-                            final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-                            final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
-
-                            if (blockHeaderDownloaderBlockHeight > Util.coalesce(headBlockHeight, -1L)) {
-                                synchronizationStatusHandler.setState(State.SYNCHRONIZING);
-                            }
-                        }
-                        catch (final DatabaseException exception) {
-                            Logger.warn(exception);
-                        }
-                    }
-
-                    if ( _bitcoinProperties.isFastSyncEnabled() && (! wasFastSyncCompleted.value) ) {
-                        if (blockHeaderDownloaderBlockHeight >= maxCommitmentBlockHeight) {
-                            final Boolean didComplete = _utxoCommitmentDownloader.runOnceSynchronously();
-                            if (didComplete) {
-                                wasFastSyncCompleted.value = true;
-                                _blockDownloader.setPaused(false);
-                                _blockDownloader.wakeUp();
-                            }
-                        }
-                    }
-                }
-            });
+            _blockHeaderDownloader.setNewBlockHeaderAvailableCallback(blockHeadersAvailableCallbackBuilder.build());
 
             _blockDownloader.setBlockDownloadedCallback(new BlockDownloader.BlockDownloadCallback() {
                 @Override
@@ -1056,6 +1045,16 @@ public class NodeModule {
             }
         });
 
+
+        if  ( fastSyncIsEnabled && (! fastSyncHasCompleted) ) {
+            _bitcoinNodeManager.setFastSyncIsEnabled(true); // Allow connection with pruned nodes with UTXO Commitments when fast sync is enabled.
+
+            Logger.debug("Pausing services for fast sync...");
+            _blockDownloader.pause();
+            _utxoCommitmentGenerator.pause();
+            _blockchainIndexer.pause();
+        }
+
         {
             final ImmutableListBuilder<SleepyService> listBuilder = new ImmutableListBuilder<>();
             listBuilder.add(_blockchainIndexer);
@@ -1083,7 +1082,7 @@ public class NodeModule {
                 final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_generalThreadPool); // TODO: Should combine _generalThreadPool and _networkThreadPool, and/or refactor completely.
                 final RpcStatisticsHandler statisticsHandler = new RpcStatisticsHandler(_blockHeaderDownloader, _blockchainBuilder, blockProcessor, _bitcoinNodeManager);
 
-                final RpcDataHandler rpcDataHandler = new RpcDataHandler(_systemTime, _masterInflater, databaseManagerFactory, _difficultyCalculatorFactory, transactionValidatorFactory, _transactionDownloader, _blockchainBuilder, _blockDownloader, doubleSpendProofStore, _mutableNetworkTime, _upgradeSchedule);
+                final RpcDataHandler rpcDataHandler = new RpcDataHandler(_systemTime, _masterInflater, databaseManagerFactory, _difficultyCalculatorFactory, transactionValidatorFactory, _transactionDownloader, _blockchainBuilder, _blockHeaderDownloader, _blockDownloader, doubleSpendProofStore, _mutableNetworkTime, _upgradeSchedule);
 
                 final MetadataHandler metadataHandler = new MetadataHandler(databaseManagerFactory, doubleSpendProofStore);
                 final QueryBlockchainHandler queryBlockchainHandler = new QueryBlockchainHandler(databaseConnectionFactory);
@@ -1206,6 +1205,12 @@ public class NodeModule {
     }
 
     public void loop() {
+        final boolean indexModeIsEnabled = _bitcoinProperties.isIndexingModeEnabled();
+        final boolean pruningModeIsEnabled = _bitcoinProperties.isPruningModeEnabled();
+        final boolean fastSyncIsEnabled = _bitcoinProperties.isFastSyncEnabled();
+        final boolean bootstrapIsEnabled = _bitcoinProperties.isBootstrapEnabled();
+
+        _propertiesStore.start();
         _networkThreadPool.start();
         _blockProcessingThreadPool.start();
         _generalThreadPool.start();
@@ -1219,6 +1224,7 @@ public class NodeModule {
         final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(
             databaseConnectionFactory,
             database.getMaxQueryBatchSize(),
+            _propertiesStore,
             _blockStore,
             _utxoCommitmentStore,
             _masterInflater,
@@ -1227,7 +1233,7 @@ public class NodeModule {
             _bitcoinProperties.getUtxoCachePurgePercent()
         );
 
-        if (_bitcoinProperties.isBootstrapEnabled()) {
+        if (bootstrapIsEnabled) {
             final HeadersBootstrapper headersBootstrapper = new FullNodeHeadersBootstrapper(databaseManagerFactory);
             if (headersBootstrapper.shouldRun()) {
                 Logger.info("[Bootstrapping Headers]");
@@ -1271,7 +1277,6 @@ public class NodeModule {
                     final UnspentTransactionOutputJvmManager unspentTransactionOutputJvmManager = (UnspentTransactionOutputJvmManager) unspentTransactionOutputDatabaseManager;
                     final Boolean utxoCacheFileExists = unspentTransactionOutputJvmManager.doesUtxoCacheLoadFileExist();
                     // The LOAD_VIA_RECENT_TRANSACTIONS depends on the transactions table being populated which is (effectively) unavailable in pruning mode.
-                    final Boolean pruningModeIsEnabled = _bitcoinProperties.isPruningModeEnabled();
 
                     final CacheLoadingMethod cacheLoadingMethod;
                     if (utxoCacheFileExists && _utxoCacheLoadFileIsEnabled) {

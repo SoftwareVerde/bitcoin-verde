@@ -24,13 +24,16 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.database.transaction.pending.PendingTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManagerCore;
+import com.softwareverde.bitcoin.server.module.node.database.utxo.UtxoCommitmentDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.store.UtxoCommitmentStore;
 import com.softwareverde.bitcoin.server.module.node.utxo.UtxoCommitmentManagerCore;
+import com.softwareverde.bitcoin.server.properties.PropertiesStore;
 import com.softwareverde.database.DatabaseException;
 
 public class FullNodeDatabaseManager implements DatabaseManager {
     protected final DatabaseConnection _databaseConnection;
+    protected final PropertiesStore _propertiesStore;
     protected final Integer _maxQueryBatchSize;
     protected final PendingBlockStore _blockStore;
     protected final MasterInflater _masterInflater;
@@ -50,14 +53,16 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     protected PendingTransactionDatabaseManager _pendingTransactionDatabaseManager;
     protected SlpTransactionDatabaseManager _slpTransactionDatabaseManager;
     protected UnspentTransactionOutputDatabaseManager _unspentTransactionOutputDatabaseManager;
+    protected UtxoCommitmentDatabaseManager _utxoCommitmentDatabaseManager;
     protected UtxoCommitmentManager _utxoCommitmentManager;
 
-    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final PendingBlockStore blockStore, final UtxoCommitmentStore utxoCommitmentStore, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration) {
-        this(databaseConnection, maxQueryBatchSize, blockStore, utxoCommitmentStore, masterInflater, checkpointConfiguration, UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT, UnspentTransactionOutputDatabaseManager.DEFAULT_PURGE_PERCENT);
+    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final PropertiesStore propertiesStore, final PendingBlockStore blockStore, final UtxoCommitmentStore utxoCommitmentStore, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration) {
+        this(databaseConnection, maxQueryBatchSize, propertiesStore, blockStore, utxoCommitmentStore, masterInflater, checkpointConfiguration, UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT, UnspentTransactionOutputDatabaseManager.DEFAULT_PURGE_PERCENT);
     }
 
-    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final PendingBlockStore blockStore, final UtxoCommitmentStore utxoCommitmentStore, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration, final Long maxUtxoCount, final Float utxoPurgePercent) {
+    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final PropertiesStore propertiesStore, final PendingBlockStore blockStore, final UtxoCommitmentStore utxoCommitmentStore, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration, final Long maxUtxoCount, final Float utxoPurgePercent) {
         _databaseConnection = databaseConnection;
+        _propertiesStore = propertiesStore;
         _maxQueryBatchSize = maxQueryBatchSize;
         _blockStore = blockStore;
         _masterInflater = masterInflater;
@@ -122,6 +127,11 @@ public class FullNodeDatabaseManager implements DatabaseManager {
         return _maxQueryBatchSize;
     }
 
+    @Override
+    public PropertiesStore getPropertiesStore() {
+        return _propertiesStore;
+    }
+
     public BlockchainIndexerDatabaseManager getBlockchainIndexerDatabaseManager() {
         if (_blockchainIndexerDatabaseManager == null) {
             final AddressInflater addressInflater = _masterInflater.getAddressInflater();
@@ -169,6 +179,14 @@ public class FullNodeDatabaseManager implements DatabaseManager {
         }
 
         return _unspentTransactionOutputDatabaseManager;
+    }
+
+    public UtxoCommitmentDatabaseManager getUtxoCommitmentDatabaseManager() {
+        if (_utxoCommitmentDatabaseManager == null) {
+            _utxoCommitmentDatabaseManager = new UtxoCommitmentDatabaseManager(this);
+        }
+
+        return _utxoCommitmentDatabaseManager;
     }
 
     public UtxoCommitmentManager getUtxoCommitmentManager() {

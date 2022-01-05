@@ -33,10 +33,6 @@
                     <li><a href="/account/"><i class="fas fa-user"></i>Account</a></li>
                 </ul>
             </div>
-            <div class="search">
-                <input id="search" />
-                <img id="search-loading-image" class="loading" src="/img/loading.gif" />
-            </div>
         </div>
         <h1><i class="fa fa-flask" aria-hidden="true"></i> Currently Mining: <span id="pool-hash-rate"></span></h1>
         <div id="main">
@@ -47,44 +43,77 @@
                 <div class="block-header">
                     <div class="height"><label>Height</label><span class="value">0</span></div>
                     <div class="hash"><label>Hash</label><span class="value fixed">0000000000000000000000000000000000000000000000000000000000000000</span></div>
+                    <div class="time-diff"><label>Age</label><span class="value"></span></div>
+                    <div class="timestamp"><label>Timestamp</label><span class="value">0000-00-00 00:00:00</span></div>
+                    <div class="byte-count"><label>Total Size</label><span class="value">1024</span></div>
+                    <div class="reward"><label>Block Reward</label><span class="value">50</span></div>
+                    <div class="transaction-count"><label>Transaction Count</label><span class="value">0</span></div>
+                    <div class="nonce"><label>Nonce</label><span class="value">0</span></div>
                     <div class="difficulty">
                         <label>Difficulty</label>
                         <div class="mask"><label>Mask</label><span class="value fixed">0000000000000000000000000000000000000000000000000000000000000000</span></div>
                         <div class="ratio"><label>Ratio</label><span class="value">1.0</span></div>
                     </div>
-                    <div class="previous-block-hash"><label>Previous Block</label><span class="value fixed clickable">0000000000000000000000000000000000000000000000000000000000000000</span></div>
                     <div class="merkle-root"><label>Merkle Root</label><span class="value fixed">0000000000000000000000000000000000000000000000000000000000000000</span></div>
-                    <div class="timestamp"><label>Timestamp</label><span class="value">0000-00-00 00:00:00</span></div>
-                    <div class="nonce"><label>Nonce</label><span class="value">0</span></div>
-                    <div class="reward"><label>Block Reward</label><span class="value">50</span></div>
-                    <div class="byte-count"><label>Total Size</label><span class="value">1024</span></div>
-                    <div class="transaction-count"><label>Transaction Count</label><span class="value">0</span></div>
+                    <div class="previous-block-hash"><label>Previous Block</label><span class="value fixed clickable">0000000000000000000000000000000000000000000000000000000000000000</span></div>
+                </div>
+                <div class="transactions-nav">
+                    <i class="previous fas fa-caret-left"></i><span class="page-navigation"></span><i class="next fas fa-caret-right"></i>
                 </div>
                 <div class="transactions"></div>
+                <div class="transactions-nav">
+                    <i class="previous fas fa-caret-left"></i><span class="page-navigation"></span><i class="next fas fa-caret-right"></i>
+                </div>
             </div>
 
             <div class="transaction collapsed">
-                <div>
-                    <div class="hash"><label>Hash</label><span class="value fixed clickable">0000000000000000000000000000000000000000000000000000000000000000</span></div>
-                    <div class="version"><label>Version</label><span class="value">1</span></div>
-                    <div class="byte-count"><label>Total Size</label><span class="value">1024</span></div>
-                    <div class="fee"><label>Fee</label><span class="value">0.0000</span></div>
-                    <div class="block-hashes"><label>Mined In Blocks</label><div class="values"></div></div>
-                    <div class="lock-time">
-                        <label>Lock Time</label>
-                        <div class="type"><label>Type</label><span class="value">BLOCK_HEIGHT</span></div>
-                        <div class="type-value"><label>Value</label><span class="value">00000000</span></div>
+                <div class="double-spend-warning"><i class="fas fa-exclamation-triangle" title="Double Spend Alert"></i></div>
+                <div class="hash"><label>Transaction</label><span class="value fixed clickable">0000000000000000000000000000000000000000000000000000000000000000</span></div>
+                <div class="floating-properties-container">
+                    <div class="version floating-property"><label>Version</label><span class="value">1</span></div>
+                    <div class="byte-count floating-property"><label>Size</label><span class="value">1024</span></div>
+                    <div class="fee floating-property"><label>Fee</label><span class="value">0.0000</span></div>
+                    <div class="slp floating-property"><label>Token</label><span class="value">BCH</span></div>
+                </div>
+                <div class="lock-time floating-property">
+                    <i class="img fas fa-lock"></i>
+                    <label>Lock Time</label>
+                    <span class="value">Locked Until Block #0</span>
+                </div>
+                <div class="block-hashes"><label>Mined In Blocks</label><div class="values"></div></div>
+                <div class="io">
+                    <div class="transaction-inputs"></div>
+                    <img class="tx-arrow" src="/img/tx-input-arrow.png" />
+                    <div class="transaction-outputs"></div>
+                </div>
+                <div class="slp-genesis">
+                    <div class="token-name">
+                        <label>Name</label>
+                        <span class="value"></span>
+                        <object data="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" type="image/png;base64"><img class="slp-icon" alt="" /></object>
                     </div>
-                    <div class="io">
-                        <div class="transaction-inputs"></div>
-                        <img class="tx-arrow" src="/img/tx-input-arrow.png" />
-                        <div class="transaction-outputs"></div>
+                    <div class="token-id"><label>Token Id</label><span class="value fixed clickable">0000000000000000000000000000000000000000000000000000000000000000</span></div>
+                    <div class="token-abbreviation"><label>Abbreviation</label><span class="value"></span></div>
+                    <div class="document-url"><label>Document Url</label><span class="value"></span></div>
+                    <div class="token-count"><label>Token Count</label><span class="value"></span></div>
+                    <div class="document-hash"><label>Document Hash</label><span class="value fixed clickable">0000000000000000000000000000000000000000000000000000000000000000</span></div>
+                    <div class="decimal-count"><label>Decimals</label><span class="value"></span></div>
+                </div>
+                <div class="memo">
+                    <div class="memo-icon"><img alt="" src="/img/memo-icon.png" /></div>
+                    <div class="type">
+                        <label>Action Type</label>
+                        <span class="value"></span>
                     </div>
+                    <div class="transaction-hash"><label>Target Memo</label><span class="value fixed clickable">0000000000000000000000000000000000000000000000000000000000000000</span></div>
+                    <div class="address"><label>Address</label><span class="value">1111111111111111111111111111111111</span></div>
+                    <div class="topic"><label>Topic</label><span class="value"></span></div>
+                    <div class="content"><label>Content</label><span class="value"></span></div>
                 </div>
             </div>
 
             <div class="transaction-input">
-                <div class="label"><label class="address">1111111111111111111111111111111111</label><span class="amount">0.0000</span></div>
+                <div class="label"><label class="address">1111111111111111111111111111111111</label><span class="amount">0.0000</span><span class="token-amount"><span>0.0000</span><span class="token-name"></span></span></div>
                 <div class="transaction-hash"><label>Transaction Hash</label><div class="value fixed clickable">0000000000000000000000000000000000000000000000000000000000000000</div></div>
                 <div class="transaction-output-index"><label>Transaction Output Index</label><span class="value">0</span></div>
                 <div class="sequence-number">
@@ -101,7 +130,8 @@
             </div>
 
             <div class="transaction-output">
-                <div class="label"><label class="address">1111111111111111111111111111111111</label><span class="amount">0.0000</span></div>
+                <div class="label"><label class="address">1111111111111111111111111111111111</label><img class="is-spent" alt="Spent Icon" title="Output has been spent." src="/img/is-spent.png" /><span class="amount">0.0000</span><span class="token-amount"><span>0.0000</span><span class="token-name"></span></span></div>
+                <div class="spent-by"><label>Spent By</label><div class="value fixed clickable">0000000000000000000000000000000000000000000000000000000000000000</div></div>
                 <div class="locking-script">
                     <label>Locking Script</label>
                     <div class="type"><label>Type</label><span class="value">UNKNOWN</span></div>
@@ -122,5 +152,7 @@
                 <div class="address-transactions"></div>
             </div>
         </div>
+
+        <div style="margin-top: 1em; text-align: center; font-size: 0.75em"><a href="bitcoincash:qqverdefl9xtryyx8y52m6va5j8s2s4eq59fjdn97e">bitcoincash:qqverdefl9xtryyx8y52m6va5j8s2s4eq59fjdn97e</a></div>
     </body>
 </html>

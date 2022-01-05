@@ -1,5 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.runner.context.TransactionContext;
@@ -17,19 +19,19 @@ public class ComparisonOperation extends SubTypedOperation {
 
     public static final Type TYPE = Type.OP_COMPARISON;
 
-    public static final ComparisonOperation IS_EQUAL                            = new ComparisonOperation(Opcode.IS_EQUAL.getValue(),                           Opcode.IS_EQUAL);
-    public static final ComparisonOperation IS_EQUAL_THEN_VERIFY                = new ComparisonOperation(Opcode.IS_EQUAL_THEN_VERIFY.getValue(),               Opcode.IS_EQUAL_THEN_VERIFY);
-    public static final ComparisonOperation IS_TRUE                             = new ComparisonOperation(Opcode.IS_TRUE.getValue(),                            Opcode.IS_TRUE);
-    public static final ComparisonOperation IS_NUMERICALLY_EQUAL                = new ComparisonOperation(Opcode.IS_NUMERICALLY_EQUAL.getValue(),               Opcode.IS_NUMERICALLY_EQUAL);
-    public static final ComparisonOperation IS_NUMERICALLY_EQUAL_THEN_VERIFY    = new ComparisonOperation(Opcode.IS_NUMERICALLY_EQUAL_THEN_VERIFY.getValue(),   Opcode.IS_NUMERICALLY_EQUAL_THEN_VERIFY);
-    public static final ComparisonOperation IS_NUMERICALLY_NOT_EQUAL            = new ComparisonOperation(Opcode.IS_NUMERICALLY_NOT_EQUAL.getValue(),           Opcode.IS_NUMERICALLY_NOT_EQUAL);
-    public static final ComparisonOperation IS_LESS_THAN                        = new ComparisonOperation(Opcode.IS_LESS_THAN.getValue(),                       Opcode.IS_LESS_THAN);
-    public static final ComparisonOperation IS_GREATER_THAN                     = new ComparisonOperation(Opcode.IS_GREATER_THAN.getValue(),                    Opcode.IS_GREATER_THAN);
-    public static final ComparisonOperation IS_LESS_THAN_OR_EQUAL               = new ComparisonOperation(Opcode.IS_LESS_THAN_OR_EQUAL.getValue(),              Opcode.IS_LESS_THAN_OR_EQUAL);
-    public static final ComparisonOperation IS_GREATER_THAN_OR_EQUAL            = new ComparisonOperation(Opcode.IS_GREATER_THAN_OR_EQUAL.getValue(),           Opcode.IS_GREATER_THAN_OR_EQUAL);
-    public static final ComparisonOperation INTEGER_AND                         = new ComparisonOperation(Opcode.INTEGER_AND.getValue(),                        Opcode.INTEGER_AND);
-    public static final ComparisonOperation INTEGER_OR                          = new ComparisonOperation(Opcode.INTEGER_OR.getValue(),                         Opcode.INTEGER_OR);
-    public static final ComparisonOperation IS_WITHIN_RANGE                     = new ComparisonOperation(Opcode.IS_WITHIN_RANGE.getValue(),                    Opcode.IS_WITHIN_RANGE);
+    public static final ComparisonOperation IS_EQUAL                            = new ComparisonOperation(Opcode.IS_EQUAL);
+    public static final ComparisonOperation IS_EQUAL_THEN_VERIFY                = new ComparisonOperation(Opcode.IS_EQUAL_THEN_VERIFY);
+    public static final ComparisonOperation IS_TRUE                             = new ComparisonOperation(Opcode.IS_TRUE);
+    public static final ComparisonOperation IS_NUMERICALLY_EQUAL                = new ComparisonOperation(Opcode.IS_NUMERICALLY_EQUAL);
+    public static final ComparisonOperation IS_NUMERICALLY_EQUAL_THEN_VERIFY    = new ComparisonOperation(Opcode.IS_NUMERICALLY_EQUAL_THEN_VERIFY);
+    public static final ComparisonOperation IS_NUMERICALLY_NOT_EQUAL            = new ComparisonOperation(Opcode.IS_NUMERICALLY_NOT_EQUAL);
+    public static final ComparisonOperation IS_LESS_THAN                        = new ComparisonOperation(Opcode.IS_LESS_THAN);
+    public static final ComparisonOperation IS_GREATER_THAN                     = new ComparisonOperation(Opcode.IS_GREATER_THAN);
+    public static final ComparisonOperation IS_LESS_THAN_OR_EQUAL               = new ComparisonOperation(Opcode.IS_LESS_THAN_OR_EQUAL);
+    public static final ComparisonOperation IS_GREATER_THAN_OR_EQUAL            = new ComparisonOperation(Opcode.IS_GREATER_THAN_OR_EQUAL);
+    public static final ComparisonOperation INTEGER_AND                         = new ComparisonOperation(Opcode.INTEGER_AND);
+    public static final ComparisonOperation INTEGER_OR                          = new ComparisonOperation(Opcode.INTEGER_OR);
+    public static final ComparisonOperation IS_WITHIN_RANGE                     = new ComparisonOperation(Opcode.IS_WITHIN_RANGE);
 
     protected static ComparisonOperation fromBytes(final ByteArrayReader byteArrayReader) {
         if (! byteArrayReader.hasBytes()) { return null; }
@@ -41,26 +43,39 @@ public class ComparisonOperation extends SubTypedOperation {
         final Opcode opcode = TYPE.getSubtype(opcodeByte);
         if (opcode == null) { return null; }
 
-        return new ComparisonOperation(opcodeByte, opcode);
+        return new ComparisonOperation(opcode);
     }
 
-    protected ComparisonOperation(final byte value, final Opcode opcode) {
-        super(value, TYPE, opcode);
+    protected ComparisonOperation(final Opcode opcode) {
+        super(opcode.getValue(), TYPE, opcode);
     }
 
-    protected Tuple<Long, Long> _popNumericTuple(final Stack stack, final TransactionContext transactionContext) {
+    protected Tuple<Long, Long> _popNumericTuple(final Stack stack, final TransactionContext context) {
+        final UpgradeSchedule upgradeSchedule = context.getUpgradeSchedule();
+        final MedianBlockTime medianBlockTime = context.getMedianBlockTime();
+
         final Value value0 = stack.pop();
-        if (! Operation.validateMinimalEncoding(value0, transactionContext)) { return null; }
+        if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+            if (! value0.isMinimallyEncoded()) { return null; }
+        }
+        if (! value0.isWithinLongIntegerRange()) { return null; }
+        if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+            if (! value0.isWithinIntegerRange()) { return null; }
+        }
 
         final Value value1 = stack.pop();
-        if (! Operation.validateMinimalEncoding(value1, transactionContext)) { return null; }
+        if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+            if (! value1.isMinimallyEncoded()) { return null; }
+        }
+        if (! value1.isWithinLongIntegerRange()) { return null; }
+        if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+            if (! value1.isWithinIntegerRange()) { return null; }
+        }
 
         if (stack.didOverflow()) { return null; }
 
         final Long longValue0 = value0.asLong();
         final Long longValue1 = value1.asLong();
-        if (! Operation.isWithinIntegerRange(longValue0)) { return null; }
-        if (! Operation.isWithinIntegerRange(longValue1)) { return null; }
 
         return new Tuple<>(longValue0, longValue1);
     }
@@ -82,6 +97,9 @@ public class ComparisonOperation extends SubTypedOperation {
 
     @Override
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableTransactionContext context) {
+        final UpgradeSchedule upgradeSchedule = context.getUpgradeSchedule();
+        final MedianBlockTime medianBlockTime = context.getMedianBlockTime();
+
         switch (_opcode) {
             case IS_EQUAL: {
                 final Boolean areEqual = _opIsEqual(stack);
@@ -100,7 +118,9 @@ public class ComparisonOperation extends SubTypedOperation {
 
             case IS_TRUE: {
                 final Value value = stack.pop();
-                if (! Operation.validateMinimalEncoding(value, context)) { return false; }
+                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                    if (! value.isMinimallyEncoded()) { return false; }
+                }
 
                 final Boolean booleanValue = value.asBoolean();
                 stack.push(Value.fromBoolean(booleanValue));
@@ -191,21 +211,37 @@ public class ComparisonOperation extends SubTypedOperation {
                 // NOTE: Pushes true on the stack if the value is greater than or equal to the min, and less than the max.
                 //  Assuming the oldest items on the stack are on the left, the parameters are defined on the stack as: [..., VALUE, MIN, MAX]
                 final Value valueMax = stack.pop();
-                final Value valueMin = stack.pop();
-                final Value value = stack.pop();
-                if (stack.didOverflow()) { return false; }
+                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                    if (! valueMax.isMinimallyEncoded()) { return false; }
+                }
+                if (! valueMax.isWithinLongIntegerRange()) { return false; }
+                if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+                    if (! valueMax.isWithinIntegerRange()) { return false; }
+                }
 
-                if (! Operation.validateMinimalEncoding(valueMax, context)) { return false; }
-                if (! Operation.validateMinimalEncoding(valueMin, context)) { return false; }
-                if (! Operation.validateMinimalEncoding(value, context)) { return false; }
+                final Value valueMin = stack.pop();
+                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                    if (! valueMin.isMinimallyEncoded()) { return false; }
+                }
+                if (! valueMin.isWithinLongIntegerRange()) { return false; }
+                if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+                    if (! valueMin.isWithinIntegerRange()) { return false; }
+                }
+
+                final Value value = stack.pop();
+                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                    if (! value.isMinimallyEncoded()) { return false; }
+                }
+                if (! value.isWithinLongIntegerRange()) { return false; }
+                if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+                    if (! value.isWithinIntegerRange()) { return false; }
+                }
+
+                if (stack.didOverflow()) { return false; }
 
                 final Long longMax = valueMax.asLong();
                 final Long longMin = valueMin.asLong();
                 final Long longValue = value.asLong();
-
-                if (! Operation.isWithinIntegerRange(longMax)) { return false; }
-                if (! Operation.isWithinIntegerRange(longMin)) { return false; }
-                if (! Operation.isWithinIntegerRange(longValue)) { return false; }
 
                 final Boolean resultValue = ((longValue >= longMin) && (longValue < longMax));
                 stack.push(Value.fromBoolean(resultValue));

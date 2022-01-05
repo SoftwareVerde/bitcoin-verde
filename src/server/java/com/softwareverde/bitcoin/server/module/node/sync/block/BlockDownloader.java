@@ -6,7 +6,7 @@ import com.softwareverde.bitcoin.server.module.node.sync.inventory.BitcoinNodeBl
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.RequestId;
 import com.softwareverde.bitcoin.server.node.RequestPriority;
-import com.softwareverde.concurrent.service.GracefulSleepyService;
+import com.softwareverde.concurrent.service.PausableSleepyService;
 import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -21,7 +21,7 @@ import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class BlockDownloader extends GracefulSleepyService {
+public class BlockDownloader extends PausableSleepyService {
     public interface BlockDownloadCallback {
         void onBlockDownloaded(final Block block, final BitcoinNode bitcoinNode);
     }
@@ -33,6 +33,7 @@ public class BlockDownloader extends GracefulSleepyService {
     public interface BlockDownloadPlanner {
         List<PendingBlockInventory> getNextPendingBlockInventoryBatch();
         void requestInventory(Sha256Hash blockHash, Long blockHeight);
+        void clearQueue();
     }
 
     protected final ThreadPool _threadPool;
@@ -47,7 +48,6 @@ public class BlockDownloader extends GracefulSleepyService {
     protected Integer _maxConcurrentDownloadCountPerNode = 2;
     protected Integer _maxConcurrentDownloadCount = 8;
     protected BlockDownloadCallback _blockDownloadCallback;
-    protected Boolean _isPaused = false;
 
     protected AtomicInteger _getActiveDownloadCount(final BitcoinNode bitcoinNode) {
         final AtomicInteger newActiveDownloadCount = new AtomicInteger(0);
@@ -149,7 +149,6 @@ public class BlockDownloader extends GracefulSleepyService {
 
     @Override
     protected void _onStart() {
-        if (_isPaused) { return; }
         if (! _downloadBlockQueue.isEmpty()) { return; }
 
         final List<PendingBlockInventory> blockInventoryBatch = _blockDownloadPlanner.getNextPendingBlockInventoryBatch();
@@ -161,9 +160,7 @@ public class BlockDownloader extends GracefulSleepyService {
     }
 
     @Override
-    protected Boolean _run() {
-        if (_isPaused) { return false; }
-
+    protected Boolean _execute() {
         if (Logger.isTraceEnabled()) {
             String separator = "";
             int downloadBlockQueueCount = 0; // NOTE: ConcurrentSkipListSet::size is not constant-time...
@@ -189,7 +186,7 @@ public class BlockDownloader extends GracefulSleepyService {
             Logger.trace("BlockDownloader Queue Count: " + downloadBlockQueueCount + " " + stringBuilder);
         }
 
-        while ( (! _shouldAbort()) && (! _isPaused) ) {
+        while (! _shouldAbort()) {
             final PendingBlockInventory pendingBlockInventory = _downloadBlockQueue.pollFirst();
             if (pendingBlockInventory == null) {
                 Logger.debug("BlockDownloader - Nothing to do.");
@@ -344,6 +341,11 @@ public class BlockDownloader extends GracefulSleepyService {
         this.wakeUp();
     }
 
+    public void clearQueue() {
+        _blockDownloadPlanner.clearQueue();
+        _downloadBlockQueue.clear();
+    }
+
     public void setBlockDownloadedCallback(final BlockDownloadCallback blockDownloadCallback) {
         _blockDownloadCallback = blockDownloadCallback;
     }
@@ -370,7 +372,7 @@ public class BlockDownloader extends GracefulSleepyService {
 
         _pendingBlockStore.storePendingBlock(block);
         // NOTE: The blockHash is not removed from the _downloadBlockQueue since it would require a O(N) search and the
-        //  the main loop skips the entry once encountered if it has already been downloaded...
+        //  main loop skips the entry once encountered if it has already been downloaded...
 
         final BlockDownloadCallback blockDownloadCallback = _blockDownloadCallback;
         if (blockDownloadCallback != null) {
@@ -381,9 +383,5 @@ public class BlockDownloader extends GracefulSleepyService {
                 }
             });
         }
-    }
-
-    public void setPaused(final Boolean pause) {
-        _isPaused = pause;
     }
 }

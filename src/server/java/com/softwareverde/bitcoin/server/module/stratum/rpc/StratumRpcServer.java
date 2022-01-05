@@ -37,11 +37,11 @@ public class StratumRpcServer {
 
         if (shouldReturnRawBlockData) {
             final BlockDeflater blockDeflater = _blockInflaters.getBlockDeflater();
-            final ByteArray blockData = blockDeflater.toBytes(prototypeBlock);
+            final ByteArray blockData = (prototypeBlock != null ? blockDeflater.toBytes(prototypeBlock) : null);
             response.put("block", blockData);
         }
         else {
-            final Json blockJson = prototypeBlock.toJson();
+            final Json blockJson = (prototypeBlock != null ? prototypeBlock.toJson() : null);
             response.put("block", blockJson);
         }
 

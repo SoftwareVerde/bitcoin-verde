@@ -13,7 +13,7 @@ import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
 public class BitcoinConstants {
-    public static final Integer DATABASE_VERSION = 9;
+    public static final Integer DATABASE_VERSION = 10;
 
     public static class Default {
         public final String genesisBlockHash;
@@ -33,6 +33,10 @@ public class BitcoinConstants {
             this.asertReferenceBlock = asertReferenceBlock;
             this.defaultBlockMaxByteCount = blockMaxByteCount;
         }
+    }
+
+    public enum Network {
+        MAIN, TEST, TEST4, SCALE
     }
 
     private static final String LOCKED_ERROR_MESSAGE = "Attempting to set SystemProperty after initialization.";
@@ -56,7 +60,7 @@ public class BitcoinConstants {
     protected static String USER_AGENT;
     protected static String COINBASE_MESSAGE;
 
-    protected static final List<UtxoCommitmentMetadata> UTXO_COMMITMENTS;
+    protected static List<UtxoCommitmentMetadata> UTXO_COMMITMENTS;
 
     protected static AsertReferenceBlock ASERT_REFERENCE_BLOCK = new AsertReferenceBlock(
         661647L,
@@ -67,6 +71,12 @@ public class BitcoinConstants {
     protected static AsertReferenceBlock TEST_NET_ASERT_REFERENCE_BLOCK = new AsertReferenceBlock(
         1421481L,
         1605445400L,
+        Difficulty.decode(ByteArray.wrap(HexUtil.hexStringToByteArray("1D00FFFF")))
+    );
+
+    protected static AsertReferenceBlock TEST_NET4_ASERT_REFERENCE_BLOCK = new AsertReferenceBlock(
+        16844L,
+        1605451779L,
         Difficulty.decode(ByteArray.wrap(HexUtil.hexStringToByteArray("1D00FFFF")))
     );
 
@@ -88,17 +98,27 @@ public class BitcoinConstants {
         (int) (32L * ByteUtil.Unit.Si.MEGABYTES)
     );
 
+    public static final Default TestNet4 = new Default(
+        "000000001DD410C49A788668CE26751718CC797474D3152A5FC073DD44FD9F7B",
+        1597811185L, // In seconds.
+        28333,
+        "AFDAB7E2",
+        TEST_NET4_ASERT_REFERENCE_BLOCK,
+        (int) (32L * ByteUtil.Unit.Si.MEGABYTES)
+    );
+
     static {
         final Long defaultBlockVersion = 0x04L;
         final Long defaultTransactionVersion = 0x02L;
         final Integer defaultProtocolVersion = 70015;
-        final String defaultUserAgent = "/Bitcoin Verde:2.1.0/";
+        final String defaultUserAgent = "/Bitcoin Verde:2.2.0/";
         final String coinbaseMessage = "/pool.bitcoinverde.org/VERDE/";
 
-        // NOTE: This UTXO Commitments were generated with storing the blockHeight in the 7th bit, not 0th bit; were calculated with off-by-one blockHeight.
+        // SELECT blocks.hash, blocks.block_height, utxo_commitments.public_key, SUM(utxo_commitment_files.byte_count) AS byte_count FROM blocks INNER JOIN utxo_commitments ON utxo_commitments.block_id = blocks.id INNER JOIN utxo_commitment_buckets ON utxo_commitment_buckets.utxo_commitment_id = utxo_commitments.id INNER JOIN utxo_commitment_files ON utxo_commitment_files.utxo_commitment_bucket_id = utxo_commitment_buckets.id GROUP BY utxo_commitments.id ORDER BY blocks.block_height ASC;
         final String utxoCommitmentsString =
-            "00000000000000000040B37F904A9CBBA25A6D37AA313D4AE8C4C46589CF4C6E,680000,030B9820CB8174C850FD89A208193C45370AD190F3E80578A1D5243051A4F86A07,3757025712;" +
-            "000000000000000001993116A3D4D6431759CCECCE0E4F4C47E907E20D2BC535,690000,03F9B516ED2FEC0D9C8440918994989D8B8C62C800C40B721EC006D592517E9E82,4283387782";
+            // Sha256Hash blockHash, Long blockHeight, PublicKey multisetPublicKey, Long byteCount
+            "00000000000000000259AD550B5420E5418CDFC14873D6985BCF1DFA261DBC9C,710000,0386C0DF8BEF2E4C1D65CBF721E0699648F142415415F738D544FE649B9C5C7C47,4575578354;" +
+            "000000000000000001B08717BD8354AC6E81531FABDF074E1677A7AC867D2CC0,720000,03E27196CCDB02B64D1804B8C1058F91B69BFD508E5E6950519760CE646D396173,5036069516";
 
         GENESIS_BLOCK_HASH = System.getProperty("GENESIS_BLOCK_HASH", MainNet.genesisBlockHash);
         GENESIS_BLOCK_TIMESTAMP = Util.parseLong(System.getProperty("GENESIS_BLOCK_TIMESTAMP", String.valueOf(MainNet.genesisBlockTimestamp)));
@@ -141,6 +161,14 @@ public class BitcoinConstants {
                 BitcoinConstants.setDefaultRpcPort(BitcoinConstants.TestNet.defaultRpcPort);
                 BitcoinConstants.setAsertReferenceBlock(BitcoinConstants.TestNet.asertReferenceBlock);
             } break;
+            case TEST_NET4: {
+                BitcoinConstants.setGenesisBlockHash(BitcoinConstants.TestNet4.genesisBlockHash);
+                BitcoinConstants.setGenesisBlockTimestamp(BitcoinConstants.TestNet4.genesisBlockTimestamp);
+                BitcoinConstants.setNetMagicNumber(BitcoinConstants.TestNet4.netMagicNumber);
+                BitcoinConstants.setDefaultNetworkPort(BitcoinConstants.TestNet4.defaultNetworkPort);
+                BitcoinConstants.setDefaultRpcPort(BitcoinConstants.TestNet4.defaultRpcPort);
+                BitcoinConstants.setAsertReferenceBlock(BitcoinConstants.TestNet4.asertReferenceBlock);
+            } break;
             default: {
                 BitcoinConstants.setGenesisBlockHash(BitcoinConstants.MainNet.genesisBlockHash);
                 BitcoinConstants.setGenesisBlockTimestamp(BitcoinConstants.MainNet.genesisBlockTimestamp);
@@ -150,6 +178,10 @@ public class BitcoinConstants {
                 BitcoinConstants.setAsertReferenceBlock(BitcoinConstants.MainNet.asertReferenceBlock);
             }
         }
+    }
+
+    public static Boolean isLocked() {
+        return LOCKED;
     }
 
     public static String getGenesisBlockHash() {
@@ -368,6 +400,14 @@ public class BitcoinConstants {
 
     public static List<UtxoCommitmentMetadata> getUtxoCommitments() {
         return UTXO_COMMITMENTS;
+    }
+
+    public static void setUtxoCommitments(final List<UtxoCommitmentMetadata> utxoCommitmentMetadata) {
+        if (LOCKED) {
+            throw new RuntimeException(LOCKED_ERROR_MESSAGE);
+        }
+
+        UTXO_COMMITMENTS = utxoCommitmentMetadata;
     }
 
     protected BitcoinConstants() { }

@@ -111,6 +111,12 @@ public class BitcoinVerdeDatabase implements Database {
                 upgradedVersion = 9;
             }
 
+            // v9 -> v10 (Stratum DB Worker Shares, Bitcoin NO-OP)
+            if ( (upgradedVersion == 9) && (requiredVersion >= 10) ) {
+                Logger.info("[Upgrading DB to v10]");
+                upgradedVersion = 10;
+            }
+
             return (upgradedVersion >= requiredVersion);
         }
     };
@@ -127,6 +133,7 @@ public class BitcoinVerdeDatabase implements Database {
     }
 
     public static BitcoinVerdeDatabase newInstance(final InitFile sqlInitFile, final StratumProperties stratumProperties, final BitcoinVerdeDatabaseProperties bitcoinVerdeDatabaseProperties) {
+        // TODO: Use StratumCredentials and Stratum db upgrade handler...
         return BitcoinVerdeDatabase.newInstance(sqlInitFile, TARGET_MAX_DATABASE_CONNECTION_COUNT, bitcoinVerdeDatabaseProperties);
     }
 
@@ -303,6 +310,24 @@ public class BitcoinVerdeDatabase implements Database {
     protected static Boolean upgradeElectrumSupport(final com.softwareverde.database.DatabaseConnection<Connection> databaseConnection) {
         try {
             final String upgradeScript = IoUtil.getResource("/sql/node/mysql/upgrade/electrum_indexing_v1.sql"); // TODO: Use mysql/sqlite when appropriate...
+            if (Util.isBlank(upgradeScript)) { return false; }
+
+            TransactionUtil.startTransaction(databaseConnection);
+            final SqlScriptRunner scriptRunner = new SqlScriptRunner(databaseConnection.getRawConnection(), false, true);
+            scriptRunner.runScript(new StringReader(upgradeScript));
+            TransactionUtil.commitTransaction(databaseConnection);
+
+            return true;
+        }
+        catch (final Exception exception) {
+            Logger.debug(exception);
+            return false;
+        }
+    }
+
+    protected static Boolean upgradeStratumWorkerShares(final com.softwareverde.database.DatabaseConnection<Connection> databaseConnection) {
+        try {
+            final String upgradeScript = IoUtil.getResource("/sql/stratum/mysql/upgrade/worker_shares_v2.sql"); // TODO: Use mysql/sqlite when appropriate...
             if (Util.isBlank(upgradeScript)) { return false; }
 
             TransactionUtil.startTransaction(databaseConnection);

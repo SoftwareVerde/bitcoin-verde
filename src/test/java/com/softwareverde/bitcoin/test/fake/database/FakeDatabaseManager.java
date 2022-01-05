@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.properties.PropertiesStore;
 import com.softwareverde.database.DatabaseException;
 
 public interface FakeDatabaseManager extends DatabaseManager {
@@ -42,6 +43,11 @@ public interface FakeDatabaseManager extends DatabaseManager {
 
     @Override
     default Integer getMaxQueryBatchSize() { return 1024; }
+
+    @Override
+    default PropertiesStore getPropertiesStore() {
+        throw new UnsupportedOperationException();
+    }
 
     @Override
     default void close() throws DatabaseException { }

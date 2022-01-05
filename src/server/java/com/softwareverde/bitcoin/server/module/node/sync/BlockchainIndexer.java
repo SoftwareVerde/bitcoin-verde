@@ -24,7 +24,7 @@ import com.softwareverde.bitcoin.transaction.script.slp.commit.SlpCommitScript;
 import com.softwareverde.bitcoin.transaction.script.slp.genesis.SlpGenesisScript;
 import com.softwareverde.bitcoin.transaction.script.slp.mint.SlpMintScript;
 import com.softwareverde.bitcoin.transaction.script.slp.send.SlpSendScript;
-import com.softwareverde.concurrent.service.SleepyService;
+import com.softwareverde.concurrent.service.PausableSleepyService;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -41,7 +41,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 
-public class BlockchainIndexer extends SleepyService {
+public class BlockchainIndexer extends PausableSleepyService {
     public static final Integer BATCH_SIZE = 1024;
 
     protected static class OutputIndexData {
@@ -165,11 +165,57 @@ public class BlockchainIndexer extends SleepyService {
         return inputIndexDataList;
     }
 
-    protected Map<TransactionOutputIdentifier, OutputIndexData> _indexTransactionOutputs(final TransactionId transactionId, final Transaction transaction) throws ContextException {
+    protected OutputIndexData _indexTransactionOutputWithoutSlpData(final TransactionId transactionId, final Integer outputIndex, final TransactionOutput transactionOutput) {
+        final LockingScript lockingScript = transactionOutput.getLockingScript();
+
+        final ScriptType scriptType;
+        final Address address;
+        final Sha256Hash scriptHash;
+        {
+            scriptType = _scriptPatternMatcher.getScriptType(lockingScript);
+            address = _scriptPatternMatcher.extractAddress(scriptType, lockingScript);
+            scriptHash = ScriptBuilder.computeScriptHash(lockingScript);
+        }
+
+        final ByteArray memoActionType;
+        final ByteArray memoActionIdentifier;
+        {
+            final boolean isMemoScriptType = (scriptType == ScriptType.MEMO_SCRIPT);
+            if (isMemoScriptType) {
+                // Mark the Receiving Output as a Memo-Action Output.
+                // Unlike SLP, any output may be an Memo-Action Output (i.e. not necessarily the first).
+                // NOTE: Memo actions are applied to ALL INPUTS of a Transaction, not the Outputs.
+                //  Confirmed via: 3971682E94E08AABA660D1D16DDF6F582656FD6BE9C4FA8F360856D982481C39
+                final MemoScriptType memoScriptType = MemoScriptInflater.getScriptType(lockingScript);
+                memoActionType = (memoScriptType != null ? memoScriptType.getBytes() : null);
+            }
+            else {
+                memoActionType = null;
+            }
+
+            if (memoActionType != null) {
+                memoActionIdentifier = _memoScriptInflater.getActionIdentifier(lockingScript);
+            }
+            else { memoActionIdentifier = null; }
+        }
+
+        final OutputIndexData indexData = new OutputIndexData();
+        indexData.transactionId = transactionId;
+        indexData.outputIndex = outputIndex;
+        indexData.amount = transactionOutput.getAmount();
+        indexData.scriptType = scriptType;
+        indexData.address = address;
+        indexData.scriptHash = scriptHash;
+        indexData.slpTransactionId = null; // Handled later within parent function...
+        indexData.memoActionType = memoActionType;
+        indexData.memoActionIdentifier = memoActionIdentifier;
+
+        return indexData;
+    }
+
+    protected Map<TransactionOutputIdentifier, OutputIndexData> _indexTransactionOutputs(final TransactionId transactionId, final Sha256Hash transactionHash, final List<TransactionOutput> transactionOutputs) throws ContextException {
         final HashMap<TransactionOutputIdentifier, OutputIndexData> outputIndexData = new HashMap<>();
 
-        final Sha256Hash transactionHash = transaction.getHash();
-        final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
         final int transactionOutputCount = transactionOutputs.getCount();
 
         final LockingScript firstOutputLockingScript;
@@ -181,53 +227,9 @@ public class BlockchainIndexer extends SleepyService {
         for (int outputIndex = 0; outputIndex < transactionOutputCount; ++outputIndex) {
             final TransactionOutput transactionOutput = transactionOutputs.get(outputIndex);
             final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
-            if (! outputIndexData.containsKey(transactionOutputIdentifier)) {
-                final LockingScript lockingScript = transactionOutput.getLockingScript();
 
-                final ScriptType scriptType;
-                final Address address;
-                final Sha256Hash scriptHash;
-                {
-                    scriptType = _scriptPatternMatcher.getScriptType(lockingScript);
-                    address = _scriptPatternMatcher.extractAddress(scriptType, lockingScript);
-                    scriptHash = ScriptBuilder.computeScriptHash(lockingScript);
-                }
-
-                final ByteArray memoActionType;
-                final ByteArray memoActionIdentifier;
-                {
-                    final boolean isMemoScriptType = (scriptType == ScriptType.MEMO_SCRIPT);
-                    if (isMemoScriptType) {
-                        // Mark the Receiving Output as a Memo-Action Output.
-                        // Unlike SLP, any output may be an Memo-Action Output (i.e. not necessarily the first).
-                        // NOTE: Memo actions are applied to ALL INPUTS of a Transaction, not the Outputs.
-                        //  Confirmed via: 3971682E94E08AABA660D1D16DDF6F582656FD6BE9C4FA8F360856D982481C39
-                        final MemoScriptType memoScriptType = MemoScriptInflater.getScriptType(lockingScript);
-                        memoActionType = (memoScriptType != null ? memoScriptType.getBytes() : null);
-                    }
-                    else {
-                        memoActionType = null;
-                    }
-
-                    if (memoActionType != null) {
-                        memoActionIdentifier = _memoScriptInflater.getActionIdentifier(lockingScript);
-                    }
-                    else { memoActionIdentifier = null; }
-                }
-
-                final OutputIndexData indexData = new OutputIndexData();
-                indexData.transactionId = transactionId;
-                indexData.outputIndex = outputIndex;
-                indexData.amount = transactionOutput.getAmount();
-                indexData.scriptType = scriptType;
-                indexData.address = address;
-                indexData.scriptHash = scriptHash;
-                indexData.slpTransactionId = null; // Handled later within this function...
-                indexData.memoActionType = memoActionType;
-                indexData.memoActionIdentifier = memoActionIdentifier;
-
-                outputIndexData.put(transactionOutputIdentifier, indexData);
-            }
+            final OutputIndexData indexDataWithoutSlpData = _indexTransactionOutputWithoutSlpData(transactionId, outputIndex, transactionOutput);
+            outputIndexData.put(transactionOutputIdentifier, indexDataWithoutSlpData);
         }
 
         final ScriptType scriptType = _scriptPatternMatcher.getScriptType(firstOutputLockingScript);
@@ -349,11 +351,16 @@ public class BlockchainIndexer extends SleepyService {
         }
 
         if (transaction == null) {
-            Logger.debug("Unable to inflate Transaction for address processing: " + transactionId);
+            Logger.debug("Unable to inflate Transaction for indexing: " + transactionId);
             return null;
         }
 
-        final Map<TransactionOutputIdentifier, OutputIndexData> outputIndexData = _indexTransactionOutputs(transactionId, transaction);
+        final Map<TransactionOutputIdentifier, OutputIndexData> outputIndexData;
+        {
+            final Sha256Hash transactionHash = transaction.getHash();
+            final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+            outputIndexData = _indexTransactionOutputs(transactionId, transactionHash, transactionOutputs);
+        }
         timer.mark("_indexTransactionOutputs");
         for (final OutputIndexData indexData : outputIndexData.values()) {
             context.indexTransactionOutput(indexData.transactionId, indexData.outputIndex, indexData.amount, indexData.scriptType, indexData.address, indexData.scriptHash, indexData.slpTransactionId, indexData.memoActionType, indexData.memoActionIdentifier);
@@ -376,7 +383,7 @@ public class BlockchainIndexer extends SleepyService {
     }
 
     @Override
-    protected Boolean _run() {
+    protected Boolean _execute() {
         final NanoTimer nanoTimer = new NanoTimer();
         nanoTimer.start();
 
@@ -460,5 +467,53 @@ public class BlockchainIndexer extends SleepyService {
 
     public void setOnSleepCallback(final Runnable onSleepCallback) {
         _onSleepCallback = onSleepCallback;
+    }
+
+    public void storeFastSyncTransactionHashes(final List<Sha256Hash> transactionHashes, final List<Integer> byteCounts) throws Exception {
+        try (final AtomicTransactionOutputIndexerContext context = _context.newTransactionOutputIndexerContext()) {
+            context.storeTransactions(transactionHashes, byteCounts);
+        }
+    }
+
+    public synchronized TransactionId indexFastSyncUtxos(final List<TransactionOutputIdentifier> transactionOutputIdentifiers, final List<TransactionOutput> transactionOutputs) throws Exception {
+        final int outputCount = transactionOutputs.getCount();
+        {
+            final int identifiersCount = transactionOutputIdentifiers.getCount();
+            if (outputCount != identifiersCount) {
+                throw new RuntimeException("Identifier/Output count mismatch. (" + identifiersCount + " != " + outputCount + ")");
+            }
+        }
+
+        try (final AtomicTransactionOutputIndexerContext context = _context.newTransactionOutputIndexerContext()) {
+            context.initialize();
+
+            for (int i = 0; i < outputCount; ++i) {
+                final TransactionOutputIdentifier transactionOutputIdentifier = transactionOutputIdentifiers.get(i);
+                final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
+                final TransactionOutput transactionOutput = transactionOutputs.get(i);
+
+                final TransactionId transactionId = context.getTransactionId(transactionHash);
+
+                // NOTE: Normally the whole Transaction's Outputs are provided to _indexTransactionOutputs in order to process SLP,
+                //  however, since all SLP Transactions' first output is an OP_RETURN, they will never be included in the UTXO set,
+                //  and therefore SLP data cannot be collected.
+                final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
+                final OutputIndexData outputIndexData = _indexTransactionOutputWithoutSlpData(transactionId, outputIndex, transactionOutput);
+                context.indexTransactionOutput(outputIndexData.transactionId, outputIndexData.outputIndex, outputIndexData.amount, outputIndexData.scriptType, outputIndexData.address, outputIndexData.scriptHash, outputIndexData.slpTransactionId, outputIndexData.memoActionType, outputIndexData.memoActionIdentifier);
+                context.markTransactionProcessed(transactionId);
+            }
+
+            final TransactionId lastFinishedTransactionId = context.finish();
+
+            // NOTE: The TransactionIds from the UTXO commitment are not updated until all of them are completed.
+            //  This is done to prevent Transactions from being skipped during a shutdown/restart before UTXO indexing completes.
+            // _context.commitLastProcessedTransactionId(lastFinishedTransactionId);
+
+            return lastFinishedTransactionId;
+        }
+    }
+
+    public void commitLastProcessedTransactionIdFromUtxoCommitmentImport(final TransactionId transactionId) throws Exception {
+        _context.commitLastProcessedTransactionId(transactionId);
     }
 }

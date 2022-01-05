@@ -240,7 +240,7 @@ public class TransactionValidatorTests extends UnitTest {
         // Setup
         final MasterInflater masterInflater = new CoreInflater();
         final AddressInflater addressInflater = masterInflater.getAddressInflater();
-        final FakeUnspentTransactionOutputContext unspentTransactionOutputContext = new FakeUnspentTransactionOutputContext();
+        final FakeUnspentTransactionOutputContext unspentTransactionOutputContext = new FakeUnspentTransactionOutputContext(false);
         final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
         final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(masterInflater, new MutableNetworkTime(), FakeStaticMedianBlockTimeContext.MAX_MEDIAN_BLOCK_TIME, unspentTransactionOutputContext, upgradeSchedule);
         final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);

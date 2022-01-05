@@ -6,6 +6,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.properties.DatabaseProperties;
+import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.logging.LoggerInstance;
 import org.apache.commons.dbcp2.BasicDataSource;
@@ -29,6 +30,15 @@ public class ApacheCommonsDatabaseConnectionPool implements DatabaseConnectionPo
             return ((MysqlDatabaseConnection) _core).getRowsAffectedCount();
         }
 
+        @Override
+        public void close() throws DatabaseException {
+            try {
+                TransactionUtil.rollbackTransaction(this);
+            }
+            catch (final Exception exception) { }
+
+            super.close();
+        }
     }
 
     protected final Integer _maxDatabaseConnectionCount;
@@ -74,7 +84,7 @@ public class ApacheCommonsDatabaseConnectionPool implements DatabaseConnectionPo
         //  https://bugs.mysql.com/bug.php?id=31353
         //  https://bugs.mysql.com/bug.php?id=56411
         //  https://bugs.mysql.com/bug.php?id=9515
-        _dataSource.setConnectionProperties("useUnbufferedInput=true;useReadAheadInput=false;socketTimeout=300000");
+        _dataSource.setConnectionProperties("useUnbufferedInput=true;useReadAheadInput=false;socketTimeout=1800000");
 
         try {
             _dataSource.setLogWriter(new PrintWriter(new Writer() {

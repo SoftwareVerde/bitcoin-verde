@@ -117,6 +117,11 @@ public class FakeAtomicTransactionOutputIndexerContext implements com.softwareve
     }
 
     @Override
+    public void storeTransactions(final List<Sha256Hash> transactionHashes, final List<Integer> byteCounts) throws ContextException {
+        // Nothing.
+    }
+
+    @Override
     public TransactionId getTransactionId(final Sha256Hash transactionHash) {
         return _transactionIds.get(transactionHash);
     }

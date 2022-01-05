@@ -47,7 +47,7 @@ public class SlpScriptBuilder {
         final byte[] bigIntegerBytes = value.toByteArray();
         final MutableByteArray outputBytes = new MutableByteArray(byteCount);
         // extract the last byteCount bytes from the big integer byte array
-        for (int i=0; i<byteCount; i++) {
+        for (int i = 0; i < byteCount; i++) {
             final int bigIntegerByteIndex = bigIntegerBytes.length - i - 1;
             if (bigIntegerByteIndex < 0) {
                 break;

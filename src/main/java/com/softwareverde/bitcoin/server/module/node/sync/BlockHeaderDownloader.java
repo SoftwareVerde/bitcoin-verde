@@ -24,9 +24,10 @@ import com.softwareverde.bitcoin.server.module.node.manager.NodeFilter;
 import com.softwareverde.bitcoin.server.module.node.sync.inventory.BitcoinNodeBlockInventoryTracker;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.RequestId;
-import com.softwareverde.concurrent.service.SleepyService;
+import com.softwareverde.concurrent.service.PausableSleepyService;
 import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
@@ -39,7 +40,7 @@ import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class BlockHeaderDownloader extends SleepyService {
+public class BlockHeaderDownloader extends PausableSleepyService {
     public interface Context extends MultiConnectionDatabaseContext, NetworkTimeContext, NodeManagerContext, SystemTimeContext, ThreadPoolContext, DifficultyCalculatorFactory, UpgradeScheduleContext { }
 
     public interface NewBlockHeadersAvailableCallback {
@@ -69,6 +70,22 @@ public class BlockHeaderDownloader extends SleepyService {
     protected Float _averageBlockHeadersPerSecond = 0F;
 
     protected NewBlockHeadersAvailableCallback _newBlockHeaderAvailableCallback = null;
+
+    protected void _onNewBlockHeaders(final BitcoinNode bitcoinNode, final List<BlockHeader> blockHeaders) {
+        final Boolean headersAreValid = _processBlockHeaders(blockHeaders, bitcoinNode);
+        if (! headersAreValid) { return; }
+
+        final NewBlockHeadersAvailableCallback newBlockHeaderAvailableCallback = _newBlockHeaderAvailableCallback;
+        if (newBlockHeaderAvailableCallback != null) {
+            final ThreadPool threadPool = _context.getThreadPool();
+            threadPool.execute(new Runnable() {
+                @Override
+                public void run() {
+                    newBlockHeaderAvailableCallback.onNewHeadersReceived(bitcoinNode, blockHeaders);
+                }
+            });
+        }
+    }
 
     protected Boolean _checkForGenesisBlockHeader() throws DatabaseException {
         final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
@@ -232,7 +249,8 @@ public class BlockHeaderDownloader extends SleepyService {
                 if (! previousBlockExists) {
                     final Boolean isGenesisBlock = Util.areEqual(BlockHeader.GENESIS_BLOCK_HASH, firstBlockHeader.getHash());
                     if (! isGenesisBlock) {
-                        // NOTE: Previous block not existing does not qualify the block as indefinitely invalid.
+                        // NOTE: The block is not added to nullableInvalidBlockHashes;
+                        //  The previous block not existing does not qualify the block as being definitively invalid.
                         return false;
                     }
                 }
@@ -335,11 +353,23 @@ public class BlockHeaderDownloader extends SleepyService {
         if (blockHeaderCount == 0) { return true; }
 
         final BlockHeader firstBlockHeader = blockHeaders.get(0);
-        Logger.debug("Downloaded Block headers: "+ firstBlockHeader.getHash() + " + " + blockHeaderCount);
+        Logger.info("Downloaded Block headers: " + firstBlockHeader.getHash() + " +" + (blockHeaderCount - 1));
 
         final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
 
         try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+            { // Check that the batch contains a new header...
+                final BlockHeader lastBlockHeader = blockHeaders.get(blockHeaderCount - 1);
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+
+                final Boolean firstBlockHeaderExists = blockHeaderDatabaseManager.blockHeaderExists(firstBlockHeader.getHash());
+                final Boolean lastBlockHeaderExists = blockHeaderDatabaseManager.blockHeaderExists(lastBlockHeader.getHash());
+
+                if (firstBlockHeaderExists && lastBlockHeaderExists) {
+                    return false; // Nothing to do.
+                }
+            }
+
             final MutableList<Sha256Hash> invalidBlockHashes = new MutableList<>(0);
             final Boolean headersAreValid = _validateAndStoreBlockHeaders(blockHeaders, databaseManager, invalidBlockHashes);
             if (! headersAreValid) {
@@ -351,9 +381,11 @@ public class BlockHeaderDownloader extends SleepyService {
                 return false;
             }
 
-            for (final BlockHeader blockHeader : blockHeaders) {
-                final Sha256Hash blockHash = blockHeader.getHash();
-                _blockInventoryTracker.markInventoryAvailable(blockHash, bitcoinNode);
+            if (bitcoinNode != null) {
+                for (final BlockHeader blockHeader : blockHeaders) {
+                    final Sha256Hash blockHash = blockHeader.getHash();
+                    _blockInventoryTracker.markInventoryAvailable(blockHash, bitcoinNode);
+                }
             }
 
             final BlockHeader lastBlockHeader = blockHeaders.get(blockHeaderCount - 1);
@@ -458,7 +490,7 @@ public class BlockHeaderDownloader extends SleepyService {
     }
 
     @Override
-    protected Boolean _run() {
+    protected Boolean _execute() {
         synchronized (_genesisBlockPin) {
             while (! _hasGenesisBlock) {
                 try { _genesisBlockPin.wait(); }
@@ -543,18 +575,10 @@ public class BlockHeaderDownloader extends SleepyService {
     }
 
     public void onNewBlockHeaders(final BitcoinNode bitcoinNode, final List<BlockHeader> blockHeaders) {
-        final Boolean headersAreValid = _processBlockHeaders(blockHeaders, bitcoinNode);
-        if (! headersAreValid) { return; }
+        _onNewBlockHeaders(bitcoinNode, blockHeaders);
+    }
 
-        final NewBlockHeadersAvailableCallback newBlockHeaderAvailableCallback = _newBlockHeaderAvailableCallback;
-        if (newBlockHeaderAvailableCallback != null) {
-            final ThreadPool threadPool = _context.getThreadPool();
-            threadPool.execute(new Runnable() {
-                @Override
-                public void run() {
-                    newBlockHeaderAvailableCallback.onNewHeadersReceived(bitcoinNode, blockHeaders);
-                }
-            });
-        }
+    public void submitBlock(final BlockHeader blockHeader) {
+        _onNewBlockHeaders(null, new ImmutableList<>(blockHeader));
     }
 }

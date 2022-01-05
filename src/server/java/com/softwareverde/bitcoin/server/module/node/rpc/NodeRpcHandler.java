@@ -47,6 +47,7 @@ import com.softwareverde.network.socket.JsonSocket;
 import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 
 import java.util.HashMap;
@@ -89,6 +90,8 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         Long getBalance(Sha256Hash scriptHash, Boolean includeUnconfirmedTransactions);
         List<Transaction> getAddressTransactions(Address address);
         List<Transaction> getAddressTransactions(Sha256Hash scriptHash);
+        List<Sha256Hash> getAddressTransactionHashes(Address address);
+        List<Sha256Hash> getAddressTransactionHashes(Sha256Hash scriptHash);
     }
 
     public interface ThreadPoolInquisitor {
@@ -148,7 +151,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         Difficulty getDifficulty();
         List<Transaction> getUnconfirmedTransactions();
         List<TransactionWithFee> getUnconfirmedTransactionsWithFees();
-        Block getPrototypeBlock();
+        Tuple<Block, Long> getPrototypeBlock();
 
         Long getBlockReward();
 
@@ -829,20 +832,21 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         final Boolean shouldReturnInRawFormat = parameters.getBoolean("rawFormat");
 
-        final Block block = dataHandler.getPrototypeBlock();
-        if (block == null) {
+        final Tuple<Block, Long> blockAndBlockHeight = dataHandler.getPrototypeBlock();
+        if (blockAndBlockHeight == null) {
             response.put(ERROR_MESSAGE_KEY, "Unable to generate template.");
             return;
         }
 
         if (shouldReturnInRawFormat) {
             final BlockDeflater blockDeflater = _masterInflater.getBlockDeflater();
-            final ByteArray bytes = blockDeflater.toBytes(block);
+            final ByteArray bytes = blockDeflater.toBytes(blockAndBlockHeight.first);
             response.put("block", bytes);
         }
         else {
-            response.put("block", block);
+            response.put("block", blockAndBlockHeight.first);
         }
+        response.put("blockHeight", blockAndBlockHeight.second);
 
         response.put(WAS_SUCCESS_KEY, 1);
     }
@@ -1068,7 +1072,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
-    // Requires GET: <address|scriptHash>
+    // Requires GET: <address|scriptHash>, <rawFormat|transactionHashesOnly>
     protected void _queryAddressTransactions(final Json parameters, final Json response) {
         final QueryAddressHandler queryAddressHandler = _queryAddressHandler;
         if (queryAddressHandler == null) {
@@ -1081,10 +1085,20 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             return;
         }
 
-        final boolean rawFormat = (parameters.hasKey("rawFormat") ? parameters.getBoolean("rawFormat") : false);
+        final boolean shouldReturnTransactionHashesOnly = (parameters.hasKey("transactionHashesOnly") ? parameters.getBoolean("transactionHashesOnly") : false);
+        final boolean rawFormat;
+        {
+            if (shouldReturnTransactionHashesOnly) {
+                rawFormat = true;
+            }
+            else {
+                rawFormat = (parameters.hasKey("rawFormat") ? parameters.getBoolean("rawFormat") : false);
+            }
+        }
 
         final Json addressJson = new Json(false);
         final List<Transaction> addressTransactions;
+        final List<Sha256Hash> addressTransactionHashes;
         final Long balance;
         final Long confirmedBalance;
         if (parameters.hasKey("address")) {
@@ -1102,9 +1116,19 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                 return;
             }
 
-            addressTransactions = queryAddressHandler.getAddressTransactions(address);
-            balance = queryAddressHandler.getBalance(address, true);
-            confirmedBalance = queryAddressHandler.getBalance(address, false);
+            if (shouldReturnTransactionHashesOnly) {
+                addressTransactionHashes = queryAddressHandler.getAddressTransactionHashes(address);
+                addressTransactions = null;
+                balance = null;
+                confirmedBalance = null;
+            }
+            else {
+                addressTransactionHashes = null;
+                addressTransactions = queryAddressHandler.getAddressTransactions(address);
+                balance = queryAddressHandler.getBalance(address, true);
+                confirmedBalance = queryAddressHandler.getBalance(address, false);
+            }
+
             addressJson.put("base32CheckEncoded", address.toBase32CheckEncoded(true));
             addressJson.put("base58CheckEncoded", address.toBase58CheckEncoded());
         }
@@ -1117,19 +1141,34 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                 return;
             }
 
-            addressTransactions = queryAddressHandler.getAddressTransactions(scriptHash);
-            balance = queryAddressHandler.getBalance(scriptHash, true);
-            confirmedBalance = queryAddressHandler.getBalance(scriptHash, false);
+            if (shouldReturnTransactionHashesOnly) {
+                addressTransactionHashes = queryAddressHandler.getAddressTransactionHashes(scriptHash);
+                addressTransactions = null;
+                balance = null;
+                confirmedBalance = null;
+            }
+            else {
+                addressTransactionHashes = null;
+                addressTransactions = queryAddressHandler.getAddressTransactions(scriptHash);
+                balance = queryAddressHandler.getBalance(scriptHash, true);
+                confirmedBalance = queryAddressHandler.getBalance(scriptHash, false);
+            }
             addressJson.put("scriptHash", scriptHash);
         }
 
-        if (addressTransactions == null) {
+        if ( (addressTransactions == null) && (addressTransactionHashes == null) ) {
             response.put(ERROR_MESSAGE_KEY, "Unable to determine address transactions.");
             return;
         }
 
         final Json transactionsJson = new Json(true);
-        if (rawFormat) {
+        if (shouldReturnTransactionHashesOnly) {
+            for (final Sha256Hash transactionHash : addressTransactionHashes) {
+                if (transactionHash == null) { continue; }
+                transactionsJson.add(transactionHash);
+            }
+        }
+        else if (rawFormat) {
             final TransactionDeflater transactionDeflater = _masterInflater.getTransactionDeflater();
             for (final Transaction transaction : addressTransactions) {
                 if (transaction == null) { continue; }
@@ -2231,6 +2270,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
                             case "KEEP_ALIVE": {
                                 _jsonConnectionProperties.keepAliveIsEnabled = parameters.getBoolean("enableKeepAlive");
+                            } break;
+
+                            case "PING": {
+                                response.put(WAS_SUCCESS_KEY, 1);
                             } break;
 
                             // TODO: Add invalidate-block command (see: feature/invalidate-block/master).

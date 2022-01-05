@@ -14,7 +14,9 @@ import com.softwareverde.database.DatabaseException;
 public interface FullNodeTransactionDatabaseManager extends TransactionDatabaseManager {
     Boolean isCoinbaseTransaction(Sha256Hash transactionHash) throws DatabaseException;
 
+    TransactionId storeTransactionHash(Sha256Hash transactionHash, Integer transactionByteCount) throws DatabaseException;
     TransactionId storeTransactionHash(Transaction transaction) throws DatabaseException;
+    List<TransactionId> storeTransactionHashes(List<Sha256Hash> transactionHashes, List<Integer> transactionByteCounts) throws DatabaseException;
     List<TransactionId> storeTransactionHashes(List<Transaction> transactions) throws DatabaseException;
     List<TransactionId> storeTransactionHashes(List<Transaction> transactions, DatabaseConnectionFactory databaseConnectionFactory, Integer maxConnectionCount) throws DatabaseException;
     Boolean previousOutputsExist(Transaction transaction) throws DatabaseException;
