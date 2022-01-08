@@ -63,7 +63,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
     protected final Set<Tuple<TransactionId, BlockchainSegmentId>> _extractTransactionBlockchainSegmentIds(final java.util.List<Row> rows) throws DatabaseException {
         final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
         final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
-        final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+        final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
         final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
         final HashSet<Tuple<TransactionId, BlockchainSegmentId>> transactionBlockchainSegmentIds = new HashSet<>();
@@ -74,13 +74,20 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
 
             // For pruned+index mode, some outputs will have had their transaction data pruned; if the output is in the UTXO database, then it is on the head blockchain segment.
             if (transactionBlockchainSegmentId == null) {
-                final Integer outputIndex = row.getInteger("output_index");
-                final Sha256Hash transactionHash = transactionDatabaseManager.getTransactionHash(transactionId);
-                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+                final Boolean isUnconfirmedTransaction = transactionDatabaseManager.isUnconfirmedTransaction(transactionId);
+                if (! isUnconfirmedTransaction) {
+                    final java.util.List<String> availableColumns = row.getColumnNames();
+                    final boolean isDebitOutput = availableColumns.contains("output_index"); // Spent previous output rows cannot be in the UTXO set...
+                    if (isDebitOutput) {
+                        final Integer outputIndex = row.getInteger("output_index");
+                        final Sha256Hash transactionHash = transactionDatabaseManager.getTransactionHash(transactionId);
+                        final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
 
-                final Object transactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifier);
-                if (transactionOutput != null) {
-                    tuple.second = headBlockchainSegmentId;
+                        final Object transactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifier);
+                        if (transactionOutput != null) {
+                            tuple.second = headBlockchainSegmentId;
+                        }
+                    }
                 }
             }
 

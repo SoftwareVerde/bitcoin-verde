@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.explorer.api.endpoint;
 
+import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
@@ -11,6 +12,9 @@ import com.softwareverde.bitcoin.server.module.api.ApiResult;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionBloomFilterMatcher;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
+import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -238,6 +242,51 @@ public class AnnouncementsApi implements WebSocketServlet {
         return transactionHashJson;
     }
 
+    protected List<Address> _transactionJsonToAddresses(final Json transactionJson) {
+        final MutableList<String> addressStrings = new MutableList<>();
+
+        final Json transactionInputsJson = transactionJson.get("inputs");
+        for (int i = 0; i < transactionInputsJson.length(); ++i) {
+            final Json inputJson = transactionInputsJson.get(i);
+            final String addressString = inputJson.getOrNull("address", Json.Types.STRING);
+            final String cashAddressString = inputJson.getOrNull("cashAddress", Json.Types.STRING);
+
+            if (addressString != null) {
+                addressStrings.add(addressString);
+            }
+
+            if (cashAddressString != null) {
+                addressStrings.add(cashAddressString);
+            }
+        }
+
+        final Json transactionOutputsJson = transactionJson.get("outputs");
+        for (int i = 0; i < transactionOutputsJson.length(); ++i) {
+            final Json outputJson = transactionOutputsJson.get(i);
+            final String addressString = outputJson.getOrNull("address", Json.Types.STRING);
+            final String cashAddressString = outputJson.getOrNull("cashAddress", Json.Types.STRING);
+
+            if (addressString != null) {
+                addressStrings.add(addressString);
+            }
+
+            if (cashAddressString != null) {
+                addressStrings.add(cashAddressString);
+            }
+        }
+
+        final AddressInflater addressInflater = new AddressInflater();
+        final MutableList<Address> addresses = new MutableList<>(addressStrings.getCount());
+        for (final String addressString : addressStrings) {
+            final Address address = Util.coalesce(addressInflater.fromBase32Check(addressString), addressInflater.fromBase58Check(addressString));
+            if (address == null) { continue; }
+
+            addresses.add(address);
+        }
+
+        return addresses;
+    }
+
     protected void _checkRpcConnections() {
         _checkRpcConnection();
         _checkRawRpcConnection();
@@ -352,13 +401,30 @@ public class AnnouncementsApi implements WebSocketServlet {
             message = messageJson.toString();
         }
 
+        final List<Address> transactionAddresses = _transactionJsonToAddresses(transactionJson);
+
         final List<AnnouncementWebSocketConfiguration> webSockets = AnnouncementsApi.getWebSockets();
         for (final AnnouncementWebSocketConfiguration webSocketConfiguration : webSockets) {
             if (! webSocketConfiguration.transactionsAreEnabled) { continue; }
             if (webSocketConfiguration.fullTransactionDataIsEnabled) { continue; }
 
-            final WebSocket webSocket = webSocketConfiguration.webSocket;
-            webSocket.sendMessage(message);
+            boolean transactionMatchesFilters = true;
+            if (webSocketConfiguration.addresses != null) {
+                transactionMatchesFilters = false;
+
+                final List<Address> addresses = webSocketConfiguration.addresses;
+                for (final Address address : addresses) {
+                    if (transactionAddresses.contains(address)) {
+                        transactionMatchesFilters = true;
+                        break;
+                    }
+                }
+            }
+
+            if (transactionMatchesFilters) {
+                final WebSocket webSocket = webSocketConfiguration.webSocket;
+                webSocket.sendMessage(message);
+            }
         }
     }
 
@@ -390,6 +456,20 @@ public class AnnouncementsApi implements WebSocketServlet {
             message = messageJson.toString();
         }
 
+        final List<Address> transactionAddresses;
+        {
+            final MutableList<Address> addresses = new MutableList<>();
+            final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
+            for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
+                final LockingScript lockingScript = transactionOutput.getLockingScript();
+                final Address address = scriptPatternMatcher.extractAddress(lockingScript);
+                if (address != null) {
+                    addresses.add(address);
+                }
+            }
+            transactionAddresses = addresses;
+        }
+
         final List<AnnouncementWebSocketConfiguration> webSockets = AnnouncementsApi.getWebSockets();
         for (final AnnouncementWebSocketConfiguration webSocketConfiguration : webSockets) {
             if (! webSocketConfiguration.transactionsAreEnabled) { continue; }
@@ -397,10 +477,21 @@ public class AnnouncementsApi implements WebSocketServlet {
 
             final boolean shouldBroadcastTransaction;
             final MutableBloomFilter bloomFilter = webSocketConfiguration.bloomFilter;
+            final List<Address> addresses = webSocketConfiguration.addresses;
             if (bloomFilter != null) {
                 final UpdateBloomFilterMode updateBloomFilterMode = Util.coalesce(UpdateBloomFilterMode.valueOf(bloomFilter.getUpdateMode()), UpdateBloomFilterMode.READ_ONLY);
                 final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(bloomFilter, updateBloomFilterMode, _addressInflater);
                 shouldBroadcastTransaction = transactionBloomFilterMatcher.shouldInclude(transaction);
+            }
+            else if (addresses != null) {
+                boolean transactionMatchesAddressFilter = false;
+                for (final Address address : addresses) {
+                    if (transactionAddresses.contains(address)) {
+                        transactionMatchesAddressFilter = true;
+                        break;
+                    }
+                }
+                shouldBroadcastTransaction = transactionMatchesAddressFilter;
             }
             else {
                 shouldBroadcastTransaction = true;
@@ -524,6 +615,22 @@ public class AnnouncementsApi implements WebSocketServlet {
                 }
 
                 webSocketConfiguration.bloomFilter = bloomFilter;
+                apiResult = WebSocketApiResult.createSuccessResult(requestId);
+            } break;
+
+            case "SET_ADDRESSES": {
+                final AddressInflater addressInflater = new AddressInflater();
+                final Json addressesJson = parameters.get("addresses");
+                final MutableList<Address> addresses = new MutableList<>();
+                for (int i = 0; i < addressesJson.length(); ++i) {
+                    final String addressString = addressesJson.getString(i);
+                    final Address address = Util.coalesce(addressInflater.fromBase32Check(addressString), addressInflater.fromBase58Check(addressString));
+                    if (address == null) { continue; }
+
+                    addresses.add(address);
+                }
+
+                webSocketConfiguration.addresses = ((! addresses.isEmpty()) ? addresses : null);
                 apiResult = WebSocketApiResult.createSuccessResult(requestId);
             } break;
 
