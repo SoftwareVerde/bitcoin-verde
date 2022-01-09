@@ -620,10 +620,9 @@ public class AnnouncementsApi implements WebSocketServlet {
 
             case "SET_ADDRESSES": {
                 final AddressInflater addressInflater = new AddressInflater();
-                final Json addressesJson = parameters.get("addresses");
                 final MutableList<Address> addresses = new MutableList<>();
-                for (int i = 0; i < addressesJson.length(); ++i) {
-                    final String addressString = addressesJson.getString(i);
+                for (int i = 0; i < parameters.length(); ++i) {
+                    final String addressString = parameters.getString(i);
                     final Address address = Util.coalesce(addressInflater.fromBase32Check(addressString), addressInflater.fromBase58Check(addressString));
                     if (address == null) { continue; }
 
