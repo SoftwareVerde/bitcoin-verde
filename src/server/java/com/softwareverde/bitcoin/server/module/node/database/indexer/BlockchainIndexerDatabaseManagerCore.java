@@ -394,11 +394,16 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id FROM transactions WHERE id > ? ORDER BY id ASC LIMIT " + batchSize)
+            new Query("SELECT transaction_id AS id FROM block_transactions WHERE transaction_id > ? ORDER BY transaction_id ASC LIMIT " + batchSize)
                 .setParameter(firstTransactionId)
         );
 
-        if (rows.isEmpty()) { return new MutableList<>(0); }
+        if (rows.isEmpty()) {
+            rows.addAll(databaseConnection.query(
+                new Query("SELECT transaction_id AS id FROM unconfirmed_transactions WHERE transaction_id > ? ORDER BY transaction_id ASC LIMIT " + batchSize)
+                    .setParameter(firstTransactionId)
+            ));
+        }
 
         final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<>(rows.size());
         for (final Row row : rows) {
