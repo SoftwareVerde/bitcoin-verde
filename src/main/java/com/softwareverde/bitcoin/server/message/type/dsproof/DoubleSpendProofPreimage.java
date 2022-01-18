@@ -9,10 +9,12 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.json.Json;
+import com.softwareverde.json.Jsonable;
 
 import java.util.HashMap;
 
-public class DoubleSpendProofPreimage {
+public class DoubleSpendProofPreimage implements Jsonable {
     protected Long _transactionVersion;                     // Transaction Preimage Component #1
     protected SequenceNumber _sequenceNumber;               // Transaction Preimage Component #9
     protected LockTime _lockTime;                           // Transaction Preimage Component #11
@@ -79,5 +81,31 @@ public class DoubleSpendProofPreimage {
 
     public Boolean usesExtendedFormat() {
         return _alternateTransactionOutputsDigests.size() > 0;
+    }
+
+    @Override
+    public Json toJson() {
+        final Json json = new Json(false);
+        json.put("transactionVersion", _transactionVersion);
+        json.put("sequenceNumber", _sequenceNumber.getValue());
+        json.put("lockTime", _lockTime.getValue());
+        json.put("previousOutputsDigest", _previousOutputsDigest);
+        json.put("sequenceNumbersDigest", _sequenceNumbersDigest);
+        json.put("executedTransactionOutputsDigest", _executedTransactionOutputsDigest);
+
+        final Json map = new Json(false);
+        for (final Mode key : _alternateTransactionOutputsDigests.keySet()) {
+            final Sha256Hash value = _alternateTransactionOutputsDigests.get(key);
+            map.put(key.name(), value);
+        }
+        json.put("alternateTransactionOutputsDigests", map);
+
+        final Json list = new Json(true);
+        for (final ByteArray byteArray : _unlockingScriptPushData) {
+            list.add(byteArray);
+        }
+        json.put("unlockingScriptPushData", list);
+
+        return json;
     }
 }

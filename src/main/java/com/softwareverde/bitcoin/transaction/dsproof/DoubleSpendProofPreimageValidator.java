@@ -19,7 +19,11 @@ import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
+
+import java.util.Map;
 
 public class DoubleSpendProofPreimageValidator {
     protected final Long _blockHeight;
@@ -91,38 +95,67 @@ public class DoubleSpendProofPreimageValidator {
         _upgradeSchedule = upgradeSchedule;
     }
 
-    public Boolean validateDoubleSpendProof(final TransactionOutputIdentifier transactionOutputBeingSpentIdentifier, final List<TransactionOutput> previousTransactionOutputs, final Transaction firstSeenSpendingTransaction, final DoubleSpendProofPreimage doubleSpendProofPreimage) {
-        final Integer transactionOutputIndexBeingSpent = transactionOutputBeingSpentIdentifier.getOutputIndex();
-        final TransactionOutput transactionOutputBeingSpent = previousTransactionOutputs.get(transactionOutputIndexBeingSpent);
+    public Boolean validateDoubleSpendProof(final TransactionOutputIdentifier transactionOutputBeingSpentIdentifier, final Map<TransactionOutputIdentifier, TransactionOutput> previousTransactionOutputs, final Transaction firstSeenSpendingTransaction, final DoubleSpendProofPreimage doubleSpendProofPreimage) {
+        final TransactionOutput transactionOutputBeingSpent = previousTransactionOutputs.get(transactionOutputBeingSpentIdentifier);
+        if (transactionOutputBeingSpent == null) {
+            Logger.trace("Unable to find DoubleSpendProof previous output: " + transactionOutputBeingSpentIdentifier);
+            return false;
+        }
+
         final LockingScript lockingScript = transactionOutputBeingSpent.getLockingScript();
         final UnlockingScript firstSeenUnlockingScript = _getUnlockingScriptSpendingOutput(transactionOutputBeingSpentIdentifier, firstSeenSpendingTransaction);
-        if (firstSeenUnlockingScript == null) { return false; }
+        if (firstSeenUnlockingScript == null) {
+            Logger.trace("Unable to find DoubleSpendProof unlocking script: " + transactionOutputBeingSpentIdentifier);
+            return false;
+        }
 
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
         final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
 
         final UnlockingScript unlockingScript = _modifyUnlockingScript(scriptType, firstSeenUnlockingScript, doubleSpendProofPreimage);
-        if (unlockingScript == null) { return false; }
+        if (unlockingScript == null) {
+            Logger.trace("Unable to modify DoubleSpendProof unlocking script: " + transactionOutputBeingSpentIdentifier);
+            return false;
+        }
 
         final TransactionSigner transactionSigner = new DoubleSpendProofPreimageTransactionSigner(doubleSpendProofPreimage);
         final MutableTransactionContext transactionContext = new MutableTransactionContext(_upgradeSchedule, transactionSigner);
         {
+            final MutableList<TransactionOutput> previousTransactionOutputsList = new MutableList<>();
+            for (final TransactionInput transactionInput : firstSeenSpendingTransaction.getTransactionInputs()) {
+                final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+                final TransactionOutput transactionOutput = previousTransactionOutputs.get(transactionOutputIdentifier);
+                previousTransactionOutputsList.add(transactionOutput); // NOTE: This may be null.
+            }
+
             transactionContext.setBlockHeight(_blockHeight);
             transactionContext.setMedianBlockTime(_medianBlockTime);
             transactionContext.setTransaction(firstSeenSpendingTransaction);
 
             final List<TransactionInput> transactionInputs = firstSeenSpendingTransaction.getTransactionInputs();
             final Integer transactionInputIndex = _getInputIndexSpendingOutput(transactionOutputBeingSpentIdentifier, firstSeenSpendingTransaction);
-            if (transactionInputIndex == null) { return false; }
+            if (transactionInputIndex == null) {
+                Logger.trace("Unable to get DoubleSpendProof input index: " + transactionOutputBeingSpentIdentifier);
+                return false;
+            }
             final TransactionInput transactionInput = transactionInputs.get(transactionInputIndex);
 
             transactionContext.setTransactionInput(transactionInput);
-            transactionContext.setPreviousTransactionOutputs(previousTransactionOutputs);
+            transactionContext.setPreviousTransactionOutputs(previousTransactionOutputsList);
             transactionContext.setTransactionInputIndex(transactionInputIndex);
         }
 
-        final ScriptRunner scriptRunner = new ScriptRunner(_upgradeSchedule);
-        final ScriptRunner.ScriptRunnerResult scriptRunnerResult = scriptRunner.runScript(lockingScript, unlockingScript, transactionContext);
-        return scriptRunnerResult.isValid;
+        try {
+            final ScriptRunner scriptRunner = new ScriptRunner(_upgradeSchedule);
+            final ScriptRunner.ScriptRunnerResult scriptRunnerResult = scriptRunner.runScript(lockingScript, unlockingScript, transactionContext);
+            if ( (scriptRunnerResult == null) || (! scriptRunnerResult.isValid) ) {
+                Logger.trace("DoubleSpendProof Script failed execution.");
+            }
+            return scriptRunnerResult.isValid;
+        }
+        catch (final Exception exception) {
+            Logger.trace("DoubleSpendProof Script failed execution.", exception);
+            return false;
+        }
     }
 }

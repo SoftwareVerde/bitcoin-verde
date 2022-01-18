@@ -26,7 +26,9 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
+import com.softwareverde.util.Util;
 
+import java.util.HashMap;
 import java.util.Map;
 
 public class TransactionTestUtil {
@@ -146,6 +148,20 @@ public class TransactionTestUtil {
         mutableTransaction.addTransactionOutput(transactionOutput);
 
         return mutableTransaction;
+    }
+
+    public static Map<TransactionOutputIdentifier, TransactionOutput> createPreviousTransactionOutputsMap(final List<TransactionInput> transactionInputs, final TransactionOutputIdentifier transactionOutputIdentifier, final TransactionOutput transactionOutput) {
+        final HashMap<TransactionOutputIdentifier, TransactionOutput> outputMap = new HashMap<>();
+        for (final TransactionInput transactionInput : transactionInputs) {
+            final TransactionOutputIdentifier previousOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+            if (Util.areEqual(transactionOutputIdentifier, previousOutputIdentifier)) {
+                outputMap.put(transactionOutputIdentifier, transactionOutput);
+            }
+            else {
+                outputMap.put(transactionOutputIdentifier, null);
+            }
+        }
+        return outputMap;
     }
 
     public static MutableList<TransactionOutput> createPreviousTransactionOutputsList(final Integer transactionInputCount, final Integer outputIndex, final TransactionOutput transactionOutput) {

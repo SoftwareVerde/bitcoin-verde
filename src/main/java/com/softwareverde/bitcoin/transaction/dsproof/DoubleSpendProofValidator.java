@@ -12,15 +12,17 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
+import java.util.Map;
+
 public class DoubleSpendProofValidator {
     public static class Context {
         public final UpgradeSchedule upgradeSchedule;
         public final Long headBlockHeight;
         public final MedianBlockTime medianBlockTime;
-        public final List<TransactionOutput> previousTransactionOutputs;
+        public final Map<TransactionOutputIdentifier, TransactionOutput> previousTransactionOutputs;
         public final Transaction conflictingTransaction;
 
-        public Context(final Long headBlockHeight, final MedianBlockTime medianBlockTime, final List<TransactionOutput> previousTransactionOutputs, final Transaction conflictingTransaction, final UpgradeSchedule upgradeSchedule) {
+        public Context(final Long headBlockHeight, final MedianBlockTime medianBlockTime, final Map<TransactionOutputIdentifier, TransactionOutput> previousTransactionOutputs, final Transaction conflictingTransaction, final UpgradeSchedule upgradeSchedule) {
             this.upgradeSchedule = upgradeSchedule;
             this.headBlockHeight = headBlockHeight;
             this.medianBlockTime = medianBlockTime;
@@ -47,15 +49,14 @@ public class DoubleSpendProofValidator {
             final List<ByteArray> unlockingScriptData1 = doubleSpendProofPreimage1.getUnlockingScriptPushData();
             if (Util.areEqual(unlockingScriptData0, unlockingScriptData1)) {
                 // TODO: v2 should allow duplicate/non-existent second proof for anyone-can-spend/SIGNATURE_HASH_NONE.
-                Logger.trace("DoubleSpendProof " + doubleSpendProofHash + " invalid; duplicate preimage.");
+                Logger.debug("DoubleSpendProof " + doubleSpendProofHash + " invalid; duplicate preimage.");
                 return false;
             }
         }
 
         final Boolean preimagesAreInCanonicalOrder = DoubleSpendProof.arePreimagesInCanonicalOrder(doubleSpendProofPreimage0, doubleSpendProofPreimage1);
         if (! preimagesAreInCanonicalOrder) {
-            Logger.trace("DoubleSpendProof " + doubleSpendProofHash + " invalid; incorrect preimage order.");
-            Logger.trace(doubleSpendProof.getBytes());
+            Logger.debug("DoubleSpendProof " + doubleSpendProofHash + " invalid; incorrect preimage order.");
             return false;
         }
 
@@ -71,13 +72,13 @@ public class DoubleSpendProofValidator {
 
         final Boolean firstProofIsValid = doubleSpendProofPreimageValidator.validateDoubleSpendProof(transactionOutputIdentifier, _context.previousTransactionOutputs, _context.conflictingTransaction, doubleSpendProofPreimage0);
         if (! firstProofIsValid) {
-            Logger.trace("DoubleSpendProof " + doubleSpendProofHash + " invalid; first preimage failed validation.");
+            Logger.debug("DoubleSpendProof " + doubleSpendProofHash + " invalid; first preimage failed validation.");
             return false;
         }
 
         final Boolean secondProofIsValid = doubleSpendProofPreimageValidator.validateDoubleSpendProof(transactionOutputIdentifier, _context.previousTransactionOutputs, _context.conflictingTransaction, doubleSpendProofPreimage1);
         if (! secondProofIsValid) {
-            Logger.trace("DoubleSpendProof " + doubleSpendProofHash + " invalid; second preimage failed validation.");
+            Logger.debug("DoubleSpendProof " + doubleSpendProofHash + " invalid; second preimage failed validation.");
             return false;
         }
 

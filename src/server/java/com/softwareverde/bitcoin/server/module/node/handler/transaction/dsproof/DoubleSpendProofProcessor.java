@@ -12,17 +12,20 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input.UnconfirmedTransactionInputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProof;
 import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProofValidator;
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.input.UnconfirmedTransactionInputId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
+
+import java.util.HashMap;
 
 public class DoubleSpendProofProcessor {
     public interface Context extends MultiConnectionFullDatabaseContext, MedianBlockTimeContext, UpgradeScheduleContext { }
@@ -40,6 +43,7 @@ public class DoubleSpendProofProcessor {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
         final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+        final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
 
         final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
 
@@ -54,44 +58,32 @@ public class DoubleSpendProofProcessor {
             medianTimePast = _context.getMedianBlockTime(previousBlockHeight);
         }
 
-        final Transaction transactionBeingSpent;
-        { // Load the Transaction being spent from the database...
-            final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
-            final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
-            if (transactionId == null) {
-                Logger.trace("DoubleSpendProof " + doubleSpendProofHash + " invalid; transaction not found: " + transactionHash);
-                return null;
-            }
-
-            transactionBeingSpent = transactionDatabaseManager.getTransaction(transactionId);
-            if (transactionBeingSpent == null) { return null; }
-        }
-
-        final Transaction conflictingTransaction;
+        final Transaction firstSeenTransaction;
         { // Load the conflicting Transaction from the mempool...
             final UnconfirmedTransactionInputDatabaseManager transactionInputDatabaseManager = databaseManager.getUnconfirmedTransactionInputDatabaseManager();
             final UnconfirmedTransactionInputId unconfirmedTransactionInputId = transactionInputDatabaseManager.getUnconfirmedTransactionInputIdSpendingTransactionOutput(transactionOutputIdentifier);
             if (unconfirmedTransactionInputId == null) {
-                Logger.trace("DoubleSpendProof " + doubleSpendProofHash + " invalid; conflicting transaction input spending output not found: " + transactionOutputIdentifier);
+                Logger.debug("DoubleSpendProof " + doubleSpendProofHash + " invalid; conflicting transaction input spending output not found: " + transactionOutputIdentifier);
                 return null;
             }
 
             final TransactionId transactionId = transactionInputDatabaseManager.getTransactionId(unconfirmedTransactionInputId);
-            conflictingTransaction = transactionDatabaseManager.getTransaction(transactionId);
-            if (conflictingTransaction == null) { return null; }
-        }
-
-        final List<TransactionOutput> previousTransactionOutputs;
-        {
-            final Integer transactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
-            previousTransactionOutputs = transactionBeingSpent.getTransactionOutputs();
-            if (transactionOutputIndex >= previousTransactionOutputs.getCount()) {
-                Logger.trace("DoubleSpendProof " + doubleSpendProofHash + " invalid; transaction spends out-of-bounds output.");
+            firstSeenTransaction = transactionDatabaseManager.getTransaction(transactionId);
+            if (firstSeenTransaction == null) {
+                Logger.debug("DoubleSpendProof " + doubleSpendProofHash + " invalid; transaction not found.");
                 return null;
             }
         }
 
-        return new DoubleSpendProofValidator.Context(headBlockHeight, medianTimePast, previousTransactionOutputs, conflictingTransaction, upgradeSchedule);
+        final HashMap<TransactionOutputIdentifier, TransactionOutput> previousTransactionOutputs = new HashMap<>();
+        for (final TransactionInput transactionInput : firstSeenTransaction.getTransactionInputs()) {
+            final TransactionOutputIdentifier previousOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+            final TransactionOutput previousTransactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(previousOutputIdentifier);
+
+            previousTransactionOutputs.put(previousOutputIdentifier, previousTransactionOutput); // NOTE: may be null.
+        }
+
+        return new DoubleSpendProofValidator.Context(headBlockHeight, medianTimePast, previousTransactionOutputs, firstSeenTransaction, upgradeSchedule);
     }
 
     public DoubleSpendProofProcessor(final DoubleSpendProofStore doubleSpendProofStore, final Context context) {
@@ -108,6 +100,7 @@ public class DoubleSpendProofProcessor {
         catch (final DatabaseException exception) {
             final Sha256Hash doubleSpendProofHash = doubleSpendProof.getHash();
             _doubleSpendProofStore.banDoubleSpendProof(doubleSpendProofHash);
+            Logger.debug("Unable to create DoubleSpendProof context.", exception);
             return false;
         }
 
@@ -121,10 +114,12 @@ public class DoubleSpendProofProcessor {
         if (! doubleSpendProofIsValid) {
             final Sha256Hash doubleSpendProofHash = doubleSpendProof.getHash();
             _doubleSpendProofStore.banDoubleSpendProof(doubleSpendProofHash);
+            Logger.debug("Invalid DoubleSpendProof: " + doubleSpendProofHash);
             return false;
         }
 
         final Boolean wasUnseen = _doubleSpendProofStore.storeDoubleSpendProof(doubleSpendProof);
+        Logger.debug("DoubleSpendProof Accepted: " + wasUnseen);
         return wasUnseen;
     }
 }
