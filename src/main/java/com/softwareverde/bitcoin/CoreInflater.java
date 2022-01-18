@@ -16,6 +16,7 @@ import com.softwareverde.bitcoin.server.message.type.node.address.NodeIpAddressI
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemInflater;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
+import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProofInflater;
 
 public class CoreInflater implements MasterInflater {
     protected final BitcoinProtocolMessageHeaderInflater _bitcoinProtocolMessageHeaderInflater;
@@ -42,6 +43,8 @@ public class CoreInflater implements MasterInflater {
 
     protected final AddressInflater _addressInflater;
 
+    protected final DoubleSpendProofInflater _doubleSpendProofInflater;
+
     public CoreInflater() {
         _bitcoinProtocolMessageHeaderInflater = new BitcoinProtocolMessageHeaderInflater();
         _nodeIpAddressInflater = new NodeIpAddressInflater();
@@ -66,6 +69,8 @@ public class CoreInflater implements MasterInflater {
         _transactionDeflater = new TransactionDeflater();
 
         _addressInflater = new AddressInflater();
+
+        _doubleSpendProofInflater = new DoubleSpendProofInflater();
     }
 
     @Override
@@ -141,5 +146,10 @@ public class CoreInflater implements MasterInflater {
     @Override
     public InventoryItemInflater getInventoryItemInflater() {
         return _inventoryItemInflater;
+    }
+
+    @Override
+    public DoubleSpendProofInflater getDoubleSpendProofInflater() {
+        return _doubleSpendProofInflater;
     }
 }

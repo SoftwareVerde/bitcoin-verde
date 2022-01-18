@@ -215,6 +215,18 @@ public class DoubleSpendProof implements Jsonable, Hashable, Const {
     protected final DoubleSpendProofPreimage _doubleSpendProofPreimage0;
     protected final DoubleSpendProofPreimage _doubleSpendProofPreimage1;
 
+    protected Sha256Hash _getHash() {
+        if (_cachedHash == null) {
+            if (_cachedBytes == null) {
+                _cachedBytes = _getBytes();
+            }
+
+            _cachedHash = HashUtil.doubleSha256(_cachedBytes).toReversedEndian();
+        }
+
+        return _cachedHash;
+    }
+
     protected ByteArray _cachedBytes = null;
     protected Sha256Hash _cachedHash = null;
 
@@ -278,15 +290,7 @@ public class DoubleSpendProof implements Jsonable, Hashable, Const {
 
     @Override
     public Sha256Hash getHash() {
-        if (_cachedHash == null) {
-            if (_cachedBytes == null) {
-                _cachedBytes = _getBytes();
-            }
-
-            _cachedHash = HashUtil.doubleSha256(_cachedBytes).toReversedEndian();
-        }
-
-        return _cachedHash;
+        return _getHash();
     }
 
     public Boolean usesExtendedFormat() {
@@ -297,11 +301,19 @@ public class DoubleSpendProof implements Jsonable, Hashable, Const {
     public Json toJson() {
         final Json json = new Json(false);
 
-        final Sha256Hash previousOutputTransactionHash = _transactionOutputIdentifierBeingDoubleSpent.getTransactionHash();
-        final Integer previousOutputIndex = _transactionOutputIdentifierBeingDoubleSpent.getOutputIndex();
+        final Sha256Hash hash = _getHash();
+        json.put("hash", hash);
 
-        json.put("previousOutputTransactionHash", previousOutputTransactionHash);
-        json.put("previousOutputIndex", previousOutputIndex);
+        final Json transactionOutputIdentifierJson = new Json(false);
+        {
+            final Sha256Hash previousOutputTransactionHash = _transactionOutputIdentifierBeingDoubleSpent.getTransactionHash();
+            final Integer previousOutputIndex = _transactionOutputIdentifierBeingDoubleSpent.getOutputIndex();
+
+            transactionOutputIdentifierJson.put("transactionHash", previousOutputTransactionHash);
+            transactionOutputIdentifierJson.put("outputIndex", previousOutputIndex);
+        }
+        json.put("transactionOutputIdentifier", transactionOutputIdentifierJson);
+
         json.put("doubleSpendProofPreImage0", _doubleSpendProofPreimage0);
         json.put("doubleSpendProofPreImage1", _doubleSpendProofPreimage1);
 

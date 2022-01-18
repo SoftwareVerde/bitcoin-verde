@@ -21,6 +21,7 @@ import com.softwareverde.bitcoin.server.module.electrum.json.ElectrumJsonProtoco
 import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.HeadersBootstrapper;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
+import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProof;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
@@ -222,6 +223,11 @@ public class ElectrumModule {
             @Override
             public void onNewTransaction(final Transaction transaction, final Long fee) {
                 _onNewTransaction(transaction, fee);
+            }
+
+            @Override
+            public void onNewDoubleSpendProof(final DoubleSpendProof doubleSpendProofJson) {
+                // TODO
             }
         });
     }

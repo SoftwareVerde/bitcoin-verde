@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.server.module.api.ApiResult;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionBloomFilterMatcher;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
+import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProof;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
@@ -29,7 +30,6 @@ import com.softwareverde.json.Json;
 import com.softwareverde.json.Jsonable;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.RotatingQueue;
-import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 
 import java.util.HashMap;
@@ -111,10 +111,23 @@ public class AnnouncementsApi implements WebSocketServlet {
         QUEUE_WRITE_LOCK = readWriteLock.writeLock();
     }
 
-    protected static final RotatingQueue<Json> BLOCK_HEADERS = new RotatingQueue<>(10);
+    protected static final RotatingQueue<Json> BLOCK_HEADERS = new RotatingQueue<>(16);
     protected static final RotatingQueue<Json> TRANSACTIONS = new RotatingQueue<>(32);
+    protected static final RotatingQueue<Json> DOUBLE_SPEND_PROOFS = new RotatingQueue<>(64);
 
-    protected static Tuple<List<Json>, List<Json>> getCachedObjects() {
+    protected static class CachedObjects {
+        public final List<Json> blockHeaders;
+        public final List<Json> transactions;
+        public final List<Json> doubleSpendProofs;
+
+        public CachedObjects(final List<Json> blockHeaders, final List<Json> transactions, final List<Json> doubleSpendProofs) {
+            this.blockHeaders = blockHeaders;
+            this.transactions = transactions;
+            this.doubleSpendProofs = doubleSpendProofs;
+        }
+    }
+
+    protected static CachedObjects getCachedObjects() {
         QUEUE_READ_LOCK.lock();
         try {
             final MutableList<Json> blockHeaders = new MutableList<>();
@@ -127,7 +140,12 @@ public class AnnouncementsApi implements WebSocketServlet {
                 transactions.add(json);
             }
 
-            return new Tuple<>(blockHeaders, transactions);
+            final MutableList<Json> doubleSpendProofs = new MutableList<>();
+            for (final Json json : DOUBLE_SPEND_PROOFS) {
+                doubleSpendProofs.add(json);
+            }
+
+            return new CachedObjects(blockHeaders, transactions, doubleSpendProofs);
         }
         finally {
             QUEUE_READ_LOCK.unlock();
@@ -207,6 +225,11 @@ public class AnnouncementsApi implements WebSocketServlet {
         public void onNewTransaction(final Json transactionJson) {
             _onNewTransaction(transactionJson);
         }
+
+        @Override
+        public void onNewDoubleSpendProof(final Json doubleSpendProofJson) {
+            _onDoubleSpendProof(doubleSpendProofJson);
+        }
     };
 
     protected final NodeJsonRpcConnection.RawAnnouncementHookCallback _rawAnnouncementHookCallback = new NodeJsonRpcConnection.RawAnnouncementHookCallback() {
@@ -218,6 +241,12 @@ public class AnnouncementsApi implements WebSocketServlet {
         @Override
         public void onNewTransaction(final Transaction transaction, final Long transactionFee) {
             _onNewTransaction(transaction);
+        }
+
+        @Override
+        public void onNewDoubleSpendProof(final DoubleSpendProof doubleSpendProofJson) {
+            final Json json = doubleSpendProofJson.toJson();
+            _onDoubleSpendProof(json);
         }
     };
 
@@ -428,6 +457,22 @@ public class AnnouncementsApi implements WebSocketServlet {
         }
     }
 
+    protected void _broadcastDoubleSpendProof(final Json doubleSpendProofJson) {
+        final String message;
+        {
+            final Json messageJson = _wrapObject("DOUBLE_SPEND_PROOF", doubleSpendProofJson);
+            message = messageJson.toString();
+        }
+
+        final List<AnnouncementWebSocketConfiguration> webSockets = AnnouncementsApi.getWebSockets();
+        for (final AnnouncementWebSocketConfiguration webSocketConfiguration : webSockets) {
+            if (! webSocketConfiguration.doubleSpendProofsAreEnabled) { continue; }
+
+            final WebSocket webSocket = webSocketConfiguration.webSocket;
+            webSocket.sendMessage(message);
+        }
+    }
+
     protected void _broadcastNewBlockHeader(final BlockHeader blockHeader) {
         final String message;
         {
@@ -530,6 +575,20 @@ public class AnnouncementsApi implements WebSocketServlet {
         _broadcastNewTransaction(transactionJson);
     }
 
+    protected void _onDoubleSpendProof(final Json doubleSpendProofJson) {
+        try {
+            QUEUE_WRITE_LOCK.lock();
+
+            Logger.info("DSProof Received: " + doubleSpendProofJson);
+            DOUBLE_SPEND_PROOFS.add(doubleSpendProofJson);
+        }
+        finally {
+            QUEUE_WRITE_LOCK.unlock();
+        }
+
+        _broadcastDoubleSpendProof(doubleSpendProofJson);
+    }
+
     protected void _onNewBlock(final BlockHeader blockHeader) {
         _broadcastNewBlockHeader(blockHeader);
     }
@@ -594,6 +653,16 @@ public class AnnouncementsApi implements WebSocketServlet {
 
             case "DISABLE_BLOCKS": {
                 webSocketConfiguration.blockHeadersAreEnabled = false;
+                apiResult = WebSocketApiResult.createSuccessResult(requestId);
+            } break;
+
+            case "ENABLE_DOUBLE_SPEND_PROOFS": {
+                webSocketConfiguration.doubleSpendProofsAreEnabled = true;
+                apiResult = WebSocketApiResult.createSuccessResult(requestId);
+            } break;
+
+            case "DISABLE_DOUBLE_SPEND_PROOFS": {
+                webSocketConfiguration.doubleSpendProofsAreEnabled = false;
                 apiResult = WebSocketApiResult.createSuccessResult(requestId);
             } break;
 
@@ -733,17 +802,23 @@ public class AnnouncementsApi implements WebSocketServlet {
             WEB_SOCKETS.put(webSocketId, webSocketConfiguration);
         }
 
-        final Tuple<List<Json>, List<Json>> objects = AnnouncementsApi.getCachedObjects();
+        final CachedObjects objects = AnnouncementsApi.getCachedObjects();
 
-        for (final Json blockHeaderJson : objects.first) {
+        for (final Json blockHeaderJson : objects.blockHeaders) {
             final Json messageJson = _wrapObject("BLOCK", blockHeaderJson);
             final String message = messageJson.toString();
             webSocket.sendMessage(message);
         }
 
-        for (final Json transactionJson : objects.second) {
+        for (final Json transactionJson : objects.transactions) {
             final Json trimmedTransactionJson = _transactionJsonToTransactionHashJson(transactionJson);
             final Json messageJson = _wrapObject("TRANSACTION_HASH", trimmedTransactionJson);
+            final String message = messageJson.toString();
+            webSocket.sendMessage(message);
+        }
+
+        for (final Json blockHeaderJson : objects.doubleSpendProofs) {
+            final Json messageJson = _wrapObject("DOUBLE_SPEND_PROOF", blockHeaderJson);
             final String message = messageJson.toString();
             webSocket.sendMessage(message);
         }

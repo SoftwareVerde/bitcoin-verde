@@ -1403,7 +1403,7 @@ public class BitcoinNode extends Node {
                 } break;
 
                 default: {
-                    Logger.info("Unsolicited NOT_FOUND Message: " + inventoryItem.getItemType() + " : " + inventoryItem.getItemHash());
+                    Logger.info("Unsolicited NOT_FOUND Message: " + inventoryItem.getItemType() + " : " + inventoryItem.getItemHash() + " from " + BitcoinNode.this);
                 }
             }
         }

@@ -562,12 +562,23 @@ public class NodeModule {
             nodeInitializerContext.threadPoolFactory = nodeThreadPoolFactory;
             nodeInitializerContext.localNodeFeatures = localNodeFeatures;
             nodeInitializerContext.transactionsAnnouncementHandlerFactory = new TransactionAnnouncementHandlerFactory(databaseManagerFactory, synchronizationStatusHandler, newInventoryCallback);
-            nodeInitializerContext.doubleSpendProofAnnouncementHandlerFactory = new DoubleSpendProofAnnouncementHandlerFactory(doubleSpendProofProcessor, doubleSpendProofStore, new DoubleSpendProofAnnouncementHandlerFactory.BitcoinNodeCollector() {
-                @Override
-                public List<BitcoinNode> getConnectedNodes() {
-                    return _bitcoinNodeManager.getNodes();
+            nodeInitializerContext.doubleSpendProofAnnouncementHandlerFactory = new DoubleSpendProofAnnouncementHandlerFactory(doubleSpendProofProcessor, doubleSpendProofStore,
+                new DoubleSpendProofAnnouncementHandlerFactory.BitcoinNodeCollector() {
+                    @Override
+                    public List<BitcoinNode> getConnectedNodes() {
+                        return _bitcoinNodeManager.getNodes();
+                    }
+                },
+                new DoubleSpendProofAnnouncementHandlerFactory.DoubleSpendProofCallback() {
+                    @Override
+                    public void onNewDoubleSpendProof(final DoubleSpendProof doubleSpendProof) {
+                        final NodeRpcHandler nodeRpcHandler = _nodeRpcHandler;
+                        if (nodeRpcHandler != null) {
+                            nodeRpcHandler.onNewDoubleSpendProof(doubleSpendProof);
+                        }
+                    }
                 }
-            });
+            );
             nodeInitializerContext.requestBlockHashesHandler = new RequestBlockHashesHandler(databaseManagerFactory);
             nodeInitializerContext.requestBlockHeadersHandler = new RequestBlockHeadersHandler(databaseManagerFactory);
             nodeInitializerContext.requestDataHandler = _transactionWhitelist;
@@ -1010,6 +1021,11 @@ public class NodeModule {
                         final List<BitcoinNode> bitcoinNodes = _bitcoinNodeManager.getNodes();
                         for (final BitcoinNode bitcoinNode : bitcoinNodes) {
                             bitcoinNode.transmitDoubleSpendProofHash(doubleSpendProofHash);
+                        }
+
+                        final NodeRpcHandler nodeRpcHandler = _nodeRpcHandler;
+                        if (nodeRpcHandler != null) {
+                            nodeRpcHandler.onNewDoubleSpendProof(doubleSpendProof);
                         }
                     }
                 }

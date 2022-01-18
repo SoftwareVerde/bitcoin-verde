@@ -1,33 +1,38 @@
 package com.softwareverde.bitcoin.context.lazy;
 
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.UnconfirmedTransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.UnconfirmedTransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-
-import java.util.concurrent.ConcurrentHashMap;
+import com.softwareverde.database.DatabaseException;
+import com.softwareverde.logging.Logger;
 
 public class DoubleSpendProofUtxoSet extends LazyUnconfirmedTransactionUtxoSet {
-    protected final ConcurrentHashMap<TransactionOutputIdentifier, TransactionOutput> _alwaysAvailableOutputs = new ConcurrentHashMap<>();
 
     public DoubleSpendProofUtxoSet(final FullNodeDatabaseManager databaseManager) {
-        super(databaseManager);
-    }
-
-    public DoubleSpendProofUtxoSet(final FullNodeDatabaseManager databaseManager, final Boolean includeUnconfirmedTransactions) {
-        super(databaseManager, includeUnconfirmedTransactions);
-    }
-
-    public void addTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier, final TransactionOutput transactionOutput) {
-        _alwaysAvailableOutputs.put(transactionOutputIdentifier, transactionOutput);
+        super(databaseManager, true);
     }
 
     @Override
     public TransactionOutput getTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
-        final TransactionOutput alwaysAvailableOutput = _alwaysAvailableOutputs.get(transactionOutputIdentifier);
-        if (alwaysAvailableOutput != null) {
-            return alwaysAvailableOutput;
-        }
+        try {
+            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
+            final UnconfirmedTransactionOutputDatabaseManager unconfirmedTransactionOutputDatabaseManager = _databaseManager.getUnconfirmedTransactionOutputDatabaseManager();
 
-        return super.getTransactionOutput(transactionOutputIdentifier);
+            final TransactionOutput transactionOutput = unspentTransactionOutputDatabaseManager.loadUnspentTransactionOutput(transactionOutputIdentifier);
+            if (transactionOutput != null) {
+                return transactionOutput;
+            }
+
+            // Disregard whether or not the UTXO has been spent within the mempool...
+            final UnconfirmedTransactionOutputId transactionOutputId = unconfirmedTransactionOutputDatabaseManager.getUnconfirmedTransactionOutputId(transactionOutputIdentifier);
+            return unconfirmedTransactionOutputDatabaseManager.getUnconfirmedTransactionOutput(transactionOutputId);
+        }
+        catch (final DatabaseException exception) {
+            Logger.debug(exception);
+            return null;
+        }
     }
 }

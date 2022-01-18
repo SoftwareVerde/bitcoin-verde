@@ -6,13 +6,13 @@ import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.MultiConnectionFullDatabaseContext;
 import com.softwareverde.bitcoin.context.UpgradeScheduleContext;
+import com.softwareverde.bitcoin.context.lazy.DoubleSpendProofUtxoSet;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input.UnconfirmedTransactionInputDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProof;
@@ -43,7 +43,8 @@ public class DoubleSpendProofProcessor {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
         final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-        final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+        // final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+        final DoubleSpendProofUtxoSet unconfirmedTransactionUtxoSet = new DoubleSpendProofUtxoSet(databaseManager);
 
         final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
 
@@ -78,8 +79,7 @@ public class DoubleSpendProofProcessor {
         final HashMap<TransactionOutputIdentifier, TransactionOutput> previousTransactionOutputs = new HashMap<>();
         for (final TransactionInput transactionInput : firstSeenTransaction.getTransactionInputs()) {
             final TransactionOutputIdentifier previousOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-            final TransactionOutput previousTransactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(previousOutputIdentifier);
-
+            final TransactionOutput previousTransactionOutput = unconfirmedTransactionUtxoSet.getTransactionOutput(previousOutputIdentifier);
             previousTransactionOutputs.put(previousOutputIdentifier, previousTransactionOutput); // NOTE: may be null.
         }
 

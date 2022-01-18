@@ -48,7 +48,6 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.VolatileNetworkTime;
-import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
 
@@ -199,43 +198,13 @@ public class TransactionProcessor extends SleepyService {
 
                             final boolean isAttemptedDoubleSpend = (firstSeenTransactionId != null);
                             if (isAttemptedDoubleSpend) {
-                                final DoubleSpendProofUtxoSet modifiedUnconfirmedTransactionUtxoSet = new DoubleSpendProofUtxoSet(databaseManager, true);
+                                final DoubleSpendProofUtxoSet doubleSpendProofUtxoSet = new DoubleSpendProofUtxoSet(databaseManager);
 
                                 boolean shouldAbort = false;
-                                TransactionOutput transactionOutputBeingDoubleSpent = null;
-                                final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-                                for (final TransactionInput transactionInput : transactionInputs) {
-                                    // TODO: Obtain previousTransactionOutput without relying on non-pruned mode...
-                                    final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-
-                                    final Sha256Hash transactionHashBeingSpent = transactionOutputIdentifier.getTransactionHash();
-                                    final Integer transactionOutputIndexBeingSpent = transactionOutputIdentifier.getOutputIndex();
-
-                                    final TransactionId transactionIdBeingSpent = transactionDatabaseManager.getTransactionId(transactionHashBeingSpent);
-                                    if (transactionIdBeingSpent == null) {
-                                        shouldAbort = true;
-                                        break;
-                                    }
-
-                                    final Transaction transactionBeingSpent = transactionDatabaseManager.getTransaction(transactionIdBeingSpent);
-                                    if (transactionBeingSpent == null) {
-                                        shouldAbort = true;
-                                        break;
-                                    }
-
-                                    final List<TransactionOutput> transactionOutputs = transactionBeingSpent.getTransactionOutputs();
-                                    final TransactionOutput transactionOutput = transactionOutputs.get(transactionOutputIndexBeingSpent);
-
-                                    modifiedUnconfirmedTransactionUtxoSet.addTransactionOutput(transactionOutputIdentifier, transactionOutput);
-
-                                    if (Util.areEqual(transactionOutputIdentifierBeingDoubleSpent, transactionOutputIdentifier)) {
-                                        transactionOutputBeingDoubleSpent = transactionOutput;
-                                    }
-                                }
+                                final TransactionOutput transactionOutputBeingDoubleSpent = doubleSpendProofUtxoSet.getTransactionOutput(transactionOutputIdentifierBeingDoubleSpent);
 
                                 if ( (! shouldAbort) && (transactionOutputBeingDoubleSpent != null) ) {
-
-                                    final TransactionValidatorContext modifiedTransactionValidatorContext = new TransactionValidatorContext(transactionInflaters, networkTime, medianBlockTimeContext, modifiedUnconfirmedTransactionUtxoSet, upgradeSchedule);
+                                    final TransactionValidatorContext modifiedTransactionValidatorContext = new TransactionValidatorContext(transactionInflaters, networkTime, medianBlockTimeContext, doubleSpendProofUtxoSet, upgradeSchedule);
                                     final TransactionValidator modifiedTransactionValidator = _context.getUnconfirmedTransactionValidator(modifiedTransactionValidatorContext);
 
                                     // Ensure the DoubleSpend Transaction would have otherwise been valid had the UTXO not been spent already...

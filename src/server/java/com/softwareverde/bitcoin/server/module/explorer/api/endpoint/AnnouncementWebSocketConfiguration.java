@@ -13,6 +13,8 @@ public class AnnouncementWebSocketConfiguration {
     public Boolean transactionsAreEnabled = true;
     public Boolean fullTransactionDataIsEnabled = false;
 
+    public Boolean doubleSpendProofsAreEnabled = false;
+
     public MutableBloomFilter bloomFilter = null;
     public List<Address> addresses = null;
 

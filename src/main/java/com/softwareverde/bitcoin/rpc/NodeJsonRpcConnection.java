@@ -10,6 +10,8 @@ import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
+import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProof;
+import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProofInflater;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -19,7 +21,6 @@ import com.softwareverde.json.Json;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.socket.JsonProtocolMessage;
 import com.softwareverde.network.socket.JsonSocket;
-import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.timer.NanoTimer;
 
 public class NodeJsonRpcConnection implements AutoCloseable {
@@ -30,11 +31,13 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     public interface AnnouncementHookCallback {
         void onNewBlockHeader(Json blockHeaderJson);
         void onNewTransaction(Json transactionJson);
+        void onNewDoubleSpendProof(Json doubleSpendProofJson);
     }
 
     public interface RawAnnouncementHookCallback {
         void onNewBlockHeader(BlockHeader blockHeader);
         void onNewTransaction(Transaction transaction, Long fee);
+        void onNewDoubleSpendProof(DoubleSpendProof doubleSpendProofJson);
     }
 
     public static final Long DEFAULT_RPC_DURATION_TIMEOUT_MS = 30000L;
@@ -93,6 +96,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         final Json eventTypesJson = new Json(true);
         eventTypesJson.add("NEW_BLOCK");
         eventTypesJson.add("NEW_TRANSACTION");
+        eventTypesJson.add("NEW_DOUBLE_SPEND_PROOF");
 
         final Json parametersJson = new Json();
         parametersJson.put("events", eventTypesJson);
@@ -661,8 +665,13 @@ public class NodeJsonRpcConnection implements AutoCloseable {
                         announcementHookCallback.onNewBlockHeader(object);
                     } break;
 
+                    case "TRANSACTION_WITH_FEE":
                     case "TRANSACTION": {
                         announcementHookCallback.onNewTransaction(object);
+                    } break;
+
+                    case "DOUBLE_SPEND_PROOF": {
+                        announcementHookCallback.onNewDoubleSpendProof(object);
                     } break;
 
                     default: { } break;
@@ -711,7 +720,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
                     case "BLOCK": {
                         final String objectData = json.getString("object");
                         final BlockHeaderInflater blockHeaderInflater = _masterInflater.getBlockHeaderInflater();
-                        final BlockHeader blockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray(objectData));
+                        final BlockHeader blockHeader = blockHeaderInflater.fromBytes(ByteArray.fromHexString(objectData));
                         if (blockHeader == null) {
                             Logger.warn("Error inflating block: " + objectData);
                             return;
@@ -723,7 +732,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
                     case "TRANSACTION": {
                         final String objectData = json.getString("object");
                         final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
-                        final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(objectData));
+                        final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString(objectData));
                         if (transaction == null) {
                             Logger.warn("Error inflating transaction: " + objectData);
                             return;
@@ -737,13 +746,25 @@ public class NodeJsonRpcConnection implements AutoCloseable {
                         final String transactionData = object.getString("transactionData");
                         final Long fee = object.getLong("transactionFee");
                         final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
-                        final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(transactionData));
+                        final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString(transactionData));
                         if (transaction == null) {
                             Logger.warn("Error inflating transaction: " + transactionData);
                             return;
                         }
 
                         announcementHookCallback.onNewTransaction(transaction, fee);
+                    } break;
+
+                    case "DOUBLE_SPEND_PROOF": {
+                        final String objectData = json.getString("object");
+                        final DoubleSpendProofInflater doubleSpendProofInflater = _masterInflater.getDoubleSpendProofInflater();
+                        final DoubleSpendProof doubleSpendProof = doubleSpendProofInflater.fromBytes(ByteArray.fromHexString(objectData));
+                        if (doubleSpendProof == null) {
+                            Logger.warn("Error inflating double spend proof: " + objectData);
+                            return;
+                        }
+
+                        announcementHookCallback.onNewDoubleSpendProof(doubleSpendProof);
                     } break;
 
                     default: { } break;
