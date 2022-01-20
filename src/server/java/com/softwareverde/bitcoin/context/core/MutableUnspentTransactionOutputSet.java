@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UndoLogDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -47,14 +48,14 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
         final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
         final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockIdToProcess);
-        final BlockId headBlockId = blockDatabaseManager.getHeadBlockId(); // TODO: Write test for reorging onto a chain with headers synced far past the new reorg chain.
+        final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
 
         final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockIdToProcess);
         Logger.debug("Loading Outputs for Alternate Block: " + blockHash);
 
         final UtxoUndoLog utxoUndoLog = new UtxoUndoLog(databaseManager);
 
-        final int maxDepth = 128;
+        final int maxDepth = UndoLogDatabaseManager.MAX_REORG_DEPTH;
         int undoDepth = 0;
         BlockId blockId = headBlockId;
         while (undoDepth < maxDepth) {

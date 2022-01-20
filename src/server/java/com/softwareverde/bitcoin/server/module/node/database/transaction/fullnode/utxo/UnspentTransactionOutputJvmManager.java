@@ -584,7 +584,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         System.gc();
     }
 
-    protected void _startClearExpiredPrunedOutputsThread(final Long committedUtxoBlockHeight, final DatabaseManagerFactory databaseManagerFactory) {
+    protected Thread _startClearExpiredPrunedOutputsThread(final Long committedUtxoBlockHeight, final DatabaseManagerFactory databaseManagerFactory) {
         final Thread thread = (new Thread(new Runnable() {
             @Override
             public void run() {
@@ -605,6 +605,12 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
             }
         });
         thread.start();
+        return thread;
+    }
+
+    protected void _clearExpiredPrunedOutputs(final Long committedUtxoBlockHeight, final DatabaseManager databaseManager) throws DatabaseException {
+        final UndoLogDatabaseManager undoLogDatabaseManager = new UndoLogDatabaseManager(databaseManager);
+        undoLogDatabaseManager.clearExpiredPrunedOutputs(committedUtxoBlockHeight);
     }
 
     protected Boolean _commitUnspentTransactionOutputs(final DatabaseManagerFactory databaseManagerFactory, final CommitAsyncMode commitAsyncMode) throws DatabaseException {
@@ -651,7 +657,9 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                             UnspentTransactionOutputJvmManager.commitDoubleBufferedUnspentTransactionOutputs(newCommittedBlockHeight, databaseManager);
                             TransactionUtil.commitTransaction(databaseConnection);
 
-                            _startClearExpiredPrunedOutputsThread(newCommittedBlockHeight, databaseManagerFactory);
+                            // NOTE: This method is no longer asynchronous because changing the database structure can prevent other database transactions
+                            //  from accessing the pruned outputs table, which may be required during a reorg.
+                            _clearExpiredPrunedOutputs(newCommittedBlockHeight, databaseManager);
                         }
                         catch (final Exception exception) {
                             _invalidateUncommittedUtxoSet();

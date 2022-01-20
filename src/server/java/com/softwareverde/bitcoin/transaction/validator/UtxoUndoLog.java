@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 
@@ -29,13 +30,16 @@ public class UtxoUndoLog {
         Logger.debug("Undoing Block: " + block.getHash());
         final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
 
-        final List<Transaction> transactions = block.getTransactions();
         boolean isCoinbase = true;
+        final List<Transaction> transactions = block.getTransactions();
         for (final Transaction transaction : transactions) {
-            if (! isCoinbase) {
-                final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-                for (final TransactionInput transactionInput : transactionInputs) {
-                    final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+            final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+            for (final TransactionInput transactionInput : transactionInputs) {
+                if (isCoinbase) { break; } // Do not process the coinbase transaction...
+
+                final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+                final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
+                if (! block.hasTransaction(transactionHash)) { // Do not add outputs created by this block to the available UTXO set...
                     final UnspentTransactionOutput unspentTransactionOutput = unspentTransactionOutputDatabaseManager.findOutputData(transactionOutputIdentifier);
                     if (unspentTransactionOutput == null) {
                         throw new DatabaseException("Unable to find Output: " + transactionOutputIdentifier);
@@ -45,6 +49,7 @@ public class UtxoUndoLog {
                 }
             }
 
+            // Add the Output's identifier to the list of unavailable outputs so that it cannot be found by a dirty UTXO set read.
             final List<TransactionOutputIdentifier> transactionOutputIdentifiers = TransactionOutputIdentifier.fromTransactionOutputs(transaction);
             for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
                 _unavailableOutputs.add(transactionOutputIdentifier);

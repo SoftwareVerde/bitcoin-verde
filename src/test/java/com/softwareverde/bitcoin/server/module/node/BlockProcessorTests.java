@@ -29,6 +29,7 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManagerCore;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.CommitAsyncMode;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UndoLogDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
@@ -667,8 +668,7 @@ public class BlockProcessorTests extends IntegrationTest {
         }
     }
 
-    @Test
-    public void should_handle_replicated_delayed_deep_reorg_with_synced_headers_with_semi_real_blocks() throws Exception {
+    protected void _run_deep_reorg_with_synced_headers_with_semi_real_blocks(final Boolean shouldCommitUtxosBeforeReorg) throws Exception {
         // This test should attempt to setup the scenario encountered on 2020-11-29 where the node fell behind
         //  syncing, during which time a reorg occurred having the node's headBlock on a different blockchain then the
         //  head blockHeader with multiple blocks (and headers) available after the reorg (2+).
@@ -687,18 +687,37 @@ public class BlockProcessorTests extends IntegrationTest {
             { // Init Anonymous Class...
                 final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
                 final String resourceData = IoUtil.getResource("/transactions/block663750_utxos");
-                for (final String transactionData : resourceData.split("\n")) {
-                    final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString(transactionData));
-                    final TransactionId transactionId = TransactionId.wrap(_transactionIds.size() + 1L);
-                    _transactionIds.put(transaction.getHash(), transactionId);
-                    _transactions.put(transactionId, transaction);
-                    try (final DatabaseConnection databaseConnection = _database.newConnection()) {
+                try (final DatabaseConnection databaseConnection = _database.newConnection()) {
+                    for (final String transactionData : resourceData.split("\n")) {
+                        final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString(transactionData));
+                        final TransactionId transactionId = TransactionId.wrap(_transactionIds.size() + 1L);
+                        final Sha256Hash transactionHash = transaction.getHash();
+                        final Integer transactionByteCount = transaction.getByteCount();
+
+                        _transactionIds.put(transaction.getHash(), transactionId);
+                        _transactions.put(transactionId, transaction);
                         databaseConnection.executeSql(
                             new Query("INSERT INTO transactions (id, hash, byte_count) VALUES (?, ?, ?)")
                                 .setParameter(transactionId)
-                                .setParameter(transaction.getHash())
-                                .setParameter(transaction.getByteCount())
+                                .setParameter(transactionHash)
+                                .setParameter(transactionByteCount)
                         );
+
+                        // Add the Transaction's Outputs to the pruned_previous_transaction_outputs since this test (semi-)emulates a pruned node.
+                        for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
+                            final Integer outputIndex = transactionOutput.getIndex();
+                            final LockingScript lockingScript = transactionOutput.getLockingScript();
+
+                            databaseConnection.executeSql(
+                                new Query("INSERT INTO pruned_previous_transaction_outputs (transaction_hash, `index`, block_height, amount, locking_script, expires_after_block_height) VALUES (?, ?, ?, ?, ?, ?)")
+                                    .setParameter(transactionHash)
+                                    .setParameter(outputIndex)
+                                    .setParameter(663749L)
+                                    .setParameter(transactionOutput.getAmount())
+                                    .setParameter(lockingScript.getBytes())
+                                    .setParameter(663749L + UndoLogDatabaseManager.MAX_REORG_DEPTH)
+                            );
+                        }
                     }
                 }
             }
@@ -922,6 +941,11 @@ public class BlockProcessorTests extends IntegrationTest {
 
             // Action
 
+            if (shouldCommitUtxosBeforeReorg) {
+                final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+                unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
+            }
+
             // Make 750B, 751B, 752B available for processing.
             for (final Block block : new Block[]{ block663750_B, block663751_B, block663752_B }) {
                 blockStore.storePendingBlock(block);
@@ -935,6 +959,16 @@ public class BlockProcessorTests extends IntegrationTest {
             Assert.assertTrue(blockDatabaseManager.hasTransactions(block663751_B.getHash()));
             Assert.assertTrue(blockDatabaseManager.hasTransactions(block663752_B.getHash()));
         }
+    }
+
+    @Test
+    public void should_handle_replicated_delayed_deep_reorg_with_synced_headers_with_semi_real_blocks() throws Exception {
+        _run_deep_reorg_with_synced_headers_with_semi_real_blocks(false);
+    }
+
+    @Test
+    public void should_handle_replicated_delayed_deep_reorg_with_synced_headers_with_semi_real_blocks_and_commit_utxos_before_reorg() throws Exception {
+        _run_deep_reorg_with_synced_headers_with_semi_real_blocks(true);
     }
 
     // TODO: Create a test that attempts to spend an output that does not exist, and ensure that output is not added to the mempool (i.e. that block was "unApplied" to the mempool).
