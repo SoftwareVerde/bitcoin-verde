@@ -1,0 +1,27 @@
+sourceSets {
+    main {
+        java
+        resources
+    }
+    server {
+        java
+        resources
+
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+    test {
+        java
+        resources
+
+        compileClasspath += sourceSets.server.output
+        runtimeClasspath += sourceSets.server.output
+    }
+}
+
+configurations {
+    serverImplementation.extendsFrom implementation
+    serverRuntimeOnly.extendsFrom runtimeOnly
+
+    testImplementation.extendsFrom serverImplementation
+}
