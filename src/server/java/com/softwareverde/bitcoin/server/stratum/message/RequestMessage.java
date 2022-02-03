@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.server.stratum.message;
 import com.softwareverde.json.Json;
 import com.softwareverde.json.Jsonable;
 
-public class RequestMessage implements Jsonable {
+public abstract class RequestMessage implements Jsonable {
     private static int _nextId = 1;
     private static final Object _mutex = new Object();
 
@@ -66,15 +66,16 @@ public class RequestMessage implements Jsonable {
         final Integer id = json.getInteger("id");
         final String command = json.getString("method");
 
-        final RequestMessage requestMessage = new RequestMessage(id, command);
-        requestMessage._parameters = json.get("params");
+        final MutableRequestMessage requestMessage = new MutableRequestMessage(id, command);
+        requestMessage.setParameters(json.get("params"));
 
         return requestMessage;
     }
 
     protected final Integer _id;
     protected final String _command;
-    protected Json _parameters = new Json(true);
+
+    protected abstract Json _getParametersJson();
 
     protected RequestMessage(final Integer id, final String command) {
         synchronizeNextId(id);
@@ -83,17 +84,18 @@ public class RequestMessage implements Jsonable {
         _command = command;
     }
 
-    public  RequestMessage(final String command) {
+    public  RequestMessage(final ServerCommand command) {
         _id = RequestMessage.createId();
-        _command = command;
+        _command = command.getValue();
     }
 
-    public void setParameters(final Json parameters) {
-        _parameters = parameters;
+    public  RequestMessage(final ClientCommand command) {
+        _id = RequestMessage.createId();
+        _command = command.getValue();
     }
 
     public Json getParameters() {
-        return _parameters;
+        return _getParametersJson();
     }
 
     public Integer getId() {
@@ -117,10 +119,12 @@ public class RequestMessage implements Jsonable {
 
     @Override
     public Json toJson() {
+        final Json parametersJson = _getParametersJson();
+
         final Json message = new Json();
         message.put("id", _id);
         message.put("method", _command);
-        message.put("params", _parameters);
+        message.put("params", parametersJson);
         return message;
     }
 

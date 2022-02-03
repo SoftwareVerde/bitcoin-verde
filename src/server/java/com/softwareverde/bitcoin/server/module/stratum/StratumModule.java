@@ -91,10 +91,10 @@ public class StratumModule {
 
         final MasterInflater masterInflater = new CoreInflater();
         if (useBitcoinCoreStratumServer) {
-            _stratumServer = new BitcoinCoreStratumServer(_stratumProperties, _databasePropertiesStore, _stratumThreadPool, masterInflater);
+            _stratumServer = new BitcoinCoreStratumServer(_stratumProperties, _stratumThreadPool, masterInflater);
         }
         else {
-            _stratumServer = new BitcoinVerdeStratumServer(_stratumProperties, _databasePropertiesStore, _stratumThreadPool, masterInflater);
+            _stratumServer = new BitcoinVerdeStratumServer(_stratumProperties, _stratumThreadPool, masterInflater);
         }
 
         _workerShareQueue = new WorkerShareQueue(databaseConnectionFactory);
@@ -258,8 +258,7 @@ public class StratumModule {
                 }
             }
 
-            final String coinbaseAddressString = coinbaseAddress.toBase32CheckEncoded();
-            _databasePropertiesStore.set(BitcoinCoreStratumServer.COINBASE_ADDRESS_KEY, coinbaseAddressString);
+            _stratumServer.setCoinbaseAddress(coinbaseAddress);
         }
 
         { // Ensure the StratumServer has a share difficulty set...

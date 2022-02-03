@@ -1,8 +1,32 @@
 package com.softwareverde.bitcoin.server.stratum.task;
 
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
+
 public class StratumUtil {
     protected static String _createByteString(final char a, final char b) {
         return String.valueOf(a) + b;
+    }
+
+    public static ByteArray swabBytes(final ByteArray input) {
+        // 00 01 02 03 | 04 05 06 07 -> 03 02 01 00 | 07 06 05 04
+        final int byteCount = input.getByteCount();
+        final MutableByteArray byteArray = new MutableByteArray(byteCount);
+
+        for (int i = 0; i < (byteCount / 4); ++i) {
+            final int index = (i * 4);
+            final byte byte0 = input.getByte(index + 0);
+            final byte byte1 = input.getByte(index + 1);
+            final byte byte2 = input.getByte(index + 2);
+            final byte byte3 = input.getByte(index + 3);
+
+            byteArray.setByte(index + 3, byte3);
+            byteArray.setByte(index + 2, byte2);
+            byteArray.setByte(index + 1, byte1);
+            byteArray.setByte(index + 0, byte0);
+        }
+
+        return byteArray;
     }
 
     public static String swabHexString(final String input) {

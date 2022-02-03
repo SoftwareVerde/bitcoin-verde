@@ -35,8 +35,8 @@ public class StratumMineBlockTaskBuilderCore implements MutableStratumMineBlockT
     protected final Integer _totalExtraNonceByteCount;
 
     protected String _extraNonce1;
-    protected String _coinbaseTransactionHead;
-    protected String _coinbaseTransactionTail;
+    protected ByteArray _coinbaseTransactionHead;
+    protected ByteArray _coinbaseTransactionTail;
     protected Long _blockHeight;
 
     protected final ReentrantReadWriteLock.ReadLock _prototypeBlockReadLock;
@@ -70,9 +70,9 @@ public class StratumMineBlockTaskBuilderCore implements MutableStratumMineBlockT
             //      0x08    |                       |
             //
 
-            final int headByteCountExcludingExtraNonces = (coinbaseTransactionParts.headBytes.length - _totalExtraNonceByteCount);
-            _coinbaseTransactionHead = HexUtil.toHexString(ByteUtil.copyBytes(coinbaseTransactionParts.headBytes, 0, headByteCountExcludingExtraNonces));
-            _coinbaseTransactionTail = HexUtil.toHexString(coinbaseTransactionParts.tailBytes);
+            final int headByteCountExcludingExtraNonce = (coinbaseTransactionParts.headBytes.length - _totalExtraNonceByteCount);
+            _coinbaseTransactionHead = ByteArray.wrap(ByteUtil.copyBytes(coinbaseTransactionParts.headBytes, 0, headByteCountExcludingExtraNonce));
+            _coinbaseTransactionTail = ByteArray.wrap(coinbaseTransactionParts.tailBytes);
 
             _prototypeBlock.replaceTransaction(0, coinbaseTransaction);
         }
