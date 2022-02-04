@@ -18,6 +18,12 @@ public interface StratumServer {
     void setWorkerShareCallback(WorkerShareCallback workerShareCallback);
     void setBlockFoundCallback(BlockFoundCallback blockFoundCallback);
 
+    /**
+     * When enabled, the ShareDifficulty is used as a multiplier, not divisor.
+     *  This function may be used to accept shares less than the base difficulty.
+     */
+    void invertDifficulty(Boolean shouldInvertDifficulty);
+
     void start();
     void stop();
 }

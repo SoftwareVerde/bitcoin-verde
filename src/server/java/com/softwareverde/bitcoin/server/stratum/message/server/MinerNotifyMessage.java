@@ -7,15 +7,16 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.HexUtil;
 
 public class MinerNotifyMessage extends RequestMessage {
     protected ByteArray _jobId;
-    protected ByteArray _littleEndianPreviousBlockHash;
+    protected Sha256Hash _littleEndianPreviousBlockHash;
     protected ByteArray _coinbaseTransactionHead;
     protected ByteArray _coinbaseTransactionTail;
-    protected final MutableList<ByteArray> _littleEndianMerkleTreeBranches = new MutableList<>(0);
+    protected final MutableList<Sha256Hash> _littleEndianMerkleTreeBranches = new MutableList<>(0);
     protected Long _blockVersion;
     protected Difficulty _blockDifficulty;
     protected Long _blockTimestamp;
@@ -33,11 +34,11 @@ public class MinerNotifyMessage extends RequestMessage {
         _jobId = jobId;
     }
 
-    public ByteArray getLittleEndianPreviousBlockHash() {
+    public Sha256Hash getLittleEndianPreviousBlockHash() {
         return _littleEndianPreviousBlockHash;
     }
 
-    public void setLittleEndianPreviousBlockHash(final ByteArray littleEndianPreviousBlockHash) {
+    public void setLittleEndianPreviousBlockHash(final Sha256Hash littleEndianPreviousBlockHash) {
         _littleEndianPreviousBlockHash = littleEndianPreviousBlockHash;
     }
 
@@ -57,13 +58,13 @@ public class MinerNotifyMessage extends RequestMessage {
         _coinbaseTransactionTail = coinbaseTransactionTail;
     }
 
-    public List<ByteArray> getLittleEndianMerkleTreeBranches() {
+    public List<Sha256Hash> getLittleEndianMerkleTreeBranches() {
         return _littleEndianMerkleTreeBranches;
     }
 
-    public void setLittleEndianMerkleTreeBranches(final List<? extends ByteArray> merkleTreeBranches) {
+    public void setLittleEndianMerkleTreeBranches(final List<Sha256Hash> merkleTreeBranches) {
         _littleEndianMerkleTreeBranches.clear();
-        for (final ByteArray byteArray : merkleTreeBranches) {
+        for (final Sha256Hash byteArray : merkleTreeBranches) {
             _littleEndianMerkleTreeBranches.add(byteArray);
         }
     }

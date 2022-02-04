@@ -88,6 +88,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
     protected WorkerShareCallback _workerShareCallback;
     protected BlockFoundCallback _blockFoundCallback;
 
+    protected Boolean _invertDifficultyEnabled = false;
     protected Long _baseShareDifficulty = 2048L;
 
     protected Address _getCoinbaseAddress() {
@@ -376,7 +377,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
         }
 
         final Long baseShareDifficulty = _baseShareDifficulty;
-        final Difficulty shareDifficulty = Difficulty.BASE_DIFFICULTY.divideBy(baseShareDifficulty);
+        final Difficulty shareDifficulty = (_invertDifficultyEnabled ? Difficulty.BASE_DIFFICULTY.multiplyBy(baseShareDifficulty) : Difficulty.BASE_DIFFICULTY.divideBy(baseShareDifficulty));
 
         final BlockHeader blockHeader = mineBlockTask.assembleBlockHeader(stratumNonce, stratumExtraNonce2, stratumTimestamp);
         final Sha256Hash blockHash = blockHeader.getHash();
@@ -653,6 +654,11 @@ public class BitcoinCoreStratumServer implements StratumServer {
     @Override
     public void setBlockFoundCallback(final BlockFoundCallback blockFoundCallback) {
         _blockFoundCallback = blockFoundCallback;
+    }
+
+    @Override
+    public void invertDifficulty(final Boolean shouldInvertDifficulty) {
+        _invertDifficultyEnabled = shouldInvertDifficulty;
     }
 
     @Override
