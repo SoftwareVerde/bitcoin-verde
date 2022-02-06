@@ -20,10 +20,10 @@ public class StratumUtil {
             final byte byte2 = input.getByte(index + 2);
             final byte byte3 = input.getByte(index + 3);
 
-            byteArray.setByte(index + 3, byte3);
-            byteArray.setByte(index + 2, byte2);
-            byteArray.setByte(index + 1, byte1);
-            byteArray.setByte(index + 0, byte0);
+            byteArray.setByte(index + 0, byte3);
+            byteArray.setByte(index + 1, byte2);
+            byteArray.setByte(index + 2, byte1);
+            byteArray.setByte(index + 3, byte0);
         }
 
         return byteArray;

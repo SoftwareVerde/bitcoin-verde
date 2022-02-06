@@ -13,7 +13,7 @@ import com.softwareverde.util.HexUtil;
 
 public class MinerNotifyMessage extends RequestMessage {
     protected ByteArray _jobId;
-    protected Sha256Hash _littleEndianPreviousBlockHash;
+    protected Sha256Hash _previousBlockHash;
     protected ByteArray _coinbaseTransactionHead;
     protected ByteArray _coinbaseTransactionTail;
     protected final MutableList<Sha256Hash> _littleEndianMerkleTreeBranches = new MutableList<>(0);
@@ -34,12 +34,12 @@ public class MinerNotifyMessage extends RequestMessage {
         _jobId = jobId;
     }
 
-    public Sha256Hash getLittleEndianPreviousBlockHash() {
-        return _littleEndianPreviousBlockHash;
+    public Sha256Hash previousBlockHash() {
+        return _previousBlockHash;
     }
 
-    public void setLittleEndianPreviousBlockHash(final Sha256Hash littleEndianPreviousBlockHash) {
-        _littleEndianPreviousBlockHash = littleEndianPreviousBlockHash;
+    public void setPreviousBlockHash(final Sha256Hash previousBlockHash) {
+        _previousBlockHash = previousBlockHash;
     }
 
     public ByteArray getCoinbaseTransactionHead() {
@@ -105,11 +105,11 @@ public class MinerNotifyMessage extends RequestMessage {
     protected Json _getParametersJson() {
         final Json parametersJson = new Json(true);
 
-        final ByteArray taskIdHex = ByteArray.wrap(ByteUtil.integerToBytes(_id));
-        parametersJson.add(taskIdHex);
+        parametersJson.add(_jobId);
 
-        final ByteArray swabbedLittleEndianPreviousBlockHash = StratumUtil.swabBytes(_littleEndianPreviousBlockHash);
-        parametersJson.add(swabbedLittleEndianPreviousBlockHash);
+        final Sha256Hash previousBlockHashLe = _previousBlockHash.toReversedEndian();
+        final ByteArray previousBlockHashSwabbedLe = StratumUtil.swabBytes(previousBlockHashLe);
+        parametersJson.add(previousBlockHashSwabbedLe);
 
         parametersJson.add(_coinbaseTransactionHead);
         parametersJson.add(_coinbaseTransactionTail);

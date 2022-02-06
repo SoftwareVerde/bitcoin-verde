@@ -3,14 +3,12 @@ package com.softwareverde.bitcoin.server.stratum.task;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.ImmutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.server.stratum.message.server.MinerNotifyMessage;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -93,15 +91,11 @@ public class StratumMineBlockTask {
     }
 
     protected MinerNotifyMessage _createRequest(final Boolean abandonOldJobs) {
-        final Sha256Hash previousBlockHashLE;
-        {
-            final Sha256Hash previousBlockHash = _prototypeBlock.getPreviousBlockHash();
-            previousBlockHashLE = previousBlockHash.toReversedEndian();
-        }
+        final Sha256Hash previousBlockHash = _prototypeBlock.getPreviousBlockHash();
 
         final MinerNotifyMessage minerNotifyMessage = new MinerNotifyMessage();
         minerNotifyMessage.setJobId(_id);
-        minerNotifyMessage.setLittleEndianPreviousBlockHash(previousBlockHashLE);
+        minerNotifyMessage.setPreviousBlockHash(previousBlockHash);
         minerNotifyMessage.setCoinbaseTransactionHead(_coinbaseTransactionHead);
         minerNotifyMessage.setCoinbaseTransactionTail(_coinbaseTransactionTail);
         minerNotifyMessage.setLittleEndianMerkleTreeBranches(_merkleTreeBranches);
