@@ -12,7 +12,8 @@ import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.stratum.message.RequestMessage;
 import com.softwareverde.bitcoin.server.stratum.message.ResponseMessage;
-import com.softwareverde.bitcoin.server.stratum.message.server.MinerSubmitBlockResult;
+import com.softwareverde.bitcoin.server.stratum.message.server.MinerSubmitBlockResponseMessage;
+import com.softwareverde.bitcoin.server.stratum.message.server.SetDifficultyMessage;
 import com.softwareverde.bitcoin.server.stratum.socket.StratumServerSocket;
 import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTask;
 import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTaskBuilderCore;
@@ -140,7 +141,7 @@ class StratumMiner {
     protected StratumMineBlockTaskBuilderCore _stratumMineBlockTaskBuilder;
     protected StratumMineBlockTask _currentMineBlockTask = null;
 
-    protected Integer _shareDifficulty = 1;
+    protected Long _shareDifficulty = 1L;
 
     protected Thread _mainThread;
 
@@ -194,14 +195,12 @@ class StratumMiner {
     }
 
     protected void _setDifficulty(final JsonSocket socketConnection) {
-        final RequestMessage mineBlockMessage = new RequestMessage(RequestMessage.ServerCommand.SET_DIFFICULTY.getValue());
+        final SetDifficultyMessage setDifficultyMessage = new SetDifficultyMessage();
 
-        final Json parametersJson = new Json(true);
-        parametersJson.add(_shareDifficulty); // Difficulty::getDifficultyRatio
-        mineBlockMessage.setParameters(parametersJson);
+        setDifficultyMessage.setShareDifficulty(_shareDifficulty); // Difficulty::getDifficultyRatio
 
-        Logger.info("Sent: "+ mineBlockMessage);
-        socketConnection.write(new JsonProtocolMessage(mineBlockMessage));
+        Logger.info("Sent: "+ setDifficultyMessage);
+        socketConnection.write(new JsonProtocolMessage(setDifficultyMessage));
     }
 
     protected void _handleSubscribeMessage(final RequestMessage requestMessage, final JsonSocket socketConnection) {
@@ -300,7 +299,7 @@ class StratumMiner {
             }
         }
 
-        final ResponseMessage blockAcceptedMessage = new MinerSubmitBlockResult(requestMessage.getId(), error);
+        final ResponseMessage blockAcceptedMessage = new MinerSubmitBlockResponseMessage(requestMessage.getId(), error);
 
         Logger.info("Sent: "+ blockAcceptedMessage);
         socketConnection.write(new JsonProtocolMessage(blockAcceptedMessage));
