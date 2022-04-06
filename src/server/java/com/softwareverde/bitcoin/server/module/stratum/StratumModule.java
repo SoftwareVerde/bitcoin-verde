@@ -7,6 +7,8 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.miner.pool.WorkerId;
+import com.softwareverde.bitcoin.rpc.BitcoinMiningRpcConnectorFactory;
+import com.softwareverde.bitcoin.rpc.RpcCredentials;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.database.Database;
@@ -34,10 +36,11 @@ import com.softwareverde.bitcoin.server.module.stratum.key.ServerEncryptionKey;
 import com.softwareverde.bitcoin.server.module.stratum.rpc.StratumRpcServer;
 import com.softwareverde.bitcoin.server.properties.DatabasePropertiesStore;
 import com.softwareverde.bitcoin.stratum.BitcoinCoreStratumServer;
-import com.softwareverde.bitcoin.stratum.BitcoinVerdeStratumServer;
 import com.softwareverde.bitcoin.stratum.StratumServer;
 import com.softwareverde.bitcoin.stratum.callback.BlockFoundCallback;
 import com.softwareverde.bitcoin.stratum.callback.WorkerShareCallback;
+import com.softwareverde.bitcoin.stratum.rpc.BitcoinCoreMiningRpcConnectorFactory;
+import com.softwareverde.bitcoin.stratum.rpc.BitcoinVerdeMiningRpcConnectorFactory;
 import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -93,12 +96,22 @@ public class StratumModule {
         _databasePropertiesStore = new DatabasePropertiesStore(databaseConnectionFactory);
 
         final MasterInflater masterInflater = new CoreInflater();
-        if (useBitcoinCoreStratumServer) {
-            _stratumServer = new BitcoinCoreStratumServer(_stratumProperties, _stratumThreadPool, masterInflater);
+        final BitcoinMiningRpcConnectorFactory rpcConnectorFactory;
+        {
+            final String bitcoinRpcUrl = _stratumProperties.getBitcoinRpcUrl();
+            final Integer bitcoinRpcPort = _stratumProperties.getBitcoinRpcPort();
+            final RpcCredentials rpcCredentials = _stratumProperties.getRpcCredentials();
+
+            if (useBitcoinCoreStratumServer) {
+                rpcConnectorFactory = new BitcoinCoreMiningRpcConnectorFactory(bitcoinRpcUrl, bitcoinRpcPort, rpcCredentials);
+            }
+            else {
+                rpcConnectorFactory = new BitcoinVerdeMiningRpcConnectorFactory(bitcoinRpcUrl, bitcoinRpcPort, rpcCredentials);
+            }
         }
-        else {
-            _stratumServer = new BitcoinVerdeStratumServer(_stratumProperties, _stratumThreadPool, masterInflater);
-        }
+
+        final Integer stratumPort = _stratumProperties.getBitcoinRpcPort();
+        _stratumServer = new BitcoinCoreStratumServer(rpcConnectorFactory, stratumPort, _stratumThreadPool, masterInflater);
 
         _workerShareQueue = new WorkerShareQueue(databaseConnectionFactory);
         _stratumServer.setWorkerShareCallback(new WorkerShareCallback() {

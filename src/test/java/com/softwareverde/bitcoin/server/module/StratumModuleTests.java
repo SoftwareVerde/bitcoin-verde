@@ -7,12 +7,13 @@ import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.rpc.BitcoinMiningRpcConnector;
+import com.softwareverde.bitcoin.rpc.BitcoinMiningRpcConnectorFactory;
 import com.softwareverde.bitcoin.rpc.BitcoinVerdeRpcConnector;
 import com.softwareverde.bitcoin.rpc.NodeJsonRpcConnection;
 import com.softwareverde.bitcoin.server.configuration.Configuration;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.stratum.task.StratumUtil;
-import com.softwareverde.bitcoin.stratum.BitcoinVerdeStratumServer;
+import com.softwareverde.bitcoin.stratum.BitcoinCoreStratumServer;
 import com.softwareverde.bitcoin.stratum.socket.StratumServerSocket;
 import com.softwareverde.bitcoin.stratum.task.StratumMineBlockTask;
 import com.softwareverde.bitcoin.test.UnitTest;
@@ -161,7 +162,34 @@ class FakeStratumServerSocket extends StratumServerSocket {
     }
 }
 
-class BitcoinVerdeStratumServerPartialMock extends BitcoinVerdeStratumServer {
+class BitcoinVerdeStratumServerPartialMock extends BitcoinCoreStratumServer {
+    static class BitcoinVerdeRpcConnectorFactory implements BitcoinMiningRpcConnectorFactory {
+        protected final MutableList<Json> _fakeJsonResponses = new MutableList<>();
+
+        public MutableList<Json> getFakeJsonResponses() {
+            return _fakeJsonResponses;
+        }
+
+        @Override
+        public BitcoinMiningRpcConnector newBitcoinMiningRpcConnector() {
+            return new BitcoinVerdeRpcConnector(null, null) {
+                @Override
+                protected NodeJsonRpcConnection _getRpcConnection() {
+                    return new NodeJsonRpcConnection(new Socket(), null) {
+                        @Override
+                        protected Json _executeJsonRequest(final Json rpcRequestJson) {
+                            System.out.println("Stratum Sent: " + rpcRequestJson.toString());
+
+                            final Json jsonResponse = _fakeJsonResponses.remove(0);
+                            System.out.println("Stratum Received: " + jsonResponse.toString());
+                            return jsonResponse;
+                        }
+                    };
+                }
+            };
+        }
+    };
+
     protected static Configuration CONFIGURATION;
 
     static {
@@ -175,32 +203,20 @@ class BitcoinVerdeStratumServerPartialMock extends BitcoinVerdeStratumServer {
         }
     }
 
-    protected final MutableList<Json> _fakeJsonResponses = new MutableList<>();
+    protected final MutableList<Json> _fakeJsonResponses;
 
     public BitcoinVerdeStratumServerPartialMock() {
-        super(CONFIGURATION.getStratumProperties(), new CachedThreadPool(1, 1L), new CoreInflater());
+        super(
+            new BitcoinVerdeRpcConnectorFactory(),
+            CONFIGURATION.getStratumProperties().getPort(),
+            new CachedThreadPool(1, 1L),
+            new CoreInflater()
+        );
+
+        _fakeJsonResponses = ((BitcoinVerdeRpcConnectorFactory) _rpcConnectionFactory).getFakeJsonResponses();
         ((CachedThreadPool) _threadPool).start();
 
         ReflectionUtil.setValue(this, "_stratumServerSocket", new FakeStratumServerSocket());
-    }
-
-    @Override
-    protected BitcoinMiningRpcConnector _getBitcoinRpcConnector() {
-        return new BitcoinVerdeRpcConnector(null, null) {
-            @Override
-            protected NodeJsonRpcConnection _getRpcConnection() {
-                return new NodeJsonRpcConnection(new Socket(), null) {
-                    @Override
-                    protected Json _executeJsonRequest(final Json rpcRequestJson) {
-                        System.out.println("Stratum Sent: " + rpcRequestJson.toString());
-
-                        final Json jsonResponse = _fakeJsonResponses.remove(0);
-                        System.out.println("Stratum Received: " + jsonResponse.toString());
-                        return jsonResponse;
-                    }
-                };
-            }
-        };
     }
 
     public void queueFakeJsonResponse(final Json json) {

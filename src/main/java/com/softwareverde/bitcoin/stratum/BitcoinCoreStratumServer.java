@@ -8,14 +8,11 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.rpc.BitcoinMiningRpcConnector;
-import com.softwareverde.bitcoin.rpc.BitcoinNodeRpcAddress;
+import com.softwareverde.bitcoin.rpc.BitcoinMiningRpcConnectorFactory;
 import com.softwareverde.bitcoin.rpc.BlockTemplate;
-import com.softwareverde.bitcoin.rpc.RpcCredentials;
 import com.softwareverde.bitcoin.rpc.RpcNotification;
 import com.softwareverde.bitcoin.rpc.RpcNotificationCallback;
 import com.softwareverde.bitcoin.rpc.RpcNotificationType;
-import com.softwareverde.bitcoin.rpc.core.BitcoinCoreRpcConnector;
-import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.stratum.message.RequestMessage;
 import com.softwareverde.bitcoin.server.stratum.message.ResponseMessage;
@@ -55,9 +52,9 @@ public class BitcoinCoreStratumServer implements StratumServer {
     protected static final Boolean PROXY_VIABTC = false;
 
     protected final MasterInflater _masterInflater;
-    protected final StratumProperties _stratumProperties;
     protected final StratumServerSocket _stratumServerSocket;
     protected final ThreadPool _threadPool;
+    protected final BitcoinMiningRpcConnectorFactory _rpcConnectionFactory;
 
     protected final Boolean _blockTemplateValidationIsEnabled = true;
     protected final Integer _extraNonceByteCount = 4;
@@ -100,7 +97,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
         nanoTimer.start();
 
         final BlockTemplate blockTemplate;
-        try (final BitcoinMiningRpcConnector rpcConnection = _getBitcoinRpcConnector()) {
+        try (final BitcoinMiningRpcConnector rpcConnection = _rpcConnectionFactory.newBitcoinMiningRpcConnector()) {
             blockTemplate = rpcConnection.getBlockTemplate();
         }
         nanoTimer.stop();
@@ -194,16 +191,6 @@ public class BitcoinCoreStratumServer implements StratumServer {
         return extraNonce;
     }
 
-    protected BitcoinMiningRpcConnector _getBitcoinRpcConnector() {
-        final String bitcoinRpcUrl = _stratumProperties.getBitcoinRpcUrl();
-        final Integer bitcoinRpcPort = _stratumProperties.getBitcoinRpcPort();
-
-        final RpcCredentials rpcCredentials = _stratumProperties.getRpcCredentials();
-        final BitcoinNodeRpcAddress bitcoinNodeRpcAddress = new BitcoinNodeRpcAddress(bitcoinRpcUrl, bitcoinRpcPort, false);
-
-        return new BitcoinCoreRpcConnector(bitcoinNodeRpcAddress, rpcCredentials);
-    }
-
     protected void _resetHashCountMonitoring() {
         _currentBlockStartTime = _systemTime.getCurrentTimeInSeconds();
         _shareCount.set(0L);
@@ -267,7 +254,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
             validateTimer.start();
             final Block block = mineBlockTask.assembleBlockTemplate(_extraNonceByteCount, _extraNonce2ByteCount);
             final Boolean isValid;
-            try (final BitcoinMiningRpcConnector rpcConnection = _getBitcoinRpcConnector()) {
+            try (final BitcoinMiningRpcConnector rpcConnection = _rpcConnectionFactory.newBitcoinMiningRpcConnector()) {
                 isValid = rpcConnection.validateBlockTemplate(block);
             }
             validateTimer.stop();
@@ -405,7 +392,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
             final Block block = mineBlockTask.assembleBlock(stratumNonce, stratumExtraNonce2, stratumTimestamp);
             Logger.info(blockDeflater.toBytes(block));
 
-            final BitcoinMiningRpcConnector bitcoinRpcConnector = _getBitcoinRpcConnector();
+            final BitcoinMiningRpcConnector bitcoinRpcConnector = _rpcConnectionFactory.newBitcoinMiningRpcConnector();
             final Boolean submitBlockResponse = bitcoinRpcConnector.submitBlock(block);
             if (! submitBlockResponse) {
                 Logger.warn("Unable to submit block: " + blockHash);
@@ -514,13 +501,13 @@ public class BitcoinCoreStratumServer implements StratumServer {
         };
     }
 
-    public BitcoinCoreStratumServer(final StratumProperties stratumProperties, final ThreadPool threadPool, final MasterInflater masterInflater) {
-        this(stratumProperties, threadPool, masterInflater, new StratumServerSocket(stratumProperties.getPort(), threadPool));
+    public BitcoinCoreStratumServer(final BitcoinMiningRpcConnectorFactory rpcConnectionFactory, final Integer stratumPort, final ThreadPool threadPool, final MasterInflater masterInflater) {
+        this(rpcConnectionFactory, new StratumServerSocket(stratumPort, threadPool), threadPool, masterInflater);
     }
 
-    public BitcoinCoreStratumServer(final StratumProperties stratumProperties, final ThreadPool threadPool, final MasterInflater masterInflater, final StratumServerSocket stratumServerSocket) {
+    public BitcoinCoreStratumServer(final BitcoinMiningRpcConnectorFactory rpcConnectionFactory, final StratumServerSocket stratumServerSocket, final ThreadPool threadPool, final MasterInflater masterInflater) {
         _masterInflater = masterInflater;
-        _stratumProperties = stratumProperties;
+        _rpcConnectionFactory = rpcConnectionFactory;
         _threadPool = threadPool;
         _seedBytes = _createRandomBytes(_extraNonceByteCount);
 
@@ -557,7 +544,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
         _timeSinceLastTemplateValidation.start();
         _rebuildBlockTemplate();
 
-        final BitcoinMiningRpcConnector notificationBitcoinRpcConnector = _getBitcoinRpcConnector();
+        final BitcoinMiningRpcConnector notificationBitcoinRpcConnector = _rpcConnectionFactory.newBitcoinMiningRpcConnector();
         notificationBitcoinRpcConnector.subscribeToNotifications(new RpcNotificationCallback() {
             @Override
             public void onNewNotification(final RpcNotification rpcNotification) {
