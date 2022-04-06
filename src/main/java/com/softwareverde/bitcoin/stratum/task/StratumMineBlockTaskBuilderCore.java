@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.stratum.task;
+package com.softwareverde.bitcoin.stratum.task;
 
 import com.softwareverde.bitcoin.block.CanonicalMutableBlock;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;

@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.stratum.callback;
+package com.softwareverde.bitcoin.stratum.callback;
 
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 

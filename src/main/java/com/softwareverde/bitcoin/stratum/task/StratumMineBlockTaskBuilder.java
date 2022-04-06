@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.stratum.task;
+package com.softwareverde.bitcoin.stratum.task;
 
 public interface StratumMineBlockTaskBuilder {
     StratumMineBlockTask buildMineBlockTask();

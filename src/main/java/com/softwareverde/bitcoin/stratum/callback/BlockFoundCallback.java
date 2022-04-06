@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.stratum.callback;
+package com.softwareverde.bitcoin.stratum.callback;
 
 import com.softwareverde.bitcoin.block.Block;
 

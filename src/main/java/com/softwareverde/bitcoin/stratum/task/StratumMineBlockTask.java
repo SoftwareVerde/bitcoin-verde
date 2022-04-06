@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.stratum.task;
+package com.softwareverde.bitcoin.stratum.task;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.ImmutableBlock;
@@ -7,7 +7,7 @@ import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
-import com.softwareverde.bitcoin.server.stratum.message.server.MinerNotifyMessage;
+import com.softwareverde.bitcoin.stratum.message.server.MinerNotifyMessage;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.util.ByteUtil;

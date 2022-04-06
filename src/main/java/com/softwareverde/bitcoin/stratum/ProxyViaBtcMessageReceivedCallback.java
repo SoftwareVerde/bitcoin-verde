@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.stratum;
+package com.softwareverde.bitcoin.stratum;
 
 import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.json.Json;

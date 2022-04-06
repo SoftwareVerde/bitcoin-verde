@@ -1,9 +1,9 @@
-package com.softwareverde.bitcoin.server.module.stratum;
+package com.softwareverde.bitcoin.stratum;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.server.module.stratum.callback.BlockFoundCallback;
-import com.softwareverde.bitcoin.server.module.stratum.callback.WorkerShareCallback;
+import com.softwareverde.bitcoin.stratum.callback.BlockFoundCallback;
+import com.softwareverde.bitcoin.stratum.callback.WorkerShareCallback;
 
 public interface StratumServer {
     Long getCurrentBlockStartTimeInSeconds();

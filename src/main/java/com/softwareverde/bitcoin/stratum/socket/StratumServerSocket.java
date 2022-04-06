@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.stratum.socket;
+package com.softwareverde.bitcoin.stratum.socket;
 
 import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.logging.Logger;

@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.stratum;
+package com.softwareverde.bitcoin.stratum;
 
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.rpc.BitcoinMiningRpcConnector;
@@ -7,7 +7,7 @@ import com.softwareverde.bitcoin.rpc.BitcoinVerdeRpcConnector;
 import com.softwareverde.bitcoin.rpc.NodeJsonRpcConnection;
 import com.softwareverde.bitcoin.rpc.RpcCredentials;
 import com.softwareverde.bitcoin.server.configuration.StratumProperties;
-import com.softwareverde.bitcoin.server.stratum.socket.StratumServerSocket;
+import com.softwareverde.bitcoin.stratum.socket.StratumServerSocket;
 import com.softwareverde.concurrent.threadpool.ThreadPool;
 
 public class BitcoinVerdeStratumServer extends BitcoinCoreStratumServer {

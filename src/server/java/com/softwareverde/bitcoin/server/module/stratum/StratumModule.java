@@ -29,12 +29,15 @@ import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.work
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolHashRateApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolPrototypeBlockApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolWorkerApi;
-import com.softwareverde.bitcoin.server.module.stratum.callback.BlockFoundCallback;
-import com.softwareverde.bitcoin.server.module.stratum.callback.WorkerShareCallback;
 import com.softwareverde.bitcoin.server.module.stratum.database.WorkerDatabaseManager;
 import com.softwareverde.bitcoin.server.module.stratum.key.ServerEncryptionKey;
 import com.softwareverde.bitcoin.server.module.stratum.rpc.StratumRpcServer;
 import com.softwareverde.bitcoin.server.properties.DatabasePropertiesStore;
+import com.softwareverde.bitcoin.stratum.BitcoinCoreStratumServer;
+import com.softwareverde.bitcoin.stratum.BitcoinVerdeStratumServer;
+import com.softwareverde.bitcoin.stratum.StratumServer;
+import com.softwareverde.bitcoin.stratum.callback.BlockFoundCallback;
+import com.softwareverde.bitcoin.stratum.callback.WorkerShareCallback;
 import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
