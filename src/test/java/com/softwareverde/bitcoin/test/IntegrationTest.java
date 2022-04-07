@@ -78,11 +78,6 @@ public class IntegrationTest extends UnitTest {
     protected final Long _requiredCoinbaseMaturity = 0L;
 
     public IntegrationTest() {
-        Logger.setLogLevel("com.zaxxer.hikari.pool", LogLevel.WARN);
-        Logger.setLogLevel("com.zaxxer.hikari.pool", LogLevel.WARN);
-        Logger.setLogLevel("ch.vorburger.exec", LogLevel.WARN);
-        Logger.setLogLevel("ch.vorburger.mariadb4j", LogLevel.WARN);
-
         try {
             _utxoCommitmentStore = new UtxoCommitmentStoreCore(Files.createTempDirectory("utxo").toFile().getAbsolutePath());
             _propertiesStore = new InMemoryPropertiesStore();
@@ -112,7 +107,6 @@ public class IntegrationTest extends UnitTest {
         final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactoryWrapper(_databaseConnectionFactory);
         _readUncommittedDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, _database.getMaxQueryBatchSize(), _propertiesStore, _blockStore, _utxoCommitmentStore, _masterInflater, _checkpointConfiguration);
 
-        // Bypass the Hikari database connection pool...
         _database.setDatabaseConnectionPool(new DatabaseConnectionPool() {
             protected final MutableList<DatabaseConnection> _databaseConnections = new MutableList<>();
 
