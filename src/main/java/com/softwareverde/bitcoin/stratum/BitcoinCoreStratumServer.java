@@ -62,7 +62,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
     protected final Integer _totalExtraNonceByteCount = (_extraNonceByteCount + _extraNonce2ByteCount);
     protected final ByteArray _seedBytes;
 
-    protected final SystemTime _systemTime = new SystemTime();
+    protected final SystemTime _systemTime;
 
     // Multi buffered maps to gradually purge old tasks between block template regeneration...
     protected final ConcurrentHashMap<Long, StratumMineBlockTask> _mineBlockTasks = new ConcurrentHashMap<>(); // Map: JobId -> MineBlockTask
@@ -76,8 +76,8 @@ public class BitcoinCoreStratumServer implements StratumServer {
     protected BlockTemplate _blockTemplate;
     protected final NanoTimer _timeSinceLastTemplateValidation = new NanoTimer();
 
-    protected final Long _startTime = _systemTime.getCurrentTimeInSeconds();
-    protected Long _currentBlockStartTime = _systemTime.getCurrentTimeInSeconds();
+    protected final Long _startTime;
+    protected Long _currentBlockStartTime;
     protected final AtomicLong _shareCount = new AtomicLong(0L);
 
     protected final ConcurrentHashMap<Long, JsonSocket> _connections = new ConcurrentHashMap<>(); // ConnectionId -> Connection
@@ -204,7 +204,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
         nanoTimer.start();
 
         final ByteArray extraNonce = _getExtraNonce(jsonSocketId);
-        final MutableStratumMineBlockTaskBuilder stratumMineBlockTaskBuilder = new StratumMineBlockTaskBuilderCore(_totalExtraNonceByteCount, transactionDeflater);
+        final MutableStratumMineBlockTaskBuilder stratumMineBlockTaskBuilder = new StratumMineBlockTaskBuilderCore(_totalExtraNonceByteCount, transactionDeflater, _systemTime);
 
         final String coinbaseMessage = BitcoinConstants.getCoinbaseMessage();
         final List<ByteArray> extraBytes = new ImmutableList<>(
@@ -501,11 +501,23 @@ public class BitcoinCoreStratumServer implements StratumServer {
         };
     }
 
+    public BitcoinCoreStratumServer(final BitcoinMiningRpcConnectorFactory rpcConnectionFactory, final Integer stratumPort, final ThreadPool threadPool, final MasterInflater masterInflater, final SystemTime systemTime) {
+        this(rpcConnectionFactory, new StratumServerSocket(stratumPort, threadPool), threadPool, masterInflater, systemTime);
+    }
+
     public BitcoinCoreStratumServer(final BitcoinMiningRpcConnectorFactory rpcConnectionFactory, final Integer stratumPort, final ThreadPool threadPool, final MasterInflater masterInflater) {
-        this(rpcConnectionFactory, new StratumServerSocket(stratumPort, threadPool), threadPool, masterInflater);
+        this(rpcConnectionFactory, new StratumServerSocket(stratumPort, threadPool), threadPool, masterInflater, new SystemTime());
     }
 
     public BitcoinCoreStratumServer(final BitcoinMiningRpcConnectorFactory rpcConnectionFactory, final StratumServerSocket stratumServerSocket, final ThreadPool threadPool, final MasterInflater masterInflater) {
+        this(rpcConnectionFactory, stratumServerSocket, threadPool, masterInflater, new SystemTime());
+    }
+
+    public BitcoinCoreStratumServer(final BitcoinMiningRpcConnectorFactory rpcConnectionFactory, final StratumServerSocket stratumServerSocket, final ThreadPool threadPool, final MasterInflater masterInflater, final SystemTime systemTime) {
+        _systemTime = systemTime;
+        _startTime = _systemTime.getCurrentTimeInSeconds();
+        _currentBlockStartTime = _systemTime.getCurrentTimeInSeconds();
+
         _masterInflater = masterInflater;
         _rpcConnectionFactory = rpcConnectionFactory;
         _threadPool = threadPool;

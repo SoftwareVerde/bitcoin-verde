@@ -28,7 +28,7 @@ public class StratumMineBlockTaskBuilderCore implements MutableStratumMineBlockT
         }
     }
 
-    protected final SystemTime _systemTime = new SystemTime();
+    protected final SystemTime _systemTime;
     protected final TransactionDeflater _transactionDeflater;
 
     protected final CanonicalMutableBlock _prototypeBlock = new CanonicalMutableBlock();
@@ -90,8 +90,13 @@ public class StratumMineBlockTaskBuilderCore implements MutableStratumMineBlockT
     }
 
     public StratumMineBlockTaskBuilderCore(final Integer totalExtraNonceByteCount, final TransactionDeflater transactionDeflater) {
+        this(totalExtraNonceByteCount, transactionDeflater, new SystemTime());
+    }
+
+    public StratumMineBlockTaskBuilderCore(final Integer totalExtraNonceByteCount, final TransactionDeflater transactionDeflater, final SystemTime systemTime) {
         _totalExtraNonceByteCount = totalExtraNonceByteCount;
         _transactionDeflater = transactionDeflater;
+        _systemTime = systemTime;
 
         final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
         _prototypeBlockReadLock = readWriteLock.readLock();
@@ -159,7 +164,7 @@ public class StratumMineBlockTaskBuilderCore implements MutableStratumMineBlockT
             final Long nextId = StratumMineBlockTaskBuilderCore.getNextId();
             final ByteArray idBytes = MutableByteArray.wrap(ByteUtil.integerToBytes(nextId));
             final Long blockHeight = _blockHeight;
-            return new StratumMineBlockTask(idBytes, blockHeight, _prototypeBlock, _coinbaseTransactionHead, _coinbaseTransactionTail, _extraNonce1);
+            return new StratumMineBlockTask(idBytes, blockHeight, _prototypeBlock, _coinbaseTransactionHead, _coinbaseTransactionTail, _extraNonce1, _systemTime);
         }
         finally {
             _prototypeBlockReadLock.unlock();

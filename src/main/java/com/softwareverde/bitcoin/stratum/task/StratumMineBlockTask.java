@@ -108,6 +108,10 @@ public class StratumMineBlockTask {
     }
 
     public StratumMineBlockTask(final ByteArray id, final Long blockHeight, final Block prototypeBlock, final ByteArray coinbaseTransactionHead, final ByteArray coinbaseTransactionTail, final String extraNonce1) {
+        this(id, blockHeight, prototypeBlock, coinbaseTransactionHead, coinbaseTransactionTail, extraNonce1, new SystemTime());
+    }
+
+    public StratumMineBlockTask(final ByteArray id, final Long blockHeight, final Block prototypeBlock, final ByteArray coinbaseTransactionHead, final ByteArray coinbaseTransactionTail, final String extraNonce1, final SystemTime systemTime) {
         _id = id.asConst();
         _blockHeight = blockHeight;
         _prototypeBlock = prototypeBlock.asConst();
@@ -115,7 +119,6 @@ public class StratumMineBlockTask {
         _coinbaseTransactionTail = coinbaseTransactionTail;
         _extraNonce1 = extraNonce1;
 
-        final SystemTime systemTime = new SystemTime();
         _timestampInSeconds = systemTime.getCurrentTimeInSeconds();
 
         _idLong = ByteUtil.bytesToLong(_id.getBytes());
