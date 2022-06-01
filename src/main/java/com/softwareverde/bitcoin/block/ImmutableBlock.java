@@ -168,17 +168,12 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
 
     @Override
     public List<Sha256Hash> getPartialMerkleTree(final Integer transactionIndex) {
-        return this.getPartialMerkleTree(transactionIndex, false);
-    }
-
-    @Override
-    public List<Sha256Hash> getPartialMerkleTree(final Integer transactionIndex, final Boolean inclusive) {
         if (_merkleTree == null) {
             _buildMerkleTree();
         }
 
         if (_merkleTree.isEmpty()) { return new MutableList<>(); }
-        return _merkleTree.getPartialTree(transactionIndex, inclusive);
+        return _merkleTree.getPartialTree(transactionIndex);
     }
 
     @Override

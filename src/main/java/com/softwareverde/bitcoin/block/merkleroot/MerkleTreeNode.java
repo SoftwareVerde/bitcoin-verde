@@ -69,6 +69,9 @@ public class MerkleTreeNode<T extends Hashable> implements MutableMerkleTree<T> 
                 else if (_item1 != null) { // index == 0
                     partialTreeBuilder.add(_item1.getHash());
                 }
+                else { // _item1 is null but index is 0
+                    partialTreeBuilder.add(_item0.getHash());
+                }
             }
         }
         else {
@@ -348,18 +351,6 @@ public class MerkleTreeNode<T extends Hashable> implements MutableMerkleTree<T> 
     @Override
     public List<Sha256Hash> getPartialTree(final int index) {
         final ImmutableListBuilder<Sha256Hash> partialTreeBuilder = new ImmutableListBuilder<>();
-        _getPartialTree(index, partialTreeBuilder);
-        return partialTreeBuilder.build();
-    }
-
-    @Override
-    public List<Sha256Hash> getPartialTree(final int index, final boolean inclusive) {
-        final ImmutableListBuilder<Sha256Hash> partialTreeBuilder = new ImmutableListBuilder<>();
-        if (inclusive) {
-            final T item = _getItem(index);
-            final Sha256Hash itemHash = item.getHash();
-            partialTreeBuilder.add(itemHash);
-        }
         _getPartialTree(index, partialTreeBuilder);
         return partialTreeBuilder.build();
     }

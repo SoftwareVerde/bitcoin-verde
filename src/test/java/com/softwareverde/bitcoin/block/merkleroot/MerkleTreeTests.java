@@ -414,24 +414,12 @@ public class MerkleTreeTests {
         final List<Sha256Hash> partialMerkleTree = merkleTree.getPartialTree(0);
 
         // Assert
-        Assert.assertEquals(0, partialMerkleTree.getCount());
-    }
-
-    @Test
-    public void should_create_partial_tree_for_coinbase_transaction_with_item_count_1_inclusive() {
-        // Setup
-        final Item item = new Item(0);
-        final MutableMerkleTree<Item> merkleTree = new MerkleTreeNode<>();
-        merkleTree.addItem(item);
-
-        // Action
-        final List<Sha256Hash> partialMerkleTree = merkleTree.getPartialTree(0, true);
-
-        // Assert
         Assert.assertEquals(1, partialMerkleTree.getCount());
-        final MerkleRoot expectedMerkleRoot = merkleTree.getMerkleRoot();
+        final MerkleRoot computedMerkleRoot = merkleTree.getMerkleRoot();
 
-        Assert.assertEquals(expectedMerkleRoot, item.getHash());
+        // NOTE: This is weird.  The partial merkle tree data is irrelevant for the sake of computing the merkle root.
+        //       It's possible this behavior is only correct for transactions in blocks and not more generally.
+        Assert.assertEquals(item.getHash(), computedMerkleRoot);
     }
 
     @Test

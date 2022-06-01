@@ -791,7 +791,7 @@ public class ElectrumModule {
             final int headerIndex = (blockHeaderMerkleTree.getItemCount() - 1);
 
             merkleRoot = blockHeaderMerkleTree.getMerkleRoot();
-            partialMerkleTree = blockHeaderMerkleTree.getPartialTree(headerIndex, true);
+            partialMerkleTree = blockHeaderMerkleTree.getPartialTree(headerIndex);
         }
         else {
             merkleRoot = null;
@@ -1009,7 +1009,7 @@ public class ElectrumModule {
             final Json blockJson = nodeConnection.getBlock(blockHeight, true);
             final Block block = blockInflater.fromBytes(ByteArray.fromHexString(blockJson.getString("block")));
 
-            final List<Sha256Hash> partialMerkleTree = block.getPartialMerkleTree(transactionIndex, false);
+            final List<Sha256Hash> partialMerkleTree = block.getPartialMerkleTree(transactionIndex);
             final Json partialMerkleTreeJson = new ElectrumJson(true);
             for (final Sha256Hash item : partialMerkleTree) {
                 partialMerkleTreeJson.add(item);
@@ -1108,7 +1108,7 @@ public class ElectrumModule {
             final Transaction transaction = transactions.get(transactionIndex);
 
             transactionHash = transaction.getHash();
-            partialMerkleTree = (includePartialMerkleTree ? block.getPartialMerkleTree(transactionIndex, false) : null);
+            partialMerkleTree = (includePartialMerkleTree ? block.getPartialMerkleTree(transactionIndex) : null);
         }
 
         final Json json = new ElectrumJson(false);
