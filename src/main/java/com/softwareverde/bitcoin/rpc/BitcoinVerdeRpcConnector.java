@@ -270,6 +270,10 @@ public class BitcoinVerdeRpcConnector implements BitcoinMiningRpcConnector {
 
     @Override
     public void close() {
+        if (_socketConnection != null) {
+            _socketConnection.close();
+        }
+
         _threadPool.stop();
     }
 }
