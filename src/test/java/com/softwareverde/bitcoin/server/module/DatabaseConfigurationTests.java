@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.module;
 
 import com.softwareverde.bitcoin.server.configuration.BitcoinVerdeDatabaseProperties;
-import com.softwareverde.bitcoin.server.main.DatabaseConfigurer;
+import com.softwareverde.bitcoin.server.main.DatabaseConfiguration;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.database.mysql.embedded.properties.EmbeddedDatabaseProperties;
@@ -13,7 +13,7 @@ import org.junit.Test;
 
 import java.util.HashMap;
 
-public class DatabaseConfigurerTests extends UnitTest {
+public class DatabaseConfigurationTests extends UnitTest {
     @Before
     public void before() throws Exception {
         super.before();
@@ -47,7 +47,7 @@ public class DatabaseConfigurerTests extends UnitTest {
         final long usableSystemMemory = (systemByteCount - overhead);
 
         // Action
-        final EmbeddedDatabaseProperties databaseConfiguration = DatabaseConfigurer.configureDatabase(maxDatabaseThreadCount, databaseProperties);
+        final EmbeddedDatabaseProperties databaseConfiguration = DatabaseConfiguration.getDatabaseConfiguration(maxDatabaseThreadCount, databaseProperties);
 
         final HashMap<String, String> arguments = new HashMap<>();
         for (final String string : databaseConfiguration.getCommandlineArguments()) {
@@ -86,7 +86,7 @@ public class DatabaseConfigurerTests extends UnitTest {
         final long usableSystemMemory = (systemByteCount - overhead);
 
         // Action
-        final EmbeddedDatabaseProperties databaseConfiguration = DatabaseConfigurer.configureDatabase(maxDatabaseThreadCount, databaseProperties);
+        final EmbeddedDatabaseProperties databaseConfiguration = DatabaseConfiguration.getDatabaseConfiguration(maxDatabaseThreadCount, databaseProperties);
 
         final HashMap<String, String> arguments = new HashMap<>();
         for (final String string : databaseConfiguration.getCommandlineArguments()) {
@@ -124,7 +124,7 @@ public class DatabaseConfigurerTests extends UnitTest {
         final long usableSystemMemory = (systemByteCount - overhead);
 
         // Action
-        final EmbeddedDatabaseProperties databaseConfiguration = DatabaseConfigurer.configureDatabase(maxDatabaseThreadCount, databaseProperties);
+        final EmbeddedDatabaseProperties databaseConfiguration = DatabaseConfiguration.getDatabaseConfiguration(maxDatabaseThreadCount, databaseProperties);
 
         final HashMap<String, String> arguments = new HashMap<>();
         for (final String string : databaseConfiguration.getCommandlineArguments()) {

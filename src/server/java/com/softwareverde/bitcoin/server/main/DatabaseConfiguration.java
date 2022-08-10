@@ -8,7 +8,7 @@ import com.softwareverde.util.SystemUtil;
 
 import java.io.File;
 
-public class DatabaseConfigurer {
+public class DatabaseConfiguration {
 
     public static Long getBytesPerDatabaseConnection() {
         // The default per_thread_buffer is roughly 3mb excluding the max_allowed_packet.
@@ -25,7 +25,7 @@ public class DatabaseConfigurer {
         return ((byteCount / ByteUtil.Unit.Binary.MEBIBYTES) * ByteUtil.Unit.Binary.MEBIBYTES);
     }
 
-    public static EmbeddedDatabaseProperties configureDatabase(final Integer maxDatabaseConnectionCount, final BitcoinVerdeDatabaseProperties bitcoinVerdeDatabaseProperties) {
+    public static EmbeddedDatabaseProperties getDatabaseConfiguration(final Integer maxDatabaseConnectionCount, final BitcoinVerdeDatabaseProperties bitcoinVerdeDatabaseProperties) {
         final MutableEmbeddedDatabaseProperties embeddedDatabaseProperties = new MutableEmbeddedDatabaseProperties(bitcoinVerdeDatabaseProperties);
 
         { // Copy configuration settings specific to BitcoinVerdeDatabaseProperties from the provided property set...
@@ -43,7 +43,7 @@ public class DatabaseConfigurer {
         final long maxAllowedPacketByteCount = (32L * ByteUtil.Unit.Binary.MEBIBYTES);
         embeddedDatabaseProperties.setMaxAllowedPacketByteCount(maxAllowedPacketByteCount);
 
-        final long bytesPerConnection = DatabaseConfigurer.getBytesPerDatabaseConnection();
+        final long bytesPerConnection = DatabaseConfiguration.getBytesPerDatabaseConnection();
         final long overheadByteCount = (bytesPerConnection * maxDatabaseConnectionCount);
         final long bufferDatabaseMemory = (bitcoinVerdeDatabaseProperties.getMaxMemoryByteCount() - overheadByteCount);
 
@@ -54,9 +54,9 @@ public class DatabaseConfigurer {
             embeddedDatabaseProperties.setMaxConnectionCount(maxDatabaseConnectionCount + connectionsReservedForRoot);
         }
         else {
-            final Long logFileByteCount = DatabaseConfigurer.toNearestMegabyte(bitcoinVerdeDatabaseProperties.getLogFileByteCount());
-            final Long logBufferByteCount = DatabaseConfigurer.toNearestMegabyte(Math.min((logFileByteCount / 4L), (bufferDatabaseMemory / 4L))); // 25% of the logFile size but no larger than 25% of the total buffer memory.
-            final Long bufferPoolByteCount = DatabaseConfigurer.toNearestMegabyte(bufferDatabaseMemory - logBufferByteCount);
+            final Long logFileByteCount = DatabaseConfiguration.toNearestMegabyte(bitcoinVerdeDatabaseProperties.getLogFileByteCount());
+            final Long logBufferByteCount = DatabaseConfiguration.toNearestMegabyte(Math.min((logFileByteCount / 4L), (bufferDatabaseMemory / 4L))); // 25% of the logFile size but no larger than 25% of the total buffer memory.
+            final Long bufferPoolByteCount = DatabaseConfiguration.toNearestMegabyte(bufferDatabaseMemory - logBufferByteCount);
             final int bufferPoolInstanceCount;
             { // https://www.percona.com/blog/2020/08/13/how-many-innodb_buffer_pool_instances-do-you-need-in-mysql-8/
                 final int segmentCount = (int) (bufferPoolByteCount / (256L * ByteUtil.Unit.Binary.MEBIBYTES));
@@ -91,6 +91,7 @@ public class DatabaseConfigurer {
             // embeddedDatabaseProperties.enableSlowQueryLog("slow-query.log", 1L);
             // embeddedDatabaseProperties.enableGeneralQueryLog("query.log");
             embeddedDatabaseProperties.enablePerformanceSchema(false);
+            embeddedDatabaseProperties.disableRemoteConnections();
 
             // Experimental change to prevent query optimization deadlock, in theory caused in MariaDB 10.5.8.
             embeddedDatabaseProperties.addArgument("--optimizer_search_depth=0");
@@ -99,5 +100,5 @@ public class DatabaseConfigurer {
         return embeddedDatabaseProperties;
     }
 
-    protected DatabaseConfigurer() { }
+    protected DatabaseConfiguration() { }
 }

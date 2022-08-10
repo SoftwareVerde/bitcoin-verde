@@ -38,7 +38,7 @@ task makeJar(type: Jar) {
         attributes  'Implementation-Title': 'Bitcoin Server',
                     'Implementation-Version': archiveVersion,
                     'Main-Class': 'com.softwareverde.bitcoin.server.main.Main',
-                    'Class-Path': (project.configurations.serverCompileClasspath + configurations.serverRuntimeClasspath).collect { 'libs/' + it.getName() }.join(' ')
+                    'Class-Path': (project.configurations.serverCompileClasspath + project.configurations.serverRuntimeClasspath).collect { 'libs/' + it.getName() }.join(' ')
     }
 
     archiveBaseName = project.name + '-server'

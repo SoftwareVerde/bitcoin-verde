@@ -121,7 +121,7 @@ public class BitcoinVerdeDatabase implements Database {
         }
     };
     public static BitcoinVerdeDatabase newInstance(final InitFile sqlInitFile, final BitcoinProperties bitcoinProperties, final BitcoinVerdeDatabaseProperties bitcoinVerdeDatabaseProperties) {
-        final long bytesPerConnection = DatabaseConfigurer.getBytesPerDatabaseConnection();
+        final long bytesPerConnection = DatabaseConfiguration.getBytesPerDatabaseConnection();
         final long maxMaxDatabaseConnectionCount = ((bitcoinVerdeDatabaseProperties.getMaxMemoryByteCount() / 2) / bytesPerConnection);
         final int maxDatabaseConnectionCount = (int) Math.min(TARGET_MAX_DATABASE_CONNECTION_COUNT, maxMaxDatabaseConnectionCount);
 
@@ -157,10 +157,11 @@ public class BitcoinVerdeDatabase implements Database {
         try {
             if (databaseProperties.shouldUseEmbeddedDatabase()) {
                 // Initialize the embedded database...
-                final EmbeddedDatabaseProperties embeddedDatabaseProperties = DatabaseConfigurer.configureDatabase(maxDatabaseConnectionCount, databaseProperties);
+                final EmbeddedDatabaseProperties embeddedDatabaseProperties = DatabaseConfiguration.getDatabaseConfiguration(maxDatabaseConnectionCount, databaseProperties);
 
                 Logger.info("[Initializing Database]");
                 final EmbeddedMysqlDatabase embeddedMysqlDatabase = new EmbeddedMysqlDatabase(embeddedDatabaseProperties, databaseInitializer);
+                embeddedMysqlDatabase.setUpgradeTimeout(10L * 60L * 1000L);
                 if (Logger.isDebugEnabled()) {
                     final Version installedVersion = embeddedMysqlDatabase.getInstallationDirectoryVersion();
                     Logger.debug("MariaDb Version: " + Util.coalesce(installedVersion, new Version(0)));
