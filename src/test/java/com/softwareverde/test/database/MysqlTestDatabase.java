@@ -1,7 +1,7 @@
 package com.softwareverde.test.database;
 
-import com.softwareverde.bitcoin.server.database.pool.ApacheCommonsDatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
+import com.softwareverde.bitcoin.server.database.pool.MariaDbConnectionPool;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabase;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -106,6 +106,6 @@ public class MysqlTestDatabase extends MysqlDatabase {
     }
 
     public DatabaseConnectionPool getDatabaseConnectionPool() {
-        return new ApacheCommonsDatabaseConnectionPool(_databaseProperties, 32);
+        return new MariaDbConnectionPool(_databaseProperties, 32);
     }
 }
