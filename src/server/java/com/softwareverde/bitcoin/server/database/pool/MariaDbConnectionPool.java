@@ -102,8 +102,6 @@ public class MariaDbConnectionPool implements DatabaseConnectionPool {
 
         MariaDbPoolDataSource dataSource = null;
         try {
-            Logger.setLogLevel("org.mariadb.jdbc", LogLevel.WARN);
-
             dataSource = _initDataSource(databaseProperties);
         }
         catch (final Exception exception) {

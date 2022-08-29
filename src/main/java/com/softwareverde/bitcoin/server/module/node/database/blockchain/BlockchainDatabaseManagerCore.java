@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
+import com.softwareverde.bitcoin.server.module.node.database.block.MutableBlockchainCache;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.ListUtil;
@@ -24,6 +25,7 @@ import java.util.Map;
 
 public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager {
     protected final DatabaseManager _databaseManager;
+    protected final MutableBlockchainCache _blockchainCache = null;
 
     protected BlockchainSegmentId _calculateBlockchainSegment(final BlockId blockId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
@@ -104,6 +106,11 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
                 .setParameter(newBlockchainSegmentId)
         );
 
+        if (_blockchainCache != null) {
+            _blockchainCache.updateBlockchainSegmentBlocks(newBlockchainSegmentId, blockchainSegmentId, blockHeight);
+            _blockchainCache.replaceBlockchainSegmentsParent(blockchainSegmentId, newBlockchainSegmentId);
+        }
+
         return newBlockchainSegmentId;
     }
 
@@ -117,22 +124,35 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
             if (! rows.isEmpty()) {  throw new DatabaseException("Attempted to create more than one root BlockchainSegment."); }
         }
 
-        final Long blockchainSegmentId = databaseConnection.executeSql(
+        final Long blockchainSegmentIdLong = databaseConnection.executeSql(
             new Query("INSERT INTO blockchain_segments (parent_blockchain_segment_id) VALUES (?)")
                 .setParameter(parentBlockchainSegmentId)
         );
 
-        return BlockchainSegmentId.wrap(blockchainSegmentId);
+        final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(blockchainSegmentIdLong);
+
+        if (_blockchainCache != null) {
+            _blockchainCache.addBlockchainSegment(blockchainSegmentId, parentBlockchainSegmentId, null, null);
+        }
+
+        return blockchainSegmentId;
     }
 
     protected void _renumberBlockchainSegments() throws DatabaseException {
         final BlockchainSegmentId rootSegmentId = _getRootBlockchainSegmentId();
-        _setLeftNumber(rootSegmentId, 1);
-        final Integer endingNumber = _numberBlockchainSegmentChildren(rootSegmentId, 2);
+        _setLeftNumber(rootSegmentId, 1L);
+        final Long endingNumber = _numberBlockchainSegmentChildren(rootSegmentId, 2L);
         _setRightNumber(rootSegmentId, endingNumber);
     }
 
     protected BlockchainSegmentId _getRootBlockchainSegmentId() throws DatabaseException {
+        if (_blockchainCache != null) {
+            final BlockchainSegmentId blockchainSegmentId = _blockchainCache.getRootBlockchainSegmentId();
+            if (blockchainSegmentId != null) {
+                return blockchainSegmentId;
+            }
+        }
+
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
@@ -144,22 +164,22 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
         return BlockchainSegmentId.wrap(row.getLong("id"));
     }
 
-    protected Integer _numberBlockchainSegmentChildren(final BlockchainSegmentId blockchainSegmentId, final Integer startingNumber) throws DatabaseException {
-        Integer number = startingNumber;
+    protected Long _numberBlockchainSegmentChildren(final BlockchainSegmentId blockchainSegmentId, final Long startingNumber) throws DatabaseException {
+        Long number = startingNumber;
         final List<BlockchainSegmentId> childBlockchainSegmentIds = _getChildSegmentIds(blockchainSegmentId);
         for (final BlockchainSegmentId childBlockchainSegmentId : childBlockchainSegmentIds) {
             _setLeftNumber(childBlockchainSegmentId, number);
-            number += 1;
+            number += 1L;
 
             number = _numberBlockchainSegmentChildren(childBlockchainSegmentId, number);
 
             _setRightNumber(childBlockchainSegmentId, number);
-            number += 1;
+            number += 1L;
         }
         return number;
     }
 
-    protected void _setLeftNumber(final BlockchainSegmentId blockchainSegmentId, final Integer value) throws DatabaseException {
+    protected void _setLeftNumber(final BlockchainSegmentId blockchainSegmentId, final Long value) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         databaseConnection.executeSql(
@@ -167,9 +187,13 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
                 .setParameter(value)
                 .setParameter(blockchainSegmentId)
         );
+
+        if (_blockchainCache != null) {
+            _blockchainCache.updateBlockchainSegmentNestedSetLeft(blockchainSegmentId, value);
+        }
     }
 
-    protected void _setRightNumber(final BlockchainSegmentId blockchainSegmentId, final Integer value) throws DatabaseException {
+    protected void _setRightNumber(final BlockchainSegmentId blockchainSegmentId, final Long value) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         databaseConnection.executeSql(
@@ -177,9 +201,17 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
                 .setParameter(value)
                 .setParameter(blockchainSegmentId)
         );
+
+        if (_blockchainCache != null) {
+            _blockchainCache.updateBlockchainSegmentNestedSetRight(blockchainSegmentId, value);
+        }
     }
 
     protected List<BlockchainSegmentId> _getChildSegmentIds(final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
+        if (_blockchainCache != null) {
+            return _blockchainCache.getChildSegmentIds(blockchainSegmentId);
+        }
+
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
@@ -200,6 +232,15 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
     }
 
     protected Map<BlockchainSegmentId, Boolean> _areBlockchainSegmentsConnected(final BlockchainSegmentId blockchainSegmentId, final List<BlockchainSegmentId> blockchainSegmentIds, final BlockRelationship blockRelationship) throws DatabaseException {
+        if (_blockchainCache != null) {
+            final HashMap<BlockchainSegmentId, Boolean> connectedBlockchainSegments = new HashMap<>(blockchainSegmentIds.getCount());
+            for (final BlockchainSegmentId blockchainSegmentId1 : blockchainSegmentIds) {
+                final Boolean areConnected = _blockchainCache.areBlockchainSegmentsConnected(blockchainSegmentId, blockchainSegmentId1, blockRelationship);
+                connectedBlockchainSegments.put(blockchainSegmentId1, areConnected);
+            }
+            return connectedBlockchainSegments;
+        }
+
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final Query query;
@@ -239,6 +280,11 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
 
     @Override
     public BlockchainSegment getBlockchainSegment(final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
+        if (_blockchainCache != null) {
+            final BlockchainSegment blockchainSegment = _blockchainCache.getBlockchainSegment(blockchainSegmentId);
+            if (blockchainSegment != null) { return blockchainSegment; }
+        }
+
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
@@ -278,6 +324,13 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
 
     @Override
     public BlockchainSegmentId getHeadBlockchainSegmentId() throws DatabaseException {
+        if (_blockchainCache != null) {
+            final BlockchainSegmentId blockchainSegmentId = _blockchainCache.getHeadBlockchainSegmentId();
+            if (blockchainSegmentId != null) {
+                return blockchainSegmentId;
+            }
+        }
+
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
@@ -291,6 +344,13 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
 
     @Override
     public BlockId getHeadBlockIdOfBlockchainSegment(final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
+        if (_blockchainCache != null) {
+            final BlockId blockId = _blockchainCache.getHeadBlockIdOfBlockchainSegment(blockchainSegmentId);
+            if (blockId != null) {
+                return blockId;
+            }
+        }
+
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
@@ -334,6 +394,13 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
 
     @Override
     public BlockchainSegmentId getPreviousBlockchainSegmentId(final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
+        if (_blockchainCache != null) {
+            final BlockchainSegment blockchainSegment = _blockchainCache.getBlockchainSegment(blockchainSegmentId);
+            if (blockchainSegment != null) {
+                return blockchainSegment.parentBlockchainSegmentId;
+            }
+        }
+
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(

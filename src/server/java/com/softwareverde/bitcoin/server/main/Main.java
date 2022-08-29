@@ -61,6 +61,7 @@ public class Main {
         Logger.setLogLevel("com.softwareverde.async.lock", LogLevel.WARN);
         Logger.setLogLevel("org.apache.commons", LogLevel.WARN);
         Logger.setLogLevel("com.softwareverde.cryptography.secp256k1.Secp256k1", LogLevel.WARN);
+        Logger.setLogLevel("org.mariadb.jdbc", LogLevel.WARN);
 
         final Main application = new Main(commandLineArguments);
         application.run();
