@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.module.node.database.BlockchainCacheFactory;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.Visitor;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockchainCache;
 import com.softwareverde.bitcoin.server.module.node.database.block.MutableBlockchainCache;
@@ -486,5 +487,30 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
         }
 
         return childBlockchainSegmentIds;
+    }
+
+    @Override
+    public void visitBlockchainSegments(final Visitor<BlockchainSegmentId> visitor) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        BlockchainSegmentId lastBlockchainSegmentId = BlockchainSegmentId.wrap(0L);
+        while (true) {
+            final java.util.List<Row> rows = databaseConnection.query(
+                new Query("SELECT id FROM blockchain_segments WHERE id > ? ORDER BY id ASC LIMIT 1024")
+                    .setParameter(lastBlockchainSegmentId)
+            );
+            if (rows.isEmpty()) { break; }
+
+            for (final Row row : rows) {
+                lastBlockchainSegmentId = BlockchainSegmentId.wrap(row.getLong("id"));
+
+                try {
+                    visitor.visit(lastBlockchainSegmentId);
+                }
+                catch (final Exception exception) {
+                    throw new DatabaseException(exception);
+                }
+            }
+        }
     }
 }

@@ -35,4 +35,6 @@ public interface BlockchainCache {
     BlockId getFirstBlockIdOfBlockchainSegment(BlockchainSegmentId blockchainSegmentId);
     BlockchainSegmentId getHeadBlockchainSegmentIdOfBlockchainSegment(BlockchainSegmentId blockchainSegmentId);
     List<BlockchainSegmentId> getLeafBlockchainSegmentIds();
+
+    MutableBlockchainCache copy();
 }

@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
+import com.softwareverde.bitcoin.server.module.node.database.Visitor;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -50,4 +51,6 @@ public interface BlockHeaderDatabaseManager {
     Boolean isBlockInvalid(Sha256Hash blockHash, Integer maxFailedProcessedCount) throws DatabaseException;
     void markBlockAsInvalid(Sha256Hash blockHash, Integer processIncrement) throws DatabaseException;
     void clearBlockAsInvalid(Sha256Hash blockHash, Integer processDecrement) throws DatabaseException;
+
+    void visitBlockHeaders(final Visitor<BlockId> visitor) throws DatabaseException;
 }

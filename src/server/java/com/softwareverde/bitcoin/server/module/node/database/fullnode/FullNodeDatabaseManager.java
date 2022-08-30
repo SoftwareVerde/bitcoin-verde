@@ -5,7 +5,10 @@ import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentManager;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.configuration.CheckpointConfiguration;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.module.node.database.BlockchainCacheFactory;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockchainCache;
+import com.softwareverde.bitcoin.server.module.node.database.block.MutableBlockchainCache;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManagerCore;
@@ -56,11 +59,16 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     protected UtxoCommitmentDatabaseManager _utxoCommitmentDatabaseManager;
     protected UtxoCommitmentManager _utxoCommitmentManager;
 
-    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final PropertiesStore propertiesStore, final PendingBlockStore blockStore, final UtxoCommitmentStore utxoCommitmentStore, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration) {
-        this(databaseConnection, maxQueryBatchSize, propertiesStore, blockStore, utxoCommitmentStore, masterInflater, checkpointConfiguration, UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT, UnspentTransactionOutputDatabaseManager.DEFAULT_PURGE_PERCENT);
+    protected Boolean _cacheWasMutated = false;
+    protected final BlockchainCacheManager _blockchainCacheManager;
+    protected final BlockchainCacheFactory _blockchainCacheFactory;
+    protected BlockchainCache _blockchainCache;
+
+    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final PropertiesStore propertiesStore, final PendingBlockStore blockStore, final UtxoCommitmentStore utxoCommitmentStore, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration, final BlockchainCacheManager blockchainCacheManager) {
+        this(databaseConnection, maxQueryBatchSize, propertiesStore, blockStore, utxoCommitmentStore, masterInflater, checkpointConfiguration, UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT, UnspentTransactionOutputDatabaseManager.DEFAULT_PURGE_PERCENT, blockchainCacheManager);
     }
 
-    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final PropertiesStore propertiesStore, final PendingBlockStore blockStore, final UtxoCommitmentStore utxoCommitmentStore, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration, final Long maxUtxoCount, final Float utxoPurgePercent) {
+    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final PropertiesStore propertiesStore, final PendingBlockStore blockStore, final UtxoCommitmentStore utxoCommitmentStore, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration, final Long maxUtxoCount, final Float utxoPurgePercent, final BlockchainCacheManager blockchainCacheManager) {
         _databaseConnection = databaseConnection;
         _propertiesStore = propertiesStore;
         _maxQueryBatchSize = maxQueryBatchSize;
@@ -70,6 +78,28 @@ public class FullNodeDatabaseManager implements DatabaseManager {
         _utxoPurgePercent = utxoPurgePercent;
         _checkpointConfiguration = checkpointConfiguration;
         _utxoCommitmentStore = utxoCommitmentStore;
+
+        _blockchainCacheManager = blockchainCacheManager;
+        _blockchainCacheFactory = new BlockchainCacheFactory() {
+            @Override
+            public BlockchainCache getBlockchainCache() {
+                if (_blockchainCache == null) {
+                    _blockchainCache = blockchainCacheManager.getBlockchainCache();
+                }
+
+                return _blockchainCache;
+            }
+
+            @Override
+            public MutableBlockchainCache getMutableBlockchainCache() {
+                if (! _cacheWasMutated) {
+                    _blockchainCache = blockchainCacheManager.getNewBlockchainCache();
+                }
+
+                _cacheWasMutated = true;
+                return (MutableBlockchainCache) _blockchainCache;
+            }
+        };
     }
 
     @Override
@@ -89,7 +119,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     @Override
     public BlockchainDatabaseManager getBlockchainDatabaseManager() {
         if (_blockchainDatabaseManager == null) {
-            _blockchainDatabaseManager = new BlockchainDatabaseManagerCore(this, _blockchainCache);
+            _blockchainDatabaseManager = new BlockchainDatabaseManagerCore(this, _blockchainCacheFactory);
         }
 
         return _blockchainDatabaseManager;
@@ -107,7 +137,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     @Override
     public BlockHeaderDatabaseManager getBlockHeaderDatabaseManager() {
         if (_blockHeaderDatabaseManager == null) {
-            _blockHeaderDatabaseManager = new BlockHeaderDatabaseManagerCore(this, _checkpointConfiguration, _blockchainCache);
+            _blockHeaderDatabaseManager = new BlockHeaderDatabaseManagerCore(this, _checkpointConfiguration, _blockchainCacheFactory);
         }
 
         return _blockHeaderDatabaseManager;
@@ -199,6 +229,10 @@ public class FullNodeDatabaseManager implements DatabaseManager {
 
     @Override
     public void close() throws DatabaseException {
+        if (_cacheWasMutated) {
+            _blockchainCacheManager.commitBlockchainCache(_blockchainCache);
+        }
+
         _databaseConnection.close();
     }
 }

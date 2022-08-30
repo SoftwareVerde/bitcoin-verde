@@ -204,6 +204,8 @@ public class NodeModule {
 
     protected final AtomicBoolean _isShuttingDown = new AtomicBoolean(false);
 
+    protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
+
     protected Long _getUtxoCommitFrequency() {
         final Long utxoCommitProperty = _bitcoinProperties.getUtxoCacheCommitFrequency();
         return (_bitcoinProperties.isPruningModeEnabled() ? Math.min(UndoLogDatabaseManager.MAX_REORG_DEPTH, utxoCommitProperty) : utxoCommitProperty);
@@ -216,21 +218,6 @@ public class NodeModule {
                 try { _isShuttingDown.wait(30000); } catch (final Exception exception) { }
                 return;
             }
-        }
-
-        final FullNodeDatabaseManagerFactory databaseManagerFactory;
-        {
-            final Database database = _environment.getDatabase();
-            final DatabaseConnectionFactory databaseConnectionFactory = _environment.getDatabaseConnectionFactory();
-            databaseManagerFactory = new FullNodeDatabaseManagerFactory(
-                databaseConnectionFactory,
-                database.getMaxQueryBatchSize(),
-                _propertiesStore,
-                _blockStore,
-                _utxoCommitmentStore,
-                _masterInflater,
-                _checkpointConfiguration
-            );
         }
 
         _utxoCommitmentDownloader.shutdown();
@@ -283,7 +270,7 @@ public class NodeModule {
             _blockPruner.stop();
         }
 
-        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
             if (unspentTransactionOutputDatabaseManager instanceof UnspentTransactionOutputJvmManager) {
                 Logger.info("[Saving UTXO Cache]");
@@ -302,12 +289,12 @@ public class NodeModule {
         }
 
         Logger.info("[Committing UTXO Set]");
-        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
             final MilliTimer utxoCommitTimer = new MilliTimer();
             utxoCommitTimer.start();
             Logger.info("Committing UTXO set.");
-            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
+            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_databaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
             utxoCommitTimer.stop();
             Logger.debug("Commit Timer: " + utxoCommitTimer.getMillisecondsElapsed() + "ms.");
         }
@@ -453,6 +440,7 @@ public class NodeModule {
             _bitcoinProperties.getMaxCachedUtxoCount(),
             _bitcoinProperties.getUtxoCachePurgePercent()
         );
+        _databaseManagerFactory = databaseManagerFactory;
 
         _banFilter = (bitcoinProperties.isBanFilterEnabled() ? new BanFilterCore(databaseManagerFactory) : new DisabledBanFilter());
 
@@ -1238,19 +1226,7 @@ public class NodeModule {
         final MilliTimer timer = new MilliTimer();
         timer.start();
 
-        final Database database = _environment.getDatabase();
-        final DatabaseConnectionFactory databaseConnectionFactory = _environment.getDatabaseConnectionFactory();
-        final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(
-            databaseConnectionFactory,
-            database.getMaxQueryBatchSize(),
-            _propertiesStore,
-            _blockStore,
-            _utxoCommitmentStore,
-            _masterInflater,
-            _checkpointConfiguration,
-            _bitcoinProperties.getMaxCachedUtxoCount(),
-            _bitcoinProperties.getUtxoCachePurgePercent()
-        );
+        final FullNodeDatabaseManagerFactory databaseManagerFactory = _databaseManagerFactory;
 
         if (bootstrapIsEnabled) {
             final HeadersBootstrapper headersBootstrapper = new FullNodeHeadersBootstrapper(databaseManagerFactory);
@@ -1281,7 +1257,18 @@ public class NodeModule {
             }
             catch (final DatabaseException exception) {
                 Logger.error(exception);
+                _shutdown();
+                System.exit(1);
+            }
+        }
 
+        { // Warm up the DB Cache...
+            Logger.info("[Warming DB Cache]");
+            try {
+                databaseManagerFactory.initializeCache(1_000_000);
+            }
+            catch (final Exception exception) {
+                Logger.error(exception);
                 _shutdown();
                 System.exit(1);
             }
