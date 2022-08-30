@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -24,6 +25,7 @@ public class MutableBlockchainCache implements BlockchainCache {
     protected final HashMap<Sha256Hash, BlockId> _blockIds = new HashMap<>();
     protected final HashMap<Long, MutableList<BlockId>> _blocksByHeight = new HashMap<>();
     protected final HashMap<BlockId, ChainWork> _chainWorks = new HashMap<>();
+    protected final HashMap<BlockId, MedianBlockTime> _medianBlockTimes = new HashMap<>();
 
     protected BlockchainSegmentId _headBlockchainSegmentId; // TODO: Validate correctness
     protected final HashMap<BlockId, BlockchainSegmentId> _blockchainSegmentIds = new HashMap<>();
@@ -146,6 +148,7 @@ public class MutableBlockchainCache implements BlockchainCache {
             _blockHeaders.remove(blockId);
             _blockHeights.remove(blockId);
             _chainWorks.remove(blockId);
+            _medianBlockTimes.remove(blockId);
             _blockchainSegmentIds.remove(blockId);
         }
         finally {
@@ -174,6 +177,7 @@ public class MutableBlockchainCache implements BlockchainCache {
             _blockHeights.clear();
             _chainWorks.clear();
             _blockIds.clear();
+            _medianBlockTimes.clear();
             _blocksByHeight.clear();
         }
         finally {
@@ -221,14 +225,15 @@ public class MutableBlockchainCache implements BlockchainCache {
         }
     }
 
-    public void addBlock(final BlockId blockId, final BlockHeader blockHeader, final Long blockHeight, final ChainWork chainWork) {
+    public void addBlock(final BlockId blockId, final BlockHeader blockHeader, final Long blockHeight, final ChainWork chainWork, final MedianBlockTime medianBlockTime) {
         _writeLock.lock();
         try {
-            final Sha256Hash blockHash = blockHeader.getHash();
+            final Sha256Hash blockHash = blockHeader.getHash(); // NOTE: Also forces internal BlockHeader hash cashing...
 
             _blockHeaders.put(blockId, blockHeader);
             _blockHeights.put(blockId, blockHeight);
             _chainWorks.put(blockId, chainWork);
+            _medianBlockTimes.put(blockId, medianBlockTime);
             _blockIds.put(blockHash, blockId);
 
             MutableList<BlockId> blockIds = _blocksByHeight.get(blockHeight);
@@ -335,6 +340,17 @@ public class MutableBlockchainCache implements BlockchainCache {
     }
 
     @Override
+    public MedianBlockTime getMedianBlockTime(final BlockId blockId) {
+        _readLock.lock();
+        try {
+            return _medianBlockTimes.get(blockId);
+        }
+        finally {
+            _readLock.unlock();
+        }
+    }
+
+    @Override
     public BlockId getBlockHeader(final BlockchainSegmentId blockchainSegmentId, final Long blockHeight) {
         _readLock.lock();
         try {
@@ -405,6 +421,35 @@ public class MutableBlockchainCache implements BlockchainCache {
         _readLock.lock();
         try {
             return _blockchainSegmentIds.get(blockId);
+        }
+        finally {
+            _readLock.unlock();
+        }
+    }
+
+    @Override
+    public List<BlockId> getChildBlockIds(final BlockId blockId) {
+        _readLock.lock();
+        try {
+            final MutableList<BlockId> blockIds = new MutableList<>();
+            final Long blockHeight = _blockHeights.get(blockId);
+            if (blockHeight == null) { return null; }
+
+            final BlockHeader blockHeader = _blockHeaders.get(blockId);
+            final Sha256Hash blockHash = blockHeader.getHash();
+
+            final List<BlockId> blocksAtChildHeight = _blocksByHeight.get(blockHeight + 1L);
+            if (blocksAtChildHeight != null) {
+                for (final BlockId childBlockId : blocksAtChildHeight) {
+                    final BlockHeader childBlockHeader = _blockHeaders.get(childBlockId);
+                    final Sha256Hash childParentHash = childBlockHeader.getPreviousBlockHash();
+                    if (Util.areEqual(blockHash, childParentHash)) {
+                        blockIds.add(childBlockId);
+                    }
+                }
+            }
+
+            return blockIds;
         }
         finally {
             _readLock.unlock();

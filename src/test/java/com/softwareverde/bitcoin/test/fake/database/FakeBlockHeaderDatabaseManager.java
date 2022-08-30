@@ -158,6 +158,6 @@ class FakeBlockHeaderDatabaseManagerCore extends BlockHeaderDatabaseManagerCore 
     }
 
     public FakeBlockHeaderDatabaseManagerCore(final DatabaseManager databaseManager, final CheckpointConfiguration checkpointConfiguration) {
-        super(databaseManager, checkpointConfiguration);
+        super(databaseManager, checkpointConfiguration, null);
     }
 }

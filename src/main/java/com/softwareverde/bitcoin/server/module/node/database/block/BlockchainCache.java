@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
@@ -18,12 +19,14 @@ public interface BlockchainCache {
 
     Long getBlockHeight(BlockId blockId);
     ChainWork getChainWork(BlockId blockId);
+    MedianBlockTime getMedianBlockTime(BlockId blockId);
 
     BlockId getBlockHeader(BlockchainSegmentId blockchainSegmentId, Long blockHeight);
 
     BlockchainSegmentId getHeadBlockchainSegmentId();
     BlockchainSegmentId getRootBlockchainSegmentId();
     BlockchainSegmentId getBlockchainSegmentId(BlockId blockId);
+    List<BlockId> getChildBlockIds(BlockId blockId);
     List<BlockchainSegmentId> getChildSegmentIds(BlockchainSegmentId parentBlockchainSegmentId);
     BlockchainSegment getBlockchainSegment(BlockchainSegmentId blockchainSegmentId);
     Boolean areBlockchainSegmentsConnected(BlockchainSegmentId blockchainSegmentId0, BlockchainSegmentId blockchainSegmentId1, BlockRelationship blockRelationship);
