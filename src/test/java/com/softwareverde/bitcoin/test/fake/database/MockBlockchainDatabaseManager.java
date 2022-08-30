@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.test.fake.database;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.server.module.node.database.Visitor;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
@@ -50,6 +51,18 @@ public class MockBlockchainDatabaseManager implements FakeBlockchainDatabaseMana
     @Override
     public List<BlockchainSegmentId> getLeafBlockchainSegmentIds() throws DatabaseException {
         return _leafBlockchainSegmentIds;
+    }
+
+    @Override
+    public void visitBlockchainSegments(final Visitor<BlockchainSegmentId> visitor) throws DatabaseException {
+        for (final BlockchainSegmentId blockchainSegmentId : _parentBlockchainSegmentIds.keySet()) {
+            try {
+                visitor.visit(blockchainSegmentId);
+            }
+            catch (final Exception exception) {
+                throw new DatabaseException(exception);
+            }
+        }
     }
 
     @Override

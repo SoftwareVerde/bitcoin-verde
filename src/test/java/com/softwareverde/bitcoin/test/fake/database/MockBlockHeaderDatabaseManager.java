@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
+import com.softwareverde.bitcoin.server.module.node.database.Visitor;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -262,5 +263,10 @@ public class MockBlockHeaderDatabaseManager implements FakeBlockHeaderDatabaseMa
     @Override
     public void clearBlockAsInvalid(final Sha256Hash blockHash, final Integer processDecrement) throws DatabaseException {
         _invalidBlockCounts.remove(blockHash);
+    }
+
+    @Override
+    public void visitBlockHeaders(final Visitor<BlockId> visitor) throws DatabaseException {
+        throw new UnsupportedOperationException();
     }
 }

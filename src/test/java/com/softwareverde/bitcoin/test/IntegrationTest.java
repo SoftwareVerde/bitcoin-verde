@@ -43,12 +43,9 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.MysqlDatabaseInitializer;
 import com.softwareverde.database.mysql.connection.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.database.row.Row;
-import com.softwareverde.logging.LogLevel;
-import com.softwareverde.logging.Logger;
 import com.softwareverde.test.database.MysqlTestDatabase;
 import com.softwareverde.test.database.TestDatabase;
 import com.softwareverde.util.Container;
-import com.softwareverde.util.ReflectionUtil;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -169,6 +166,12 @@ public class IntegrationTest extends UnitTest {
         }
     }
 
+    static class UtxoCacheStaticStateHack extends UtxoCacheStaticState {
+        public Container<Long> getUncommittedUtxoBlockHeightContainer() {
+            return UtxoCacheStaticState.UNCOMMITTED_UTXO_BLOCK_HEIGHT;
+        }
+    }
+
     @Override
     public void before() throws Exception {
         IntegrationTest.resetDatabase();
@@ -178,8 +181,8 @@ public class IntegrationTest extends UnitTest {
         _synchronizationStatus.setCurrentBlockHeight(Long.MAX_VALUE);
         _blockStore.clear();
 
-        // make sure UTXO set appears initialized
-        final Container<Long> uncommittedUtxoBlockHeight = ReflectionUtil.getStaticValue(UtxoCacheStaticState.class, "UNCOMMITTED_UTXO_BLOCK_HEIGHT");
+        // Make sure UTXO set appears initialized...
+        final Container<Long> uncommittedUtxoBlockHeight = (new UtxoCacheStaticStateHack()).getUncommittedUtxoBlockHeightContainer(); // ReflectionUtil.getStaticValue(UtxoCacheStaticState.class, "UNCOMMITTED_UTXO_BLOCK_HEIGHT");
         uncommittedUtxoBlockHeight.value = 0L;
 
         // Clear the static UTXO cache and the double buffer.

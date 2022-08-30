@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.test.fake.database;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.server.module.node.database.Visitor;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.constable.list.List;
@@ -40,4 +41,7 @@ interface FakeBlockchainDatabaseManager extends BlockchainDatabaseManager {
 
     @Override
     default List<BlockchainSegmentId> getLeafBlockchainSegmentIds() throws DatabaseException { throw new UnsupportedOperationException(); }
+
+    @Override
+    default void visitBlockchainSegments(final Visitor<BlockchainSegmentId> visitor) throws DatabaseException { throw new UnsupportedOperationException(); }
 }

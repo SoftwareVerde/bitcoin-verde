@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
+import com.softwareverde.bitcoin.server.module.node.database.Visitor;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.properties.InMemoryPropertiesStore;
 import com.softwareverde.bitcoin.server.properties.PropertiesStore;
@@ -102,6 +103,9 @@ public class FakeDatabaseManager implements com.softwareverde.bitcoin.test.fake.
 
             @Override
             public void clearBlockAsInvalid(final Sha256Hash blockHash, final Integer processDecrement) throws DatabaseException { }
+
+            @Override
+            public void visitBlockHeaders(final Visitor<BlockId> visitor) throws DatabaseException { }
 
             @Override
             public BlockHeader getBlockHeader(final BlockId blockId) {
