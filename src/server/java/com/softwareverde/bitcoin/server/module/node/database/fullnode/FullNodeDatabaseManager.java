@@ -89,7 +89,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     @Override
     public BlockchainDatabaseManager getBlockchainDatabaseManager() {
         if (_blockchainDatabaseManager == null) {
-            _blockchainDatabaseManager = new BlockchainDatabaseManagerCore(this);
+            _blockchainDatabaseManager = new BlockchainDatabaseManagerCore(this, _blockchainCache);
         }
 
         return _blockchainDatabaseManager;
@@ -107,7 +107,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     @Override
     public BlockHeaderDatabaseManager getBlockHeaderDatabaseManager() {
         if (_blockHeaderDatabaseManager == null) {
-            _blockHeaderDatabaseManager = new BlockHeaderDatabaseManagerCore(this, _checkpointConfiguration);
+            _blockHeaderDatabaseManager = new BlockHeaderDatabaseManagerCore(this, _checkpointConfiguration, _blockchainCache);
         }
 
         return _blockHeaderDatabaseManager;

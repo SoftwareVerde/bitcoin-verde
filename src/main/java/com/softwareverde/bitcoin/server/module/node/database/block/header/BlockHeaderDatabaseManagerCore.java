@@ -43,12 +43,6 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
     protected final DatabaseManager _databaseManager;
     protected final CheckpointConfiguration _checkpointConfiguration;
 
-    public BlockHeaderDatabaseManagerCore(final DatabaseManager databaseManager, final CheckpointConfiguration checkpointConfiguration) {
-        _databaseManager = databaseManager;
-        _checkpointConfiguration = checkpointConfiguration;
-        _blockchainCache = null;
-    }
-
     public BlockHeaderDatabaseManagerCore(final DatabaseManager databaseManager, final CheckpointConfiguration checkpointConfiguration, final MutableBlockchainCache blockchainCache) {
         _databaseManager = databaseManager;
         _checkpointConfiguration = checkpointConfiguration;
@@ -222,7 +216,12 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
         return blockIds;
     }
 
-    protected ChainWork _getChainWork(final BlockId blockId) throws DatabaseException {
+    protected ChainWork _getChainWork(final BlockId blockId, final BlockchainCache blockchainCache) throws DatabaseException {
+        if (blockchainCache != null) {
+            final ChainWork chainWork = blockchainCache.getChainWork(blockId);
+            if (chainWork != null) { return chainWork; }
+        }
+
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
@@ -247,7 +246,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
         final Difficulty difficulty = blockHeader.getDifficulty();
 
         final BlockWork blockWork = difficulty.calculateWork();
-        final ChainWork previousChainWork = (previousBlockId == null ? new MutableChainWork() : _getChainWork(previousBlockId));
+        final ChainWork previousChainWork = (previousBlockId == null ? new MutableChainWork() : _getChainWork(previousBlockId, blockchainCache));
         final ChainWork chainWork = ChainWork.add(previousChainWork, blockWork);
 
         final MedianBlockTime medianBlockTime;
@@ -325,7 +324,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
 
                     lastInsertedBlockId.value = blockId;
                     previousBlockHeight.value = _getBlockHeight(blockId, blockchainCache);
-                    previousChainWork.value = _getChainWork(blockId);
+                    previousChainWork.value = _getChainWork(blockId, blockchainCache);
                     blockIds.add(blockId);
 
                     // medianTimePast for this block was calculated in _insertBlockHeader
@@ -577,7 +576,8 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
             _blockchainCache.addBlockchainSegment(blockchainSegmentId, blockchainSegment.parentBlockchainSegmentId, blockchainSegment.nestedSetLeft, blockchainSegment.nestedSetRight);
 
             final Long blockHeight = _getBlockHeight(blockId, null);
-            _blockchainCache.addBlock(blockId, blockHeader, blockHeight);
+            final ChainWork chainWork = _getChainWork(blockId, null);
+            _blockchainCache.addBlock(blockId, blockHeader, blockHeight, chainWork);
             _blockchainCache.addBlockBlockchainSegment(blockchainSegmentId, blockId);
         }
 
@@ -596,7 +596,8 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
             _blockchainCache.addBlockchainSegment(blockchainSegmentId, blockchainSegment.parentBlockchainSegmentId, blockchainSegment.nestedSetLeft, blockchainSegment.nestedSetRight);
 
             final Long blockHeight = _getBlockHeight(blockId, null);
-            _blockchainCache.addBlock(blockId, blockHeader, blockHeight);
+            final ChainWork chainWork = _getChainWork(blockId, null);
+            _blockchainCache.addBlock(blockId, blockHeader, blockHeight, chainWork);
             _blockchainCache.addBlockBlockchainSegment(blockchainSegmentId, blockId);
         }
     }
@@ -623,7 +624,8 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
             _blockchainCache.addBlockchainSegment(blockchainSegmentId, blockchainSegment.parentBlockchainSegmentId, blockchainSegment.nestedSetLeft, blockchainSegment.nestedSetRight);
 
             final Long blockHeight = _getBlockHeight(blockId, null);
-            _blockchainCache.addBlock(blockId, blockHeader, blockHeight);
+            final ChainWork chainWork = _getChainWork(blockId, null);
+            _blockchainCache.addBlock(blockId, blockHeader, blockHeight, chainWork);
             _blockchainCache.addBlockBlockchainSegment(blockchainSegmentId, blockId);
         }
 
@@ -666,7 +668,8 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
                 final BlockId blockId = blockIds.get(i);
                 final BlockHeader blockHeader = blockHeaders.get(i);
 
-                _blockchainCache.addBlock(blockId, blockHeader, blockHeight);
+                final ChainWork chainWork = _getChainWork(blockId, null);
+                _blockchainCache.addBlock(blockId, blockHeader, blockHeight, chainWork);
                 _blockchainCache.addBlockBlockchainSegment(blockchainSegmentId, blockId);
 
                 blockHeight += 1L;
@@ -920,7 +923,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
 
     @Override
     public ChainWork getChainWork(final BlockId blockId) throws DatabaseException {
-        return _getChainWork(blockId);
+        return _getChainWork(blockId, _blockchainCache);
     }
 
     @Override

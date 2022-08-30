@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.database.block;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.constable.list.List;
@@ -16,7 +17,7 @@ public interface BlockchainCache {
     BlockHeader getBlockHeader(Sha256Hash blockHash);
 
     Long getBlockHeight(BlockId blockId);
-    Long getBlockHeight(Sha256Hash blockHash);
+    ChainWork getChainWork(BlockId blockId);
 
     BlockId getBlockHeader(BlockchainSegmentId blockchainSegmentId, Long blockHeight);
 
@@ -28,4 +29,7 @@ public interface BlockchainCache {
     Boolean areBlockchainSegmentsConnected(BlockchainSegmentId blockchainSegmentId0, BlockchainSegmentId blockchainSegmentId1, BlockRelationship blockRelationship);
     Map<BlockchainSegmentId, Boolean> areBlockchainSegmentsConnected(BlockchainSegmentId blockchainSegmentId0, List<BlockchainSegmentId> blockchainSegmentIds, final BlockRelationship blockRelationship);
     BlockId getHeadBlockIdOfBlockchainSegment(BlockchainSegmentId blockchainSegmentId);
+    BlockId getFirstBlockIdOfBlockchainSegment(BlockchainSegmentId blockchainSegmentId);
+    BlockchainSegmentId getHeadBlockchainSegmentIdOfBlockchainSegment(BlockchainSegmentId blockchainSegmentId);
+    List<BlockchainSegmentId> getLeafBlockchainSegmentIds();
 }

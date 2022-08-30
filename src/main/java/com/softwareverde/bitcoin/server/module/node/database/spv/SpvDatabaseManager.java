@@ -53,7 +53,7 @@ public class SpvDatabaseManager implements DatabaseManager {
     @Override
     public BlockchainDatabaseManagerCore getBlockchainDatabaseManager() {
         if (_blockchainDatabaseManager == null) {
-            _blockchainDatabaseManager = new BlockchainDatabaseManagerCore(this);
+            _blockchainDatabaseManager = new BlockchainDatabaseManagerCore(this, null);
         }
 
         return _blockchainDatabaseManager;
@@ -71,7 +71,7 @@ public class SpvDatabaseManager implements DatabaseManager {
     @Override
     public BlockHeaderDatabaseManagerCore getBlockHeaderDatabaseManager() {
         if (_blockHeaderDatabaseManager == null) {
-            _blockHeaderDatabaseManager = new BlockHeaderDatabaseManagerCore(this, _checkpointConfiguration);
+            _blockHeaderDatabaseManager = new BlockHeaderDatabaseManagerCore(this, _checkpointConfiguration, null);
         }
 
         return _blockHeaderDatabaseManager;

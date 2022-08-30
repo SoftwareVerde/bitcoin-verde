@@ -25,7 +25,7 @@ import java.util.Map;
 
 public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager {
     protected final DatabaseManager _databaseManager;
-    protected final MutableBlockchainCache _blockchainCache = null;
+    protected final MutableBlockchainCache _blockchainCache;
 
     protected BlockchainSegmentId _calculateBlockchainSegment(final BlockId blockId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
@@ -274,8 +274,9 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
         return connectedBlockchainSegments;
     }
 
-    public BlockchainDatabaseManagerCore(final DatabaseManager databaseManager) {
+    public BlockchainDatabaseManagerCore(final DatabaseManager databaseManager, final MutableBlockchainCache blockchainCache) {
         _databaseManager = databaseManager;
+        _blockchainCache = blockchainCache;
     }
 
     @Override
@@ -365,6 +366,13 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
 
     @Override
     public BlockId getFirstBlockIdOfBlockchainSegment(final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
+        if (_blockchainCache != null) {
+            final BlockId blockId = _blockchainCache.getFirstBlockIdOfBlockchainSegment(blockchainSegmentId);
+            if (blockId != null) {
+                return blockId;
+            }
+        }
+
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
@@ -379,6 +387,13 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
 
     @Override
     public BlockchainSegmentId getHeadBlockchainSegmentIdOfBlockchainSegment(final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
+        if (_blockchainCache != null) {
+            final BlockchainSegmentId headBlockchainSegmentId = _blockchainCache.getHeadBlockchainSegmentIdOfBlockchainSegment(blockchainSegmentId);
+            if (headBlockchainSegmentId != null) {
+                return headBlockchainSegmentId;
+            }
+        }
+
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         // NOTE: This query is optimized for use with an index on (blocks.blockchain_segment_id, blocks.chain_work) (blocks::blocks_work_ix3) in order to prevent scanning the full table...
@@ -425,6 +440,13 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
 
     @Override
     public List<BlockchainSegmentId> getLeafBlockchainSegmentIds() throws DatabaseException {
+        if (_blockchainCache != null) {
+            final List<BlockchainSegmentId> blockchainSegmentIds = _blockchainCache.getLeafBlockchainSegmentIds();
+            if (blockchainSegmentIds != null) {
+                return blockchainSegmentIds;
+            }
+        }
+
         final MutableList<BlockchainSegmentId> childBlockchainSegmentIds = new MutableList<>();
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
