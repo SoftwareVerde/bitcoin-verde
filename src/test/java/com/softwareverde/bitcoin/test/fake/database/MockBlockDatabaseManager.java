@@ -49,7 +49,7 @@ public class MockBlockDatabaseManager extends FullNodeBlockDatabaseManager {
     }
 
     public MockBlockDatabaseManager() {
-        super(null, null);
+        super(null, null, null);
     }
 
     @Override

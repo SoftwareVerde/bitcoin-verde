@@ -20,8 +20,12 @@ public interface BlockchainCache {
     Long getBlockHeight(BlockId blockId);
     ChainWork getChainWork(BlockId blockId);
     MedianBlockTime getMedianBlockTime(BlockId blockId);
+    Boolean hasTransactions(BlockId blockId);
 
     BlockId getBlockHeader(BlockchainSegmentId blockchainSegmentId, Long blockHeight);
+
+    BlockId getHeadBlockHeaderId();
+    BlockId getHeadBlockId();
 
     BlockchainSegmentId getHeadBlockchainSegmentId();
     BlockchainSegmentId getRootBlockchainSegmentId();

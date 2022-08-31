@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.configuration.CheckpointConfiguration;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockMetadata;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManagerCore;
@@ -148,6 +149,11 @@ public interface FakeBlockHeaderDatabaseManager extends BlockHeaderDatabaseManag
 
     @Override
     default Map<BlockId, Long> getBlockHeights(List<BlockId> blockIds) throws DatabaseException {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    default BlockMetadata getBlockMetadata(BlockId blockId) throws DatabaseException {
         throw new UnsupportedOperationException();
     }
 }

@@ -27,8 +27,12 @@ public class MutableBlockchainCache implements BlockchainCache {
     protected final HashMap<Long, MutableList<BlockId>> _blocksByHeight;
     protected final HashMap<BlockId, ChainWork> _chainWorks;
     protected final HashMap<BlockId, MedianBlockTime> _medianBlockTimes;
+    protected final HashMap<BlockId, Boolean> _blockTransactionMap;
 
     protected final HashMap<BlockId, BlockchainSegmentId> _blockchainSegmentIds;
+
+    protected BlockId _headBlockId = null;
+    protected BlockId _headBlockHeaderId = null;
 
     protected final HashMap<BlockchainSegmentId, BlockchainSegmentId> _blockchainSegmentParents = new HashMap<>(); // key=child, value=parent
     protected final HashMap<BlockchainSegmentId, Long> _blockchainSegmentNestedSetLeft = new HashMap<>();
@@ -49,6 +53,7 @@ public class MutableBlockchainCache implements BlockchainCache {
         _blocksByHeight = new HashMap<>(estimatedBlockCount);
         _chainWorks = new HashMap<>(estimatedBlockCount);
         _medianBlockTimes = new HashMap<>(estimatedBlockCount);
+        _blockTransactionMap = new HashMap<>(estimatedBlockCount);
         _blockchainSegmentIds = new HashMap<>(estimatedBlockCount);
     }
 
@@ -111,62 +116,6 @@ public class MutableBlockchainCache implements BlockchainCache {
         }
     }
 
-    public void invalidateBlockId(final BlockId blockId) {
-        _writeLock.lock();
-        try {
-            final BlockHeader blockHeader = _blockHeaders.get(blockId);
-            if (blockHeader != null) {
-                final Sha256Hash blockHash = blockHeader.getHash();
-                _blockIds.remove(blockHash);
-            }
-            else {
-                for (final Map.Entry<Sha256Hash, BlockId> entry : _blockIds.entrySet()) {
-                    if (Util.areEqual(blockId, entry.getValue())) {
-                        _blockIds.remove(entry.getKey());
-                        break;
-                    }
-                }
-            }
-
-            final Long blockHeight = _blockHeights.get(blockId);
-            if (blockHeight != null) {
-                final MutableList<BlockId> blockIds = _blocksByHeight.get(blockHeight);
-                final int index = blockIds.indexOf(blockId);
-                if (index >= 0) {
-                    blockIds.remove(index);
-                }
-
-                // Reduce the Block's BlockchainSegment's maxBlockHeight if this block is its tip...
-                final BlockchainSegmentId blockchainSegmentId = _blockchainSegmentIds.get(blockId);
-                if (blockchainSegmentId != null) {
-                    final Long maxBlockHeight = _blockchainSegmentMaxBlockHeight.get(blockchainSegmentId);
-                    if (Util.areEqual(blockHeight, maxBlockHeight)) {
-                        final Long newBlockchainSegmentBlockHeight = (maxBlockHeight - 1L);
-                        _blockchainSegmentMaxBlockHeight.put(blockchainSegmentId, newBlockchainSegmentBlockHeight);
-                    }
-                }
-            }
-            else {
-                for (final MutableList<BlockId> blockIds : _blocksByHeight.values()) {
-                    final int index = blockIds.indexOf(blockId);
-                    if (index >= 0) {
-                        blockIds.remove(index);
-                        break;
-                    }
-                }
-            }
-
-            _blockHeaders.remove(blockId);
-            _blockHeights.remove(blockId);
-            _chainWorks.remove(blockId);
-            _medianBlockTimes.remove(blockId);
-            _blockchainSegmentIds.remove(blockId);
-        }
-        finally {
-            _writeLock.unlock();
-        }
-    }
-
     public void clearBlockchainSegments() {
         _writeLock.lock();
         try {
@@ -190,6 +139,10 @@ public class MutableBlockchainCache implements BlockchainCache {
             _blockIds.clear();
             _medianBlockTimes.clear();
             _blocksByHeight.clear();
+            _blockTransactionMap.clear();
+
+            _headBlockHeaderId = null;
+            _headBlockId = null;
         }
         finally {
             _writeLock.unlock();
@@ -226,7 +179,7 @@ public class MutableBlockchainCache implements BlockchainCache {
         }
     }
 
-    public void addBlock(final BlockId blockId, final BlockHeader blockHeader, final Long blockHeight, final ChainWork chainWork, final MedianBlockTime medianBlockTime) {
+    public void addBlock(final BlockId blockId, final BlockHeader blockHeader, final Long blockHeight, final ChainWork chainWork, final MedianBlockTime medianBlockTime, final Boolean hasTransactions) {
         _writeLock.lock();
         try {
             final Sha256Hash blockHash = blockHeader.getHash(); // NOTE: Also forces internal BlockHeader hash cashing...
@@ -236,6 +189,7 @@ public class MutableBlockchainCache implements BlockchainCache {
             _chainWorks.put(blockId, chainWork);
             _medianBlockTimes.put(blockId, medianBlockTime);
             _blockIds.put(blockHash, blockId);
+            _blockTransactionMap.put(blockId, hasTransactions);
 
             MutableList<BlockId> blockIds = _blocksByHeight.get(blockHeight);
             if (blockIds == null) {
@@ -249,6 +203,28 @@ public class MutableBlockchainCache implements BlockchainCache {
                 final Long maxBlockHeight = Util.coalesce(_blockchainSegmentMaxBlockHeight.get(blockchainSegmentId));
                 if (maxBlockHeight < blockHeight) {
                     _blockchainSegmentMaxBlockHeight.put(blockchainSegmentId, blockHeight);
+                }
+            }
+
+            if (_headBlockHeaderId == null) {
+                _headBlockHeaderId = blockId;
+            }
+            else {
+                final ChainWork headChainWork = _chainWorks.get(_headBlockHeaderId);
+                if (chainWork.compareTo(headChainWork) >= 0) {
+                    _headBlockHeaderId = blockId;
+                }
+            }
+
+            if (hasTransactions) {
+                if (_headBlockId == null) {
+                    _headBlockId = blockId;
+                }
+                else {
+                    final ChainWork headChainWork = _chainWorks.get(_headBlockId);
+                    if (chainWork.compareTo(headChainWork) >= 0) {
+                        _headBlockId = blockId;
+                    }
                 }
             }
         }
@@ -352,6 +328,58 @@ public class MutableBlockchainCache implements BlockchainCache {
     }
 
     @Override
+    public Boolean hasTransactions(final BlockId blockId) {
+        _readLock.lock();
+        try {
+            return _blockTransactionMap.get(blockId);
+        }
+        finally {
+            _readLock.unlock();
+        }
+    }
+
+    public void setHasTransactions(final BlockId blockId) {
+        _writeLock.lock();
+        try {
+            _blockTransactionMap.put(blockId, true);
+
+            if (_headBlockId == null) {
+                _headBlockId = blockId;
+            }
+            else {
+                final ChainWork headChainWork = _chainWorks.get(_headBlockId);
+                final ChainWork blockChainWork = _chainWorks.get(blockId);
+                if (blockChainWork.compareTo(headChainWork) >= 0) {
+                    _headBlockId = blockId;
+                }
+            }
+        }
+        finally {
+            _writeLock.unlock();
+        }
+    }
+
+    /**
+     * Sets all blocks below the provided blockHeight as processed.
+     *  This function is only intended to be used only for post-Utxo Commitment import.
+     */
+    public void setHasTransactionsForBlocksUpToHeight(final Long blockHeight) {
+        _writeLock.lock();
+        try {
+            for (final Map.Entry<Long, MutableList<BlockId>> entry : _blocksByHeight.entrySet()) {
+                if (entry.getKey() <= blockHeight) {
+                    for (final BlockId blockId : entry.getValue()) {
+                        _blockTransactionMap.put(blockId, true);
+                    }
+                }
+            }
+        }
+        finally {
+            _writeLock.unlock();
+        }
+    }
+
+    @Override
     public BlockId getBlockHeader(final BlockchainSegmentId blockchainSegmentId, final Long blockHeight) {
         _readLock.lock();
         try {
@@ -391,47 +419,73 @@ public class MutableBlockchainCache implements BlockchainCache {
     }
 
     @Override
+    public BlockId getHeadBlockHeaderId() {
+        _readLock.lock();
+        try {
+            return _headBlockHeaderId;
+        }
+        finally {
+            _readLock.unlock();
+        }
+    }
+
+    @Override
+    public BlockId getHeadBlockId() {
+        _readLock.lock();
+        try {
+            return _headBlockId;
+        }
+        finally {
+            _readLock.unlock();
+        }
+    }
+
+    @Override
     public BlockchainSegmentId getHeadBlockchainSegmentId() {
         _readLock.lock();
         try {
-            final MutableList<BlockchainSegmentId> childrenLeaves = new MutableList<>();
-            for (final BlockchainSegmentId tmpBlockchainSegmentId : _blockchainSegmentMaxBlockHeight.keySet()) {
-                final Tuple<Long, Long> nestedSet2 = new Tuple<>();
-                nestedSet2.first = _blockchainSegmentNestedSetLeft.get(tmpBlockchainSegmentId);
-                nestedSet2.second = _blockchainSegmentNestedSetRight.get(tmpBlockchainSegmentId);
+            final BlockId blockId = _headBlockHeaderId;
+            if (blockId == null) { return null; }
+            return _blockchainSegmentIds.get(blockId);
 
-                final boolean isLeafNode = (nestedSet2.first == (nestedSet2.second - 1));
-                if (! isLeafNode) { continue; }
+            // final MutableList<BlockchainSegmentId> childrenLeaves = new MutableList<>();
+            // for (final BlockchainSegmentId tmpBlockchainSegmentId : _blockchainSegmentMaxBlockHeight.keySet()) {
+            //     final Tuple<Long, Long> nestedSet2 = new Tuple<>();
+            //     nestedSet2.first = _blockchainSegmentNestedSetLeft.get(tmpBlockchainSegmentId);
+            //     nestedSet2.second = _blockchainSegmentNestedSetRight.get(tmpBlockchainSegmentId);
 
-                childrenLeaves.add(tmpBlockchainSegmentId);
-            }
+            //     final boolean isLeafNode = (nestedSet2.first == (nestedSet2.second - 1));
+            //     if (! isLeafNode) { continue; }
 
-            BlockId headBlockId = null;
-            ChainWork maxChainWork = null;
-            for (final BlockchainSegmentId childBlockchainSegmentId : childrenLeaves) {
-                final Long blockHeight = _blockchainSegmentMaxBlockHeight.get(childBlockchainSegmentId);
-                if (blockHeight == null) { continue; }
+            //     childrenLeaves.add(tmpBlockchainSegmentId);
+            // }
 
-                final List<BlockId> blockIds = _blocksByHeight.get(blockHeight);
-                if (blockIds == null) { continue; }
+            // BlockId headBlockId = null;
+            // ChainWork maxChainWork = null;
+            // for (final BlockchainSegmentId childBlockchainSegmentId : childrenLeaves) {
+            //     final Long blockHeight = _blockchainSegmentMaxBlockHeight.get(childBlockchainSegmentId);
+            //     if (blockHeight == null) { continue; }
 
-                for (final BlockId blockId : blockIds) {
-                    if (maxChainWork == null) {
-                        maxChainWork = _chainWorks.get(blockId);
-                        headBlockId = blockId;
-                    }
-                    else {
-                        final ChainWork chainWork = _chainWorks.get(blockId);
-                        if ( (chainWork != null) && (maxChainWork.compareTo(chainWork) <= 0) ) {
-                            maxChainWork = chainWork;
-                            headBlockId = blockId;
-                        }
-                    }
-                }
-            }
+            //     final List<BlockId> blockIds = _blocksByHeight.get(blockHeight);
+            //     if (blockIds == null) { continue; }
 
-            if (headBlockId == null) { return null; }
-            return _blockchainSegmentIds.get(headBlockId);
+            //     for (final BlockId blockId : blockIds) {
+            //         if (maxChainWork == null) {
+            //             maxChainWork = _chainWorks.get(blockId);
+            //             headBlockId = blockId;
+            //         }
+            //         else {
+            //             final ChainWork chainWork = _chainWorks.get(blockId);
+            //             if ( (chainWork != null) && (maxChainWork.compareTo(chainWork) <= 0) ) {
+            //                 maxChainWork = chainWork;
+            //                 headBlockId = blockId;
+            //             }
+            //         }
+            //     }
+            // }
+
+            // if (headBlockId == null) { return null; }
+            // return _blockchainSegmentIds.get(headBlockId);
         }
         finally {
             _readLock.unlock();
@@ -708,6 +762,11 @@ public class MutableBlockchainCache implements BlockchainCache {
             mutableBlockchainCache._chainWorks.putAll(_chainWorks);
             mutableBlockchainCache._medianBlockTimes.putAll(_medianBlockTimes);
             mutableBlockchainCache._blocksByHeight.putAll(_blocksByHeight);
+
+            mutableBlockchainCache._headBlockHeaderId = _headBlockHeaderId;
+            mutableBlockchainCache._headBlockId = _headBlockId;
+
+            mutableBlockchainCache._blockTransactionMap.putAll(_blockTransactionMap);
 
             mutableBlockchainCache._blockchainSegmentIds.putAll(_blockchainSegmentIds);
             mutableBlockchainCache._blockchainSegmentParents.putAll(_blockchainSegmentParents);

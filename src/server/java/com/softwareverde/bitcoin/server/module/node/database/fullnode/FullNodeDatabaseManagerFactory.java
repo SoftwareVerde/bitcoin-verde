@@ -1,17 +1,15 @@
 package com.softwareverde.bitcoin.server.module.node.database.fullnode;
 
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.configuration.CheckpointConfiguration;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.Visitor;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockMetadata;
 import com.softwareverde.bitcoin.server.module.node.database.block.MutableBlockchainCache;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
@@ -52,7 +50,7 @@ public class FullNodeDatabaseManagerFactory implements DatabaseManagerFactory {
     public void initializeCache(final Integer estimatedBlockCount) throws DatabaseException {
         try (final FullNodeDatabaseManager databaseManager = this.newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager(); // Uses the disabled cache...
-            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager(); // Uses the disabled cache...
 
             final MutableBlockchainCache blockchainCache = new MutableBlockchainCache(estimatedBlockCount);
 
@@ -67,14 +65,10 @@ public class FullNodeDatabaseManagerFactory implements DatabaseManagerFactory {
             blockHeaderDatabaseManager.visitBlockHeaders(new Visitor<>() {
                 @Override
                 public void visit(final BlockId blockId) throws Exception {
-                    final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
-                    final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
-                    final ChainWork chainWork = blockHeaderDatabaseManager.getChainWork(blockId);
-                    final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.getMedianBlockTime(blockId);
-                    final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
+                    final BlockMetadata blockMetadata = blockHeaderDatabaseManager.getBlockMetadata(blockId);
 
-                    blockchainCache.addBlock(blockId, blockHeader, blockHeight, chainWork, medianBlockTime);
-                    blockchainCache.setBlockBlockchainSegment(blockchainSegmentId, blockId);
+                    blockchainCache.addBlock(blockId, blockMetadata.blockHeader, blockMetadata.blockHeight, blockMetadata.chainWork, blockMetadata.medianBlockTime, blockMetadata.hasTransactions);
+                    blockchainCache.setBlockBlockchainSegment(blockMetadata.blockchainSegmentId, blockId);
                 }
             });
             _blockchainCacheManager.commitBlockchainCache(blockchainCache);

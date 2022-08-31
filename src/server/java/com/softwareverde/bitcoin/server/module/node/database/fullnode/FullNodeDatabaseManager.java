@@ -128,7 +128,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     @Override
     public FullNodeBlockDatabaseManager getBlockDatabaseManager() {
         if (_blockDatabaseManager == null) {
-            _blockDatabaseManager = new FullNodeBlockDatabaseManager(this, _blockStore);
+            _blockDatabaseManager = new FullNodeBlockDatabaseManager(this, _blockStore, _blockchainCacheFactory);
         }
 
         return _blockDatabaseManager;
