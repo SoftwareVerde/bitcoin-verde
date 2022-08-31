@@ -28,6 +28,7 @@ public class MutableBlockchainCache implements BlockchainCache {
     protected final HashMap<BlockId, ChainWork> _chainWorks;
     protected final HashMap<BlockId, MedianBlockTime> _medianBlockTimes;
     protected final HashMap<BlockId, Boolean> _blockTransactionMap;
+    protected final HashMap<BlockId, Integer> _blockProcessCount;
 
     protected final HashMap<BlockId, BlockchainSegmentId> _blockchainSegmentIds;
 
@@ -55,6 +56,7 @@ public class MutableBlockchainCache implements BlockchainCache {
         _medianBlockTimes = new HashMap<>(estimatedBlockCount);
         _blockTransactionMap = new HashMap<>(estimatedBlockCount);
         _blockchainSegmentIds = new HashMap<>(estimatedBlockCount);
+        _blockProcessCount = new HashMap<>(estimatedBlockCount);
     }
 
     /**
@@ -140,6 +142,7 @@ public class MutableBlockchainCache implements BlockchainCache {
             _medianBlockTimes.clear();
             _blocksByHeight.clear();
             _blockTransactionMap.clear();
+            _blockProcessCount.clear();
 
             _headBlockHeaderId = null;
             _headBlockId = null;
@@ -190,6 +193,7 @@ public class MutableBlockchainCache implements BlockchainCache {
             _medianBlockTimes.put(blockId, medianBlockTime);
             _blockIds.put(blockHash, blockId);
             _blockTransactionMap.put(blockId, hasTransactions);
+            _blockProcessCount.put(blockId, null);
 
             MutableList<BlockId> blockIds = _blocksByHeight.get(blockHeight);
             if (blockIds == null) {
@@ -332,6 +336,18 @@ public class MutableBlockchainCache implements BlockchainCache {
         _readLock.lock();
         try {
             return _blockTransactionMap.get(blockId);
+        }
+        finally {
+            _readLock.unlock();
+        }
+    }
+
+    @Override
+    public Integer getProcessCount(final BlockId blockId) {
+        _readLock.lock();
+        try {
+            if (! _blockProcessCount.containsKey(blockId)) { return null; }
+            return Util.coalesce(_blockProcessCount.get(blockId));
         }
         finally {
             _readLock.unlock();
@@ -762,11 +778,11 @@ public class MutableBlockchainCache implements BlockchainCache {
             mutableBlockchainCache._chainWorks.putAll(_chainWorks);
             mutableBlockchainCache._medianBlockTimes.putAll(_medianBlockTimes);
             mutableBlockchainCache._blocksByHeight.putAll(_blocksByHeight);
+            mutableBlockchainCache._blockTransactionMap.putAll(_blockTransactionMap);
+            mutableBlockchainCache._blockProcessCount.putAll(_blockProcessCount);
 
             mutableBlockchainCache._headBlockHeaderId = _headBlockHeaderId;
             mutableBlockchainCache._headBlockId = _headBlockId;
-
-            mutableBlockchainCache._blockTransactionMap.putAll(_blockTransactionMap);
 
             mutableBlockchainCache._blockchainSegmentIds.putAll(_blockchainSegmentIds);
             mutableBlockchainCache._blockchainSegmentParents.putAll(_blockchainSegmentParents);
@@ -778,6 +794,18 @@ public class MutableBlockchainCache implements BlockchainCache {
         }
         finally {
             _readLock.unlock();
+        }
+    }
+
+    public void incrementProcessCount(final BlockId blockId, final Integer i) {
+        _writeLock.lock();
+        try {
+            final Integer processCount = Util.coalesce(_blockProcessCount.get(blockId));
+            final int newProcessCount = Math.max(0, (processCount + i));
+            _blockProcessCount.put(blockId, newProcessCount);
+        }
+        finally {
+            _writeLock.unlock();
         }
     }
 }

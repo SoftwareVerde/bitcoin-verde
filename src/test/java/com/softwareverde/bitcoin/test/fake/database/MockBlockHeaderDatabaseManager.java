@@ -275,4 +275,9 @@ public class MockBlockHeaderDatabaseManager implements FakeBlockHeaderDatabaseMa
     public BlockMetadata getBlockMetadata(final BlockId blockId) throws DatabaseException {
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    public Map<BlockId, Integer> getBlockProcessCounts() throws DatabaseException {
+        throw new UnsupportedOperationException();
+    }
 }

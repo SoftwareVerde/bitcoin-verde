@@ -19,6 +19,8 @@ import com.softwareverde.bitcoin.server.module.node.store.UtxoCommitmentStore;
 import com.softwareverde.bitcoin.server.properties.PropertiesStore;
 import com.softwareverde.database.DatabaseException;
 
+import java.util.Map;
+
 public class FullNodeDatabaseManagerFactory implements DatabaseManagerFactory {
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final Integer _maxQueryBatchSize;
@@ -71,6 +73,13 @@ public class FullNodeDatabaseManagerFactory implements DatabaseManagerFactory {
                     blockchainCache.setBlockBlockchainSegment(blockMetadata.blockchainSegmentId, blockId);
                 }
             });
+
+            final Map<BlockId, Integer> processCounts = blockHeaderDatabaseManager.getBlockProcessCounts();
+            for (final BlockId blockId : processCounts.keySet()) {
+                final Integer processCount = processCounts.get(blockId);
+                blockchainCache.incrementProcessCount(blockId, processCount);
+            }
+
             _blockchainCacheManager.commitBlockchainCache(blockchainCache);
         }
 

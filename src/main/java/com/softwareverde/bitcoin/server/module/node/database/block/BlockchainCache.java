@@ -21,6 +21,7 @@ public interface BlockchainCache {
     ChainWork getChainWork(BlockId blockId);
     MedianBlockTime getMedianBlockTime(BlockId blockId);
     Boolean hasTransactions(BlockId blockId);
+    Integer getProcessCount(BlockId blockId);
 
     BlockId getBlockHeader(BlockchainSegmentId blockchainSegmentId, Long blockHeight);
 

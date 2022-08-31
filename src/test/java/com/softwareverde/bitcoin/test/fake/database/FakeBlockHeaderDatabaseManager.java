@@ -156,6 +156,11 @@ public interface FakeBlockHeaderDatabaseManager extends BlockHeaderDatabaseManag
     default BlockMetadata getBlockMetadata(BlockId blockId) throws DatabaseException {
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    default Map<BlockId, Integer> getBlockProcessCounts() throws DatabaseException {
+        throw new UnsupportedOperationException();
+    }
 }
 
 class FakeBlockHeaderDatabaseManagerCore extends BlockHeaderDatabaseManagerCore {

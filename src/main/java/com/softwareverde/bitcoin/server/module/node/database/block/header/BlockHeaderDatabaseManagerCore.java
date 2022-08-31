@@ -1025,6 +1025,17 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
 
     @Override
     public Boolean isBlockInvalid(final Sha256Hash blockHash, final Integer maxFailedProcessedCount) throws DatabaseException {
+        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        if (blockchainCache != null) {
+            final BlockId blockId = blockchainCache.getBlockId(blockHash);
+            if (blockId != null) {
+                final Integer processCount = blockchainCache.getProcessCount(blockId);
+                if (processCount != null) {
+                    return (processCount >= BlockHeaderDatabaseManager.INVALID_PROCESS_THRESHOLD);
+                }
+            }
+        }
+
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
@@ -1048,6 +1059,14 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
                 .setParameter(processIncrement)
                 .setParameter(processIncrement)
         );
+
+        final MutableBlockchainCache blockchainCache = _blockchainCacheFactory.getMutableBlockchainCache();
+        if (blockchainCache != null) {
+            final BlockId blockId = blockchainCache.getBlockId(blockHash);
+            if (blockId != null) {
+                blockchainCache.incrementProcessCount(blockId, 1);
+            }
+        }
     }
 
     @Override
@@ -1064,6 +1083,14 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
             new Query("DELETE FROM invalid_blocks WHERE hash = ? AND process_count < 1")
                 .setParameter(blockHash)
         );
+
+        final MutableBlockchainCache blockchainCache = _blockchainCacheFactory.getMutableBlockchainCache();
+        if (blockchainCache != null) {
+            final BlockId blockId = blockchainCache.getBlockId(blockHash);
+            if (blockId != null) {
+                blockchainCache.incrementProcessCount(blockId, -processDecrement);
+            }
+        }
     }
 
     @Override
@@ -1128,5 +1155,27 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
         // final Integer byteCount = row.getInteger("byte_count");
 
         return new BlockMetadata(blockchainSegmentId, blockHeight, chainWork, medianBlockTime, hasTransactions, blockHeader);
+    }
+
+    @Override
+    public Map<BlockId, Integer> getBlockProcessCounts() throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT * FROM invalid_blocks")
+        );
+
+        final HashMap<BlockId, Integer> processCounts = new HashMap<>(rows.size());
+        for (final Row row : rows) {
+            final Sha256Hash blockHash = Sha256Hash.wrap(row.getBytes("hash"));
+            final Integer processCount = row.getInteger("process_count");
+
+            final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+            final BlockId blockId = _getBlockHeaderId(blockHash, blockchainCache);
+            if (blockId == null) { continue; }
+
+            processCounts.put(blockId, processCount);
+        }
+        return processCounts;
     }
 }

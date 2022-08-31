@@ -55,4 +55,6 @@ public interface BlockHeaderDatabaseManager {
 
     void visitBlockHeaders(Visitor<BlockId> visitor) throws DatabaseException;
     BlockMetadata getBlockMetadata(BlockId blockId) throws DatabaseException;
+
+    Map<BlockId, Integer> getBlockProcessCounts() throws DatabaseException;
 }
