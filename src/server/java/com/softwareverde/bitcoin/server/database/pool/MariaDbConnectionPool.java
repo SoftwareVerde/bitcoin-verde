@@ -7,9 +7,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.properties.DatabaseProperties;
 import com.softwareverde.database.util.TransactionUtil;
-import com.softwareverde.logging.LogLevel;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.logging.LoggerInstance;
 import com.softwareverde.util.Util;
 import org.mariadb.jdbc.Configuration;
 import org.mariadb.jdbc.MariaDbPoolDataSource;
@@ -51,7 +49,6 @@ public class MariaDbConnectionPool implements DatabaseConnectionPool {
     protected final Integer _maxDatabaseConnectionCount;
     protected final MariaDbPoolDataSource _dataSource;
     protected final AtomicBoolean _isShutdown = new AtomicBoolean(false);
-    protected final LoggerInstance _logger = Logger.getInstance(this.getClass());
 
     protected MariaDbPoolDataSource _initDataSource(final DatabaseProperties databaseProperties) throws Exception {
         final String hostname = databaseProperties.getHostname();

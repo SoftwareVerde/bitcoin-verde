@@ -719,7 +719,7 @@ public class UtxoCommitmentDownloader {
                     unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_databaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
                     multiTimer.mark("commitUtxoSet");
 
-                    blockDatabaseManager.setBlockHeight(blockHeight);
+                    blockDatabaseManager.setHasTransactionsForBlocksUpToHeight(blockHeight);
                     multiTimer.mark("setBlockHeight");
 
                     if (_blockPruner != null) {
