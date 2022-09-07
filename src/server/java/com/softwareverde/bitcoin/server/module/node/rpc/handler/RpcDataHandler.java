@@ -16,10 +16,11 @@ import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorFactory;
+import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
+import com.softwareverde.bitcoin.context.core.MedianBlockTimeContextCore;
 import com.softwareverde.bitcoin.context.core.MutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
-import com.softwareverde.bitcoin.context.lazy.CachingMedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.lazy.LazyBlockValidatorContext;
 import com.softwareverde.bitcoin.context.lazy.LazyDifficultyCalculatorContext;
 import com.softwareverde.bitcoin.context.lazy.LazyUnconfirmedTransactionUtxoSet;
@@ -751,7 +752,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                         return blockValidationResult;
                     }
 
-                    final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(_masterInflater, blockchainSegmentId, unspentTransactionOutputSet, _difficultyCalculatorFactory, _transactionValidatorFactory, databaseManager, _networkTime, _upgradeSchedule);
+                    final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(blockchainSegmentId, databaseManager, _networkTime, _difficultyCalculatorFactory, _upgradeSchedule, unspentTransactionOutputSet, _transactionValidatorFactory, _masterInflater);
                     final BlockValidator blockValidator = new BlockValidator(blockValidatorContext);
 
                     final BlockValidationResult blockValidationResult = blockValidator.validatePrototypeBlock(block, blockHeight);
@@ -778,7 +779,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-            final CachingMedianBlockTimeContext medianBlockTimeContext = new CachingMedianBlockTimeContext(blockchainSegmentId, databaseManager);
+            final MedianBlockTimeContext medianBlockTimeContext = new MedianBlockTimeContextCore(blockchainSegmentId, databaseManager);
             final LazyUnconfirmedTransactionUtxoSet unconfirmedTransactionUtxoSet = new LazyUnconfirmedTransactionUtxoSet(databaseManager);
             final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(_masterInflater, _networkTime, medianBlockTimeContext, unconfirmedTransactionUtxoSet, _upgradeSchedule);
             final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);

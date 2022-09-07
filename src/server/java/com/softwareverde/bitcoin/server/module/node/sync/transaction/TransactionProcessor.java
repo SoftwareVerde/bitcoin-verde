@@ -13,7 +13,7 @@ import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.context.UpgradeScheduleContext;
 import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
 import com.softwareverde.bitcoin.context.lazy.DoubleSpendProofUtxoSet;
-import com.softwareverde.bitcoin.context.lazy.LazyMedianBlockTimeContext;
+import com.softwareverde.bitcoin.context.lazy.HeadBlockchainMedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.lazy.LazyUnconfirmedTransactionUtxoSet;
 import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -106,7 +106,7 @@ public class TransactionProcessor extends SleepyService {
 
             final TransactionInflaters transactionInflaters = _context;
             final UnspentTransactionOutputContext unconfirmedTransactionUtxoSet = new LazyUnconfirmedTransactionUtxoSet(databaseManager, true);
-            final MedianBlockTimeContext medianBlockTimeContext = new LazyMedianBlockTimeContext(databaseManager);
+            final MedianBlockTimeContext medianBlockTimeContext = new HeadBlockchainMedianBlockTimeContext(databaseManager);
             final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
             final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(transactionInflaters, networkTime, medianBlockTimeContext, unconfirmedTransactionUtxoSet, upgradeSchedule);
             final TransactionValidator transactionValidator = _context.getUnconfirmedTransactionValidator(transactionValidatorContext);

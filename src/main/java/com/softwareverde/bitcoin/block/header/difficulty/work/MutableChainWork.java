@@ -42,4 +42,9 @@ public class MutableChainWork extends MutableByteArray implements ChainWork {
 
         return this;
     }
+
+    @Override
+    public ImmutableChainWork asConst() {
+        return new ImmutableChainWork(this);
+    }
 }

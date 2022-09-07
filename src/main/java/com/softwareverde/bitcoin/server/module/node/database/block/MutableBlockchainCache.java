@@ -40,7 +40,6 @@ public class MutableBlockchainCache implements BlockchainCache {
     protected final HashMap<BlockchainSegmentId, Long> _blockchainSegmentNestedSetRight = new HashMap<>();
     protected final HashMap<BlockchainSegmentId, Long> _blockchainSegmentMaxBlockHeight = new HashMap<>();
 
-
     public MutableBlockchainCache(final Integer estimatedBlockCount) {
         _initializationSize = estimatedBlockCount;
 
@@ -185,12 +184,13 @@ public class MutableBlockchainCache implements BlockchainCache {
     public void addBlock(final BlockId blockId, final BlockHeader blockHeader, final Long blockHeight, final ChainWork chainWork, final MedianBlockTime medianBlockTime, final Boolean hasTransactions) {
         _writeLock.lock();
         try {
-            final Sha256Hash blockHash = blockHeader.getHash(); // NOTE: Also forces internal BlockHeader hash cashing...
+            final BlockHeader constBlockHeader = blockHeader.asConst();
+            final Sha256Hash blockHash = constBlockHeader.getHash(); // NOTE: Also forces internal BlockHeader hash caching...
 
-            _blockHeaders.put(blockId, blockHeader);
+            _blockHeaders.put(blockId, constBlockHeader);
             _blockHeights.put(blockId, blockHeight);
-            _chainWorks.put(blockId, chainWork);
-            _medianBlockTimes.put(blockId, medianBlockTime);
+            _chainWorks.put(blockId, chainWork.asConst());
+            _medianBlockTimes.put(blockId, medianBlockTime.asConst());
             _blockIds.put(blockHash, blockId);
             _blockTransactionMap.put(blockId, hasTransactions);
             _blockProcessCount.put(blockId, null);
