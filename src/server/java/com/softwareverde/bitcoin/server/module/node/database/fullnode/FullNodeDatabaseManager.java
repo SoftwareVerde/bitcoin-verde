@@ -229,8 +229,9 @@ public class FullNodeDatabaseManager implements DatabaseManager {
 
     @Override
     public void close() throws DatabaseException {
+        // TODO: close is still called in the case of an exception, so committing blindly is almost certainly wrong.
         if (_cacheWasMutated) {
-            _blockchainCacheManager.commitBlockchainCache(_blockchainCache);
+            _blockchainCacheManager.commitBlockchainCache();
         }
 
         _databaseConnection.close();
