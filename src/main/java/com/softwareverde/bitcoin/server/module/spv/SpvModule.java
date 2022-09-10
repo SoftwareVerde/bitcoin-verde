@@ -64,7 +64,6 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.time.MutableNetworkTime;
@@ -421,7 +420,7 @@ public class SpvModule {
                     final SpvBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
                     final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
-                    TransactionUtil.startTransaction(databaseConnection);
+                    databaseManager.startTransaction();
                     final Sha256Hash previousBlockHash = merkleBlock.getPreviousBlockHash();
                     if (! Util.areEqual(previousBlockHash, Sha256Hash.EMPTY_HASH)) { // Check for Genesis Block...
                         final BlockId previousBlockId = blockHeaderDatabaseManager.getBlockHeaderId(merkleBlock.getPreviousBlockHash());
@@ -446,7 +445,7 @@ public class SpvModule {
 
                         _synchronizeSlpValidity();
                     }
-                    TransactionUtil.commitTransaction(databaseConnection);
+                    databaseManager.commitTransaction();
                 }
                 catch (final DatabaseException exception) {
                     Logger.warn(exception);
@@ -506,9 +505,9 @@ public class SpvModule {
                             final SpvDatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection, maxQueryBatchSize, _propertiesStore, _checkpointConfiguration);
                             final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
-                            TransactionUtil.startTransaction(databaseConnection);
+                            databaseManager.startTransaction();
                             transactionDatabaseManager.storeTransaction(transaction);
-                            TransactionUtil.commitTransaction(databaseConnection);
+                            databaseManager.commitTransaction();
                         }
                         catch (final DatabaseException exception) {
                             Logger.warn(exception);
@@ -570,7 +569,7 @@ public class SpvModule {
 
                                 final TransactionValidityChangedCallback transactionValidityChangedCallback = Util.coalesce(_transactionValidityChangedCallback, IGNORE_TRANSACTION_VALIDITY_CHANGED_CALLBACK);
 
-                                TransactionUtil.startTransaction(databaseConnection);
+                                databaseManager.startTransaction();
                                 Logger.info("Marking " + transactionHashes.getCount() + " SLP transactions as " + (isValid ? "valid" : "invalid"));
                                 for (final Sha256Hash transactionHash : transactionHashes) {
                                     if (isValid) {
@@ -591,7 +590,7 @@ public class SpvModule {
                                         }
                                     }
                                 }
-                                TransactionUtil.commitTransaction(databaseConnection);
+                                databaseManager.commitTransaction();
                             }
                             catch (final DatabaseException exception) {
                                 Logger.warn("Problem tracking SLP validity", exception);

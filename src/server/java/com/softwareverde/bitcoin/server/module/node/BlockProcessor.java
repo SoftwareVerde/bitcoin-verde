@@ -50,7 +50,6 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.VolatileNetworkTime;
 import com.softwareverde.util.RotatingQueue;
@@ -151,18 +150,16 @@ public class BlockProcessor {
 
         // Store the BlockHeader...
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-
             final BlockId blockId;
             final Long blockHeight;
-            TransactionUtil.startTransaction(databaseConnection);
+            databaseManager.startTransaction();
             {
                 Logger.debug("Processing Block: " + blockHash);
                 blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
 
                 if (blockId == null) {
                     Logger.debug("Error storing BlockHeader: " + blockHash);
-                    TransactionUtil.rollbackTransaction(databaseConnection);
+                    databaseManager.rollbackTransaction();
                     return null;
                 }
 
@@ -177,11 +174,11 @@ public class BlockProcessor {
                 final BlockHeaderValidator.BlockHeaderValidationResult blockHeaderValidationResult = blockHeaderValidator.validateBlockHeader(blockHeader, blockHeight);
                 if (! blockHeaderValidationResult.isValid) {
                     Logger.debug("Invalid BlockHeader: " + blockHeaderValidationResult.errorMessage + " (" + blockHash + ")");
-                    TransactionUtil.rollbackTransaction(databaseConnection);
+                    databaseManager.rollbackTransaction();
                     return null;
                 }
             }
-            TransactionUtil.commitTransaction(databaseConnection);
+            databaseManager.commitTransaction();
             return new ProcessBlockHeaderResult(blockId, blockHeight, false);
         }
     }
@@ -359,7 +356,7 @@ public class BlockProcessor {
         }
         multiTimer.mark("blockchain");
 
-        TransactionUtil.startTransaction(databaseConnection);
+        databaseManager.startTransaction();
 
         final UnspentTransactionOutputContext unspentTransactionOutputContext;
         {
@@ -371,7 +368,7 @@ public class BlockProcessor {
                 final MutableUnspentTransactionOutputSet mutableUnspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
                 final Boolean unspentTransactionOutputsExistForBlock = mutableUnspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight); // Ensure the the UTXOs for this block are pre-loaded into the cache...
                 if (! unspentTransactionOutputsExistForBlock) {
-                    TransactionUtil.rollbackTransaction(databaseConnection);
+                    databaseManager.rollbackTransaction();
                     Logger.debug("Invalid block. Could not find UTXOs for block: " + blockHash);
                     return ProcessBlockResult.invalid(block, blockHeight, "Could not find UTXOs for block.");
                 }
@@ -409,7 +406,7 @@ public class BlockProcessor {
         multiTimer.mark("validation");
 
         if (! blockValidationResult.isValid) {
-            TransactionUtil.rollbackTransaction(databaseConnection);
+            databaseManager.rollbackTransaction();
             Logger.debug("Invalid block. " + blockHash);
             return ProcessBlockResult.invalid(block, blockHeight, blockValidationResult.errorMessage);
         }
@@ -435,7 +432,7 @@ public class BlockProcessor {
             final boolean transactionsStoredSuccessfully = (transactionIds != null);
 
             if (! transactionsStoredSuccessfully) {
-                TransactionUtil.rollbackTransaction(databaseConnection);
+                databaseManager.rollbackTransaction();
                 Logger.debug("Invalid block. Unable to store transactions for block: " + blockHash);
                 return ProcessBlockResult.invalid(block, blockHeight, "Unable to store transactions for block.");
             }
@@ -542,7 +539,7 @@ public class BlockProcessor {
         }
         multiTimer.mark("undoLog");
 
-        TransactionUtil.commitTransaction(databaseConnection);
+        databaseManager.commitTransaction();
 
         final float averageTransactionsPerSecond;
         synchronized (_statisticsMutex) {

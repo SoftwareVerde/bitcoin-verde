@@ -52,6 +52,21 @@ public class BanFilterTests extends UnitTest {
                             }
                         };
                     }
+
+                    @Override
+                    public void startTransaction() {
+                        // Nothing.
+                    }
+
+                    @Override
+                    public void commitTransaction() {
+                        // Nothing.
+                    }
+
+                    @Override
+                    public void rollbackTransaction() {
+                        // Nothing.
+                    }
                 };
             }
         });

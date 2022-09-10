@@ -38,7 +38,6 @@ import com.softwareverde.cryptography.util.HashUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.query.parameter.InClauseParameter;
 import com.softwareverde.database.row.Row;
-import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.Container;
@@ -567,7 +566,7 @@ public class UtxoCommitmentGenerator extends PausableSleepyService {
                 unspentTransactionOutputMap = sortedUnspentTransactionOutputIdentifierMap;
             }
 
-            TransactionUtil.startTransaction(databaseConnection);
+            databaseManager.startTransaction();
 
             final long blockHeight = stagedUtxoBlockHeight;
             identifierBatchRunner.run(sortedUnspentIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
@@ -607,7 +606,7 @@ public class UtxoCommitmentGenerator extends PausableSleepyService {
 
             _setStagedUtxoCommitmentBlockHeight(stagedUtxoBlockHeight, databaseManager);
 
-            TransactionUtil.commitTransaction(databaseConnection);
+            databaseManager.commitTransaction();
 
             if (shouldCreateCommit) {
                 _deleteOldUtxoCommitments(databaseConnection);

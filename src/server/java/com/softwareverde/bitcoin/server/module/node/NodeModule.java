@@ -1265,7 +1265,7 @@ public class NodeModule {
         { // Warm up the DB Cache...
             Logger.info("[Warming DB Cache]");
             try {
-                databaseManagerFactory.initializeCache(1_000_000);
+                databaseManagerFactory.initializeCache();
             }
             catch (final Exception exception) {
                 Logger.error(exception);

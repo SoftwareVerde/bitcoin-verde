@@ -11,6 +11,7 @@ import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDat
 import com.softwareverde.bitcoin.server.module.node.database.transaction.spv.SpvTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.properties.PropertiesStore;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.util.TransactionUtil;
 
 public class SpvDatabaseManager implements DatabaseManager {
     protected final DatabaseConnection _databaseConnection;
@@ -89,6 +90,21 @@ public class SpvDatabaseManager implements DatabaseManager {
     @Override
     public Integer getMaxQueryBatchSize() {
         return _maxQueryBatchSize;
+    }
+
+    @Override
+    public void startTransaction() throws DatabaseException {
+        TransactionUtil.startTransaction(_databaseConnection);
+    }
+
+    @Override
+    public void commitTransaction() throws DatabaseException {
+        TransactionUtil.commitTransaction(_databaseConnection);
+    }
+
+    @Override
+    public void rollbackTransaction() throws DatabaseException {
+        TransactionUtil.rollbackTransaction(_databaseConnection);
     }
 
     @Override

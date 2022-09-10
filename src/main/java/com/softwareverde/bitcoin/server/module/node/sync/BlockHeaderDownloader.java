@@ -31,7 +31,6 @@ import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.VolatileNetworkTime;
 import com.softwareverde.util.Util;
@@ -194,12 +193,12 @@ public class BlockHeaderDownloader extends PausableSleepyService {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            TransactionUtil.startTransaction(databaseConnection);
+            databaseManager.startTransaction();
             final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
 
             if (blockId == null) {
                 Logger.info("Error storing BlockHeader: " + blockHash);
-                TransactionUtil.rollbackTransaction(databaseConnection);
+                databaseManager.rollbackTransaction();
                 return false;
             }
 
@@ -213,13 +212,13 @@ public class BlockHeaderDownloader extends PausableSleepyService {
             final BlockHeaderValidator.BlockHeaderValidationResult blockHeaderValidationResult = blockHeaderValidator.validateBlockHeader(blockHeader, blockHeight);
             if (! blockHeaderValidationResult.isValid) {
                 Logger.info("Invalid BlockHeader: " + blockHeaderValidationResult.errorMessage + " (" + blockHash + ")");
-                TransactionUtil.rollbackTransaction(databaseConnection);
+                databaseManager.rollbackTransaction();
                 return false;
             }
 
             _headBlockHeight = Math.max(blockHeight, _headBlockHeight);
 
-            TransactionUtil.commitTransaction(databaseConnection);
+            databaseManager.commitTransaction();
         }
 
         return true;
@@ -230,7 +229,6 @@ public class BlockHeaderDownloader extends PausableSleepyService {
 
         final VolatileNetworkTime networkTime = _context.getNetworkTime();
         final DifficultyCalculatorFactory difficultyCalculatorFactory = _context;
-        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
@@ -290,11 +288,11 @@ public class BlockHeaderDownloader extends PausableSleepyService {
                 }
             }
 
-            TransactionUtil.startTransaction(databaseConnection);
+            databaseManager.startTransaction();
 
             final List<BlockId> blockIds = _insertBlockHeaders(blockHeaders, blockHeaderDatabaseManager);
             if ( (blockIds == null) || (blockIds.isEmpty()) ) {
-                TransactionUtil.rollbackTransaction(databaseConnection);
+                databaseManager.rollbackTransaction();
 
                 final BlockHeader firstBlockHeader = blockHeaders.get(0);
                 final Sha256Hash blockHash = firstBlockHeader.getHash();
@@ -323,7 +321,7 @@ public class BlockHeaderDownloader extends PausableSleepyService {
                 final BlockHeaderValidator.BlockHeaderValidationResult blockHeaderValidationResult = blockHeaderValidator.validateBlockHeader(blockHeader, nextBlockHeight);
                 if (!blockHeaderValidationResult.isValid) {
                     Logger.info("Invalid BlockHeader: " + blockHeaderValidationResult.errorMessage);
-                    TransactionUtil.rollbackTransaction(databaseConnection);
+                    databaseManager.rollbackTransaction();
 
                     if (nullableInvalidBlockHashes != null) {
                         final Sha256Hash blockHash = blockHeader.getHash();
@@ -339,7 +337,7 @@ public class BlockHeaderDownloader extends PausableSleepyService {
             final long blockHeight = (nextBlockHeight - 1L);
             _headBlockHeight = Math.max(blockHeight, _headBlockHeight);
 
-            TransactionUtil.commitTransaction(databaseConnection);
+            databaseManager.commitTransaction();
 
             return true;
         }

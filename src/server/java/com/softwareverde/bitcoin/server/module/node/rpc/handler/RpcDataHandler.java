@@ -66,7 +66,6 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.VolatileNetworkTime;
 import com.softwareverde.util.Tuple;
@@ -737,7 +736,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
 
             try {
                 synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                    TransactionUtil.startTransaction(databaseConnection);
+                    databaseManager.startTransaction();
 
                     final BlockId blockId = blockDatabaseManager.storeBlock(block);
 
@@ -761,7 +760,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                 }
             }
             finally {
-                TransactionUtil.rollbackTransaction(databaseConnection); // Never keep the validated block...
+                databaseManager.rollbackTransaction(); // Never keep the validated block...
             }
         }
         catch (final Exception exception) {
@@ -785,7 +784,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
             final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
             try {
-                TransactionUtil.startTransaction(databaseConnection);
+                databaseManager.startTransaction();
                 final BlockId headBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
                 final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
 
@@ -806,7 +805,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                 return transactionValidationResult;
             }
             finally {
-                TransactionUtil.rollbackTransaction(databaseConnection); // Never keep the validated transaction...
+                databaseManager.rollbackTransaction(); // Never keep the validated transaction...
             }
         }
         catch (final Exception exception) {

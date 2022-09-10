@@ -31,7 +31,7 @@ public class FullNodeDatabaseManagerFactory implements DatabaseManagerFactory {
     protected final CheckpointConfiguration _checkpointConfiguration;
     protected final Long _maxUtxoCount;
     protected final Float _utxoPurgePercent;
-    protected final BlockchainCacheManager _blockchainCacheManager = new BlockchainCacheManager(null);
+    protected BlockchainCacheManager _blockchainCacheManager = new BlockchainCacheManager(); // Disabled cache unless initialize is called...
 
     public FullNodeDatabaseManagerFactory(final DatabaseConnectionFactory databaseConnectionFactory, final Integer maxQueryBatchSize, final PropertiesStore propertiesStore, final PendingBlockStore blockStore, final UtxoCommitmentStore utxoCommitmentStore, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration) {
         this(databaseConnectionFactory, maxQueryBatchSize, propertiesStore, blockStore, utxoCommitmentStore, masterInflater, checkpointConfiguration, UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT, UnspentTransactionOutputDatabaseManager.DEFAULT_PURGE_PERCENT);
@@ -49,12 +49,13 @@ public class FullNodeDatabaseManagerFactory implements DatabaseManagerFactory {
         _checkpointConfiguration = checkpointConfiguration;
     }
 
-    public void initializeCache(final Integer estimatedBlockCount) throws DatabaseException {
+    public void initializeCache() throws DatabaseException {
         try (final FullNodeDatabaseManager databaseManager = this.newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager(); // Uses the disabled cache...
             final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager(); // Uses the disabled cache...
 
-            final MutableBlockchainCache blockchainCache = new MutableBlockchainCache(estimatedBlockCount);
+            _blockchainCacheManager.initializeCache(850_000);
+            final MutableBlockchainCache blockchainCache = _blockchainCacheManager.getNewBlockchainCache();
 
             blockchainDatabaseManager.visitBlockchainSegments(new Visitor<>() {
                 @Override
@@ -80,7 +81,7 @@ public class FullNodeDatabaseManagerFactory implements DatabaseManagerFactory {
                 blockchainCache.incrementProcessCount(blockId, processCount);
             }
 
-            _blockchainCacheManager.commitBlockchainCache(blockchainCache);
+            _blockchainCacheManager.commitBlockchainCache();
         }
 
     }

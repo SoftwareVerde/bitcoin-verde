@@ -21,6 +21,10 @@ public interface DatabaseManager extends AutoCloseable {
 
     Integer getMaxQueryBatchSize();
 
+    void startTransaction() throws DatabaseException;
+    void commitTransaction() throws DatabaseException;
+    void rollbackTransaction() throws DatabaseException;
+
     @Override
     void close() throws DatabaseException;
 }

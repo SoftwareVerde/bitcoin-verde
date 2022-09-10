@@ -151,6 +151,15 @@ public class FakeDatabaseManager implements com.softwareverde.bitcoin.test.fake.
     }
 
     @Override
+    public void startTransaction() { }
+
+    @Override
+    public void commitTransaction() { }
+
+    @Override
+    public void rollbackTransaction() { }
+
+    @Override
     public PropertiesStore getPropertiesStore() {
         return _propertiesStore;
     }

@@ -33,6 +33,7 @@ import com.softwareverde.bitcoin.server.module.node.store.UtxoCommitmentStore;
 import com.softwareverde.bitcoin.server.module.node.utxo.UtxoCommitmentManagerCore;
 import com.softwareverde.bitcoin.server.properties.PropertiesStore;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.util.TransactionUtil;
 
 public class FullNodeDatabaseManager implements DatabaseManager {
     protected final DatabaseConnection _databaseConnection;
@@ -228,10 +229,32 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     }
 
     @Override
-    public void close() throws DatabaseException {
-        // TODO: close is still called in the case of an exception, so committing blindly is almost certainly wrong.
+    public void startTransaction() throws DatabaseException {
+        TransactionUtil.startTransaction(_databaseConnection);
+    }
+
+    @Override
+    public void commitTransaction() throws DatabaseException {
+        TransactionUtil.commitTransaction(_databaseConnection);
         if (_cacheWasMutated) {
             _blockchainCacheManager.commitBlockchainCache();
+            _cacheWasMutated = false;
+        }
+    }
+
+    @Override
+    public void rollbackTransaction() throws DatabaseException {
+        TransactionUtil.rollbackTransaction(_databaseConnection);
+        if (_cacheWasMutated) {
+            _blockchainCacheManager.rollbackBlockchainCache();
+            _cacheWasMutated = false;
+        }
+    }
+
+    @Override
+    public void close() throws DatabaseException {
+        if (_cacheWasMutated) {
+            _blockchainCacheManager.rollbackBlockchainCache();
         }
 
         _databaseConnection.close();

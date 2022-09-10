@@ -16,7 +16,6 @@ import com.softwareverde.bitcoin.context.lazy.DoubleSpendProofUtxoSet;
 import com.softwareverde.bitcoin.context.lazy.HeadBlockchainMedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.lazy.LazyUnconfirmedTransactionUtxoSet;
 import com.softwareverde.bitcoin.inflater.TransactionInflaters;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
@@ -45,7 +44,6 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.VolatileNetworkTime;
 import com.softwareverde.util.timer.MilliTimer;
@@ -73,13 +71,12 @@ public class TransactionProcessor extends SleepyService {
     protected DoubleSpendProofCallback _doubleSpendProofCallback;
 
     protected void _deletePendingTransaction(final FullNodeDatabaseManager databaseManager, final PendingTransactionId pendingTransactionId) {
-        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
         final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = databaseManager.getPendingTransactionDatabaseManager();
 
         try {
-            TransactionUtil.startTransaction(databaseConnection);
+            databaseManager.startTransaction();
             pendingTransactionDatabaseManager.deletePendingTransaction(pendingTransactionId);
-            TransactionUtil.commitTransaction(databaseConnection);
+            databaseManager.commitTransaction();
         }
         catch (final DatabaseException exception) {
             Logger.warn(exception);
@@ -98,7 +95,6 @@ public class TransactionProcessor extends SleepyService {
         final Thread thread = Thread.currentThread();
 
         try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
             final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = databaseManager.getPendingTransactionDatabaseManager();
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
@@ -239,13 +235,13 @@ public class TransactionProcessor extends SleepyService {
                         continue;
                     }
 
-                    TransactionUtil.startTransaction(databaseConnection);
+                    databaseManager.startTransaction();
                     final TransactionId transactionId = transactionDatabaseManager.storeUnconfirmedTransaction(transaction);
                     final boolean isUnconfirmedTransaction = (transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId) == null); // TODO: This check is likely redundant...
                     if (isUnconfirmedTransaction) {
                         transactionDatabaseManager.addToUnconfirmedTransactions(transactionId);
                     }
-                    TransactionUtil.commitTransaction(databaseConnection);
+                    databaseManager.commitTransaction();
 
                     _deletePendingTransaction(databaseManager, pendingTransactionId);
 
