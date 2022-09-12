@@ -15,44 +15,37 @@ import com.softwareverde.util.Util;
 
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-public abstract class AbstractBlockchainCache implements BlockchainCache {
+public class BlockchainCacheCore implements BlockchainCache {
     public interface MapFactory {
-        <Key, Value> VersionedMap<Key, Value> newMap();
-        <Key, Value> VersionedMap<Key, Value> newMap(Integer itemCount);
+        <Key, Value> Map<Key, Value> newMap();
+        <Key, Value> Map<Key, Value> newMap(Integer itemCount);
     }
 
     protected final ReentrantReadWriteLock.ReadLock _readLock;
     protected final ReentrantReadWriteLock.WriteLock _writeLock;
 
-    protected final VersionedMap<BlockId, BlockHeader> _blockHeaders;
-    protected final VersionedMap<BlockId, Long> _blockHeights;
-    protected final VersionedMap<Sha256Hash, BlockId> _blockIds;
-    protected final VersionedMap<Long, MutableList<BlockId>> _blocksByHeight;
-    protected final VersionedMap<BlockId, ChainWork> _chainWorks;
-    protected final VersionedMap<BlockId, MedianBlockTime> _medianBlockTimes;
-    protected final VersionedMap<BlockId, Boolean> _blockTransactionMap;
-    protected final VersionedMap<BlockId, Integer> _blockProcessCount;
+    protected final Map<BlockId, BlockHeader> _blockHeaders;
+    protected final Map<BlockId, Long> _blockHeights;
+    protected final Map<Sha256Hash, BlockId> _blockIds;
+    protected final Map<Long, MutableList<BlockId>> _blocksByHeight;
+    protected final Map<BlockId, ChainWork> _chainWorks;
+    protected final Map<BlockId, MedianBlockTime> _medianBlockTimes;
+    protected final Map<BlockId, Boolean> _blockTransactionMap;
+    protected final Map<BlockId, Integer> _blockProcessCount;
 
-    protected final VersionedMap<BlockId, BlockchainSegmentId> _blockchainSegmentIds;
+    protected final Map<BlockId, BlockchainSegmentId> _blockchainSegmentIds;
 
     protected BlockId _headBlockId = null;
     protected BlockId _headBlockHeaderId = null;
 
-    protected final VersionedMap<BlockchainSegmentId, BlockchainSegmentId> _blockchainSegmentParents; // key=child, value=parent
-    protected final VersionedMap<BlockchainSegmentId, Long> _blockchainSegmentNestedSetLeft;
-    protected final VersionedMap<BlockchainSegmentId, Long> _blockchainSegmentNestedSetRight;
-    protected final VersionedMap<BlockchainSegmentId, Long> _blockchainSegmentMaxBlockHeight;
+    protected final Map<BlockchainSegmentId, BlockchainSegmentId> _blockchainSegmentParents; // key=child, value=parent
+    protected final Map<BlockchainSegmentId, Long> _blockchainSegmentNestedSetLeft;
+    protected final Map<BlockchainSegmentId, Long> _blockchainSegmentNestedSetRight;
+    protected final Map<BlockchainSegmentId, Long> _blockchainSegmentMaxBlockHeight;
 
-    protected abstract Integer _getVersion();
-
-    protected Boolean _areBlockchainSegmentsConnected(final Long nestedSetLeft0, final Long nestedSetRight0, final BlockchainSegmentId blockchainSegmentId, final BlockRelationship blockRelationship, final Integer version) {
-        final Long nestedSetLeft1 = _blockchainSegmentNestedSetLeft.get(blockchainSegmentId, version);
-        final Long nestedSetRight1 = _blockchainSegmentNestedSetRight.get(blockchainSegmentId, version);
-
-        if (nestedSetLeft0 == null) { throw new NullPointerException("nestedSetLeft0"); }
-        if (nestedSetLeft1 == null) { throw new NullPointerException("nestedSetLeft1"); }
-        if (nestedSetRight0 == null) { throw new NullPointerException("nestedSetRight0"); }
-        if (nestedSetRight1 == null) { throw new NullPointerException("nestedSetRight1"); }
+    protected Boolean _areBlockchainSegmentsConnected(final Long nestedSetLeft0, final Long nestedSetRight0, final BlockchainSegmentId blockchainSegmentId, final BlockRelationship blockRelationship) {
+        final Long nestedSetLeft1 = _blockchainSegmentNestedSetLeft.get(blockchainSegmentId);
+        final Long nestedSetRight1 = _blockchainSegmentNestedSetRight.get(blockchainSegmentId);
 
         switch (blockRelationship) {
             case ANCESTOR: {
@@ -76,7 +69,7 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
         }
     }
 
-    protected AbstractBlockchainCache(final Integer estimatedBlockCount, final MapFactory mapFactory) {
+    protected BlockchainCacheCore(final Integer estimatedBlockCount, final MapFactory mapFactory) {
         final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
         _readLock = readWriteLock.readLock();
         _writeLock = readWriteLock.writeLock();
@@ -97,7 +90,7 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
         _blockProcessCount = mapFactory.newMap(estimatedBlockCount);
     }
 
-    protected AbstractBlockchainCache(final ReentrantReadWriteLock.ReadLock readLock, final ReentrantReadWriteLock.WriteLock writeLock, final VersionedMap<BlockId, BlockHeader> blockHeaders, final VersionedMap<BlockId, Long> blockHeights, final VersionedMap<Sha256Hash, BlockId> blockIds, final VersionedMap<Long, MutableList<BlockId>> blocksByHeight, final VersionedMap<BlockId, ChainWork> chainWorks, final VersionedMap<BlockId, MedianBlockTime> medianBlockTimes, final VersionedMap<BlockId, Boolean> blockTransactionMap, final VersionedMap<BlockId, Integer> blockProcessCount, final VersionedMap<BlockId, BlockchainSegmentId> blockchainSegmentIds, final BlockId headBlockId, final BlockId headBlockHeaderId, final VersionedMap<BlockchainSegmentId, BlockchainSegmentId> blockchainSegmentParents, final VersionedMap<BlockchainSegmentId, Long> blockchainSegmentNestedSetLeft, final VersionedMap<BlockchainSegmentId, Long> blockchainSegmentNestedSetRight, final VersionedMap<BlockchainSegmentId, Long> blockchainSegmentMaxBlockHeight) {
+    protected BlockchainCacheCore(final ReentrantReadWriteLock.ReadLock readLock, final ReentrantReadWriteLock.WriteLock writeLock, final Map<BlockId, BlockHeader> blockHeaders, final Map<BlockId, Long> blockHeights, final Map<Sha256Hash, BlockId> blockIds, final Map<Long, MutableList<BlockId>> blocksByHeight, final Map<BlockId, ChainWork> chainWorks, final Map<BlockId, MedianBlockTime> medianBlockTimes, final Map<BlockId, Boolean> blockTransactionMap, final Map<BlockId, Integer> blockProcessCount, final Map<BlockId, BlockchainSegmentId> blockchainSegmentIds, final BlockId headBlockId, final BlockId headBlockHeaderId, final Map<BlockchainSegmentId, BlockchainSegmentId> blockchainSegmentParents, final Map<BlockchainSegmentId, Long> blockchainSegmentNestedSetLeft, final Map<BlockchainSegmentId, Long> blockchainSegmentNestedSetRight, final Map<BlockchainSegmentId, Long> blockchainSegmentMaxBlockHeight) {
         _readLock = readLock;
         _writeLock = writeLock;
         _blockHeaders = blockHeaders;
@@ -121,8 +114,7 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
     public BlockId getBlockId(final Sha256Hash blockHash) {
         _readLock.lock();
         try {
-            final Integer version = _getVersion();
-            return _blockIds.get(blockHash, version);
+            return _blockIds.get(blockHash);
         }
         finally {
             _readLock.unlock();
@@ -133,8 +125,7 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
     public BlockHeader getBlockHeader(final BlockId blockId) {
         _readLock.lock();
         try {
-            final Integer version = _getVersion();
-            return _blockHeaders.get(blockId, version);
+            return _blockHeaders.get(blockId);
         }
         finally {
             _readLock.unlock();
@@ -145,10 +136,9 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
     public BlockHeader getBlockHeader(final Sha256Hash blockHash) {
         _readLock.lock();
         try {
-            final Integer version = _getVersion();
-            final BlockId blockId = _blockIds.get(blockHash, version);
+            final BlockId blockId = _blockIds.get(blockHash);
             if (blockId == null) { return null; }
-            return _blockHeaders.get(blockId, version);
+            return _blockHeaders.get(blockId);
         }
         finally {
             _readLock.unlock();
@@ -159,8 +149,7 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
     public Long getBlockHeight(final BlockId blockId) {
         _readLock.lock();
         try {
-            final Integer version = _getVersion();
-            return _blockHeights.get(blockId, version);
+            return _blockHeights.get(blockId);
         }
         finally {
             _readLock.unlock();
@@ -171,8 +160,7 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
     public ChainWork getChainWork(final BlockId blockId) {
         _readLock.lock();
         try {
-            final Integer version = _getVersion();
-            return _chainWorks.get(blockId, version);
+            return _chainWorks.get(blockId);
         }
         finally {
             _readLock.unlock();
@@ -183,8 +171,7 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
     public MedianBlockTime getMedianBlockTime(final BlockId blockId) {
         _readLock.lock();
         try {
-            final Integer version = _getVersion();
-            return _medianBlockTimes.get(blockId, version);
+            return _medianBlockTimes.get(blockId);
         }
         finally {
             _readLock.unlock();
@@ -195,8 +182,7 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
     public Boolean hasTransactions(final BlockId blockId) {
         _readLock.lock();
         try {
-            final Integer version = _getVersion();
-            return _blockTransactionMap.get(blockId, version);
+            return _blockTransactionMap.get(blockId);
         }
         finally {
             _readLock.unlock();
@@ -207,9 +193,8 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
     public Integer getProcessCount(final BlockId blockId) {
         _readLock.lock();
         try {
-            final Integer version = _getVersion();
-            if (! _blockProcessCount.containsKey(blockId, version)) { return null; }
-            return Util.coalesce(_blockProcessCount.get(blockId, version));
+            if (! _blockProcessCount.containsKey(blockId)) { return null; }
+            return Util.coalesce(_blockProcessCount.get(blockId));
         }
         finally {
             _readLock.unlock();
@@ -220,20 +205,19 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
     public BlockId getBlockHeader(final BlockchainSegmentId blockchainSegmentId, final Long blockHeight) {
         _readLock.lock();
         try {
-            final Integer version = _getVersion();
-            final List<BlockId> blockIds = _blocksByHeight.get(blockHeight, version);
+            final List<BlockId> blockIds = _blocksByHeight.get(blockHeight);
             if (blockIds == null) { return null; }
 
             // Attempt to match exactly...
             for (final BlockId blockId : blockIds) {
-                final BlockchainSegmentId exactMatchBlockchainSegmentId = _blockchainSegmentIds.get(blockId, version);
+                final BlockchainSegmentId exactMatchBlockchainSegmentId = _blockchainSegmentIds.get(blockId);
                 if (Util.areEqual(blockchainSegmentId, exactMatchBlockchainSegmentId)) {
                     return blockId;
                 }
             }
 
             { // Attempt to find a matching blockchainSegment parent... (any nestedSetLeft that is greater than the blockchainSegmentId's nestedSetLeft)
-                final Long maxNestedSetLeft = _blockchainSegmentNestedSetLeft.get(blockchainSegmentId, version);
+                final Long maxNestedSetLeft = _blockchainSegmentNestedSetLeft.get(blockchainSegmentId);
                 final MutableList<BlockchainSegmentId> parentBlockchainSegmentIds = new MutableList<>();
                 _blockchainSegmentNestedSetLeft.visit(new Map.Visitor<BlockchainSegmentId, Long>() {
                     @Override
@@ -243,10 +227,10 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
                         }
                         return true;
                     }
-                }, version);
+                });
 
                 for (final BlockId blockId : blockIds) {
-                    final BlockchainSegmentId blockBlockchainSegmentId = _blockchainSegmentIds.get(blockId, version);
+                    final BlockchainSegmentId blockBlockchainSegmentId = _blockchainSegmentIds.get(blockId);
                     if (parentBlockchainSegmentIds.contains(blockBlockchainSegmentId)) {
                         return blockId;
                     }
@@ -286,10 +270,9 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
     public BlockchainSegmentId getHeadBlockchainSegmentId() {
         _readLock.lock();
         try {
-            final Integer version = _getVersion();
             final BlockId blockId = _headBlockHeaderId;
             if (blockId == null) { return null; }
-            return _blockchainSegmentIds.get(blockId, version);
+            return _blockchainSegmentIds.get(blockId);
         }
         finally {
             _readLock.unlock();
@@ -300,7 +283,6 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
     public BlockchainSegmentId getRootBlockchainSegmentId() {
         _readLock.lock();
         try {
-            final Integer version = _getVersion();
             final Container<BlockchainSegmentId> container = new Container<>();
             _blockchainSegmentParents.visit(new Map.Visitor<BlockchainSegmentId, BlockchainSegmentId>() {
                 @Override
@@ -311,7 +293,7 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
                     }
                     return true;
                 }
-            }, version);
+            });
             return container.value;
         }
         finally {
@@ -323,8 +305,7 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
     public BlockchainSegmentId getBlockchainSegmentId(final BlockId blockId) {
         _readLock.lock();
         try {
-            final Integer version = _getVersion();
-            return _blockchainSegmentIds.get(blockId, version);
+            return _blockchainSegmentIds.get(blockId);
         }
         finally {
             _readLock.unlock();
@@ -335,18 +316,17 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
     public List<BlockId> getChildBlockIds(final BlockId blockId) {
         _readLock.lock();
         try {
-            final Integer version = _getVersion();
             final MutableList<BlockId> blockIds = new MutableList<>();
-            final Long blockHeight = _blockHeights.get(blockId, version);
+            final Long blockHeight = _blockHeights.get(blockId);
             if (blockHeight == null) { return null; }
 
-            final BlockHeader blockHeader = _blockHeaders.get(blockId, version);
+            final BlockHeader blockHeader = _blockHeaders.get(blockId);
             final Sha256Hash blockHash = blockHeader.getHash();
 
-            final List<BlockId> blocksAtChildHeight = _blocksByHeight.get((blockHeight + 1L), version);
+            final List<BlockId> blocksAtChildHeight = _blocksByHeight.get((blockHeight + 1L));
             if (blocksAtChildHeight != null) {
                 for (final BlockId childBlockId : blocksAtChildHeight) {
-                    final BlockHeader childBlockHeader = _blockHeaders.get(childBlockId, version);
+                    final BlockHeader childBlockHeader = _blockHeaders.get(childBlockId);
                     final Sha256Hash childParentHash = childBlockHeader.getPreviousBlockHash();
                     if (Util.areEqual(blockHash, childParentHash)) {
                         blockIds.add(childBlockId);
@@ -365,7 +345,6 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
     public List<BlockchainSegmentId> getChildSegmentIds(final BlockchainSegmentId parentBlockchainSegmentId) {
         _readLock.lock();
         try {
-            final Integer version = _getVersion();
             final MutableList<BlockchainSegmentId> blockchainSegmentIds = new MutableList<>();
             _blockchainSegmentParents.visit(new Map.Visitor<BlockchainSegmentId, BlockchainSegmentId>() {
                 @Override
@@ -377,7 +356,7 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
                     }
                     return true;
                 }
-            }, version);
+            });
             return blockchainSegmentIds;
         }
         finally {
@@ -389,10 +368,9 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
     public BlockchainSegment getBlockchainSegment(final BlockchainSegmentId blockchainSegmentId) {
         _readLock.lock();
         try {
-            final Integer version = _getVersion();
-            final BlockchainSegmentId parentBlockchainSegmentId = _blockchainSegmentParents.get(blockchainSegmentId, version);
-            final Long nestedSetLeft = _blockchainSegmentNestedSetLeft.get(blockchainSegmentId, version);
-            final Long nestedSetRight = _blockchainSegmentNestedSetRight.get(blockchainSegmentId, version);
+            final BlockchainSegmentId parentBlockchainSegmentId = _blockchainSegmentParents.get(blockchainSegmentId);
+            final Long nestedSetLeft = _blockchainSegmentNestedSetLeft.get(blockchainSegmentId);
+            final Long nestedSetRight = _blockchainSegmentNestedSetRight.get(blockchainSegmentId);
             return new BlockchainSegment(blockchainSegmentId, parentBlockchainSegmentId, nestedSetLeft, nestedSetRight);
         }
         finally {
@@ -407,15 +385,10 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
             if (blockchainSegmentId0 == null) { return false; }
             if (blockchainSegmentId1 == null) { return false; }
 
-            final Integer version = _getVersion();
-            final Long nestedSetLeft0 = _blockchainSegmentNestedSetLeft.get(blockchainSegmentId0, version);
-            final Long nestedSetRight0 = _blockchainSegmentNestedSetRight.get(blockchainSegmentId0, version);
+            final Long nestedSetLeft0 = _blockchainSegmentNestedSetLeft.get(blockchainSegmentId0);
+            final Long nestedSetRight0 = _blockchainSegmentNestedSetRight.get(blockchainSegmentId0);
 
-            if (nestedSetLeft0 == null) {
-                throw new NullPointerException("nestedSetLeft0=null; blockchainSegmentId0=" + blockchainSegmentId0 + "; version=" + version + "; class=" + this.getClass());
-            }
-
-            return _areBlockchainSegmentsConnected(nestedSetLeft0, nestedSetRight0, blockchainSegmentId1, blockRelationship, version);
+            return _areBlockchainSegmentsConnected(nestedSetLeft0, nestedSetRight0, blockchainSegmentId1, blockRelationship);
         }
         finally {
             _readLock.unlock();
@@ -429,9 +402,8 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
             final java.util.Map<BlockchainSegmentId, Boolean> areConnected = new java.util.HashMap<>(blockchainSegmentIds.getCount());
             if (blockchainSegmentId0 == null) { return areConnected; }
 
-            final Integer version = _getVersion();
-            final Long nestedSetLeft0 = _blockchainSegmentNestedSetLeft.get(blockchainSegmentId0, version);
-            final Long nestedSetRight0 = _blockchainSegmentNestedSetRight.get(blockchainSegmentId0, version);
+            final Long nestedSetLeft0 = _blockchainSegmentNestedSetLeft.get(blockchainSegmentId0);
+            final Long nestedSetRight0 = _blockchainSegmentNestedSetRight.get(blockchainSegmentId0);
 
             for (final BlockchainSegmentId blockchainSegmentId : blockchainSegmentIds) {
                 if (blockchainSegmentId == null) {
@@ -439,7 +411,7 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
                     continue;
                 }
 
-                final Boolean isConnected = _areBlockchainSegmentsConnected(nestedSetLeft0, nestedSetRight0, blockchainSegmentId, blockRelationship, version);
+                final Boolean isConnected = _areBlockchainSegmentsConnected(nestedSetLeft0, nestedSetRight0, blockchainSegmentId, blockRelationship);
                 areConnected.put(blockchainSegmentId, isConnected);
             }
             return areConnected;
@@ -453,16 +425,15 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
     public BlockId getHeadBlockIdOfBlockchainSegment(final BlockchainSegmentId blockchainSegmentId) {
         _readLock.lock();
         try {
-            final Integer version = _getVersion();
-            final Long blockHeight = _blockchainSegmentMaxBlockHeight.get(blockchainSegmentId, version);
+            final Long blockHeight = _blockchainSegmentMaxBlockHeight.get(blockchainSegmentId);
             if (blockHeight == null) { return null; }
 
-            final List<BlockId> blockIds = _blocksByHeight.get(blockHeight, version);
+            final List<BlockId> blockIds = _blocksByHeight.get(blockHeight);
             if (blockIds == null) { return null; }
             if (blockIds.isEmpty()) { return null; }
 
             for (final BlockId blockId : blockIds) {
-                final BlockchainSegmentId blockBlockchainSegmentId = _blockchainSegmentIds.get(blockId, version);
+                final BlockchainSegmentId blockBlockchainSegmentId = _blockchainSegmentIds.get(blockId);
                 if (Util.areEqual(blockchainSegmentId, blockBlockchainSegmentId)) {
                     return blockId;
                 }
@@ -478,24 +449,23 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
     public BlockId getFirstBlockIdOfBlockchainSegment(final BlockchainSegmentId blockchainSegmentId) {
         _readLock.lock();
         try {
-            final Integer version = _getVersion();
-            final BlockchainSegmentId parentBlockchainSegmentId = _blockchainSegmentParents.get(blockchainSegmentId, version);
+            final BlockchainSegmentId parentBlockchainSegmentId = _blockchainSegmentParents.get(blockchainSegmentId);
             if (parentBlockchainSegmentId == null) { // First block is the genesis block...
-                final List<BlockId> blockIds = _blocksByHeight.get(0L, version);
+                final List<BlockId> blockIds = _blocksByHeight.get(0L);
                 if (blockIds == null) { return null; }
                 if (blockIds.isEmpty()) { return null; }
                 return blockIds.get(0);
             }
 
-            final Long previousSegmentMaxBlockHeight = _blockchainSegmentMaxBlockHeight.get(parentBlockchainSegmentId, version);
+            final Long previousSegmentMaxBlockHeight = _blockchainSegmentMaxBlockHeight.get(parentBlockchainSegmentId);
             final Long minBlockHeight = (previousSegmentMaxBlockHeight + 1L);
 
-            final List<BlockId> blockIds = _blocksByHeight.get(minBlockHeight, version);
+            final List<BlockId> blockIds = _blocksByHeight.get(minBlockHeight);
             if (blockIds == null) { return null; }
             if (blockIds.isEmpty()) { return null; }
 
             for (final BlockId blockId : blockIds) {
-                final BlockchainSegmentId blockBlockchainSegmentId = _blockchainSegmentIds.get(blockId, version);
+                final BlockchainSegmentId blockBlockchainSegmentId = _blockchainSegmentIds.get(blockId);
                 if (Util.areEqual(blockchainSegmentId, blockBlockchainSegmentId)) {
                     return blockId;
                 }
@@ -511,18 +481,17 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
     public BlockchainSegmentId getHeadBlockchainSegmentIdOfBlockchainSegment(final BlockchainSegmentId blockchainSegmentId) {
         _readLock.lock();
         try {
-            final Integer version = _getVersion();
             final Tuple<Long, Long> nestedSet = new Tuple<>();
-            nestedSet.first = _blockchainSegmentNestedSetLeft.get(blockchainSegmentId, version);
-            nestedSet.second = _blockchainSegmentNestedSetRight.get(blockchainSegmentId, version);
+            nestedSet.first = _blockchainSegmentNestedSetLeft.get(blockchainSegmentId);
+            nestedSet.second = _blockchainSegmentNestedSetRight.get(blockchainSegmentId);
 
             final MutableList<BlockchainSegmentId> childrenLeaves = new MutableList<>();
             _blockchainSegmentMaxBlockHeight.visit(new Map.Visitor<BlockchainSegmentId, Long>() {
                 @Override
                 public boolean run(final Tuple<BlockchainSegmentId, Long> entry) {
                     final Tuple<Long, Long> nestedSet2 = new Tuple<>();
-                    nestedSet2.first = _blockchainSegmentNestedSetLeft.get(entry.first, version);
-                    nestedSet2.second = _blockchainSegmentNestedSetRight.get(entry.first, version);
+                    nestedSet2.first = _blockchainSegmentNestedSetLeft.get(entry.first);
+                    nestedSet2.second = _blockchainSegmentNestedSetRight.get(entry.first);
 
                     final boolean isLeafNode = (nestedSet2.first == (nestedSet2.second - 1));
                     if (! isLeafNode) { return true; }
@@ -534,27 +503,27 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
 
                     return true;
                 }
-            }, version);
+            });
 
             BlockId headBlockId = null;
             ChainWork maxChainWork = null;
             for (final BlockchainSegmentId childBlockchainSegmentId : childrenLeaves) {
-                final Long blockHeight = _blockchainSegmentMaxBlockHeight.get(childBlockchainSegmentId, version);
+                final Long blockHeight = _blockchainSegmentMaxBlockHeight.get(childBlockchainSegmentId);
                 if (blockHeight == null) { continue; }
 
-                final List<BlockId> blockIds = _blocksByHeight.get(blockHeight, version);
+                final List<BlockId> blockIds = _blocksByHeight.get(blockHeight);
                 if (blockIds == null) { continue; }
 
                 for (final BlockId blockId : blockIds) {
-                    final BlockchainSegmentId blockBlockchainSegmentId = _blockchainSegmentIds.get(blockId, version);
+                    final BlockchainSegmentId blockBlockchainSegmentId = _blockchainSegmentIds.get(blockId);
                     if (! Util.areEqual(blockchainSegmentId, blockBlockchainSegmentId)) { continue; }
 
                     if (maxChainWork == null) {
-                        maxChainWork = _chainWorks.get(blockId, version);
+                        maxChainWork = _chainWorks.get(blockId);
                         headBlockId = blockId;
                     }
                     else {
-                        final ChainWork chainWork = _chainWorks.get(blockId, version);
+                        final ChainWork chainWork = _chainWorks.get(blockId);
                         if ( (chainWork != null) && (maxChainWork.compareTo(chainWork) <= 0) ) {
                             maxChainWork = chainWork;
                             headBlockId = blockId;
@@ -564,7 +533,7 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
             }
 
             if (headBlockId == null) { return null; }
-            return _blockchainSegmentIds.get(headBlockId, version);
+            return _blockchainSegmentIds.get(headBlockId);
         }
         finally {
             _readLock.unlock();
@@ -575,14 +544,13 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
     public List<BlockchainSegmentId> getLeafBlockchainSegmentIds() {
         _readLock.lock();
         try {
-            final Integer version = _getVersion();
             final MutableList<BlockchainSegmentId> childrenLeaves = new MutableList<>();
             _blockchainSegmentMaxBlockHeight.visit(new Map.Visitor<BlockchainSegmentId, Long>() {
                 @Override
                 public boolean run(final Tuple<BlockchainSegmentId, Long> entry) {
                     final Tuple<Long, Long> nestedSet2 = new Tuple<>();
-                    nestedSet2.first = _blockchainSegmentNestedSetLeft.get(entry.first, version);
-                    nestedSet2.second = _blockchainSegmentNestedSetRight.get(entry.first, version);
+                    nestedSet2.first = _blockchainSegmentNestedSetLeft.get(entry.first);
+                    nestedSet2.second = _blockchainSegmentNestedSetRight.get(entry.first);
 
                     final boolean isLeafNode = (nestedSet2.first == (nestedSet2.second - 1));
                     if (!isLeafNode) { return true; }
@@ -590,7 +558,7 @@ public abstract class AbstractBlockchainCache implements BlockchainCache {
                     childrenLeaves.add(entry.first);
                     return true;
                 }
-            }, version);
+            });
             return childrenLeaves;
         }
         finally {

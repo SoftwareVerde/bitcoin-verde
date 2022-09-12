@@ -54,8 +54,8 @@ public class FullNodeDatabaseManagerFactory implements DatabaseManagerFactory {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager(); // Uses the disabled cache...
             final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager(); // Uses the disabled cache...
 
-            _blockchainCacheManager.initializeCache(850_000);
-            final MutableBlockchainCache blockchainCache = _blockchainCacheManager.getNewBlockchainCache();
+            final MutableBlockchainCache blockchainCache = new MutableBlockchainCache(850_000);
+            blockchainCache.pushVersion();
 
             blockchainDatabaseManager.visitBlockchainSegments(new Visitor<>() {
                 @Override
@@ -81,7 +81,8 @@ public class FullNodeDatabaseManagerFactory implements DatabaseManagerFactory {
                 blockchainCache.incrementProcessCount(blockId, processCount);
             }
 
-            _blockchainCacheManager.commitBlockchainCache();
+            blockchainCache.applyVersion();
+            _blockchainCacheManager.initializeCache(blockchainCache);
         }
 
     }

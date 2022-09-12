@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.database.block;
 
+import com.softwareverde.constable.list.List;
 import com.softwareverde.util.Tuple;
 
 public interface Map<Key, Value> {
@@ -9,5 +10,6 @@ public interface Map<Key, Value> {
 
     Value get(Key key);
     Boolean containsKey(Key key);
+    List<Key> getKeys();
     void visit(Visitor<Key, Value> visitor);
 }

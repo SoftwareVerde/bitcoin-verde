@@ -63,7 +63,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     protected Boolean _cacheWasMutated = false;
     protected final BlockchainCacheManager _blockchainCacheManager;
     protected final BlockchainCacheFactory _blockchainCacheFactory;
-    protected BlockchainCache _blockchainCache;
+    protected MutableBlockchainCache _blockchainCache;
 
     public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final PropertiesStore propertiesStore, final PendingBlockStore blockStore, final UtxoCommitmentStore utxoCommitmentStore, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration, final BlockchainCacheManager blockchainCacheManager) {
         this(databaseConnection, maxQueryBatchSize, propertiesStore, blockStore, utxoCommitmentStore, masterInflater, checkpointConfiguration, UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT, UnspentTransactionOutputDatabaseManager.DEFAULT_PURGE_PERCENT, blockchainCacheManager);
@@ -93,12 +93,12 @@ public class FullNodeDatabaseManager implements DatabaseManager {
 
             @Override
             public MutableBlockchainCache getMutableBlockchainCache() {
-                if (! _cacheWasMutated) {
-                    _blockchainCache = blockchainCacheManager.getNewBlockchainCache();
+                if (_blockchainCache == null) {
+                    _blockchainCache = blockchainCacheManager.getBlockchainCache();
                 }
 
                 _cacheWasMutated = true;
-                return (MutableBlockchainCache) _blockchainCache;
+                return _blockchainCache;
             }
         };
     }
@@ -237,7 +237,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     public void commitTransaction() throws DatabaseException {
         TransactionUtil.commitTransaction(_databaseConnection);
         if (_cacheWasMutated) {
-            _blockchainCacheManager.commitBlockchainCache();
+            _blockchainCacheManager.commitBlockchainCache(_blockchainCache);
             _cacheWasMutated = false;
         }
     }

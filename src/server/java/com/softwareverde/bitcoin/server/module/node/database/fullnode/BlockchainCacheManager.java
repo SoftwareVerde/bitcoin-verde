@@ -1,8 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.database.fullnode;
 
-import com.softwareverde.bitcoin.server.module.node.database.block.BlockchainCache;
 import com.softwareverde.bitcoin.server.module.node.database.block.MutableBlockchainCache;
-import com.softwareverde.bitcoin.server.module.node.database.block.ReadOnlyBlockchainCache;
 
 public class BlockchainCacheManager {
     protected MutableBlockchainCache _blockchainCache;
@@ -15,30 +13,20 @@ public class BlockchainCacheManager {
         _blockchainCache = blockchainCache;
     }
 
-    public void initializeCache(final int estimatedBlockCount) {
-        _blockchainCache = new MutableBlockchainCache(estimatedBlockCount);
+    public void initializeCache(final MutableBlockchainCache blockchainCache) {
+        _blockchainCache = blockchainCache;
     }
 
-    public BlockchainCache getBlockchainCache() {
-        return _blockchainCache;
-    }
-
-    public MutableBlockchainCache getNewBlockchainCache() {
+    public MutableBlockchainCache getBlockchainCache() {
         if (_blockchainCache == null) { return null; }
-
-        _blockchainCache.pushVersion();
-        return _blockchainCache;
+        return _blockchainCache.newCopyOnWriteCache();
     }
 
-    public void rollbackBlockchainCache() {
+    public void rollbackBlockchainCache() { }
+
+    public void commitBlockchainCache(final MutableBlockchainCache blockchainCache) {
         if (_blockchainCache == null) { return; }
 
-        _blockchainCache.popVersion();
-    }
-
-    public void commitBlockchainCache() {
-        if (_blockchainCache == null) { return; }
-
-        _blockchainCache.applyVersion();
+        _blockchainCache.applyCache(blockchainCache);
     }
 }
