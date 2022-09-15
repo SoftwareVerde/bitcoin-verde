@@ -129,7 +129,7 @@ public class BlockDownloadPlannerCore implements BlockDownloader.BlockDownloadPl
         final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
         final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
-        final BlockId headBlockIdWithinBlockchainSegment = blockDatabaseManager.getHeadBlockIdWithinBlockchainSegment(blockchainSegmentId);
+        final BlockId headBlockIdWithinBlockchainSegment = blockDatabaseManager.getHeadBlockIdOfBlockchainSegment(blockchainSegmentId);
         if (headBlockIdWithinBlockchainSegment != null) {
             return headBlockIdWithinBlockchainSegment;
         }

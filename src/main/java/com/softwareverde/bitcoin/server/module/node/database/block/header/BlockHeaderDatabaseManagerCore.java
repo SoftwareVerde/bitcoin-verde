@@ -534,7 +534,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
         if (blockchainCache != null) {
             final BlockchainSegmentId blockchainSegmentId = blockchainCache.getHeadBlockchainSegmentId();
             if (blockchainSegmentId != null) {
-                final BlockId headBlockId = blockchainCache.getHeadBlockIdOfBlockchainSegment(blockchainSegmentId);
+                final BlockId headBlockId = blockchainCache.getHeadBlockIdOfBlockchainSegment(blockchainSegmentId, false);
                 if (headBlockId != null) {
                     final BlockHeader blockHeader = blockchainCache.getBlockHeader(headBlockId);
                     if (blockHeader != null) {
@@ -559,7 +559,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
         if (blockchainCache != null) {
             final BlockchainSegmentId blockchainSegmentId = blockchainCache.getHeadBlockchainSegmentId();
             if (blockchainSegmentId != null) {
-                final BlockId headBlockId = blockchainCache.getHeadBlockIdOfBlockchainSegment(blockchainSegmentId);
+                final BlockId headBlockId = blockchainCache.getHeadBlockIdOfBlockchainSegment(blockchainSegmentId, false);
                 if (headBlockId != null) {
                     return headBlockId;
                 }

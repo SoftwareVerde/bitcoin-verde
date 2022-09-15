@@ -108,7 +108,7 @@ public class MockBlockDatabaseManager extends FullNodeBlockDatabaseManager {
     }
 
     @Override
-    public BlockId getHeadBlockIdWithinBlockchainSegment(final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
+    public BlockId getHeadBlockIdOfBlockchainSegment(final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
         if (! _blockchainSegmentsHeadBlockIds.containsKey(blockchainSegmentId)) {
             Logger.warn("MOCK: Undefined head BlockId of BlockchainSegment: " + blockchainSegmentId, new Exception());
         }

@@ -360,7 +360,17 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
      *  BlockchainSegment with the provided blockchainSegmentId. Parent/Ancestor blockchainSegments are not considered.
      *  NOTE: PoW (ChainWork) vs BlockHeight is equivalent when on the same BlockchainSegment.
      */
-    public BlockId getHeadBlockIdWithinBlockchainSegment(final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
+    public BlockId getHeadBlockIdOfBlockchainSegment(final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
+        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        if (blockchainCache != null) {
+            if (blockchainSegmentId != null) {
+                final BlockId headBlockId = blockchainCache.getHeadBlockIdOfBlockchainSegment(blockchainSegmentId, true);
+                if (headBlockId != null) {
+                    return headBlockId;
+                }
+            }
+        }
+
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT id FROM blocks WHERE blockchain_segment_id = ? AND has_transactions = 1 ORDER BY block_height DESC LIMIT 1")

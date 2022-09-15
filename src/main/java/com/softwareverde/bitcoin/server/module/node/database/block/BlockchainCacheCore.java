@@ -422,9 +422,24 @@ public class BlockchainCacheCore implements BlockchainCache {
     }
 
     @Override
-    public BlockId getHeadBlockIdOfBlockchainSegment(final BlockchainSegmentId blockchainSegmentId) {
+    public BlockId getHeadBlockIdOfBlockchainSegment(final BlockchainSegmentId blockchainSegmentId, final Boolean hasTransaction) {
         _readLock.lock();
         try {
+            { // OPTIMIZATION: Check if the cached HeadBlock/Header values are on the requested BlockchainSegmentId...
+                if (hasTransaction) {
+                    final BlockchainSegmentId headBlockBlockchainSegment = _blockchainSegmentIds.get(_headBlockId);
+                    if (Util.areEqual(blockchainSegmentId, headBlockBlockchainSegment)) {
+                        return _headBlockId;
+                    }
+                }
+                else {
+                    final BlockchainSegmentId headBlockHeaderBlockchainSegment = _blockchainSegmentIds.get(_headBlockHeaderId);
+                    if (Util.areEqual(blockchainSegmentId, headBlockHeaderBlockchainSegment)) {
+                        return _headBlockHeaderId;
+                    }
+                }
+            }
+
             final Long blockHeight = _blockchainSegmentMaxBlockHeight.get(blockchainSegmentId);
             if (blockHeight == null) { return null; }
 
@@ -435,6 +450,10 @@ public class BlockchainCacheCore implements BlockchainCache {
             for (final BlockId blockId : blockIds) {
                 final BlockchainSegmentId blockBlockchainSegmentId = _blockchainSegmentIds.get(blockId);
                 if (Util.areEqual(blockchainSegmentId, blockBlockchainSegmentId)) {
+                    if (hasTransaction) {
+                        if (! _blockTransactionMap.get(blockId)) { continue; } // NOTE: Not efficient if the head block header is far ahead of head block.
+                    }
+
                     return blockId;
                 }
             }

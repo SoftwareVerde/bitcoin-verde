@@ -262,7 +262,7 @@ public class BlockchainBuilder extends GracefulSleepyService {
                 continue;
             }
 
-            final BlockId lastBlockWithTransactionsOfBlockchainSegment = blockDatabaseManager.getHeadBlockIdWithinBlockchainSegment(currentBlockchainSegmentId);
+            final BlockId lastBlockWithTransactionsOfBlockchainSegment = blockDatabaseManager.getHeadBlockIdOfBlockchainSegment(currentBlockchainSegmentId);
             headBlockId = lastBlockWithTransactionsOfBlockchainSegment;
         }
         if (headBlockId == null) { return false; }

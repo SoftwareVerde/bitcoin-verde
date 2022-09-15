@@ -32,7 +32,7 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
 
     protected Long _getParentBlockchainSegmentMaxBlockHeight(final BlockchainSegmentId parentBlockSegmentId, final DatabaseConnection databaseConnection, final BlockchainCache blockchainCache) throws DatabaseException {
         if (blockchainCache != null) {
-            final BlockId headBlockIdOfBlockchainSegment = blockchainCache.getHeadBlockIdOfBlockchainSegment(parentBlockSegmentId);
+            final BlockId headBlockIdOfBlockchainSegment = blockchainCache.getHeadBlockIdOfBlockchainSegment(parentBlockSegmentId, false);
             if (headBlockIdOfBlockchainSegment != null) {
                 final Long blockHeight = blockchainCache.getBlockHeight(headBlockIdOfBlockchainSegment);
                 if (blockHeight != null) {
@@ -367,7 +367,7 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
     public BlockId getHeadBlockIdOfBlockchainSegment(final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
         final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
         if (blockchainCache != null) {
-            final BlockId blockId = blockchainCache.getHeadBlockIdOfBlockchainSegment(blockchainSegmentId);
+            final BlockId blockId = blockchainCache.getHeadBlockIdOfBlockchainSegment(blockchainSegmentId, false);
             if (blockId != null) {
                 return blockId;
             }

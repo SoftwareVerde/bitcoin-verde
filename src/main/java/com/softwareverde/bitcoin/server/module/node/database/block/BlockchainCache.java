@@ -36,7 +36,7 @@ public interface BlockchainCache {
     BlockchainSegment getBlockchainSegment(BlockchainSegmentId blockchainSegmentId);
     Boolean areBlockchainSegmentsConnected(BlockchainSegmentId blockchainSegmentId0, BlockchainSegmentId blockchainSegmentId1, BlockRelationship blockRelationship);
     Map<BlockchainSegmentId, Boolean> areBlockchainSegmentsConnected(BlockchainSegmentId blockchainSegmentId0, List<BlockchainSegmentId> blockchainSegmentIds, final BlockRelationship blockRelationship);
-    BlockId getHeadBlockIdOfBlockchainSegment(BlockchainSegmentId blockchainSegmentId);
+    BlockId getHeadBlockIdOfBlockchainSegment(BlockchainSegmentId blockchainSegmentId, Boolean hasTransaction);
     BlockId getFirstBlockIdOfBlockchainSegment(BlockchainSegmentId blockchainSegmentId);
     BlockchainSegmentId getHeadBlockchainSegmentIdOfBlockchainSegment(BlockchainSegmentId blockchainSegmentId);
     List<BlockchainSegmentId> getLeafBlockchainSegmentIds();
