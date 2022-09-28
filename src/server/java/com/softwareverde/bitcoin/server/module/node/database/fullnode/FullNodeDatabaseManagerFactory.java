@@ -71,7 +71,7 @@ public class FullNodeDatabaseManagerFactory implements DatabaseManagerFactory {
                     final BlockMetadata blockMetadata = blockHeaderDatabaseManager.getBlockMetadata(blockId);
 
                     blockchainCache.addBlock(blockId, blockMetadata.blockHeader, blockMetadata.blockHeight, blockMetadata.chainWork, blockMetadata.medianBlockTime, blockMetadata.hasTransactions);
-                    blockchainCache.setBlockBlockchainSegment(blockMetadata.blockchainSegmentId, blockId);
+                    blockchainCache.setBlockchainSegmentId(blockId, blockMetadata.blockchainSegmentId);
                 }
             });
 

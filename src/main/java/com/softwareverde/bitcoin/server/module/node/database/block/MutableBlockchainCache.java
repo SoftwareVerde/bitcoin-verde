@@ -5,34 +5,67 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class MutableBlockchainCache extends BlockchainCacheCore {
+    public static final MapFactory MAP_FACTORY = new MapFactory() {
+        @Override
+        public <Key, Value> VersionedMap<Key, Value> newMap() {
+            return new MutableHashMap<>();
+        }
+
+        @Override
+        public <Key, Value> VersionedMap<Key, Value> newMap(final Integer itemCount) {
+            return new MutableHashMap<>(itemCount);
+        }
+
+        @Override
+        public <Value> List<Value> newList() {
+            return new MutableList<>(0);
+        }
+
+        @Override
+        public <Value> List<Value> newList(final Value... values) {
+            final MutableList<Value> list = new MutableList<>(values.length);
+            for (final Value value : values) {
+                list.add(value);
+            }
+            return list;
+        }
+    };
+
     protected <Key, Value> MutableHashMap<Key, Value> _castMap(final Map<Key, Value> map) {
         return (MutableHashMap<Key, Value>) map;
     }
 
+    protected <Value> void _setListValue(final Value value, final List<Value> list) {
+        int itemCount = list.getCount();
+        final MutableList<Value> mutableList = ((MutableList<Value>) list);
+
+        while (itemCount > _version.get()) {
+            mutableList.remove(itemCount - 1);
+            itemCount -= 1;
+        }
+        mutableList.add(value);
+    }
+
     protected MutableBlockchainCache(final ReentrantReadWriteLock.ReadLock readLock, final ReentrantReadWriteLock.WriteLock writeLock, final Map<BlockId, BlockHeader> blockHeaders, final Map<BlockId, Long> blockHeights, final Map<Sha256Hash, BlockId> blockIds, final Map<Long, MutableList<BlockId>> blocksByHeight, final Map<BlockId, ChainWork> chainWorks, final Map<BlockId, MedianBlockTime> medianBlockTimes, final Map<BlockId, Boolean> blockTransactionMap, final Map<BlockId, Integer> blockProcessCount, final Map<BlockId, BlockchainSegmentId> blockchainSegmentIds, final BlockId headBlockId, final BlockId headBlockHeaderId, final Map<BlockchainSegmentId, BlockchainSegmentId> blockchainSegmentParents, final Map<BlockchainSegmentId, Long> blockchainSegmentNestedSetLeft, final Map<BlockchainSegmentId, Long> blockchainSegmentNestedSetRight, final Map<BlockchainSegmentId, Long> blockchainSegmentMaxBlockHeight) {
-        super(readLock, writeLock, blockHeaders, blockHeights, blockIds, blocksByHeight, chainWorks, medianBlockTimes, blockTransactionMap, blockProcessCount, blockchainSegmentIds, headBlockId, headBlockHeaderId, blockchainSegmentParents, blockchainSegmentNestedSetLeft, blockchainSegmentNestedSetRight, blockchainSegmentMaxBlockHeight);
+        super(readLock, writeLock, blockHeaders, blockHeights, blockIds, blocksByHeight, chainWorks, medianBlockTimes, blockTransactionMap, blockProcessCount, blockchainSegmentIds, headBlockId, headBlockHeaderId, blockchainSegmentParents, blockchainSegmentNestedSetLeft, blockchainSegmentNestedSetRight, blockchainSegmentMaxBlockHeight, MutableBlockchainCache.MAP_FACTORY);
     }
 
     public MutableBlockchainCache(final Integer estimatedBlockCount) {
-        super(estimatedBlockCount, new MapFactory() {
-            @Override
-            public <Key, Value> VersionedMap<Key, Value> newMap() {
-                return new MutableHashMap<>();
-            }
+        super(estimatedBlockCount, MutableBlockchainCache.MAP_FACTORY);
+    }
 
-            @Override
-            public <Key, Value> VersionedMap<Key, Value> newMap(final Integer itemCount) {
-                return new MutableHashMap<>(itemCount);
-            }
-        });
+    public Integer getVersion() {
+        return _version.get();
     }
 
     /**
@@ -114,7 +147,7 @@ public class MutableBlockchainCache extends BlockchainCacheCore {
         }
     }
 
-    public void setBlockBlockchainSegment(final BlockchainSegmentId blockchainSegmentId, final BlockId blockId) {
+    public void setBlockchainSegmentId(final BlockId blockId, final BlockchainSegmentId blockchainSegmentId) {
         _writeLock.lock();
         try {
             _castMap(_blockchainSegmentIds).put(blockId, blockchainSegmentId);
@@ -161,24 +194,26 @@ public class MutableBlockchainCache extends BlockchainCacheCore {
                 }
             }
 
-            if (_headBlockHeaderId == null) {
-                _headBlockHeaderId = blockId;
+            final BlockId headBlockHeaderId = _getListValue(_headBlockHeaderId);
+            if (headBlockHeaderId == null) {
+                _setListValue(blockId, _headBlockHeaderId);
             }
             else {
-                final ChainWork headChainWork = _chainWorks.get(_headBlockHeaderId);
+                final ChainWork headChainWork = _chainWorks.get(headBlockHeaderId);
                 if (chainWork.compareTo(headChainWork) >= 0) {
-                    _headBlockHeaderId = blockId;
+                    _setListValue(blockId, _headBlockHeaderId);
                 }
             }
 
             if (hasTransactions) {
-                if (_headBlockId == null) {
-                    _headBlockId = blockId;
+                final BlockId headBlockId = _getListValue(_headBlockId);
+                if (headBlockId == null) {
+                    _setListValue(blockId, _headBlockId);
                 }
                 else {
-                    final ChainWork headChainWork = _chainWorks.get(_headBlockId);
+                    final ChainWork headChainWork = _chainWorks.get(headBlockId);
                     if (chainWork.compareTo(headChainWork) >= 0) {
-                        _headBlockId = blockId;
+                        _setListValue(blockId, _headBlockId);
                     }
                 }
             }
@@ -193,14 +228,15 @@ public class MutableBlockchainCache extends BlockchainCacheCore {
         try {
             _castMap(_blockTransactionMap).put(blockId, true);
 
-            if (_headBlockId == null) {
-                _headBlockId = blockId;
+            final BlockId headBlockId = _getListValue(_headBlockId);
+            if (headBlockId == null) {
+                _setListValue(blockId, _headBlockId);
             }
             else {
-                final ChainWork headChainWork = _chainWorks.get(_headBlockId);
+                final ChainWork headChainWork = _chainWorks.get(headBlockId);
                 final ChainWork blockChainWork = _chainWorks.get(blockId);
                 if (blockChainWork.compareTo(headChainWork) >= 0) {
-                    _headBlockId = blockId;
+                    _setListValue(blockId, _headBlockId);
                 }
             }
         }
@@ -249,6 +285,8 @@ public class MutableBlockchainCache extends BlockchainCacheCore {
             _castMap(_blockchainSegmentNestedSetLeft).pushVersion();
             _castMap(_blockchainSegmentNestedSetRight).pushVersion();
             _castMap(_blockchainSegmentMaxBlockHeight).pushVersion();
+
+            _version.incrementAndGet();
         }
         finally {
             _writeLock.unlock();
@@ -271,6 +309,8 @@ public class MutableBlockchainCache extends BlockchainCacheCore {
             _castMap(_blockchainSegmentNestedSetLeft).popVersion();
             _castMap(_blockchainSegmentNestedSetRight).popVersion();
             _castMap(_blockchainSegmentMaxBlockHeight).popVersion();
+
+            _version.decrementAndGet();
         }
         finally {
             _writeLock.unlock();
@@ -293,6 +333,16 @@ public class MutableBlockchainCache extends BlockchainCacheCore {
             _castMap(_blockchainSegmentNestedSetLeft).applyVersion();
             _castMap(_blockchainSegmentNestedSetRight).applyVersion();
             _castMap(_blockchainSegmentMaxBlockHeight).applyVersion();
+
+            // Must occur before _version is decremented.
+            final BlockId headBlockId = _getListValue(_headBlockId);
+            final BlockId headBlockHeaderId = _getListValue(_headBlockHeaderId);
+
+            _version.decrementAndGet();
+
+            // Must occur after _version is decremented.
+            _setListValue(headBlockId, _headBlockId);
+            _setListValue(headBlockHeaderId, _headBlockHeaderId);
         }
         finally {
             _writeLock.unlock();
@@ -300,21 +350,45 @@ public class MutableBlockchainCache extends BlockchainCacheCore {
     }
 
     public void applyCache(final MutableBlockchainCache blockchainCache) {
+        if (blockchainCache == this) {
+            while (blockchainCache._version.get() > 0) {
+                this.applyVersion();
+            }
+            return;
+        }
+
+        Logger.trace("Applying Cache v" + blockchainCache.getVersion() + " to Cache v" + this.getVersion());
+
         _writeLock.lock();
         try {
-            _castMap(_blockHeaders).applyVersion(_castMap(blockchainCache._blockHeaders));
-            _castMap(_blockHeights).applyVersion(_castMap(blockchainCache._blockHeights));
-            _castMap(_blockIds).applyVersion(_castMap(blockchainCache._blockIds));
-            _castMap(_chainWorks).applyVersion(_castMap(blockchainCache._chainWorks));
-            _castMap(_medianBlockTimes).applyVersion(_castMap(blockchainCache._medianBlockTimes));
-            _castMap(_blocksByHeight).applyVersion(_castMap(blockchainCache._blocksByHeight));
-            _castMap(_blockTransactionMap).applyVersion(_castMap(blockchainCache._blockTransactionMap));
-            _castMap(_blockProcessCount).applyVersion(_castMap(blockchainCache._blockProcessCount));
-            _castMap(_blockchainSegmentIds).applyVersion(_castMap(blockchainCache._blockchainSegmentIds));
-            _castMap(_blockchainSegmentParents).applyVersion(_castMap(blockchainCache._blockchainSegmentParents));
-            _castMap(_blockchainSegmentNestedSetLeft).applyVersion(_castMap(blockchainCache._blockchainSegmentNestedSetLeft));
-            _castMap(_blockchainSegmentNestedSetRight).applyVersion(_castMap(blockchainCache._blockchainSegmentNestedSetRight));
-            _castMap(_blockchainSegmentMaxBlockHeight).applyVersion(_castMap(blockchainCache._blockchainSegmentMaxBlockHeight));
+            blockchainCache._readLock.lock();
+            try {
+                _castMap(_blockHeaders).applyStagedChanges(_castMap(blockchainCache._blockHeaders));
+                _castMap(_blockHeights).applyStagedChanges(_castMap(blockchainCache._blockHeights));
+                _castMap(_blockIds).applyStagedChanges(_castMap(blockchainCache._blockIds));
+                _castMap(_chainWorks).applyStagedChanges(_castMap(blockchainCache._chainWorks));
+                _castMap(_medianBlockTimes).applyStagedChanges(_castMap(blockchainCache._medianBlockTimes));
+                _castMap(_blocksByHeight).applyStagedChanges(_castMap(blockchainCache._blocksByHeight));
+                _castMap(_blockTransactionMap).applyStagedChanges(_castMap(blockchainCache._blockTransactionMap));
+                _castMap(_blockProcessCount).applyStagedChanges(_castMap(blockchainCache._blockProcessCount));
+                _castMap(_blockchainSegmentIds).applyStagedChanges(_castMap(blockchainCache._blockchainSegmentIds));
+                _castMap(_blockchainSegmentParents).applyStagedChanges(_castMap(blockchainCache._blockchainSegmentParents));
+                _castMap(_blockchainSegmentNestedSetLeft).applyStagedChanges(_castMap(blockchainCache._blockchainSegmentNestedSetLeft));
+                _castMap(_blockchainSegmentNestedSetRight).applyStagedChanges(_castMap(blockchainCache._blockchainSegmentNestedSetRight));
+                _castMap(_blockchainSegmentMaxBlockHeight).applyStagedChanges(_castMap(blockchainCache._blockchainSegmentMaxBlockHeight));
+
+                _version.set(0);
+
+                ((MutableList<BlockId>) _headBlockId).clear();
+                ((MutableList<BlockId>) _headBlockHeaderId).clear();
+
+                // Must occur after _version is set...
+                _setListValue(blockchainCache.getHeadBlockId(), _headBlockId);
+                _setListValue(blockchainCache.getHeadBlockHeaderId(), _headBlockHeaderId);
+            }
+            finally {
+                blockchainCache._readLock.unlock();
+            }
         }
         finally {
             _writeLock.unlock();
@@ -373,6 +447,6 @@ public class MutableBlockchainCache extends BlockchainCacheCore {
         final MutableHashMap<BlockchainSegmentId, Long> blockchainSegmentMaxBlockHeight = MutableHashMap.wrap(_castMap(_blockchainSegmentMaxBlockHeight));
         blockchainSegmentMaxBlockHeight.pushVersion();
 
-        return new MutableBlockchainCache(_readLock, _writeLock, blockHeaders, blockHeights, blockIds, blocksByHeight, chainWorks, medianBlockTimes, blockTransactionMap, blockProcessCount, blockchainSegmentIds, _headBlockId, _headBlockHeaderId, blockchainSegmentParents, blockchainSegmentNestedSetLeft, blockchainSegmentNestedSetRight, blockchainSegmentMaxBlockHeight);
+        return new MutableBlockchainCache(_readLock, _writeLock, blockHeaders, blockHeights, blockIds, blocksByHeight, chainWorks, medianBlockTimes, blockTransactionMap, blockProcessCount, blockchainSegmentIds, _getListValue(_headBlockId), _getListValue(_headBlockHeaderId), blockchainSegmentParents, blockchainSegmentNestedSetLeft, blockchainSegmentNestedSetRight, blockchainSegmentMaxBlockHeight);
     }
 }

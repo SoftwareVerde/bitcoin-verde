@@ -13,16 +13,27 @@ import com.softwareverde.util.Container;
 import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class BlockchainCacheCore implements BlockchainCache {
     public interface MapFactory {
         <Key, Value> Map<Key, Value> newMap();
         <Key, Value> Map<Key, Value> newMap(Integer itemCount);
+        <Value> List<Value> newList();
+        <Value> List<Value> newList(Value... values);
+    }
+
+    protected <Value> Value _getListValue(final List<Value> list) {
+        final int version = _version.get();
+        if (version >= list.getCount()) { return null; }
+        return list.get(version);
     }
 
     protected final ReentrantReadWriteLock.ReadLock _readLock;
     protected final ReentrantReadWriteLock.WriteLock _writeLock;
+
+    protected final AtomicInteger _version = new AtomicInteger(0);
 
     protected final Map<BlockId, BlockHeader> _blockHeaders;
     protected final Map<BlockId, Long> _blockHeights;
@@ -35,8 +46,8 @@ public class BlockchainCacheCore implements BlockchainCache {
 
     protected final Map<BlockId, BlockchainSegmentId> _blockchainSegmentIds;
 
-    protected BlockId _headBlockId = null;
-    protected BlockId _headBlockHeaderId = null;
+    protected final List<BlockId> _headBlockId;
+    protected final List<BlockId> _headBlockHeaderId;
 
     protected final Map<BlockchainSegmentId, BlockchainSegmentId> _blockchainSegmentParents; // key=child, value=parent
     protected final Map<BlockchainSegmentId, Long> _blockchainSegmentNestedSetLeft;
@@ -88,9 +99,12 @@ public class BlockchainCacheCore implements BlockchainCache {
         _blockTransactionMap = mapFactory.newMap(estimatedBlockCount);
         _blockchainSegmentIds = mapFactory.newMap(estimatedBlockCount);
         _blockProcessCount = mapFactory.newMap(estimatedBlockCount);
+
+        _headBlockId = mapFactory.newList();
+        _headBlockHeaderId = mapFactory.newList();
     }
 
-    protected BlockchainCacheCore(final ReentrantReadWriteLock.ReadLock readLock, final ReentrantReadWriteLock.WriteLock writeLock, final Map<BlockId, BlockHeader> blockHeaders, final Map<BlockId, Long> blockHeights, final Map<Sha256Hash, BlockId> blockIds, final Map<Long, MutableList<BlockId>> blocksByHeight, final Map<BlockId, ChainWork> chainWorks, final Map<BlockId, MedianBlockTime> medianBlockTimes, final Map<BlockId, Boolean> blockTransactionMap, final Map<BlockId, Integer> blockProcessCount, final Map<BlockId, BlockchainSegmentId> blockchainSegmentIds, final BlockId headBlockId, final BlockId headBlockHeaderId, final Map<BlockchainSegmentId, BlockchainSegmentId> blockchainSegmentParents, final Map<BlockchainSegmentId, Long> blockchainSegmentNestedSetLeft, final Map<BlockchainSegmentId, Long> blockchainSegmentNestedSetRight, final Map<BlockchainSegmentId, Long> blockchainSegmentMaxBlockHeight) {
+    protected BlockchainCacheCore(final ReentrantReadWriteLock.ReadLock readLock, final ReentrantReadWriteLock.WriteLock writeLock, final Map<BlockId, BlockHeader> blockHeaders, final Map<BlockId, Long> blockHeights, final Map<Sha256Hash, BlockId> blockIds, final Map<Long, MutableList<BlockId>> blocksByHeight, final Map<BlockId, ChainWork> chainWorks, final Map<BlockId, MedianBlockTime> medianBlockTimes, final Map<BlockId, Boolean> blockTransactionMap, final Map<BlockId, Integer> blockProcessCount, final Map<BlockId, BlockchainSegmentId> blockchainSegmentIds, final BlockId headBlockId, final BlockId headBlockHeaderId, final Map<BlockchainSegmentId, BlockchainSegmentId> blockchainSegmentParents, final Map<BlockchainSegmentId, Long> blockchainSegmentNestedSetLeft, final Map<BlockchainSegmentId, Long> blockchainSegmentNestedSetRight, final Map<BlockchainSegmentId, Long> blockchainSegmentMaxBlockHeight, final MapFactory mapFactory) {
         _readLock = readLock;
         _writeLock = writeLock;
         _blockHeaders = blockHeaders;
@@ -102,12 +116,13 @@ public class BlockchainCacheCore implements BlockchainCache {
         _blockTransactionMap = blockTransactionMap;
         _blockProcessCount = blockProcessCount;
         _blockchainSegmentIds = blockchainSegmentIds;
-        _headBlockId = headBlockId;
-        _headBlockHeaderId = headBlockHeaderId;
         _blockchainSegmentParents = blockchainSegmentParents;
         _blockchainSegmentNestedSetLeft = blockchainSegmentNestedSetLeft;
         _blockchainSegmentNestedSetRight = blockchainSegmentNestedSetRight;
         _blockchainSegmentMaxBlockHeight = blockchainSegmentMaxBlockHeight;
+
+        _headBlockId = mapFactory.newList(headBlockId);
+        _headBlockHeaderId = mapFactory.newList(headBlockHeaderId);
     }
 
     @Override
@@ -248,7 +263,7 @@ public class BlockchainCacheCore implements BlockchainCache {
     public BlockId getHeadBlockHeaderId() {
         _readLock.lock();
         try {
-            return _headBlockHeaderId;
+            return _getListValue(_headBlockHeaderId);
         }
         finally {
             _readLock.unlock();
@@ -259,7 +274,7 @@ public class BlockchainCacheCore implements BlockchainCache {
     public BlockId getHeadBlockId() {
         _readLock.lock();
         try {
-            return _headBlockId;
+            return _getListValue(_headBlockId);
         }
         finally {
             _readLock.unlock();
@@ -270,7 +285,7 @@ public class BlockchainCacheCore implements BlockchainCache {
     public BlockchainSegmentId getHeadBlockchainSegmentId() {
         _readLock.lock();
         try {
-            final BlockId blockId = _headBlockHeaderId;
+            final BlockId blockId = _getListValue(_headBlockHeaderId);
             if (blockId == null) { return null; }
             return _blockchainSegmentIds.get(blockId);
         }
@@ -427,15 +442,19 @@ public class BlockchainCacheCore implements BlockchainCache {
         try {
             { // OPTIMIZATION: Check if the cached HeadBlock/Header values are on the requested BlockchainSegmentId...
                 if (hasTransaction) {
-                    final BlockchainSegmentId headBlockBlockchainSegment = _blockchainSegmentIds.get(_headBlockId);
+                    final BlockId headBlockId = _getListValue(_headBlockId);
+
+                    final BlockchainSegmentId headBlockBlockchainSegment = _blockchainSegmentIds.get(headBlockId);
                     if (Util.areEqual(blockchainSegmentId, headBlockBlockchainSegment)) {
-                        return _headBlockId;
+                        return headBlockId;
                     }
                 }
                 else {
-                    final BlockchainSegmentId headBlockHeaderBlockchainSegment = _blockchainSegmentIds.get(_headBlockHeaderId);
+                    final BlockId headBlockHeaderId = _getListValue(_headBlockHeaderId);
+
+                    final BlockchainSegmentId headBlockHeaderBlockchainSegment = _blockchainSegmentIds.get(headBlockHeaderId);
                     if (Util.areEqual(blockchainSegmentId, headBlockHeaderBlockchainSegment)) {
-                        return _headBlockHeaderId;
+                        return headBlockHeaderId;
                     }
                 }
             }

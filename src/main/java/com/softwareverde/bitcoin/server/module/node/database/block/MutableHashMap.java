@@ -7,42 +7,42 @@ import com.softwareverde.util.Tuple;
 import java.util.HashMap;
 
 public class MutableHashMap<Key, Value> implements VersionedMap<Key, Value> {
-    protected final HashMap<Key, Value> _hashMap;
+    protected final HashMap<Key, Value> _committedValues;
 
     protected Integer _version = 0;
-    protected final HashMap<Integer, HashMap<Key, Value>> _versions = new HashMap<>(0);
+    protected final HashMap<Integer, HashMap<Key, Value>> _stagedValues = new HashMap<>(0);
 
     public static <Key, Value> MutableHashMap<Key, Value> wrap(final HashMap<Key, Value> hashMap) {
         return new MutableHashMap<>(hashMap);
     }
 
     public static <Key, Value> MutableHashMap<Key, Value> wrap(final MutableHashMap<Key, Value> hashMap) {
-        return new MutableHashMap<>(hashMap._hashMap);
+        return new MutableHashMap<>(hashMap._committedValues);
     }
 
     protected Value _get(final Key key, final Integer version) {
         for (int i = version; i > 0; i -= 1) {
-            final HashMap<Key, Value> versionMap = _versions.get(i);
+            final HashMap<Key, Value> versionMap = _stagedValues.get(i);
             final Value value = versionMap.get(key);
             if (value != null) { return value; }
             else if (versionMap.containsKey(key)) { return null; } // Key's value was set to null...
         }
 
-        return _hashMap.get(key);
+        return _committedValues.get(key);
     }
 
     protected Boolean _containsKey(final Key key, final Integer version) {
         for (int i = version; i > 0; i -= 1) {
-            final HashMap<Key, Value> versionMap = _versions.get(i);
+            final HashMap<Key, Value> versionMap = _stagedValues.get(i);
             if (versionMap.containsKey(key)) { return true; }
         }
 
-        return _hashMap.containsKey(key);
+        return _committedValues.containsKey(key);
     }
 
     protected void _visit(final Visitor<Key, Value> visitor, final Integer version) {
         for (int i = version; i > 0; i -= 1) {
-            final HashMap<Key, Value> versionMap = _versions.get(i);
+            final HashMap<Key, Value> versionMap = _stagedValues.get(i);
             for (final java.util.Map.Entry<Key, Value> mapEntry : versionMap.entrySet()) {
                 final Key key = mapEntry.getKey();
                 final Value value = mapEntry.getValue();
@@ -61,7 +61,7 @@ public class MutableHashMap<Key, Value> implements VersionedMap<Key, Value> {
             }
         }
 
-        for (final java.util.Map.Entry<Key, Value> mapEntry : _hashMap.entrySet()) {
+        for (final java.util.Map.Entry<Key, Value> mapEntry : _committedValues.entrySet()) {
             final Key key = mapEntry.getKey();
             final Value value = mapEntry.getValue();
 
@@ -80,65 +80,71 @@ public class MutableHashMap<Key, Value> implements VersionedMap<Key, Value> {
     }
 
     protected MutableHashMap(final HashMap<Key, Value> hashMap) {
-        _hashMap = hashMap;
+        _committedValues = hashMap;
     }
 
     public MutableHashMap() {
-        _hashMap = new HashMap<>();
+        _committedValues = new HashMap<>();
     }
 
     public MutableHashMap(final Integer initialSize) {
-        _hashMap = new HashMap<>(initialSize);
+        _committedValues = new HashMap<>(initialSize);
     }
 
     public void pushVersion() {
         _version += 1;
-        _versions.put(_version, new HashMap<>());
+        _stagedValues.put(_version, new HashMap<>());
     }
 
     public void popVersion() {
         if (_version < 1) { throw new RuntimeException("Attempted to pop non-existent version."); }
 
-        _versions.remove(_version);
+        _stagedValues.remove(_version);
         _version -= 1;
     }
 
     public void applyVersion() {
         if (_version < 1) { throw new RuntimeException("Attempted to apply non-existent version."); }
 
-        final HashMap<Key, Value> versionMap = _versions.remove(_version);
-        _hashMap.putAll(versionMap);
+        final HashMap<Key, Value> versionMap = _stagedValues.remove(_version);
+        _committedValues.putAll(versionMap);
         _version -= 1;
     }
 
-    public void applyVersion(final MutableHashMap<Key, Value> hashMap) {
-        final Integer version = hashMap._version;
-        for (int i = version; i > 0; i -= 1) {
-            final HashMap<Key, Value> versionMap = hashMap._versions.get(i);
-            _hashMap.putAll(versionMap);
+    public void applyStagedChanges(final MutableHashMap<Key, Value> hashMap) {
+        // Commit any current staged changes...
+        while (_version > 0) {
+            final HashMap<Key, Value> versionMap = _stagedValues.remove(_version);
+            _committedValues.putAll(versionMap);
+            _version -= 1;
+        }
+
+        for (int i = 1; i <= hashMap._version; i += 1) {
+            final HashMap<Key, Value> versionMap = hashMap._stagedValues.get(i);
+            _committedValues.putAll(versionMap);
         }
     }
 
     public void put(final Key key, final Value value) {
         if (_version == 0) {
-            _hashMap.put(key, value);
+            _committedValues.put(key, value);
         }
         else {
-            final HashMap<Key, Value> versionMap = _versions.get(_version);
+            final HashMap<Key, Value> versionMap = _stagedValues.get(_version);
             versionMap.put(key, value);
         }
     }
 
     public void clear() {
-        _versions.clear();
+        _stagedValues.clear();
         _version = 0;
-        _hashMap.clear();
+        _committedValues.clear();
     }
 
     protected Boolean _newerVersionContainsKey(final Key key, final Integer currentVersion) {
         int version = (currentVersion + 1);
         while (true) {
-            final HashMap<Key, Value> map = _versions.get(version);
+            final HashMap<Key, Value> map = _stagedValues.get(version);
             if (map == null) { break; }
 
             if (map.containsKey(key)) { return true; }
@@ -175,7 +181,7 @@ public class MutableHashMap<Key, Value> implements VersionedMap<Key, Value> {
 
     @Override
     public List<Key> getKeys() {
-        return JavaListWrapper.wrap(_hashMap.keySet());
+        return JavaListWrapper.wrap(_committedValues.keySet());
     }
 
     @Override

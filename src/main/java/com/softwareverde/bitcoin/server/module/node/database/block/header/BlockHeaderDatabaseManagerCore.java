@@ -426,7 +426,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
         );
 
         if (blockchainCache != null) {
-            blockchainCache.setBlockBlockchainSegment(blockchainSegmentId, blockId);
+            blockchainCache.setBlockchainSegmentId(blockId, blockchainSegmentId);
         }
     }
 
@@ -454,7 +454,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
 
         if (blockchainCache != null) {
             for (final BlockId blockId : blockIds) {
-                blockchainCache.setBlockBlockchainSegment(blockchainSegmentId, blockId);
+                blockchainCache.setBlockchainSegmentId(blockId, blockchainSegmentId);
             }
         }
     }

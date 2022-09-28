@@ -255,22 +255,51 @@ public class BlockchainBuilder extends GracefulSleepyService {
         BlockchainSegmentId currentBlockchainSegmentId = blockchainSegmentId;
         while (headBlockId == null) {
             final BlockId firstBlockIdOfHeadBlockchainSegment = blockchainDatabaseManager.getFirstBlockIdOfBlockchainSegment(currentBlockchainSegmentId);
+            Logger.trace("firstBlockIdOfHeadBlockchainSegment=" + firstBlockIdOfHeadBlockchainSegment);
             final Boolean firstBlockOfHeadBlockchainHasTransactions = blockDatabaseManager.hasTransactions(firstBlockIdOfHeadBlockchainSegment);
+            Logger.trace("firstBlockOfHeadBlockchainHasTransactions=" + firstBlockOfHeadBlockchainHasTransactions);
             if (! firstBlockOfHeadBlockchainHasTransactions) {
                 currentBlockchainSegmentId = blockchainDatabaseManager.getPreviousBlockchainSegmentId(currentBlockchainSegmentId);
+                Logger.trace("currentBlockchainSegmentId=" + currentBlockchainSegmentId);
                 if (currentBlockchainSegmentId == null) { break; }
                 continue;
             }
 
             final BlockId lastBlockWithTransactionsOfBlockchainSegment = blockDatabaseManager.getHeadBlockIdOfBlockchainSegment(currentBlockchainSegmentId);
+            Logger.trace("lastBlockWithTransactionsOfBlockchainSegment=" + lastBlockWithTransactionsOfBlockchainSegment);
             headBlockId = lastBlockWithTransactionsOfBlockchainSegment;
         }
         if (headBlockId == null) { return false; }
+        Logger.trace("headBlockId=" + headBlockId);
 
         while (! _shouldAbort()) {
             final BlockId nextBlockId = blockHeaderDatabaseManager.getChildBlockId(blockchainSegmentId, headBlockId);
+            Logger.trace("nextBlockId=" + nextBlockId);
             if (nextBlockId == null) { return true; }
 
+            // TODO: RESUME: nextBlockHash is stuck as the first block processed after restart (is it not getting updated after a block process?)
+            //[2022-09-26 13:46:49.201] [DEBUG] [com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder.java:275] NextBlockHash: 00000000EA79BC139EA90DB3446DAA3CBDCD1A4BAC1FDC191743DBAE3633368D
+            //[2022-09-26 13:46:49.216] [TRACE] [com.softwareverde.bitcoin.context.core.MutableUnspentTransactionOutputSet.java:268] Load UTXOs MultiTimer: blockHeights=0.807182ms, blockTxns=0.019152ms, blockchainSegmentId=0.021347ms, loadOutputs=0.020109ms, headerId=0.231257ms, excludeOutputs=0.019389ms
+            //[2022-09-26 13:46:49.217] [DEBUG] [com.softwareverde.bitcoin.server.module.node.BlockProcessor.java:376] Using liveLoadedUnspentTransactionOutputs for blockHeight: 2069
+            //[2022-09-26 13:46:49.219] [DEBUG] [com.softwareverde.bitcoin.block.validator.BlockValidator.java:330] Trusting Block Height: 2069
+            //[2022-09-26 13:46:49.220] [TRACE] [com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager.java:176] UTXO Block Height: 2069
+            //[2022-09-26 13:46:49.229] [DEBUG] [com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager.java:178] BlockHeight: 2069 1 unspent, 0 spent, 0 unspendable. 1 transactions in 0 ms (1000 tps), 0ms for UTXOs. 1000 tps.
+            //[2022-09-26 13:46:49.230] [DEBUG] [com.softwareverde.bitcoin.server.module.node.BlockProcessor.java:423] Applied 00000000EA79BC139EA90DB3446DAA3CBDCD1A4BAC1FDC191743DBAE3633368D @ 2069 to UTXO set in 10.542673ms.
+            //[2022-09-26 13:46:49.231] [TRACE] [com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager.java:108] Flagged cache as mutated: 0
+            //[2022-09-26 13:46:49.240] [DEBUG] [com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager.java:120] AssociateTransactions: 2ms
+            //[2022-09-26 13:46:49.241] [DEBUG] [com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager.java:123] StoreBlockDuration: 10ms
+            //[2022-09-26 13:46:49.258] [INFO] [com.softwareverde.bitcoin.server.module.node.BlockProcessor.java:441] Stored 1 transactions in 16.34ms (61.20 tps). 00000000EA79BC139EA90DB3446DAA3CBDCD1A4BAC1FDC191743DBAE3633368D
+            //[2022-09-26 13:46:49.259] [TRACE] [com.softwareverde.bitcoin.server.module.node.BlockProcessor.java:471] bestBlockchainHasChanged=false
+            //[2022-09-26 13:46:49.260] [TRACE] [com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager.java:251] Committing mutated cache: 0
+            //[2022-09-26 13:46:49.260] [TRACE] [com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager.java:253] Committed mutated cache: 0
+            //[2022-09-26 13:46:49.260] [TRACE] [com.softwareverde.bitcoin.server.module.node.BlockProcessor.java:576] ProcessBlock MultiTimer: metadata=0.73706ms, undoLog=0.003325ms, blockchainSegment=0.010052ms, mempool=0.590081ms, utxoUpdate=11.075807ms, commit=0.560353ms, utxoContext=3.206631ms, blockSize=0.473685ms, blockchainChange=0.323907ms, blockchain=0.678644ms, txStore=27.965277ms, validation=2.459287ms, txIndexing=0.011195ms
+            //[2022-09-26 13:46:49.260] [DEBUG] [com.softwareverde.bitcoin.server.module.node.BlockProcessor.java:578] Block Height: 2069
+            //[2022-09-26 13:46:49.261] [INFO] [com.softwareverde.bitcoin.server.module.node.BlockProcessor.java:579] Processed Block with 1 transactions in 48.14ms (20.77 tps). 00000000EA79BC139EA90DB3446DAA3CBDCD1A4BAC1FDC191743DBAE3633368D
+            // ...
+            //[2022-09-26 14:09:59.548] [TRACE] [com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder.java:246] Assembling blocks leading to blockchain segment 1
+            //[2022-09-26 14:09:59.548] [DEBUG] [com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder.java:275] NextBlockHash: 00000000EA79BC139EA90DB3446DAA3CBDCD1A4BAC1FDC191743DBAE3633368D
+            //[2022-09-26 14:09:59.548] [DEBUG] [com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder.java:287] Waiting for unavailable block: 00000000EA79BC139EA90DB3446DAA3CBDCD1A4BAC1FDC191743DBAE3633368D
+            //[2022-09-26 14:09:59.548] [DEBUG] [com.softwareverde.bitcoin.server.module.node.NodeModule.java:791] Requesting Block: 00000000EA79BC139EA90DB3446DAA3CBDCD1A4BAC1FDC191743DBAE3633368D:2069 (paused=false)
             final Sha256Hash nextBlockHash = blockHeaderDatabaseManager.getBlockHash(nextBlockId);
             Logger.debug("NextBlockHash: " + nextBlockHash);
 
