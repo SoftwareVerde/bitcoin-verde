@@ -14,7 +14,6 @@ import com.softwareverde.bitcoin.context.SystemTimeContext;
 import com.softwareverde.bitcoin.context.ThreadPoolContext;
 import com.softwareverde.bitcoin.context.UpgradeScheduleContext;
 import com.softwareverde.bitcoin.context.core.BlockHeaderValidatorContext;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
@@ -189,7 +188,6 @@ public class BlockHeaderDownloader extends PausableSleepyService {
         }
 
         final VolatileNetworkTime networkTime = _context.getNetworkTime();
-        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
         synchronized (BlockHeaderDatabaseManager.MUTEX) {

@@ -18,7 +18,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.io.InputStream;
-import java.util.HashMap;
 
 public class BlockchainCacheTests extends UnitTest {
     @Before

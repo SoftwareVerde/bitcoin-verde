@@ -10,7 +10,7 @@ import org.junit.Test;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class MutableHashMapTests extends UnitTest {
+public class MutableVersionedHashMapTests extends UnitTest {
     @Before
     public void before() throws Exception {
         super.before();
@@ -24,7 +24,7 @@ public class MutableHashMapTests extends UnitTest {
     @Test
     public void should_visit_all_nodes() throws Exception {
         final int nodeCount = 128;
-        final MutableHashMap<Integer, String> map = new MutableHashMap<>();
+        final MutableVersionedHashMap<Integer, String> map = new MutableVersionedHashMap<>();
 
         for (int i = 0; i < nodeCount; ++i) {
             map.put(i, String.valueOf(i));
@@ -46,7 +46,7 @@ public class MutableHashMapTests extends UnitTest {
     @Test
     public void should_visit_all_nodes_after_push_apply() throws Exception {
         final int nodeCount = 128;
-        final MutableHashMap<Integer, String> map = new MutableHashMap<>();
+        final MutableVersionedHashMap<Integer, String> map = new MutableVersionedHashMap<>();
 
         map.pushVersion();
         for (int i = 0; i < nodeCount; ++i) {
@@ -70,7 +70,7 @@ public class MutableHashMapTests extends UnitTest {
     @Test
     public void should_visit_all_nodes_after_push_pop_push_apply() throws Exception {
         final int nodeCount = 128;
-        final MutableHashMap<Integer, String> map = new MutableHashMap<>();
+        final MutableVersionedHashMap<Integer, String> map = new MutableVersionedHashMap<>();
 
         map.pushVersion();
         for (int i = nodeCount; i < (nodeCount * 2); ++i) {
@@ -100,7 +100,7 @@ public class MutableHashMapTests extends UnitTest {
     @Test
     public void should_get_versioned_values_after_push_pop_push_apply() throws Exception {
         final int nodeCount = 128;
-        final MutableHashMap<Integer, String> map = new MutableHashMap<>();
+        final MutableVersionedHashMap<Integer, String> map = new MutableVersionedHashMap<>();
 
         map.pushVersion();
         for (int i = nodeCount; i < (nodeCount * 2); ++i) {

@@ -18,12 +18,12 @@ public class MutableBlockchainCache extends BlockchainCacheCore {
     public static final MapFactory MAP_FACTORY = new MapFactory() {
         @Override
         public <Key, Value> VersionedMap<Key, Value> newMap() {
-            return new MutableHashMap<>();
+            return new MutableVersionedHashMap<>();
         }
 
         @Override
         public <Key, Value> VersionedMap<Key, Value> newMap(final Integer itemCount) {
-            return new MutableHashMap<>(itemCount);
+            return new MutableVersionedHashMap<>(itemCount);
         }
 
         @Override
@@ -41,8 +41,8 @@ public class MutableBlockchainCache extends BlockchainCacheCore {
         }
     };
 
-    protected <Key, Value> MutableHashMap<Key, Value> _castMap(final Map<Key, Value> map) {
-        return (MutableHashMap<Key, Value>) map;
+    protected <Key, Value> MutableVersionedHashMap<Key, Value> _castMap(final Map<Key, Value> map) {
+        return (MutableVersionedHashMap<Key, Value>) map;
     }
 
     protected <Value> void _setListValue(final Value value, final List<Value> list) {
@@ -414,43 +414,43 @@ public class MutableBlockchainCache extends BlockchainCacheCore {
     }
 
     public MutableBlockchainCache newCopyOnWriteCache() {
-        final MutableHashMap<BlockId, BlockHeader> blockHeaders = MutableHashMap.wrap(_castMap(_blockHeaders));
+        final MutableVersionedHashMap<BlockId, BlockHeader> blockHeaders = MutableVersionedHashMap.wrap(_castMap(_blockHeaders));
         blockHeaders.pushVersion();
 
-        final MutableHashMap<BlockId, Long> blockHeights = MutableHashMap.wrap(_castMap(_blockHeights));
+        final MutableVersionedHashMap<BlockId, Long> blockHeights = MutableVersionedHashMap.wrap(_castMap(_blockHeights));
         blockHeights.pushVersion();
 
-        final MutableHashMap<Sha256Hash, BlockId> blockIds = MutableHashMap.wrap(_castMap(_blockIds));
+        final MutableVersionedHashMap<Sha256Hash, BlockId> blockIds = MutableVersionedHashMap.wrap(_castMap(_blockIds));
         blockIds.pushVersion();
 
-        final MutableHashMap<Long, MutableList<BlockId>> blocksByHeight = MutableHashMap.wrap(_castMap(_blocksByHeight));
+        final MutableVersionedHashMap<Long, MutableList<BlockId>> blocksByHeight = MutableVersionedHashMap.wrap(_castMap(_blocksByHeight));
         blocksByHeight.pushVersion();
 
-        final MutableHashMap<BlockId, ChainWork> chainWorks = MutableHashMap.wrap(_castMap(_chainWorks));
+        final MutableVersionedHashMap<BlockId, ChainWork> chainWorks = MutableVersionedHashMap.wrap(_castMap(_chainWorks));
         chainWorks.pushVersion();
 
-        final MutableHashMap<BlockId, MedianBlockTime> medianBlockTimes = MutableHashMap.wrap(_castMap(_medianBlockTimes));
+        final MutableVersionedHashMap<BlockId, MedianBlockTime> medianBlockTimes = MutableVersionedHashMap.wrap(_castMap(_medianBlockTimes));
         medianBlockTimes.pushVersion();
 
-        final MutableHashMap<BlockId, Boolean> blockTransactionMap = MutableHashMap.wrap(_castMap(_blockTransactionMap));
+        final MutableVersionedHashMap<BlockId, Boolean> blockTransactionMap = MutableVersionedHashMap.wrap(_castMap(_blockTransactionMap));
         blockTransactionMap.pushVersion();
 
-        final MutableHashMap<BlockId, Integer> blockProcessCount = MutableHashMap.wrap(_castMap(_blockProcessCount));
+        final MutableVersionedHashMap<BlockId, Integer> blockProcessCount = MutableVersionedHashMap.wrap(_castMap(_blockProcessCount));
         blockProcessCount.pushVersion();
 
-        final MutableHashMap<BlockId, BlockchainSegmentId> blockchainSegmentIds = MutableHashMap.wrap(_castMap(_blockchainSegmentIds));
+        final MutableVersionedHashMap<BlockId, BlockchainSegmentId> blockchainSegmentIds = MutableVersionedHashMap.wrap(_castMap(_blockchainSegmentIds));
         blockchainSegmentIds.pushVersion();
 
-        final MutableHashMap<BlockchainSegmentId, BlockchainSegmentId> blockchainSegmentParents = MutableHashMap.wrap(_castMap(_blockchainSegmentParents));
+        final MutableVersionedHashMap<BlockchainSegmentId, BlockchainSegmentId> blockchainSegmentParents = MutableVersionedHashMap.wrap(_castMap(_blockchainSegmentParents));
         blockchainSegmentParents.pushVersion();
 
-        final MutableHashMap<BlockchainSegmentId, Long> blockchainSegmentNestedSetLeft = MutableHashMap.wrap(_castMap(_blockchainSegmentNestedSetLeft));
+        final MutableVersionedHashMap<BlockchainSegmentId, Long> blockchainSegmentNestedSetLeft = MutableVersionedHashMap.wrap(_castMap(_blockchainSegmentNestedSetLeft));
         blockchainSegmentNestedSetLeft.pushVersion();
 
-        final MutableHashMap<BlockchainSegmentId, Long> blockchainSegmentNestedSetRight = MutableHashMap.wrap(_castMap(_blockchainSegmentNestedSetRight));
+        final MutableVersionedHashMap<BlockchainSegmentId, Long> blockchainSegmentNestedSetRight = MutableVersionedHashMap.wrap(_castMap(_blockchainSegmentNestedSetRight));
         blockchainSegmentNestedSetRight.pushVersion();
 
-        final MutableHashMap<BlockchainSegmentId, Long> blockchainSegmentMaxBlockHeight = MutableHashMap.wrap(_castMap(_blockchainSegmentMaxBlockHeight));
+        final MutableVersionedHashMap<BlockchainSegmentId, Long> blockchainSegmentMaxBlockHeight = MutableVersionedHashMap.wrap(_castMap(_blockchainSegmentMaxBlockHeight));
         blockchainSegmentMaxBlockHeight.pushVersion();
 
         return new MutableBlockchainCache(_readLock, _writeLock, blockHeaders, blockHeights, blockIds, blocksByHeight, chainWorks, medianBlockTimes, blockTransactionMap, blockProcessCount, blockchainSegmentIds, _getListValue(_headBlockId), _getListValue(_headBlockHeaderId), blockchainSegmentParents, blockchainSegmentNestedSetLeft, blockchainSegmentNestedSetRight, blockchainSegmentMaxBlockHeight);

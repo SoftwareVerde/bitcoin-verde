@@ -34,7 +34,6 @@ import com.softwareverde.bitcoin.server.module.node.utxo.UtxoCommitmentManagerCo
 import com.softwareverde.bitcoin.server.properties.PropertiesStore;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
-import com.softwareverde.logging.Logger;
 
 public class FullNodeDatabaseManager implements DatabaseManager {
     protected final DatabaseConnection _databaseConnection;
@@ -102,10 +101,6 @@ public class FullNodeDatabaseManager implements DatabaseManager {
             public MutableBlockchainCache getMutableBlockchainCache() {
                 if (_blockchainCache == null) {
                     _blockchainCache = blockchainCacheManager.getBlockchainCache();
-                }
-
-                if (! _cacheWasMutated) {
-                    Logger.trace("Flagged cache as mutated: " + _getVersion());
                 }
 
                 _cacheWasMutated = true;
@@ -248,9 +243,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     public void commitTransaction() throws DatabaseException {
         TransactionUtil.commitTransaction(_databaseConnection);
         if (_cacheWasMutated) {
-            Logger.trace("Committing mutated cache: " + _getVersion());
             _blockchainCacheManager.commitBlockchainCache(_blockchainCache);
-            Logger.trace("Committed mutated cache: " + _getVersion());
             _cacheWasMutated = false;
         }
     }
@@ -259,9 +252,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     public void rollbackTransaction() throws DatabaseException {
         TransactionUtil.rollbackTransaction(_databaseConnection);
         if (_cacheWasMutated) {
-            Logger.trace("Discarded mutated cache: " + _getVersion());
             _blockchainCacheManager.rollbackBlockchainCache();
-            Logger.trace("Discarded mutated cache: " + _getVersion());
             _cacheWasMutated = false;
         }
     }
@@ -269,9 +260,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     @Override
     public void close() throws DatabaseException {
         if (_cacheWasMutated) {
-            Logger.trace("Discarding mutated cache: " + _getVersion());
             _blockchainCacheManager.rollbackBlockchainCache();
-            Logger.trace("Discarded mutated cache: " + _getVersion());
         }
 
         _databaseConnection.close();

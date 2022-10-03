@@ -9,7 +9,6 @@ import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
-import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
@@ -198,11 +197,6 @@ public class BlockchainCacheCore implements BlockchainCache {
     public Boolean hasTransactions(final BlockId blockId) {
         _readLock.lock();
         try {
-            if (Logger.isTraceEnabled()) {
-                if (blockId.longValue() == 1L) {
-                    Logger.trace("Genesis HasTransactions=" + _blockTransactionMap.get(blockId) + " " + _version.get() + " " + _blockTransactionMap.getKeys().getCount());
-                }
-            }
             return _blockTransactionMap.get(blockId);
         }
         finally {
