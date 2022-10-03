@@ -194,7 +194,13 @@ public class BlockProcessorTests extends IntegrationTest {
         }
 
         public Long processBlock(final Block block) {
-            return this.blockProcessor.processBlock(block, this.unspentTransactionOutputSet).blockHeight;
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                return this.blockProcessor.processBlock(block, databaseManager, this.unspentTransactionOutputSet).blockHeight;
+            }
+            catch (final DatabaseException exception) {
+                Logger.debug(exception);
+                return null;
+            }
         }
 
         public Long processBlock(final Block block, final Long blockHeight, final FullNodeDatabaseManager databaseManager) throws Exception {
@@ -205,7 +211,7 @@ public class BlockProcessorTests extends IntegrationTest {
 
             final MutableUnspentTransactionOutputSet unspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
             unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight);
-            return this.blockProcessor.processBlock(block, unspentTransactionOutputSet).blockHeight;
+            return this.blockProcessor.processBlock(block, databaseManager, unspentTransactionOutputSet).blockHeight;
         }
 
         public Block inflateBlock(final String blockData) {

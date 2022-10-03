@@ -245,15 +245,16 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
 
         final Sha256Hash blockHash = block.getHash();
-        final BlockId existingBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
-
         final BlockId blockId;
-        if (existingBlockId == null) {
-            blockId = blockHeaderDatabaseManager.insertBlockHeader(block);
-            blockchainDatabaseManager.updateBlockchainsForNewBlock(blockId);
-        }
-        else {
-            blockId = existingBlockId;
+        {
+            final BlockId existingBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+            if (existingBlockId == null) {
+                blockId = blockHeaderDatabaseManager.insertBlockHeader(block);
+                blockchainDatabaseManager.updateBlockchainsForNewBlock(blockId);
+            }
+            else {
+                blockId = existingBlockId;
+            }
         }
 
         final MutableBlockchainCache blockchainCache = _blockchainCacheFactory.getMutableBlockchainCache();

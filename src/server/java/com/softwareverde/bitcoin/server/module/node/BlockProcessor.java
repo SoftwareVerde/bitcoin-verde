@@ -332,7 +332,7 @@ public class BlockProcessor {
             final ProcessBlockHeaderResult blockHeaderResult = _processBlockHeader(block, databaseManager);
             if (blockHeaderResult == null ) { return ProcessBlockResult.invalid(block, null, "Unable to process block header."); }
 
-            // if the full Block has already been processed then abort processing it...
+            // If the full Block has already been processed then abort processing it...
             if (blockHeaderResult.wasBlockAlreadyProcessed()) {
                 blockHeight = blockHeaderResult.getBlockHeight();
                 return ProcessBlockResult.valid(block, blockHeight, false, true);
@@ -592,11 +592,9 @@ public class BlockProcessor {
      * If provided, the UnspentTransactionOutputSet must include every output spent by the block.
      * If not provided, the UnspentTransactionOutputSet is loaded from the database at validation time.
      */
-    public ProcessBlockResult processBlock(final Block block) { return this.processBlock(block, null); }
-    public ProcessBlockResult processBlock(final Block block, final UnspentTransactionOutputContext preLoadedUnspentTransactionOutputContext) {
-        final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
-
-        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+    public ProcessBlockResult processBlock(final Block block, final FullNodeDatabaseManager databaseManager) { return this.processBlock(block, databaseManager, null); }
+    public ProcessBlockResult processBlock(final Block block, final FullNodeDatabaseManager databaseManager, final UnspentTransactionOutputContext preLoadedUnspentTransactionOutputContext) {
+        try {
             return _processBlock(block, preLoadedUnspentTransactionOutputContext, databaseManager);
         }
         catch (final Exception exception) {
@@ -604,18 +602,9 @@ public class BlockProcessor {
             Logger.info("Error validating Block: " + blockHash, exception);
             UnspentTransactionOutputManager.invalidateUncommittedUtxoSet(); // Mark the UTXO set as broken/invalid.
 
-            try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-                final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-
-                final BlockchainSegmentId headBlockchainSegmentId;
-                {
-                    final BlockId newHeadBlockId = blockDatabaseManager.getHeadBlockId();
-                    headBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(newHeadBlockId);
-                }
-
+            try {
+                // TODO: Instantiating a UnspentTransactionOutputManager should not be necessary once the UTXO_SET is no longer a static property within UnspentTransactionOutputJvmManager.
                 final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, _utxoCommitFrequency);
-
                 unspentTransactionOutputManager.clearUncommittedUtxoSet(); // Clear the UTXO set's invalidation state before rebuilding.
             }
             catch (final Exception rebuildUtxoSetException) {

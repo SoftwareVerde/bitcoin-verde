@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.sync;
 
 import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.block.BlockHasher;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
@@ -39,7 +38,6 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.CircleBuffer;
-import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.timer.NanoTimer;
 
@@ -66,6 +64,24 @@ public class BlockchainBuilder extends GracefulSleepyService {
     protected final CircleBuffer<Long> _blockProcessingTimes = new CircleBuffer<>(100);
     protected Float _averageBlocksPerSecond = 0F;
 
+    protected void _executeCallbacks(final ProcessBlockResult processBlockResult) {
+        final NewBlockProcessedCallback synchronousNewBlockProcessedCallback = _synchronousNewBlockProcessedCallback;
+        if (synchronousNewBlockProcessedCallback != null) {
+            synchronousNewBlockProcessedCallback.onNewBlock(processBlockResult);
+        }
+
+        final NewBlockProcessedCallback asynchronousNewBlockProcessedCallback = _asynchronousNewBlockProcessedCallback;
+        if (asynchronousNewBlockProcessedCallback != null) {
+            final ThreadPool threadPool = _context.getThreadPool();
+            threadPool.execute(new Runnable() {
+                @Override
+                public void run() {
+                    asynchronousNewBlockProcessedCallback.onNewBlock(processBlockResult);
+                }
+            });
+        }
+    }
+
     protected void _checkUtxoSet(final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         if (! UnspentTransactionOutputDatabaseManager.isUtxoCacheReady()) {
             final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
@@ -88,66 +104,25 @@ public class BlockchainBuilder extends GracefulSleepyService {
      *  If not provided, the transactionOutputSet is loaded from the database.
      *  Returns true if the pending block was valid and stored.
      */
-    protected Boolean _processPendingBlock(final Block block) {
+    protected Boolean _processPendingBlock(final Block block, final FullNodeDatabaseManager databaseManager) {
         final ProcessBlockResult processBlockResult;
         { // Maximize the Thread priority and process the block...
             final Thread currentThread = Thread.currentThread();
             final int originalThreadPriority = currentThread.getPriority();
             try {
                 currentThread.setPriority(Thread.MAX_PRIORITY);
-                processBlockResult = _blockProcessor.processBlock(block);
+                processBlockResult = _blockProcessor.processBlock(block, databaseManager);
             }
             finally {
                 currentThread.setPriority(originalThreadPriority);
             }
         }
 
-        // Execute callbacks...
         if ( processBlockResult.isValid && (! processBlockResult.wasAlreadyProcessed) ) {
-            final NewBlockProcessedCallback synchronousNewBlockProcessedCallback = _synchronousNewBlockProcessedCallback;
-            if (synchronousNewBlockProcessedCallback != null) {
-                synchronousNewBlockProcessedCallback.onNewBlock(processBlockResult);
-            }
-
-            final NewBlockProcessedCallback asynchronousNewBlockProcessedCallback = _asynchronousNewBlockProcessedCallback;
-            if (asynchronousNewBlockProcessedCallback != null) {
-                final ThreadPool threadPool = _context.getThreadPool();
-                threadPool.execute(new Runnable() {
-                    @Override
-                    public void run() {
-                        asynchronousNewBlockProcessedCallback.onNewBlock(processBlockResult);
-                    }
-                });
-            }
+            _executeCallbacks(processBlockResult);
         }
 
         return processBlockResult.isValid;
-    }
-
-    protected Boolean _processGenesisBlock(final FullNodeDatabaseManager databaseManager) throws DatabaseException {
-        final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-
-        final ByteArray pendingBlockData = _blockStore.getPendingBlockData(BlockHeader.GENESIS_BLOCK_HASH);
-
-        final BlockInflater blockInflater = _context.getBlockInflater();
-        final Block block = blockInflater.fromBytes(pendingBlockData);
-        if (block == null) { return false; }
-
-        final BlockId blockId;
-        final BlockHasher blockHasher = new BlockHasher();
-        final Sha256Hash blockHash = blockHasher.calculateBlockHash(block);
-        if (Util.areEqual(BlockHeader.GENESIS_BLOCK_HASH, blockHash)) {
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                blockId = blockDatabaseManager.storeBlock(block);
-            }
-        }
-        else {
-            blockId = null;
-        }
-
-        _blockStore.removePendingBlock(BlockHeader.GENESIS_BLOCK_HASH);
-
-        return (blockId != null);
     }
 
     protected void _updateAverageBlockProcessingTime() {
@@ -187,17 +162,39 @@ public class BlockchainBuilder extends GracefulSleepyService {
                 final Boolean hasBlockDataAvailable = _blockStore.pendingBlockExists(BlockHeader.GENESIS_BLOCK_HASH);
 
                 final Boolean genesisBlockWasLoaded;
-                if (hasBlockDataAvailable) {
-                    genesisBlockWasLoaded = _processGenesisBlock(databaseManager);
-                }
-                else {
+                if (! hasBlockDataAvailable) {
                     genesisBlockWasLoaded = false;
                 }
-
-                if (genesisBlockWasLoaded) {
-                    _hasGenesisBlock = true;
-                }
                 else {
+                    final ByteArray pendingBlockData = _blockStore.getPendingBlockData(BlockHeader.GENESIS_BLOCK_HASH);
+
+                    final BlockInflater blockInflater = _context.getBlockInflater();
+                    final Block genesisBlock = blockInflater.fromBytes(pendingBlockData);
+                    if (genesisBlock == null) {
+                        genesisBlockWasLoaded = false;
+                    }
+                    else {
+                        final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+
+                        // Manually store the genesis block, bypassing the BlockProcessor since the Genesis Block should not be validated or added to the UTXO set.
+                        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                            databaseManager.startTransaction();
+                            blockDatabaseManager.storeBlock(genesisBlock);
+                            databaseManager.commitTransaction();
+                        }
+
+                        final ProcessBlockResult processBlockResult = ProcessBlockResult.valid(genesisBlock, 0L, true, false);
+                        genesisBlockWasLoaded = true;
+
+                        if (processBlockResult.isValid) {
+                            _executeCallbacks(processBlockResult);
+                        }
+                    }
+
+                    _blockStore.removePendingBlock(BlockHeader.GENESIS_BLOCK_HASH);
+                }
+
+                if (! genesisBlockWasLoaded) {
                     Logger.debug("Waiting for genesis block.");
                     final UnavailableBlockCallback unavailableBlockCallback = _unavailableBlockCallback;
                     if (unavailableBlockCallback != null) {
@@ -211,13 +208,15 @@ public class BlockchainBuilder extends GracefulSleepyService {
                     }
                     return;
                 }
+
+                _hasGenesisBlock = true;
             }
         }
 
         while (! _shouldAbort()) {
             final List<BlockchainSegmentId> blockchainSegmentIds = _getLeafBlockchainSegmentsByChainWork(databaseManager);
             if (blockchainSegmentIds.isEmpty()) {
-                // no blockchain segments to sync
+                // No blockchain segments left to sync...
                 return;
             }
 
@@ -255,51 +254,22 @@ public class BlockchainBuilder extends GracefulSleepyService {
         BlockchainSegmentId currentBlockchainSegmentId = blockchainSegmentId;
         while (headBlockId == null) {
             final BlockId firstBlockIdOfHeadBlockchainSegment = blockchainDatabaseManager.getFirstBlockIdOfBlockchainSegment(currentBlockchainSegmentId);
-            Logger.trace("firstBlockIdOfHeadBlockchainSegment=" + firstBlockIdOfHeadBlockchainSegment);
             final Boolean firstBlockOfHeadBlockchainHasTransactions = blockDatabaseManager.hasTransactions(firstBlockIdOfHeadBlockchainSegment);
-            Logger.trace("firstBlockOfHeadBlockchainHasTransactions=" + firstBlockOfHeadBlockchainHasTransactions);
             if (! firstBlockOfHeadBlockchainHasTransactions) {
                 currentBlockchainSegmentId = blockchainDatabaseManager.getPreviousBlockchainSegmentId(currentBlockchainSegmentId);
-                Logger.trace("currentBlockchainSegmentId=" + currentBlockchainSegmentId);
                 if (currentBlockchainSegmentId == null) { break; }
                 continue;
             }
 
             final BlockId lastBlockWithTransactionsOfBlockchainSegment = blockDatabaseManager.getHeadBlockIdOfBlockchainSegment(currentBlockchainSegmentId);
-            Logger.trace("lastBlockWithTransactionsOfBlockchainSegment=" + lastBlockWithTransactionsOfBlockchainSegment);
             headBlockId = lastBlockWithTransactionsOfBlockchainSegment;
         }
         if (headBlockId == null) { return false; }
-        Logger.trace("headBlockId=" + headBlockId);
 
         while (! _shouldAbort()) {
             final BlockId nextBlockId = blockHeaderDatabaseManager.getChildBlockId(blockchainSegmentId, headBlockId);
-            Logger.trace("nextBlockId=" + nextBlockId);
             if (nextBlockId == null) { return true; }
 
-            // TODO: RESUME: nextBlockHash is stuck as the first block processed after restart (is it not getting updated after a block process?)
-            //[2022-09-26 13:46:49.201] [DEBUG] [com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder.java:275] NextBlockHash: 00000000EA79BC139EA90DB3446DAA3CBDCD1A4BAC1FDC191743DBAE3633368D
-            //[2022-09-26 13:46:49.216] [TRACE] [com.softwareverde.bitcoin.context.core.MutableUnspentTransactionOutputSet.java:268] Load UTXOs MultiTimer: blockHeights=0.807182ms, blockTxns=0.019152ms, blockchainSegmentId=0.021347ms, loadOutputs=0.020109ms, headerId=0.231257ms, excludeOutputs=0.019389ms
-            //[2022-09-26 13:46:49.217] [DEBUG] [com.softwareverde.bitcoin.server.module.node.BlockProcessor.java:376] Using liveLoadedUnspentTransactionOutputs for blockHeight: 2069
-            //[2022-09-26 13:46:49.219] [DEBUG] [com.softwareverde.bitcoin.block.validator.BlockValidator.java:330] Trusting Block Height: 2069
-            //[2022-09-26 13:46:49.220] [TRACE] [com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager.java:176] UTXO Block Height: 2069
-            //[2022-09-26 13:46:49.229] [DEBUG] [com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager.java:178] BlockHeight: 2069 1 unspent, 0 spent, 0 unspendable. 1 transactions in 0 ms (1000 tps), 0ms for UTXOs. 1000 tps.
-            //[2022-09-26 13:46:49.230] [DEBUG] [com.softwareverde.bitcoin.server.module.node.BlockProcessor.java:423] Applied 00000000EA79BC139EA90DB3446DAA3CBDCD1A4BAC1FDC191743DBAE3633368D @ 2069 to UTXO set in 10.542673ms.
-            //[2022-09-26 13:46:49.231] [TRACE] [com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager.java:108] Flagged cache as mutated: 0
-            //[2022-09-26 13:46:49.240] [DEBUG] [com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager.java:120] AssociateTransactions: 2ms
-            //[2022-09-26 13:46:49.241] [DEBUG] [com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager.java:123] StoreBlockDuration: 10ms
-            //[2022-09-26 13:46:49.258] [INFO] [com.softwareverde.bitcoin.server.module.node.BlockProcessor.java:441] Stored 1 transactions in 16.34ms (61.20 tps). 00000000EA79BC139EA90DB3446DAA3CBDCD1A4BAC1FDC191743DBAE3633368D
-            //[2022-09-26 13:46:49.259] [TRACE] [com.softwareverde.bitcoin.server.module.node.BlockProcessor.java:471] bestBlockchainHasChanged=false
-            //[2022-09-26 13:46:49.260] [TRACE] [com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager.java:251] Committing mutated cache: 0
-            //[2022-09-26 13:46:49.260] [TRACE] [com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager.java:253] Committed mutated cache: 0
-            //[2022-09-26 13:46:49.260] [TRACE] [com.softwareverde.bitcoin.server.module.node.BlockProcessor.java:576] ProcessBlock MultiTimer: metadata=0.73706ms, undoLog=0.003325ms, blockchainSegment=0.010052ms, mempool=0.590081ms, utxoUpdate=11.075807ms, commit=0.560353ms, utxoContext=3.206631ms, blockSize=0.473685ms, blockchainChange=0.323907ms, blockchain=0.678644ms, txStore=27.965277ms, validation=2.459287ms, txIndexing=0.011195ms
-            //[2022-09-26 13:46:49.260] [DEBUG] [com.softwareverde.bitcoin.server.module.node.BlockProcessor.java:578] Block Height: 2069
-            //[2022-09-26 13:46:49.261] [INFO] [com.softwareverde.bitcoin.server.module.node.BlockProcessor.java:579] Processed Block with 1 transactions in 48.14ms (20.77 tps). 00000000EA79BC139EA90DB3446DAA3CBDCD1A4BAC1FDC191743DBAE3633368D
-            // ...
-            //[2022-09-26 14:09:59.548] [TRACE] [com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder.java:246] Assembling blocks leading to blockchain segment 1
-            //[2022-09-26 14:09:59.548] [DEBUG] [com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder.java:275] NextBlockHash: 00000000EA79BC139EA90DB3446DAA3CBDCD1A4BAC1FDC191743DBAE3633368D
-            //[2022-09-26 14:09:59.548] [DEBUG] [com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder.java:287] Waiting for unavailable block: 00000000EA79BC139EA90DB3446DAA3CBDCD1A4BAC1FDC191743DBAE3633368D
-            //[2022-09-26 14:09:59.548] [DEBUG] [com.softwareverde.bitcoin.server.module.node.NodeModule.java:791] Requesting Block: 00000000EA79BC139EA90DB3446DAA3CBDCD1A4BAC1FDC191743DBAE3633368D:2069 (paused=false)
             final Sha256Hash nextBlockHash = blockHeaderDatabaseManager.getBlockHash(nextBlockId);
             Logger.debug("NextBlockHash: " + nextBlockHash);
 
@@ -341,7 +311,7 @@ public class BlockchainBuilder extends GracefulSleepyService {
 
             _checkUtxoSet(databaseManager);
 
-            final Boolean processBlockWasSuccessful = _processPendingBlock(block);
+            final Boolean processBlockWasSuccessful = _processPendingBlock(block, databaseManager);
 
             if (! processBlockWasSuccessful) {
                 blockHeaderDatabaseManager.markBlockAsInvalid(nextBlockHash, 1);
@@ -370,7 +340,19 @@ public class BlockchainBuilder extends GracefulSleepyService {
     }
 
     @Override
-    protected void _onStart() { }
+    protected void _onStart() {
+        if (_hasGenesisBlock == null) {
+            final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
+            try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+                _hasGenesisBlock = blockDatabaseManager.hasTransactions(BlockHeader.GENESIS_BLOCK_HASH);
+            }
+            catch (final DatabaseException exception) {
+                Logger.debug(exception);
+                _hasGenesisBlock = false;
+            }
+        }
+    }
 
     @Override
     protected Boolean _run() {
@@ -414,15 +396,7 @@ public class BlockchainBuilder extends GracefulSleepyService {
         _blockStore = blockStore;
         _blockDownloaderStatusMonitor = downloadStatusMonitor;
 
-        final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
-        try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-            final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-            _hasGenesisBlock = blockDatabaseManager.hasTransactions(BlockHeader.GENESIS_BLOCK_HASH);
-        }
-        catch (final DatabaseException exception) {
-            Logger.debug(exception);
-            _hasGenesisBlock = false;
-        }
+        _hasGenesisBlock = null;
     }
 
     /**

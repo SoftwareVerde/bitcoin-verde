@@ -48,7 +48,7 @@ public class BlockDownloadPlannerCore implements BlockDownloader.BlockDownloadPl
         final Tuple<BlockId, Sha256Hash> lastDownloadedBlock = new Tuple<>(bestBlockId, bestBlockHash);
 
         do {
-            final BlockId blockId = blockHeaderDatabaseManager.getChildBlockId(blockchainSegmentId, bestBlockId);
+            final BlockId blockId = blockHeaderDatabaseManager.getChildBlockId(blockchainSegmentId, lastDownloadedBlock.first);
             if (blockId == null) { break; }
 
             final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
@@ -319,7 +319,7 @@ public class BlockDownloadPlannerCore implements BlockDownloader.BlockDownloadPl
     }
 
     @Override
-    public void clearQueue() {
+    public synchronized void clearQueue() {
         _requestedInventory.clear();
         _bestCompletedInventory = null;
     }

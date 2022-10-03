@@ -243,6 +243,12 @@ public class MutableBlockchainCache extends BlockchainCacheCore {
         finally {
             _writeLock.unlock();
         }
+
+        if (Logger.isTraceEnabled()) {
+            if (blockId.longValue() == 1L) {
+                Logger.trace("Genesis HasTransactions=true");
+            }
+        }
     }
 
     /**
