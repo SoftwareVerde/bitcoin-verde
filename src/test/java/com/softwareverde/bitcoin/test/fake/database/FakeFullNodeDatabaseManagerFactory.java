@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin.test.fake.database;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.BlockchainCacheManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.database.DatabaseException;
@@ -20,7 +19,7 @@ public class FakeFullNodeDatabaseManagerFactory extends FullNodeDatabaseManagerF
 
     @Override
     public FullNodeDatabaseManager newDatabaseManager() throws DatabaseException {
-        return new FullNodeDatabaseManager(null, null, null, null, null, null, null, new BlockchainCacheManager(null)) {
+        return new FullNodeDatabaseManager(null, null, null, null, null, null, null, null) {
             @Override
             public BlockchainDatabaseManager getBlockchainDatabaseManager() {
                 return FakeFullNodeDatabaseManagerFactory.this._blockchainDatabaseManager;

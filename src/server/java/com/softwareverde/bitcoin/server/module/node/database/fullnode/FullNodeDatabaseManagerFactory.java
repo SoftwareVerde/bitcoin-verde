@@ -31,7 +31,7 @@ public class FullNodeDatabaseManagerFactory implements DatabaseManagerFactory {
     protected final CheckpointConfiguration _checkpointConfiguration;
     protected final Long _maxUtxoCount;
     protected final Float _utxoPurgePercent;
-    protected BlockchainCacheManager _blockchainCacheManager = new BlockchainCacheManager(); // Disabled cache unless initialize is called...
+    protected MutableBlockchainCache _blockchainCacheManager = null; // Disabled cache unless initialize is called...
 
     public FullNodeDatabaseManagerFactory(final DatabaseConnectionFactory databaseConnectionFactory, final Integer maxQueryBatchSize, final PropertiesStore propertiesStore, final PendingBlockStore blockStore, final UtxoCommitmentStore utxoCommitmentStore, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration) {
         this(databaseConnectionFactory, maxQueryBatchSize, propertiesStore, blockStore, utxoCommitmentStore, masterInflater, checkpointConfiguration, UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT, UnspentTransactionOutputDatabaseManager.DEFAULT_PURGE_PERCENT);
@@ -82,7 +82,7 @@ public class FullNodeDatabaseManagerFactory implements DatabaseManagerFactory {
             }
 
             blockchainCache.applyVersion();
-            _blockchainCacheManager.initializeCache(blockchainCache);
+            _blockchainCacheManager = blockchainCache;
         }
 
     }

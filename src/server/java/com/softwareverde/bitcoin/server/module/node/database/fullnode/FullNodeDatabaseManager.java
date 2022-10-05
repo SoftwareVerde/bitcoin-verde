@@ -60,22 +60,21 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     protected UtxoCommitmentDatabaseManager _utxoCommitmentDatabaseManager;
     protected UtxoCommitmentManager _utxoCommitmentManager;
 
+    protected final MutableBlockchainCache _globalBlockchainCache;
+    protected final BlockchainCacheReference _blockchainCacheChildReference;
     protected Boolean _cacheWasMutated = false;
-    protected final BlockchainCacheManager _blockchainCacheManager;
-    protected final BlockchainCacheReference _blockchainCacheReference;
-    protected MutableBlockchainCache _blockchainCache;
+    protected MutableBlockchainCache _localBlockchainCache = null;
 
     protected Integer _getVersion() {
-        final MutableBlockchainCache blockchainCache = _blockchainCacheManager.getBlockchainCache();
-        if (blockchainCache == null) { return null; }
-        return blockchainCache.getVersion();
+        if (_globalBlockchainCache == null) { return null; }
+        return _globalBlockchainCache.getVersion();
     }
 
-    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final PropertiesStore propertiesStore, final PendingBlockStore blockStore, final UtxoCommitmentStore utxoCommitmentStore, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration, final BlockchainCacheManager blockchainCacheManager) {
+    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final PropertiesStore propertiesStore, final PendingBlockStore blockStore, final UtxoCommitmentStore utxoCommitmentStore, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration, final MutableBlockchainCache blockchainCacheManager) {
         this(databaseConnection, maxQueryBatchSize, propertiesStore, blockStore, utxoCommitmentStore, masterInflater, checkpointConfiguration, UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT, UnspentTransactionOutputDatabaseManager.DEFAULT_PURGE_PERCENT, blockchainCacheManager);
     }
 
-    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final PropertiesStore propertiesStore, final PendingBlockStore blockStore, final UtxoCommitmentStore utxoCommitmentStore, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration, final Long maxUtxoCount, final Float utxoPurgePercent, final BlockchainCacheManager blockchainCacheManager) {
+    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final PropertiesStore propertiesStore, final PendingBlockStore blockStore, final UtxoCommitmentStore utxoCommitmentStore, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration, final Long maxUtxoCount, final Float utxoPurgePercent, final MutableBlockchainCache blockchainCache) {
         _databaseConnection = databaseConnection;
         _propertiesStore = propertiesStore;
         _maxQueryBatchSize = maxQueryBatchSize;
@@ -85,26 +84,28 @@ public class FullNodeDatabaseManager implements DatabaseManager {
         _utxoPurgePercent = utxoPurgePercent;
         _checkpointConfiguration = checkpointConfiguration;
         _utxoCommitmentStore = utxoCommitmentStore;
+        _globalBlockchainCache = blockchainCache;
 
-        _blockchainCacheManager = blockchainCacheManager;
-        _blockchainCacheReference = new BlockchainCacheReference() {
+        _blockchainCacheChildReference = new BlockchainCacheReference() {
             @Override
             public BlockchainCache getBlockchainCache() {
-                if (_blockchainCache == null) {
-                    _blockchainCache = blockchainCacheManager.getBlockchainCache();
+                if (_globalBlockchainCache == null) { return null; }
+                if (_localBlockchainCache == null) {
+                    _localBlockchainCache = _globalBlockchainCache.newCopyOnWriteCache();
                 }
 
-                return _blockchainCache;
+                return _localBlockchainCache;
             }
 
             @Override
             public MutableBlockchainCache getMutableBlockchainCache() {
-                if (_blockchainCache == null) {
-                    _blockchainCache = blockchainCacheManager.getBlockchainCache();
+                if (_globalBlockchainCache == null) { return null; }
+                if (_localBlockchainCache == null) {
+                    _localBlockchainCache = _globalBlockchainCache.newCopyOnWriteCache();
                 }
 
                 _cacheWasMutated = true;
-                return _blockchainCache;
+                return _localBlockchainCache;
             }
         };
     }
@@ -126,7 +127,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     @Override
     public BlockchainDatabaseManager getBlockchainDatabaseManager() {
         if (_blockchainDatabaseManager == null) {
-            _blockchainDatabaseManager = new BlockchainDatabaseManagerCore(this, _blockchainCacheReference);
+            _blockchainDatabaseManager = new BlockchainDatabaseManagerCore(this, _blockchainCacheChildReference);
         }
 
         return _blockchainDatabaseManager;
@@ -135,7 +136,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     @Override
     public FullNodeBlockDatabaseManager getBlockDatabaseManager() {
         if (_blockDatabaseManager == null) {
-            _blockDatabaseManager = new FullNodeBlockDatabaseManager(this, _blockStore, _blockchainCacheReference);
+            _blockDatabaseManager = new FullNodeBlockDatabaseManager(this, _blockStore, _blockchainCacheChildReference);
         }
 
         return _blockDatabaseManager;
@@ -144,7 +145,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     @Override
     public BlockHeaderDatabaseManager getBlockHeaderDatabaseManager() {
         if (_blockHeaderDatabaseManager == null) {
-            _blockHeaderDatabaseManager = new BlockHeaderDatabaseManagerCore(this, _checkpointConfiguration, _blockchainCacheReference);
+            _blockHeaderDatabaseManager = new BlockHeaderDatabaseManagerCore(this, _checkpointConfiguration, _blockchainCacheChildReference);
         }
 
         return _blockHeaderDatabaseManager;
@@ -243,8 +244,10 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     public void commitTransaction() throws DatabaseException {
         TransactionUtil.commitTransaction(_databaseConnection);
         if (_cacheWasMutated) {
-            _blockchainCacheManager.commitBlockchainCache(_blockchainCache);
+            // NOTE: Neither _blockchainCacheGlobalReference nor _blockchainCacheLocalReference can be null if _cacheWasMutated is true.
+            _globalBlockchainCache.applyCache(_localBlockchainCache);
             _cacheWasMutated = false;
+            _localBlockchainCache = null;
         }
     }
 
@@ -252,18 +255,17 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     public void rollbackTransaction() throws DatabaseException {
         TransactionUtil.rollbackTransaction(_databaseConnection);
         if (_cacheWasMutated) {
-            _blockchainCacheManager.rollbackBlockchainCache();
+            // NOTE: Neither _blockchainCacheGlobalReference nor _blockchainCacheLocalReference can be null if _cacheWasMutated is true.
             _cacheWasMutated = false;
-            _blockchainCache = null;
+            _localBlockchainCache = null;
         }
     }
 
     @Override
     public void close() throws DatabaseException {
         if (_cacheWasMutated) {
-            _blockchainCacheManager.rollbackBlockchainCache();
             _cacheWasMutated = false;
-            _blockchainCache = null;
+            _localBlockchainCache = null;
         }
 
         _databaseConnection.close();
