@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node.database.block;
+package com.softwareverde.util.map;
 
 import com.softwareverde.constable.list.JavaListWrapper;
 import com.softwareverde.constable.list.List;

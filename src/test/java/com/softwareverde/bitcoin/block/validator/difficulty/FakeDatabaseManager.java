@@ -6,7 +6,6 @@ import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
-import com.softwareverde.bitcoin.server.module.node.database.Visitor;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.properties.InMemoryPropertiesStore;
 import com.softwareverde.bitcoin.server.properties.PropertiesStore;
@@ -15,6 +14,7 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.map.Visitor;
 
 import java.util.HashMap;
 

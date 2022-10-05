@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node.database.block;
+package com.softwareverde.util.map;
 
 public interface VersionedMap<Key, Value> extends Map<Key, Value> {
     Value get(Key key, Integer version);

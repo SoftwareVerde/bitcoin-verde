@@ -9,7 +9,6 @@ import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.module.node.database.BlockchainCacheFactory;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.Visitor;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockchainCache;
 import com.softwareverde.bitcoin.server.module.node.database.block.MutableBlockchainCache;
@@ -22,6 +21,7 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.map.Visitor;
 
 import java.util.HashMap;
 import java.util.Map;

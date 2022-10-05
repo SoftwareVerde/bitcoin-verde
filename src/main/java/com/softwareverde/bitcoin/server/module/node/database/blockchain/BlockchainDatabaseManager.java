@@ -3,10 +3,10 @@ package com.softwareverde.bitcoin.server.module.node.database.blockchain;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.server.module.node.database.Visitor;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.util.map.Visitor;
 
 import java.util.Map;
 

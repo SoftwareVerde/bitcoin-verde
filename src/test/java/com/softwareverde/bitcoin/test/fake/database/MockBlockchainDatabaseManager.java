@@ -2,11 +2,11 @@ package com.softwareverde.bitcoin.test.fake.database;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.server.module.node.database.Visitor;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.map.Visitor;
 
 import java.util.HashMap;
 
