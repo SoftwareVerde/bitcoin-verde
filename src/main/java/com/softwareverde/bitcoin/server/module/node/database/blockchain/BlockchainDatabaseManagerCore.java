@@ -7,7 +7,7 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
-import com.softwareverde.bitcoin.server.module.node.database.BlockchainCacheFactory;
+import com.softwareverde.bitcoin.server.module.node.database.BlockchainCacheReference;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockchainCache;
@@ -28,7 +28,7 @@ import java.util.Map;
 
 public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager {
     protected final DatabaseManager _databaseManager;
-    protected final BlockchainCacheFactory _blockchainCacheFactory;
+    protected final BlockchainCacheReference _blockchainCacheReference;
 
     protected Long _getParentBlockchainSegmentMaxBlockHeight(final BlockchainSegmentId parentBlockSegmentId, final DatabaseConnection databaseConnection, final BlockchainCache blockchainCache) throws DatabaseException {
         if (blockchainCache != null) {
@@ -291,14 +291,14 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
         return connectedBlockchainSegments;
     }
 
-    public BlockchainDatabaseManagerCore(final DatabaseManager databaseManager, final BlockchainCacheFactory blockchainCacheFactory) {
+    public BlockchainDatabaseManagerCore(final DatabaseManager databaseManager, final BlockchainCacheReference blockchainCacheReference) {
         _databaseManager = databaseManager;
-        _blockchainCacheFactory = blockchainCacheFactory;
+        _blockchainCacheReference = blockchainCacheReference;
     }
 
     @Override
     public BlockchainSegment getBlockchainSegment(final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         if (blockchainCache != null) {
             final BlockchainSegment blockchainSegment = blockchainCache.getBlockchainSegment(blockchainSegmentId);
             if (blockchainSegment != null) { return blockchainSegment; }
@@ -328,7 +328,7 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
         final BlockchainSegmentId existingBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
         if (existingBlockchainSegmentId != null) { return existingBlockchainSegmentId; }
 
-        final MutableBlockchainCache blockchainCache = _blockchainCacheFactory.getMutableBlockchainCache();
+        final MutableBlockchainCache blockchainCache = _blockchainCacheReference.getMutableBlockchainCache();
         final BlockchainSegmentId blockchainSegmentId = _calculateBlockchainSegment(blockId, blockchainCache);
         if (blockchainSegmentId == null) {
             final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
@@ -344,7 +344,7 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
 
     @Override
     public BlockchainSegmentId getHeadBlockchainSegmentId() throws DatabaseException {
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         if (blockchainCache != null) {
             final BlockchainSegmentId blockchainSegmentId = blockchainCache.getHeadBlockchainSegmentId();
             if (blockchainSegmentId != null) {
@@ -365,7 +365,7 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
 
     @Override
     public BlockId getHeadBlockIdOfBlockchainSegment(final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         if (blockchainCache != null) {
             final BlockId blockId = blockchainCache.getHeadBlockIdOfBlockchainSegment(blockchainSegmentId, false);
             if (blockId != null) {
@@ -387,7 +387,7 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
 
     @Override
     public BlockId getFirstBlockIdOfBlockchainSegment(final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         if (blockchainCache != null) {
             final BlockId blockId = blockchainCache.getFirstBlockIdOfBlockchainSegment(blockchainSegmentId);
             if (blockId != null) {
@@ -409,7 +409,7 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
 
     @Override
     public BlockchainSegmentId getHeadBlockchainSegmentIdOfBlockchainSegment(final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         if (blockchainCache != null) {
             final BlockchainSegmentId headBlockchainSegmentId = blockchainCache.getHeadBlockchainSegmentIdOfBlockchainSegment(blockchainSegmentId);
             if (headBlockchainSegmentId != null) {
@@ -432,7 +432,7 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
 
     @Override
     public BlockchainSegmentId getPreviousBlockchainSegmentId(final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         if (blockchainCache != null) {
             final BlockchainSegment blockchainSegment = blockchainCache.getBlockchainSegment(blockchainSegmentId);
             if (blockchainSegment != null) {
@@ -454,19 +454,19 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
 
     @Override
     public Boolean areBlockchainSegmentsConnected(final BlockchainSegmentId blockchainSegmentId0, final BlockchainSegmentId blockchainSegmentId1, final BlockRelationship blockRelationship) throws DatabaseException {
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         return _areBlockchainSegmentsConnected(blockchainSegmentId0, blockchainSegmentId1, blockRelationship, blockchainCache);
     }
 
     @Override
     public Map<BlockchainSegmentId, Boolean> areBlockchainSegmentsConnected(final BlockchainSegmentId blockchainSegmentId0, final List<BlockchainSegmentId> blockchainSegmentIds, final BlockRelationship blockRelationship) throws DatabaseException {
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         return _areBlockchainSegmentsConnected(blockchainSegmentId0, blockchainSegmentIds, blockRelationship, blockchainCache);
     }
 
     @Override
     public List<BlockchainSegmentId> getLeafBlockchainSegmentIds() throws DatabaseException {
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         if (blockchainCache != null) {
             final List<BlockchainSegmentId> blockchainSegmentIds = blockchainCache.getLeafBlockchainSegmentIds();
             if (blockchainSegmentIds != null) {

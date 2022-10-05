@@ -8,7 +8,6 @@ import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
-import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.map.Map;
@@ -246,12 +245,6 @@ public class MutableBlockchainCache extends BlockchainCacheCore {
         finally {
             _writeLock.unlock();
         }
-
-        if (Logger.isTraceEnabled()) {
-            if (blockId.longValue() == 1L) {
-                Logger.trace("Genesis HasTransactions=true");
-            }
-        }
     }
 
     /**
@@ -365,8 +358,6 @@ public class MutableBlockchainCache extends BlockchainCacheCore {
             }
             return;
         }
-
-        Logger.trace("Applying Cache v" + blockchainCache.getVersion() + " to Cache v" + this.getVersion());
 
         _writeLock.lock();
         try {

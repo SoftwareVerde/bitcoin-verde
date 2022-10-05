@@ -1262,7 +1262,7 @@ public class NodeModule {
             }
         }
 
-        { // Warm up the DB Cache...
+        if (_bitcoinProperties.isBlockchainCacheEnabled()) { // Warm up the DB Cache...
             Logger.info("[Warming DB Cache]");
             try {
                 databaseManagerFactory.initializeCache();

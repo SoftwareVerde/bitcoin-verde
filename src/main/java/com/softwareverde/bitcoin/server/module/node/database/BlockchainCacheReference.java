@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.BlockchainCac
 import com.softwareverde.bitcoin.server.module.node.database.block.MutableBlockchainCache;
 import com.softwareverde.database.DatabaseException;
 
-public interface BlockchainCacheFactory {
+public interface BlockchainCacheReference {
     BlockchainCache getBlockchainCache() throws DatabaseException;
     MutableBlockchainCache getMutableBlockchainCache() throws DatabaseException;
 }

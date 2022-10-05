@@ -26,6 +26,7 @@ public class BlockchainCacheManager {
 
     public void commitBlockchainCache(final MutableBlockchainCache blockchainCache) {
         if (_blockchainCache == null) { return; }
+        if (blockchainCache == null) { return; }
 
         _blockchainCache.applyCache(blockchainCache);
     }

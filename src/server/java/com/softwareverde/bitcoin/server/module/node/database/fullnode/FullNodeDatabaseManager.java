@@ -5,7 +5,7 @@ import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentManager;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.configuration.CheckpointConfiguration;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.module.node.database.BlockchainCacheFactory;
+import com.softwareverde.bitcoin.server.module.node.database.BlockchainCacheReference;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockchainCache;
 import com.softwareverde.bitcoin.server.module.node.database.block.MutableBlockchainCache;
@@ -62,7 +62,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
 
     protected Boolean _cacheWasMutated = false;
     protected final BlockchainCacheManager _blockchainCacheManager;
-    protected final BlockchainCacheFactory _blockchainCacheFactory;
+    protected final BlockchainCacheReference _blockchainCacheReference;
     protected MutableBlockchainCache _blockchainCache;
 
     protected Integer _getVersion() {
@@ -87,7 +87,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
         _utxoCommitmentStore = utxoCommitmentStore;
 
         _blockchainCacheManager = blockchainCacheManager;
-        _blockchainCacheFactory = new BlockchainCacheFactory() {
+        _blockchainCacheReference = new BlockchainCacheReference() {
             @Override
             public BlockchainCache getBlockchainCache() {
                 if (_blockchainCache == null) {
@@ -126,7 +126,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     @Override
     public BlockchainDatabaseManager getBlockchainDatabaseManager() {
         if (_blockchainDatabaseManager == null) {
-            _blockchainDatabaseManager = new BlockchainDatabaseManagerCore(this, _blockchainCacheFactory);
+            _blockchainDatabaseManager = new BlockchainDatabaseManagerCore(this, _blockchainCacheReference);
         }
 
         return _blockchainDatabaseManager;
@@ -135,7 +135,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     @Override
     public FullNodeBlockDatabaseManager getBlockDatabaseManager() {
         if (_blockDatabaseManager == null) {
-            _blockDatabaseManager = new FullNodeBlockDatabaseManager(this, _blockStore, _blockchainCacheFactory);
+            _blockDatabaseManager = new FullNodeBlockDatabaseManager(this, _blockStore, _blockchainCacheReference);
         }
 
         return _blockDatabaseManager;
@@ -144,7 +144,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     @Override
     public BlockHeaderDatabaseManager getBlockHeaderDatabaseManager() {
         if (_blockHeaderDatabaseManager == null) {
-            _blockHeaderDatabaseManager = new BlockHeaderDatabaseManagerCore(this, _checkpointConfiguration, _blockchainCacheFactory);
+            _blockHeaderDatabaseManager = new BlockHeaderDatabaseManagerCore(this, _checkpointConfiguration, _blockchainCacheReference);
         }
 
         return _blockHeaderDatabaseManager;
@@ -254,6 +254,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
         if (_cacheWasMutated) {
             _blockchainCacheManager.rollbackBlockchainCache();
             _cacheWasMutated = false;
+            _blockchainCache = null;
         }
     }
 
@@ -261,6 +262,8 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     public void close() throws DatabaseException {
         if (_cacheWasMutated) {
             _blockchainCacheManager.rollbackBlockchainCache();
+            _cacheWasMutated = false;
+            _blockchainCache = null;
         }
 
         _databaseConnection.close();

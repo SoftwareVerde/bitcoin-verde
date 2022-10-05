@@ -18,7 +18,7 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
-import com.softwareverde.bitcoin.server.module.node.database.BlockchainCacheFactory;
+import com.softwareverde.bitcoin.server.module.node.database.BlockchainCacheReference;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockMetadata;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
@@ -41,14 +41,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManager {
-    protected final BlockchainCacheFactory _blockchainCacheFactory;
+    protected final BlockchainCacheReference _blockchainCacheReference;
     protected final DatabaseManager _databaseManager;
     protected final CheckpointConfiguration _checkpointConfiguration;
 
-    public BlockHeaderDatabaseManagerCore(final DatabaseManager databaseManager, final CheckpointConfiguration checkpointConfiguration, final BlockchainCacheFactory blockchainCacheFactory) {
+    public BlockHeaderDatabaseManagerCore(final DatabaseManager databaseManager, final CheckpointConfiguration checkpointConfiguration, final BlockchainCacheReference blockchainCacheReference) {
         _databaseManager = databaseManager;
         _checkpointConfiguration = checkpointConfiguration;
-        _blockchainCacheFactory = blockchainCacheFactory;
+        _blockchainCacheReference = blockchainCacheReference;
     }
 
     protected Long _getBlockHeight(final BlockId blockId, final BlockchainCache blockchainCache) throws DatabaseException {
@@ -642,7 +642,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
     public BlockId insertBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
         if (! Thread.holdsLock(MUTEX)) { throw new RuntimeException("Attempting to insertBlockHeader without obtaining lock."); }
 
-        final MutableBlockchainCache blockchainCache = _blockchainCacheFactory.getMutableBlockchainCache();
+        final MutableBlockchainCache blockchainCache = _blockchainCacheReference.getMutableBlockchainCache();
         final BlockId blockId = _insertBlockHeader(blockHeader, blockchainCache);
 
         final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
@@ -653,7 +653,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
 
     @Override
     public void updateBlockHeader(final BlockId blockId, final BlockHeader blockHeader) throws DatabaseException {
-        final MutableBlockchainCache blockchainCache = _blockchainCacheFactory.getMutableBlockchainCache();
+        final MutableBlockchainCache blockchainCache = _blockchainCacheReference.getMutableBlockchainCache();
         _updateBlockHeader(blockId, blockHeader, blockchainCache);
     }
 
@@ -663,7 +663,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
 
         { // Check for existing header...
             final Sha256Hash blockHash = blockHeader.getHash();
-            final BlockchainCache blockchainCache = _blockchainCacheFactory.getMutableBlockchainCache();
+            final BlockchainCache blockchainCache = _blockchainCacheReference.getMutableBlockchainCache();
             final BlockId existingBlockId = _getBlockHeaderId(blockHash, blockchainCache);
 
             if (existingBlockId != null) {
@@ -671,7 +671,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
             }
         }
 
-        final MutableBlockchainCache blockchainCache = _blockchainCacheFactory.getMutableBlockchainCache();
+        final MutableBlockchainCache blockchainCache = _blockchainCacheReference.getMutableBlockchainCache();
         final BlockId blockId = _insertBlockHeader(blockHeader, blockchainCache);
 
         final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
@@ -699,7 +699,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
         if (! Thread.holdsLock(MUTEX)) { throw new RuntimeException("Attempting to storeBlockHeader without obtaining lock."); }
         if (blockHeaders.isEmpty()) { return new MutableList<>(0); }
 
-        final MutableBlockchainCache mutableBlockchainCache = _blockchainCacheFactory.getMutableBlockchainCache();
+        final MutableBlockchainCache mutableBlockchainCache = _blockchainCacheReference.getMutableBlockchainCache();
         return _insertBlockHeadersAndUpdateBlockchainSegments(blockHeaders, mutableBlockchainCache);
     }
 
@@ -733,7 +733,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
      */
     @Override
     public Sha256Hash getHeadBlockHeaderHash() throws DatabaseException {
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         return _getHeadBlockHeaderHash(blockchainCache);
     }
 
@@ -742,19 +742,19 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
      */
     @Override
     public BlockId getHeadBlockHeaderId() throws DatabaseException {
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         return _getHeadBlockHeaderId(blockchainCache);
     }
 
     @Override
     public BlockId getBlockHeaderId(final Sha256Hash blockHash) throws DatabaseException {
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         return _getBlockHeaderId(blockHash, blockchainCache);
     }
 
     @Override
     public BlockHeader getBlockHeader(final BlockId blockId) throws DatabaseException {
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         return _inflateBlockHeader(blockId, blockchainCache);
     }
 
@@ -763,38 +763,38 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
      */
     @Override
     public Boolean blockHeaderExists(final Sha256Hash blockHash) throws DatabaseException {
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         final BlockId blockId = _getBlockHeaderId(blockHash, blockchainCache);
         return (blockId != null);
     }
 
     @Override
     public Integer getBlockDirectDescendantCount(final BlockId blockId) throws DatabaseException {
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         return _getBlockHeaderDirectDescendantCount(blockId, blockchainCache);
     }
 
     @Override
     public void setBlockchainSegmentId(final BlockId blockId, final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
-        final MutableBlockchainCache blockchainCache = _blockchainCacheFactory.getMutableBlockchainCache();
+        final MutableBlockchainCache blockchainCache = _blockchainCacheReference.getMutableBlockchainCache();
         _setBlockchainSegmentId(blockId, blockchainSegmentId, blockchainCache);
     }
 
     @Override
     public BlockchainSegmentId getBlockchainSegmentId(final BlockId blockId) throws DatabaseException {
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         return _getBlockchainSegmentId(blockId, blockchainCache);
     }
 
     @Override
     public Long getBlockHeight(final BlockId blockId) throws DatabaseException {
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         return _getBlockHeight(blockId, blockchainCache);
     }
 
     @Override
     public Map<BlockId, Long> getBlockHeights(final List<BlockId> blockIds) throws DatabaseException {
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         if (blockchainCache != null) {
             final HashMap<BlockId, Long> blockHeights = new HashMap<>(blockIds.getCount());
             for (final BlockId blockId : blockIds) {
@@ -829,19 +829,19 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
 
     @Override
     public Long getBlockTimestamp(final BlockId blockId) throws DatabaseException {
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         return _getBlockTimestamp(blockId, blockchainCache);
     }
 
     @Override
     public BlockId getChildBlockId(final BlockchainSegmentId blockchainSegmentId, final BlockId previousBlockId) throws DatabaseException {
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         return _getChildBlockId(blockchainSegmentId, previousBlockId, blockchainCache);
     }
 
     @Override
     public Boolean hasChildBlock(final BlockId blockId) throws DatabaseException {
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         if (blockchainCache != null) {
             final List<BlockId> blockIds = blockchainCache.getChildBlockIds(blockId);
             if (blockIds != null) {
@@ -875,13 +875,13 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
      */
     @Override
     public Boolean isBlockConnectedToChain(final BlockId blockId, final BlockchainSegmentId blockchainSegmentId, final BlockRelationship blockRelationship) throws DatabaseException {
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         return _isBlockConnectedToChain(blockId, blockchainSegmentId, blockRelationship, blockchainCache);
     }
 
     @Override
     public Sha256Hash getBlockHash(final BlockId blockId) throws DatabaseException {
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         return _getBlockHash(blockId, blockchainCache);
     }
 
@@ -923,7 +923,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
         if (blockId == null) { return null; }
         if (parentCount == 0) { return blockId; }
 
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
 
         if (parentCount == 1) {
             // Optimization/Specialization for parentBlockId...
@@ -948,7 +948,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
      */
     @Override
     public MutableMedianBlockTime calculateMedianBlockHeaderTime() throws DatabaseException {
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
 
         final Sha256Hash headBlockHash = _getHeadBlockHeaderHash(blockchainCache);
         final Sha256Hash blockHash = Util.coalesce(headBlockHash, BlockHeader.GENESIS_BLOCK_HASH);
@@ -971,13 +971,13 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
      */
     @Override
     public MedianBlockTime getMedianBlockTime(final BlockId blockId) throws DatabaseException {
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         return _getMedianBlockTime(blockId, blockchainCache);
     }
 
     @Override
     public MedianBlockTime getMedianTimePast(final BlockId blockId) throws DatabaseException {
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
 
         final BlockId previousBlockId = _getPreviousBlockId(blockId, blockchainCache);
         return _getMedianBlockTime(previousBlockId, blockchainCache);
@@ -985,14 +985,14 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
 
     @Override
     public ChainWork getChainWork(final BlockId blockId) throws DatabaseException {
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
 
         return _getChainWork(blockId, blockchainCache);
     }
 
     @Override
     public BlockId getBlockIdAtHeight(final BlockchainSegmentId blockchainSegmentId, final Long blockHeight) throws DatabaseException {
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         if (blockchainCache != null) {
             final BlockId blockId = blockchainCache.getBlockHeader(blockchainSegmentId, blockHeight);
             if (blockId != null) {
@@ -1025,7 +1025,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
 
     @Override
     public Boolean isBlockInvalid(final Sha256Hash blockHash, final Integer maxFailedProcessedCount) throws DatabaseException {
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         if (blockchainCache != null) {
             final BlockId blockId = blockchainCache.getBlockId(blockHash);
             if (blockId != null) {
@@ -1060,7 +1060,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
                 .setParameter(processIncrement)
         );
 
-        final MutableBlockchainCache blockchainCache = _blockchainCacheFactory.getMutableBlockchainCache();
+        final MutableBlockchainCache blockchainCache = _blockchainCacheReference.getMutableBlockchainCache();
         if (blockchainCache != null) {
             final BlockId blockId = blockchainCache.getBlockId(blockHash);
             if (blockId != null) {
@@ -1084,7 +1084,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
                 .setParameter(blockHash)
         );
 
-        final MutableBlockchainCache blockchainCache = _blockchainCacheFactory.getMutableBlockchainCache();
+        final MutableBlockchainCache blockchainCache = _blockchainCacheReference.getMutableBlockchainCache();
         if (blockchainCache != null) {
             final BlockId blockId = blockchainCache.getBlockId(blockHash);
             if (blockId != null) {
@@ -1122,7 +1122,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
     public BlockMetadata getBlockMetadata(final BlockId blockId) throws DatabaseException {
         if (blockId == null) { return null; }
 
-        final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+        final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         if (blockchainCache != null) {
             final BlockchainSegmentId blockchainSegmentId = blockchainCache.getBlockchainSegmentId(blockId);
             final Long blockHeight = blockchainCache.getBlockHeight(blockId);
@@ -1170,7 +1170,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
             final Sha256Hash blockHash = Sha256Hash.wrap(row.getBytes("hash"));
             final Integer processCount = row.getInteger("process_count");
 
-            final BlockchainCache blockchainCache = _blockchainCacheFactory.getBlockchainCache();
+            final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
             final BlockId blockId = _getBlockHeaderId(blockHash, blockchainCache);
             if (blockId == null) { continue; }
 
