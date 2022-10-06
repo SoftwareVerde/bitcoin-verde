@@ -10,7 +10,8 @@ import com.softwareverde.bitcoin.server.configuration.NodeProperties;
 import com.softwareverde.bitcoin.server.configuration.ProxyProperties;
 import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.configuration.WalletProperties;
-import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactoryFactory;
 import com.softwareverde.bitcoin.server.database.pool.MariaDbConnectionPool;
 import com.softwareverde.bitcoin.server.module.AddressModule;
 import com.softwareverde.bitcoin.server.module.ConfigurationModule;
@@ -295,10 +296,13 @@ public class Main {
                 }
                 Logger.info("[Database Online]");
 
-                final DatabaseConnectionPool databaseConnectionFactory = new MariaDbConnectionPool(databaseProperties, database.getMaxDatabaseConnectionCount());
-                // final DatabaseConnectionPool databaseConnectionFactory = new SimpleDatabaseConnectionPool(database, 8);
-
-                final Environment environment = new Environment(database, databaseConnectionFactory);
+                final Environment environment = new Environment(database, new DatabaseConnectionFactoryFactory() {
+                    @Override
+                    public DatabaseConnectionFactory newDatabaseConnectionFactory() {
+                        // return new SimpleDatabaseConnectionPool(database, 8);
+                        return new MariaDbConnectionPool(databaseProperties, database.getMaxDatabaseConnectionCount());
+                    }
+                });
 
                 nodeModuleContainer.value = new NodeModule(bitcoinProperties, environment);
                 nodeModuleContainer.value.loop();
@@ -349,10 +353,12 @@ public class Main {
                 }
                 Logger.info("[Database Online]");
 
-                final DatabaseConnectionPool databaseConnectionFactory = new MariaDbConnectionPool(databaseProperties, database.getMaxDatabaseConnectionCount());
-                // final DatabaseConnectionPool databaseConnectionFactory = new SimpleDatabaseConnectionPool(database, databaseConnectionCacheCount);
-
-                final Environment environment = new Environment(database, databaseConnectionFactory);
+                final Environment environment = new Environment(database, new DatabaseConnectionFactoryFactory() {
+                    @Override
+                    public DatabaseConnectionFactory newDatabaseConnectionFactory() {
+                        return new MariaDbConnectionPool(databaseProperties, database.getMaxDatabaseConnectionCount());
+                    }
+                });
 
                 final List<NodeProperties> seedNodes = bitcoinProperties.getSeedNodeProperties();
                 final Boolean isTestNet = bitcoinProperties.isTestNet();
@@ -436,8 +442,12 @@ public class Main {
                 }
                 Logger.info("[Database Online]");
 
-                final DatabaseConnectionPool databaseConnectionPool = new MariaDbConnectionPool(databaseProperties, database.getMaxDatabaseConnectionCount());
-                final Environment environment = new Environment(database, databaseConnectionPool);
+                final Environment environment = new Environment(database, new DatabaseConnectionFactoryFactory() {
+                    @Override
+                    public DatabaseConnectionFactory newDatabaseConnectionFactory() {
+                        return new MariaDbConnectionPool(databaseProperties, database.getMaxDatabaseConnectionCount());
+                    }
+                });
 
                 final StratumModule stratumModule = new StratumModule(stratumProperties, environment, false);
                 stratumModule.loop();
@@ -506,8 +516,13 @@ public class Main {
                 }
                 Logger.info("[Database Online]");
 
-                final DatabaseConnectionPool databaseConnectionPool = new MariaDbConnectionPool(databaseProperties, database.getMaxDatabaseConnectionCount());
-                final Environment environment = new Environment(database, databaseConnectionPool);
+                final Environment environment = new Environment(database, new DatabaseConnectionFactoryFactory() {
+                    @Override
+                    public DatabaseConnectionFactory newDatabaseConnectionFactory() {
+                        return new MariaDbConnectionPool(databaseProperties, database.getMaxDatabaseConnectionCount());
+                    }
+                });
+
                 final DatabaseModule databaseModule = new DatabaseModule(environment);
                 databaseModule.loop();
                 Logger.flush();

@@ -426,8 +426,15 @@ public class NodeModule {
         _rpcThreadPool = new CachedThreadPool(32, 60000L);
 
         final Database database = _environment.getDatabase();
+
+        { // Initialize the property store...
+            // NOTE: The DatabasePropertiesStore should not use the core DatabaseConnectionFactory;
+            //  it is important that its values are written to disk even during a partially-unclean shutdown.
+            final DatabaseConnectionFactory databaseConnectionFactory = _environment.newDatabaseConnectionFactory();
+            _propertiesStore = new DatabasePropertiesStore(databaseConnectionFactory);
+        }
+
         final DatabaseConnectionFactory databaseConnectionFactory = _environment.getDatabaseConnectionFactory();
-        _propertiesStore = new DatabasePropertiesStore(databaseConnectionFactory);
 
         final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(
             databaseConnectionFactory,
