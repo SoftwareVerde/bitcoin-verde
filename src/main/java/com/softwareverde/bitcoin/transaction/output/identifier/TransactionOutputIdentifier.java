@@ -14,7 +14,16 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
+import java.util.Comparator;
+
 public class TransactionOutputIdentifier implements Const, Comparable<TransactionOutputIdentifier> {
+    public static final Comparator<TransactionOutputIdentifier> COMPARATOR = new Comparator<TransactionOutputIdentifier>() {
+        @Override
+        public int compare(final TransactionOutputIdentifier transactionOutputIdentifier0, final TransactionOutputIdentifier transactionOutputIdentifier1) {
+            return transactionOutputIdentifier0.compareTo(transactionOutputIdentifier1);
+        }
+    };
+
     public static final TransactionOutputIdentifier COINBASE = new TransactionOutputIdentifier(Sha256Hash.EMPTY_HASH, -1);
 
     public static TransactionOutputIdentifier fromTransactionInput(final TransactionInput transactionInput) {
