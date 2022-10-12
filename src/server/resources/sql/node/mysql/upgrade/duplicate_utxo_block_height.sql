@@ -1,0 +1,2 @@
+UPDATE staged_utxo_commitment SET block_height = 91880 WHERE transaction_hash = unhex('E3BF3D07D4B0375638D5F1DB5255FE07BA2C4CB067CD81B84EE974B6585FB468') AND `index` = 0 AND block_height = 91722;
+UPDATE staged_utxo_commitment SET block_height = 91842 WHERE transaction_hash = unhex('D5D27987D2A3DFC724E359870C6644B40E497BDC0589A033220FE15429D88599') AND `index` = 0 AND block_height = 91812;

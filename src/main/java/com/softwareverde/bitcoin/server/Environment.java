@@ -19,7 +19,7 @@ public class Environment {
     }
 
     public synchronized DatabaseConnectionFactory getDatabaseConnectionFactory() {
-        if (_databaseConnectionFactoryFactory == null) {
+        if (_databaseConnectionFactory == null) {
             _databaseConnectionFactory = _databaseConnectionFactoryFactory.newDatabaseConnectionFactory();
         }
         return _databaseConnectionFactory;

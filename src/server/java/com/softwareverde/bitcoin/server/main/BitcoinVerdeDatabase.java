@@ -117,6 +117,15 @@ public class BitcoinVerdeDatabase implements Database {
                 upgradedVersion = 10;
             }
 
+            // v10 -> v11 (Replace Staged UTXO Commitment Duplicate UTXO BlockHeights)
+            if ( (upgradedVersion == 10) && (requiredVersion >= 11) ) {
+                Logger.info("[Upgrading DB to v11]");
+                final Boolean wasSuccessful = BitcoinVerdeDatabase.upgradeUtxoCommitmentDuplicateBlockHeight(maintenanceDatabaseConnection);
+                if (! wasSuccessful) { return false; }
+
+                upgradedVersion = 11;
+            }
+
             return (upgradedVersion >= requiredVersion);
         }
     };
@@ -311,6 +320,24 @@ public class BitcoinVerdeDatabase implements Database {
     protected static Boolean upgradeElectrumSupport(final com.softwareverde.database.DatabaseConnection<Connection> databaseConnection) {
         try {
             final String upgradeScript = IoUtil.getResource("/sql/node/mysql/upgrade/electrum_indexing_v1.sql"); // TODO: Use mysql/sqlite when appropriate...
+            if (Util.isBlank(upgradeScript)) { return false; }
+
+            TransactionUtil.startTransaction(databaseConnection);
+            final SqlScriptRunner scriptRunner = new SqlScriptRunner(databaseConnection.getRawConnection(), false, true);
+            scriptRunner.runScript(new StringReader(upgradeScript));
+            TransactionUtil.commitTransaction(databaseConnection);
+
+            return true;
+        }
+        catch (final Exception exception) {
+            Logger.debug(exception);
+            return false;
+        }
+    }
+
+    protected static Boolean upgradeUtxoCommitmentDuplicateBlockHeight(final com.softwareverde.database.DatabaseConnection<Connection> databaseConnection) {
+        try {
+            final String upgradeScript = IoUtil.getResource("/sql/node/mysql/upgrade/duplicate_utxo_block_height.sql"); // TODO: Use mysql/sqlite when appropriate...
             if (Util.isBlank(upgradeScript)) { return false; }
 
             TransactionUtil.startTransaction(databaseConnection);
