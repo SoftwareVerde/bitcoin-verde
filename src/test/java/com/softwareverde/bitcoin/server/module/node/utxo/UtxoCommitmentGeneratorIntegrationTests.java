@@ -16,11 +16,14 @@ import com.softwareverde.bitcoin.server.message.type.query.utxo.NodeSpecificUtxo
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.CommitAsyncMode;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.test.util.BlockTestUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -301,6 +304,69 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
             Assert.assertEquals(2, rows.size());
             Assert.assertEquals(Long.valueOf(2L), rows.get(0).getLong("block_height"));
             Assert.assertEquals(Long.valueOf(4L), rows.get(1).getLong("block_height"));
+        }
+    }
+
+    @Test
+    public void should_exclude_utxos_with_negative_amount() throws Exception {
+        // UTXOs may have a negative amount if removed during a deep-ish reorg where a UTXO flush occurred after receiving the orphaned block but before the reorging-block.
+
+        // Setup
+        final TransactionInflater transactionInflater = new TransactionInflater();
+
+        // 20251A76E64E920E58291A30D4B212939AAE976BACA40E70818CEAA596FB9D37
+        final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString("01000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF0704FFFF001D0123FFFFFFFF0100F2052A0100000043410408CE279174B34C077C7B2043E3F3D45A588B85EF4CA466740F848EAD7FB498F0A795C982552FDFA41616A7C0333A269D62108588E260FD5A48AC8E4DBF49E2BCAC00000000"));
+
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                final BlockInflater blockInflater = new BlockInflater();
+
+                blockDatabaseManager.storeBlock(blockInflater.fromBytes(ByteArray.fromHexString(BlockData.MainChain.GENESIS_BLOCK)));
+                blockDatabaseManager.storeBlock(blockInflater.fromBytes(ByteArray.fromHexString(BlockData.MainChain.BLOCK_1)));
+                blockDatabaseManager.storeBlock(blockInflater.fromBytes(ByteArray.fromHexString(BlockData.MainChain.BLOCK_2)));
+                blockDatabaseManager.storeBlock(blockInflater.fromBytes(ByteArray.fromHexString(BlockData.MainChain.BLOCK_3)));
+                blockDatabaseManager.storeBlock(blockInflater.fromBytes(ByteArray.fromHexString(BlockData.MainChain.BLOCK_4)));
+                blockDatabaseManager.storeBlock(blockInflater.fromBytes(ByteArray.fromHexString(BlockData.MainChain.BLOCK_5)));
+            }
+
+            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+            unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(TransactionOutputIdentifier.fromTransactionOutputs(transaction), transaction.getTransactionOutputs(), 6L, Sha256Hash.EMPTY_HASH);
+            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
+
+            {
+                final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+                final java.util.List<Row> rows = databaseConnection.query(
+                    new Query("SELECT * FROM committed_unspent_transaction_outputs WHERE transaction_hash = ?")
+                        .setParameter(transaction.getHash())
+                );
+                Assert.assertTrue(rows.size() > 0);
+            }
+
+            unspentTransactionOutputDatabaseManager.undoCreationOfTransactionOutputs(TransactionOutputIdentifier.fromTransactionOutputs(transaction));
+            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
+
+            // NOTE: the UTXO database no longer commits the spent UTXOs as the UtxoValue.SPENT_AMOUNT constant which makes this test obsolete, however is good future-proofing.
+        }
+
+        final UtxoCommitmentGenerator utxoCommitmentGenerator = new UtxoCommitmentGenerator(null, _utxoCommitmentStore.getUtxoDataDirectory(), 0) {
+            @Override
+            protected Boolean _shouldAbort() {
+                return false;
+            }
+        };
+
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            // Action
+            utxoCommitmentGenerator._importFromCommittedUtxos(databaseManager);
+
+            // Assert
+            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+            final java.util.List<Row> rows = databaseConnection.query(
+                new Query("SELECT * FROM staged_utxo_commitment WHERE transaction_hash = ?")
+                    .setParameter(transaction.getHash())
+            );
+            Assert.assertEquals(0, rows.size());
         }
     }
 }
