@@ -111,14 +111,14 @@ public class BitcoinConstants {
         final Long defaultBlockVersion = 0x04L;
         final Long defaultTransactionVersion = 0x02L;
         final Integer defaultProtocolVersion = 70015;
-        final String defaultUserAgent = "/Bitcoin Verde:2.2.0/";
+        final String defaultUserAgent = "/Bitcoin Verde:2.3.0/";
         final String coinbaseMessage = "/pool.bitcoinverde.org/VERDE/";
 
         // SELECT blocks.hash, blocks.block_height, utxo_commitments.public_key, SUM(utxo_commitment_files.byte_count) AS byte_count FROM blocks INNER JOIN utxo_commitments ON utxo_commitments.block_id = blocks.id INNER JOIN utxo_commitment_buckets ON utxo_commitment_buckets.utxo_commitment_id = utxo_commitments.id INNER JOIN utxo_commitment_files ON utxo_commitment_files.utxo_commitment_bucket_id = utxo_commitment_buckets.id GROUP BY utxo_commitments.id ORDER BY blocks.block_height ASC;
         final String utxoCommitmentsString =
             // Sha256Hash blockHash, Long blockHeight, PublicKey multisetPublicKey, Long byteCount
-            "00000000000000000259AD550B5420E5418CDFC14873D6985BCF1DFA261DBC9C,710000,0386C0DF8BEF2E4C1D65CBF721E0699648F142415415F738D544FE649B9C5C7C47,4575578354;" +
-            "000000000000000001B08717BD8354AC6E81531FABDF074E1677A7AC867D2CC0,720000,03E27196CCDB02B64D1804B8C1058F91B69BFD508E5E6950519760CE646D396173,5036069516";
+            "00000000000000000621B8F668B02530BCF77446E85E56CB0257A51B4EC980BA,750000,03DFCEAE98BB44D0E3D7EE21FA7BED28BC338D014053E2B4BDF1B8F66C29DA66F3,5174255942;" +
+            "000000000000000000480527D21EB07089D8390CAEF5008BA2971FD554777FAE,760000,0302B84B38922825D8FE159CF42A9D5141D26240D2C73A7238F063172632C1F50D,5312373328";
 
         GENESIS_BLOCK_HASH = System.getProperty("GENESIS_BLOCK_HASH", MainNet.genesisBlockHash);
         GENESIS_BLOCK_TIMESTAMP = Util.parseLong(System.getProperty("GENESIS_BLOCK_TIMESTAMP", String.valueOf(MainNet.genesisBlockTimestamp)));

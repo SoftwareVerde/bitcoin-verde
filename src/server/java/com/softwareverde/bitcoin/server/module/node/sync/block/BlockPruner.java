@@ -16,7 +16,6 @@ import com.softwareverde.bitcoin.server.properties.PropertiesStore;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
@@ -93,7 +92,7 @@ public class BlockPruner extends SleepyService {
 
                 _blockStore.removeBlock(prunedBlockHash, blockHeight);
 
-                TransactionUtil.startTransaction(databaseConnection);
+                databaseManager.startTransaction();
                 // Drop rows from: indexed_transaction_outputs, indexed_transaction_inputs, validated_slp_transactions, double_spend_proofs
                 databaseConnection.executeSql(
                     new Query("DELETE indexed_transaction_outputs FROM block_transactions INNER JOIN indexed_transaction_outputs ON indexed_transaction_outputs.transaction_id = block_transactions.transaction_id WHERE block_transactions.block_id = ?")
@@ -125,7 +124,7 @@ public class BlockPruner extends SleepyService {
                     );
                 }
                 _setLastPrunedBlockHeight(blockHeight, databaseManager);
-                TransactionUtil.commitTransaction(databaseConnection);
+                databaseManager.commitTransaction();
 
                 Logger.info("Pruned Block: " + prunedBlockHash);
 

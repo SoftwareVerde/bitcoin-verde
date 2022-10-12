@@ -61,4 +61,7 @@ public interface ChainWork extends Work, Comparable<ChainWork> {
     default int compareTo(final ChainWork chainWork) {
         return ChainWork.COMPARATOR.compare(ChainWork.this, chainWork);
     }
+
+    @Override
+    ImmutableChainWork asConst();
 }

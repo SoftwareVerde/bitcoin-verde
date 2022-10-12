@@ -20,7 +20,6 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
@@ -95,7 +94,7 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryAnnou
                 final SpvBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
                 final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
-                TransactionUtil.startTransaction(databaseConnection);
+                databaseManager.startTransaction();
                 final Sha256Hash previousBlockHash = merkleBlock.getPreviousBlockHash();
                 if (! Util.areEqual(previousBlockHash, Sha256Hash.EMPTY_HASH)) { // Check for Genesis Block...
                     final BlockId previousBlockId = blockHeaderDatabaseManager.getBlockHeaderId(merkleBlock.getPreviousBlockHash());
@@ -114,7 +113,7 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryAnnou
                         blockDatabaseManager.addTransactionToBlock(blockId, transactionId);
                     }
                 }
-                TransactionUtil.commitTransaction(databaseConnection);
+                databaseManager.commitTransaction();
             }
             catch (final DatabaseException exception) {
                 Logger.warn(exception);

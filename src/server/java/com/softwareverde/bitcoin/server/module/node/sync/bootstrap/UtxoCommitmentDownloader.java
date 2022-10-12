@@ -34,7 +34,6 @@ import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.secp256k1.EcMultiset;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
-import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.Container;
@@ -707,7 +706,7 @@ public class UtxoCommitmentDownloader {
                 UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.lock();
                 try {
                     final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-                    TransactionUtil.startTransaction(databaseConnection);
+                    databaseManager.startTransaction();
 
                     unspentTransactionOutputDatabaseManager.clearCommittedUtxoSet();
                     multiTimer.mark("clearCommittedUtxoSet");
@@ -719,7 +718,7 @@ public class UtxoCommitmentDownloader {
                     unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_databaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
                     multiTimer.mark("commitUtxoSet");
 
-                    blockDatabaseManager.setBlockHeight(blockHeight);
+                    blockDatabaseManager.setHasTransactionsForBlocksUpToHeight(blockHeight);
                     multiTimer.mark("setBlockHeight");
 
                     if (_blockPruner != null) {
@@ -732,7 +731,7 @@ public class UtxoCommitmentDownloader {
 
                     didComplete = true;
 
-                    TransactionUtil.commitTransaction(databaseConnection);
+                    databaseManager.commitTransaction();
                 }
                 finally {
                     UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.unlock();

@@ -25,14 +25,11 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
-import com.softwareverde.json.Json;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.IoUtil;
 import org.junit.Assert;
 import org.junit.Test;
-
-import java.util.ArrayList;
 
 public class PartialMerkleTreeTests {
 

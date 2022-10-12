@@ -14,6 +14,7 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.map.Visitor;
 
 import java.util.HashMap;
 
@@ -104,6 +105,9 @@ public class FakeDatabaseManager implements com.softwareverde.bitcoin.test.fake.
             public void clearBlockAsInvalid(final Sha256Hash blockHash, final Integer processDecrement) throws DatabaseException { }
 
             @Override
+            public void visitBlockHeaders(final Visitor<BlockId> visitor) throws DatabaseException { }
+
+            @Override
             public BlockHeader getBlockHeader(final BlockId blockId) {
                 if (! _blockHeaders.containsKey(blockId)) {
                     Logger.debug("Requested unregistered BlockHeader. blockId=" + blockId);
@@ -145,6 +149,15 @@ public class FakeDatabaseManager implements com.softwareverde.bitcoin.test.fake.
     public Integer getMaxQueryBatchSize() {
         return 1024;
     }
+
+    @Override
+    public void startTransaction() { }
+
+    @Override
+    public void commitTransaction() { }
+
+    @Override
+    public void rollbackTransaction() { }
 
     @Override
     public PropertiesStore getPropertiesStore() {

@@ -38,7 +38,6 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.query.parameter.InClauseParameter;
 import com.softwareverde.database.query.parameter.TypedParameter;
 import com.softwareverde.database.row.Row;
-import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
@@ -652,10 +651,9 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                         COMMITTED_UTXO_TABLE_WRITE_LOCK.lock();
                         try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
                             Logger.debug("UTXO double buffer lock acquired.");
-                            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-                            TransactionUtil.startTransaction(databaseConnection);
+                            databaseManager.startTransaction();
                             UnspentTransactionOutputJvmManager.commitDoubleBufferedUnspentTransactionOutputs(newCommittedBlockHeight, databaseManager);
-                            TransactionUtil.commitTransaction(databaseConnection);
+                            databaseManager.commitTransaction();
 
                             // NOTE: This method is no longer asynchronous because changing the database structure can prevent other database transactions
                             //  from accessing the pruned outputs table, which may be required during a reorg.

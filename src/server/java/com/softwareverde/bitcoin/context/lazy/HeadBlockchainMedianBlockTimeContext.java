@@ -10,7 +10,10 @@ import com.softwareverde.bitcoin.server.module.node.database.blockchain.Blockcha
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 
-public class LazyMedianBlockTimeContext implements MedianBlockTimeContext {
+/**
+ * Always uses the head blockchain segment when determining MedianBlockTime.
+ */
+public class HeadBlockchainMedianBlockTimeContext implements MedianBlockTimeContext {
     protected final DatabaseManager _databaseManager;
 
     protected BlockchainSegmentId _getHeadBlockchainSegmentId() throws DatabaseException {
@@ -24,7 +27,7 @@ public class LazyMedianBlockTimeContext implements MedianBlockTimeContext {
         return blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, blockHeight);
     }
 
-    public LazyMedianBlockTimeContext(final DatabaseManager databaseManager) {
+    public HeadBlockchainMedianBlockTimeContext(final DatabaseManager databaseManager) {
         _databaseManager = databaseManager;
     }
 

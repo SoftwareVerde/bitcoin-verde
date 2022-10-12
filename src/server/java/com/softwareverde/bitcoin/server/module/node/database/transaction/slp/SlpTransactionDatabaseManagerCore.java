@@ -10,7 +10,6 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
-import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.util.Util;
 
 public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabaseManager {
@@ -148,7 +147,7 @@ public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabase
     public void deleteAllSlpValidationResults() throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        TransactionUtil.startTransaction(databaseConnection);
+        _databaseManager.startTransaction();
 
         databaseConnection.executeSql(
                 new Query("DELETE FROM validated_slp_transactions")
@@ -159,6 +158,6 @@ public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabase
                         .setParameter(LAST_SLP_VALIDATED_BLOCK_ID_KEY)
         );
 
-        TransactionUtil.commitTransaction(databaseConnection);
+        _databaseManager.commitTransaction();
     }
 }

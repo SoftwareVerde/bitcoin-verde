@@ -18,9 +18,9 @@ import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.context.UpgradeScheduleContext;
 import com.softwareverde.bitcoin.context.core.BlockHeaderValidatorContext;
+import com.softwareverde.bitcoin.context.core.MedianBlockTimeContextCore;
 import com.softwareverde.bitcoin.context.core.MutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
-import com.softwareverde.bitcoin.context.lazy.CachingMedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.lazy.LazyBlockValidatorContext;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.inflater.TransactionInflaters;
@@ -50,7 +50,6 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.VolatileNetworkTime;
 import com.softwareverde.util.RotatingQueue;
@@ -151,18 +150,16 @@ public class BlockProcessor {
 
         // Store the BlockHeader...
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-
             final BlockId blockId;
             final Long blockHeight;
-            TransactionUtil.startTransaction(databaseConnection);
+            databaseManager.startTransaction();
             {
                 Logger.debug("Processing Block: " + blockHash);
                 blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
 
                 if (blockId == null) {
                     Logger.debug("Error storing BlockHeader: " + blockHash);
-                    TransactionUtil.rollbackTransaction(databaseConnection);
+                    databaseManager.rollbackTransaction();
                     return null;
                 }
 
@@ -177,11 +174,11 @@ public class BlockProcessor {
                 final BlockHeaderValidator.BlockHeaderValidationResult blockHeaderValidationResult = blockHeaderValidator.validateBlockHeader(blockHeader, blockHeight);
                 if (! blockHeaderValidationResult.isValid) {
                     Logger.debug("Invalid BlockHeader: " + blockHeaderValidationResult.errorMessage + " (" + blockHash + ")");
-                    TransactionUtil.rollbackTransaction(databaseConnection);
+                    databaseManager.rollbackTransaction();
                     return null;
                 }
             }
-            TransactionUtil.commitTransaction(databaseConnection);
+            databaseManager.commitTransaction();
             return new ProcessBlockHeaderResult(blockId, blockHeight, false);
         }
     }
@@ -270,7 +267,7 @@ public class BlockProcessor {
 
         final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
         final TransactionInflaters transactionInflaters = _context;
-        final MedianBlockTimeContext medianBlockTimeContext = new CachingMedianBlockTimeContext(newHeadBlockchainSegmentId, databaseManager);
+        final MedianBlockTimeContext medianBlockTimeContext = new MedianBlockTimeContextCore(newHeadBlockchainSegmentId, databaseManager);
         final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(transactionInflaters, networkTime, medianBlockTimeContext, reorgUnspentTransactionOutputContext, upgradeSchedule);
         final TransactionValidator transactionValidator = _context.getTransactionValidator(reorgBlockOutputs, transactionValidatorContext);
 
@@ -315,7 +312,6 @@ public class BlockProcessor {
         final NanoTimer blockValidationTimer = new NanoTimer();
         processBlockTimer.start();
 
-        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
         final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
@@ -335,7 +331,7 @@ public class BlockProcessor {
             final ProcessBlockHeaderResult blockHeaderResult = _processBlockHeader(block, databaseManager);
             if (blockHeaderResult == null ) { return ProcessBlockResult.invalid(block, null, "Unable to process block header."); }
 
-            // if the full Block has already been processed then abort processing it...
+            // If the full Block has already been processed then abort processing it...
             if (blockHeaderResult.wasBlockAlreadyProcessed()) {
                 blockHeight = blockHeaderResult.getBlockHeight();
                 return ProcessBlockResult.valid(block, blockHeight, false, true);
@@ -359,7 +355,7 @@ public class BlockProcessor {
         }
         multiTimer.mark("blockchain");
 
-        TransactionUtil.startTransaction(databaseConnection);
+        databaseManager.startTransaction();
 
         final UnspentTransactionOutputContext unspentTransactionOutputContext;
         {
@@ -371,7 +367,7 @@ public class BlockProcessor {
                 final MutableUnspentTransactionOutputSet mutableUnspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
                 final Boolean unspentTransactionOutputsExistForBlock = mutableUnspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight); // Ensure the the UTXOs for this block are pre-loaded into the cache...
                 if (! unspentTransactionOutputsExistForBlock) {
-                    TransactionUtil.rollbackTransaction(databaseConnection);
+                    databaseManager.rollbackTransaction();
                     Logger.debug("Invalid block. Could not find UTXOs for block: " + blockHash);
                     return ProcessBlockResult.invalid(block, blockHeight, "Could not find UTXOs for block.");
                 }
@@ -389,8 +385,7 @@ public class BlockProcessor {
                 final TransactionInflaters transactionInflaters = _context;
                 final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
 
-                final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(transactionInflaters, blockchainSegmentId, unspentTransactionOutputContext, _difficultyCalculatorFactory, _transactionValidatorFactory, databaseManager, networkTime, upgradeSchedule);
-                blockValidatorContext.loadBlock(blockHeight, blockId, block);
+                final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(blockchainSegmentId, databaseManager, networkTime, _difficultyCalculatorFactory, upgradeSchedule, unspentTransactionOutputContext, _transactionValidatorFactory, transactionInflaters);
                 blockValidator = new BlockValidator(blockValidatorContext);
             }
 
@@ -410,7 +405,7 @@ public class BlockProcessor {
         multiTimer.mark("validation");
 
         if (! blockValidationResult.isValid) {
-            TransactionUtil.rollbackTransaction(databaseConnection);
+            databaseManager.rollbackTransaction();
             Logger.debug("Invalid block. " + blockHash);
             return ProcessBlockResult.invalid(block, blockHeight, blockValidationResult.errorMessage);
         }
@@ -436,7 +431,7 @@ public class BlockProcessor {
             final boolean transactionsStoredSuccessfully = (transactionIds != null);
 
             if (! transactionsStoredSuccessfully) {
-                TransactionUtil.rollbackTransaction(databaseConnection);
+                databaseManager.rollbackTransaction();
                 Logger.debug("Invalid block. Unable to store transactions for block: " + blockHash);
                 return ProcessBlockResult.invalid(block, blockHeight, "Unable to store transactions for block.");
             }
@@ -543,7 +538,7 @@ public class BlockProcessor {
         }
         multiTimer.mark("undoLog");
 
-        TransactionUtil.commitTransaction(databaseConnection);
+        databaseManager.commitTransaction();
 
         final float averageTransactionsPerSecond;
         synchronized (_statisticsMutex) {
@@ -596,11 +591,9 @@ public class BlockProcessor {
      * If provided, the UnspentTransactionOutputSet must include every output spent by the block.
      * If not provided, the UnspentTransactionOutputSet is loaded from the database at validation time.
      */
-    public ProcessBlockResult processBlock(final Block block) { return this.processBlock(block, null); }
-    public ProcessBlockResult processBlock(final Block block, final UnspentTransactionOutputContext preLoadedUnspentTransactionOutputContext) {
-        final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
-
-        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+    public ProcessBlockResult processBlock(final Block block, final FullNodeDatabaseManager databaseManager) { return this.processBlock(block, databaseManager, null); }
+    public ProcessBlockResult processBlock(final Block block, final FullNodeDatabaseManager databaseManager, final UnspentTransactionOutputContext preLoadedUnspentTransactionOutputContext) {
+        try {
             return _processBlock(block, preLoadedUnspentTransactionOutputContext, databaseManager);
         }
         catch (final Exception exception) {
@@ -608,18 +601,9 @@ public class BlockProcessor {
             Logger.info("Error validating Block: " + blockHash, exception);
             UnspentTransactionOutputManager.invalidateUncommittedUtxoSet(); // Mark the UTXO set as broken/invalid.
 
-            try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-                final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-
-                final BlockchainSegmentId headBlockchainSegmentId;
-                {
-                    final BlockId newHeadBlockId = blockDatabaseManager.getHeadBlockId();
-                    headBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(newHeadBlockId);
-                }
-
+            try {
+                // TODO: Instantiating a UnspentTransactionOutputManager should not be necessary once the UTXO_SET is no longer a static property within UnspentTransactionOutputJvmManager.
                 final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, _utxoCommitFrequency);
-
                 unspentTransactionOutputManager.clearUncommittedUtxoSet(); // Clear the UTXO set's invalidation state before rebuilding.
             }
             catch (final Exception rebuildUtxoSetException) {

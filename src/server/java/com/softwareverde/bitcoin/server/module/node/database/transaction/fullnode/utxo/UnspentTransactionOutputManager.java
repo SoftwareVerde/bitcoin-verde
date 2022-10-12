@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.database.transaction.fullno
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.BlockUtxoDiff;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
@@ -10,13 +11,10 @@ import com.softwareverde.bitcoin.server.module.node.database.blockchain.Blockcha
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
-import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.util.BlockUtil;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
@@ -37,61 +35,6 @@ public class UnspentTransactionOutputManager {
 
     public static Boolean isUtxoCacheReady() {
         return UnspentTransactionOutputDatabaseManager.isUtxoCacheReady();
-    }
-
-    public static class BlockUtxoDiff {
-        public final MutableList<TransactionOutputIdentifier> spentTransactionOutputIdentifiers = new MutableList<>();
-        public final MutableList<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers = new MutableList<>();
-        public final MutableList<TransactionOutput> unspentTransactionOutputs = new MutableList<>();
-        public Sha256Hash coinbaseTransactionHash;
-        public int unspendableCount = 0;
-        public int transactionCount = 0;
-    }
-
-    public static BlockUtxoDiff getBlockUtxoDiff(final Block block) {
-        final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
-        final BlockUtxoDiff blockUtxoDiff = new BlockUtxoDiff();
-
-        final List<Transaction> transactions = block.getTransactions();
-        blockUtxoDiff.transactionCount = transactions.getCount();
-
-        {
-            final Transaction coinbaseTransaction = transactions.get(0);
-            blockUtxoDiff.coinbaseTransactionHash = coinbaseTransaction.getHash();
-        }
-
-        for (int i = 0; i < transactions.getCount(); ++i) {
-            final Transaction transaction = transactions.get(i);
-            final Sha256Hash transactionHash = transaction.getHash();
-            final Sha256Hash constTransactionHash = transactionHash.asConst();
-
-            final boolean isCoinbase = (i == 0);
-            if (! isCoinbase) {
-                for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-                    final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-                    blockUtxoDiff.spentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
-                }
-            }
-
-            int outputIndex = 0;
-            for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
-                final LockingScript lockingScript = transactionOutput.getLockingScript();
-                final boolean isPossiblySpendable = (! scriptPatternMatcher.isProvablyUnspendable(lockingScript));
-
-                if (isPossiblySpendable) {
-                    final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(constTransactionHash, outputIndex);
-                    blockUtxoDiff.unspentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
-                    blockUtxoDiff.unspentTransactionOutputs.add(transactionOutput);
-                }
-                else {
-                    blockUtxoDiff.unspendableCount += 1;
-                }
-
-                outputIndex += 1;
-            }
-        }
-
-        return blockUtxoDiff;
     }
 
     protected final FullNodeDatabaseManager _databaseManager;
@@ -150,7 +93,7 @@ public class UnspentTransactionOutputManager {
 
         totalTimer.start();
 
-        final BlockUtxoDiff blockUtxoDiff = UnspentTransactionOutputManager.getBlockUtxoDiff(block);
+        final BlockUtxoDiff blockUtxoDiff = BlockUtil.getBlockUtxoDiff(block);
 
         final int worstCaseNewUtxoCount = (blockUtxoDiff.unspentTransactionOutputIdentifiers.getCount() + blockUtxoDiff.spentTransactionOutputIdentifiers.getCount());
         final Long uncommittedUtxoCount = unspentTransactionOutputDatabaseManager.getUncommittedUnspentTransactionOutputCount();
