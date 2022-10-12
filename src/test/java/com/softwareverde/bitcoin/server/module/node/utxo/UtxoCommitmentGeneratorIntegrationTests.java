@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.module.node.utxo;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
+import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitment;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentBucket;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentManager;
@@ -10,11 +11,16 @@ import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.message.type.query.utxo.NodeSpecificUtxoCommitmentBreakdown;
+import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
+import com.softwareverde.bitcoin.test.util.BlockTestUtil;
+import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -24,6 +30,7 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.EcMultiset;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.cryptography.util.HashUtil;
+import com.softwareverde.database.row.Row;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -59,7 +66,7 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
         batchRunner.run(unspentTransactionOutputs, new BatchRunner.Batch<CommittedUnspentTransactionOutput>() {
             @Override
             public void run(final List<CommittedUnspentTransactionOutput> outputsBatch) throws Exception {
-                final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO staged_utxo_commitment (transaction_hash, `index`, block_height, is_coinbase, amount, locking_script) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE amount = VALUES(amount)");
+                final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO staged_utxo_commitment (transaction_hash, `index`, block_height, is_coinbase, amount, locking_script) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE block_height = VALUES(block_height), amount = VALUES(amount)");
                 for (final CommittedUnspentTransactionOutput transactionOutput : outputsBatch) {
                     final Sha256Hash transactionHash = transactionOutput.getTransactionHash();
                     final Integer outputIndex = transactionOutput.getIndex();
@@ -241,5 +248,59 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
         // Assert
         Assert.assertEquals(utxoCommitment.getHash(), commitmentMultisetHash.getHash());
         Assert.assertEquals(128, fileNames.getCount());
+    }
+
+    protected static Block makeFakeBlock(final Sha256Hash previousBlockHash, final Transaction coinbaseTransaction) {
+        final MutableBlock fakeBlock = BlockTestUtil.createBlock();
+        fakeBlock.setPreviousBlockHash(previousBlockHash);
+        fakeBlock.addTransaction(coinbaseTransaction);
+        return fakeBlock;
+    }
+
+    @Test
+    public void should_use_higher_block_height_for_duplicate_transactions() throws Exception {
+        // Setup
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                final TransactionInflater transactionInflater = new TransactionInflater();
+                final BlockInflater blockInflater = new BlockInflater();
+
+                blockDatabaseManager.storeBlock(blockInflater.fromBytes(ByteArray.fromHexString(BlockData.MainChain.GENESIS_BLOCK)));
+
+                // Transaction: E3BF3D07D4B0375638D5F1DB5255FE07BA2C4CB067CD81B84EE974B6585FB468; Heights: 91722 & 91880
+                final Transaction transaction1 = transactionInflater.fromBytes(ByteArray.fromHexString("01000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF060456720E1B00FFFFFFFF0100F2052A01000000434104124B212F5416598A92CCEC88819105179DCB2550D571842601492718273FE0F2179A9695096BFF94CD99DCCCDEA7CD9BD943BFCA8FEA649CAC963411979A33E9AC00000000"));
+                final Block block1 = UtxoCommitmentGeneratorIntegrationTests.makeFakeBlock(Block.GENESIS_BLOCK_HASH, transaction1);
+                blockDatabaseManager.storeBlock(block1);
+                final Block block2 = UtxoCommitmentGeneratorIntegrationTests.makeFakeBlock(block1.getHash(), transaction1);
+                blockDatabaseManager.storeBlock(block2);
+
+                // Transaction: D5D27987D2A3DFC724E359870C6644B40E497BDC0589A033220FE15429D88599; Heights: 91812 & 91842
+                final Transaction transaction2 = transactionInflater.fromBytes(ByteArray.fromHexString("01000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF060456720E1B00FFFFFFFF0100F2052A010000004341046896ECFC449CB8560594EB7F413F199DEB9B4E5D947A142E7DC7D2DE0B811B8E204833EA2A2FD9D4C7B153A8CA7661D0A0B7FC981DF1F42F55D64B26B3DA1E9CAC00000000"));
+                final Block block3 = UtxoCommitmentGeneratorIntegrationTests.makeFakeBlock(block2.getHash(), transaction2);
+                blockDatabaseManager.storeBlock(block3);
+                final Block block4 = UtxoCommitmentGeneratorIntegrationTests.makeFakeBlock(block3.getHash(), transaction2);
+                blockDatabaseManager.storeBlock(block4);
+            }
+        }
+
+        final UtxoCommitmentGenerator utxoCommitmentGenerator = new UtxoCommitmentGenerator(null, _utxoCommitmentStore.getUtxoDataDirectory(), 0) {
+            @Override
+            protected Boolean _shouldAbort() {
+                return false;
+            }
+        };
+
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            // Action
+            utxoCommitmentGenerator._updateStagedCommitment(databaseManager);
+
+            // Assert
+            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+            final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM staged_utxo_commitment ORDER BY block_height ASC"));
+            Assert.assertEquals(2, rows.size());
+            Assert.assertEquals(Long.valueOf(2L), rows.get(0).getLong("block_height"));
+            Assert.assertEquals(Long.valueOf(4L), rows.get(1).getLong("block_height"));
+        }
     }
 }

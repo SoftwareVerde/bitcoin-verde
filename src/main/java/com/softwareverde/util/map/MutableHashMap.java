@@ -21,6 +21,10 @@ public class MutableHashMap<Key, Value> implements Map<Key, Value> {
         _map = new HashMap<>(initialCapacity, loadFactor);
     }
 
+    public void put(final Key key, final Value value) {
+        _map.put(key, value);
+    }
+
     @Override
     public Value get(final Key key) {
         return _map.get(key);

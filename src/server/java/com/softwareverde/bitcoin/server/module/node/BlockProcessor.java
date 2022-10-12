@@ -312,7 +312,6 @@ public class BlockProcessor {
         final NanoTimer blockValidationTimer = new NanoTimer();
         processBlockTimer.start();
 
-        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
         final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
