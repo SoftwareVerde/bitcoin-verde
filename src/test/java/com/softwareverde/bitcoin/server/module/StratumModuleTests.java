@@ -178,10 +178,10 @@ class BitcoinVerdeStratumServerPartialMock extends BitcoinCoreStratumServer {
                     return new NodeJsonRpcConnection(new Socket(), null) {
                         @Override
                         protected Json _executeJsonRequest(final Json rpcRequestJson) {
-                            System.out.println("Stratum Sent: " + rpcRequestJson.toString());
+                            System.out.println("Stratum Sent: " + rpcRequestJson);
 
-                            final Json jsonResponse = _fakeJsonResponses.remove(0);
-                            System.out.println("Stratum Received: " + jsonResponse.toString());
+                            final Json jsonResponse = (_fakeJsonResponses.isEmpty() ? null : _fakeJsonResponses.remove(0));
+                            System.out.println("Stratum Received: " + jsonResponse);
                             return jsonResponse;
                         }
                     };

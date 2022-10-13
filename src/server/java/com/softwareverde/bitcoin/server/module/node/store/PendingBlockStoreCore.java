@@ -107,6 +107,7 @@ public class PendingBlockStoreCore extends BlockStoreCore implements PendingBloc
 
     @Override
     public Boolean pendingBlockExists(final Sha256Hash blockHash) {
+        if (blockHash == null) { return false; }
         if (_pendingBlockDataDirectory == null) { return false; }
 
         final String blockPath = _getPendingBlockDataPath(blockHash);

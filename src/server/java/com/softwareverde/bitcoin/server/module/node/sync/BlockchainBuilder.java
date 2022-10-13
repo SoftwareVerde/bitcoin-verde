@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.context.MultiConnectionFullDatabaseContext;
 import com.softwareverde.bitcoin.context.NodeManagerContext;
 import com.softwareverde.bitcoin.context.SystemTimeContext;
 import com.softwareverde.bitcoin.context.ThreadPoolContext;
+import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
@@ -38,6 +39,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.CircleBuffer;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.timer.NanoTimer;
 
@@ -60,6 +62,7 @@ public class BlockchainBuilder extends GracefulSleepyService {
     protected NewBlockProcessedCallback _asynchronousNewBlockProcessedCallback;
     protected NewBlockProcessedCallback _synchronousNewBlockProcessedCallback;
     protected UnavailableBlockCallback _unavailableBlockCallback;
+    protected final Long _minPreloadBlockHeight = 100_000L;
 
     protected final CircleBuffer<Long> _blockProcessingTimes = new CircleBuffer<>(100);
     protected Float _averageBlocksPerSecond = 0F;
@@ -104,14 +107,14 @@ public class BlockchainBuilder extends GracefulSleepyService {
      *  If not provided, the transactionOutputSet is loaded from the database.
      *  Returns true if the pending block was valid and stored.
      */
-    protected Boolean _processPendingBlock(final Block block, final FullNodeDatabaseManager databaseManager) {
+    protected Boolean _processPendingBlock(final Block block, final FullNodeDatabaseManager databaseManager, final UnspentTransactionOutputContext unspentTransactionOutputContext) {
         final ProcessBlockResult processBlockResult;
         { // Maximize the Thread priority and process the block...
             final Thread currentThread = Thread.currentThread();
             final int originalThreadPriority = currentThread.getPriority();
             try {
                 currentThread.setPriority(Thread.MAX_PRIORITY);
-                processBlockResult = _blockProcessor.processBlock(block, databaseManager);
+                processBlockResult = _blockProcessor.processBlock(block, databaseManager, unspentTransactionOutputContext);
             }
             finally {
                 currentThread.setPriority(originalThreadPriority);
@@ -161,7 +164,7 @@ public class BlockchainBuilder extends GracefulSleepyService {
             if (! _hasGenesisBlock) {
                 final Boolean hasBlockDataAvailable = _blockStore.pendingBlockExists(BlockHeader.GENESIS_BLOCK_HASH);
 
-                final Boolean genesisBlockWasLoaded;
+                final boolean genesisBlockWasLoaded;
                 if (! hasBlockDataAvailable) {
                     genesisBlockWasLoaded = false;
                 }
@@ -266,74 +269,110 @@ public class BlockchainBuilder extends GracefulSleepyService {
         }
         if (headBlockId == null) { return false; }
 
-        while (! _shouldAbort()) {
-            final BlockId nextBlockId = blockHeaderDatabaseManager.getChildBlockId(blockchainSegmentId, headBlockId);
-            if (nextBlockId == null) { return true; }
+        final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
+        try (final BlockchainBuilderContextPreLoader preLoader = new BlockchainBuilderContextPreLoader(databaseManagerFactory)) {
+            Block previousBlock = null;
+            while (! _shouldAbort()) {
+                final BlockId nextBlockId = blockHeaderDatabaseManager.getChildBlockId(blockchainSegmentId, headBlockId);
+                if (nextBlockId == null) { return true; }
 
-            final Sha256Hash nextBlockHash = blockHeaderDatabaseManager.getBlockHash(nextBlockId);
-            Logger.debug("NextBlockHash: " + nextBlockHash);
+                final Sha256Hash nextBlockHash = blockHeaderDatabaseManager.getBlockHash(nextBlockId);
+                Logger.debug("NextBlockHash: " + nextBlockHash);
 
-            final Boolean isInvalid = blockHeaderDatabaseManager.isBlockInvalid(nextBlockHash, BlockHeaderDatabaseManager.INVALID_PROCESS_THRESHOLD);
-            if (isInvalid) { // Do not request blocks that have failed to process multiple times...
-                Logger.info("Skipping invalid Block: " + nextBlockHash);
-                return true;
-            }
-
-            final Boolean blockDataExists = _blockStore.pendingBlockExists(nextBlockHash);
-            final ByteArray pendingBlockData = (blockDataExists ? _blockStore.getPendingBlockData(nextBlockHash) : null);
-
-            if (pendingBlockData == null) {
-                Logger.debug("Waiting for unavailable block: " + nextBlockHash);
-
-                final UnavailableBlockCallback unavailableBlockCallback = _unavailableBlockCallback;
-                if (unavailableBlockCallback != null) {
-                    final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(nextBlockId);
-
-                    final ThreadPool threadPool = _context.getThreadPool();
-                    threadPool.execute(new Runnable() {
-                        @Override
-                        public void run() {
-                            unavailableBlockCallback.onRequiredBlockUnavailable(nextBlockHash, blockHeight);
-                        }
-                    });
+                final Boolean isInvalid = blockHeaderDatabaseManager.isBlockInvalid(nextBlockHash, BlockHeaderDatabaseManager.INVALID_PROCESS_THRESHOLD);
+                if (isInvalid) { // Do not request blocks that have failed to process multiple times...
+                    Logger.info("Skipping invalid Block: " + nextBlockHash);
+                    return true;
                 }
 
-                return false;
-            }
+                final Boolean blockDataExists = _blockStore.pendingBlockExists(nextBlockHash);
+                final ByteArray pendingBlockData = (blockDataExists ? _blockStore.getPendingBlockData(nextBlockHash) : null);
 
-            final BlockInflater blockInflater = _context.getBlockInflater();
-            final Block block = blockInflater.fromBytes(pendingBlockData);
-            if (block == null) {
-                Logger.info("Unable to inflate block: " + nextBlockHash);
-                blockHeaderDatabaseManager.markBlockAsInvalid(nextBlockHash, 1);
-                return false;
-            }
+                if (pendingBlockData == null) {
+                    Logger.debug("Waiting for unavailable block: " + nextBlockHash);
 
-            _checkUtxoSet(databaseManager);
+                    final UnavailableBlockCallback unavailableBlockCallback = _unavailableBlockCallback;
+                    if (unavailableBlockCallback != null) {
+                        final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(nextBlockId);
 
-            final Boolean processBlockWasSuccessful = _processPendingBlock(block, databaseManager);
+                        final ThreadPool threadPool = _context.getThreadPool();
+                        threadPool.execute(new Runnable() {
+                            @Override
+                            public void run() {
+                                unavailableBlockCallback.onRequiredBlockUnavailable(nextBlockHash, blockHeight);
+                            }
+                        });
+                    }
 
-            if (! processBlockWasSuccessful) {
-                blockHeaderDatabaseManager.markBlockAsInvalid(nextBlockHash, 1);
-                Logger.debug("Pending block failed during processing: " + nextBlockHash);
-
-                final Boolean blockIsOfficiallyInvalid = blockHeaderDatabaseManager.isBlockInvalid(nextBlockHash, BlockHeaderDatabaseManager.INVALID_PROCESS_THRESHOLD);
-                if (blockIsOfficiallyInvalid) {
-                    _blockStore.removePendingBlock(nextBlockHash);
+                    return false;
                 }
 
-                return false;
+                final BlockInflater blockInflater = _context.getBlockInflater();
+                final Block block = blockInflater.fromBytes(pendingBlockData);
+                if (block == null) {
+                    Logger.info("Unable to inflate block: " + nextBlockHash);
+                    blockHeaderDatabaseManager.markBlockAsInvalid(nextBlockHash, 1);
+                    return false;
+                }
+
+                _checkUtxoSet(databaseManager);
+
+                final Block nextBlock;
+                final Long nextBlockHeight;
+                {
+                    final BlockId nextNextBlockId = blockHeaderDatabaseManager.getChildBlockId(blockchainSegmentId, nextBlockId);
+                    final Sha256Hash nextNextBlockHash = blockHeaderDatabaseManager.getBlockHash(nextNextBlockId);
+                    final Boolean nextBlockDataExists = _blockStore.pendingBlockExists(nextNextBlockHash);
+                    final ByteArray nextPendingBlockData = (nextBlockDataExists ? _blockStore.getPendingBlockData(nextNextBlockHash) : null);
+                    nextBlock = (nextPendingBlockData != null ? blockInflater.fromBytes(nextPendingBlockData) : null);
+                    nextBlockHeight = blockHeaderDatabaseManager.getBlockHeight(nextNextBlockId);
+                }
+
+                UnspentTransactionOutputContext unspentTransactionOutputContext = null;
+                try {
+                    final NanoTimer nanoTimer = new NanoTimer();
+                    nanoTimer.start();
+
+                    if ( (nextBlock != null) && (Util.coalesce(nextBlockHeight) > _minPreloadBlockHeight)) {
+                        unspentTransactionOutputContext = preLoader.getContext(previousBlock, block, nextBlock, nextBlockHeight);
+                    }
+
+                    nanoTimer.stop();
+
+                    if (Logger.isTraceEnabled()) {
+                        Logger.trace("Waited " + nanoTimer.getMillisecondsElapsed() + "ms for block context.");
+                    }
+                }
+                catch (final InterruptedException exception) {
+                    preLoader.close();
+                }
+
+                final Boolean processBlockWasSuccessful = _processPendingBlock(block, databaseManager, unspentTransactionOutputContext);
+
+                if (! processBlockWasSuccessful) {
+                    blockHeaderDatabaseManager.markBlockAsInvalid(nextBlockHash, 1);
+                    Logger.debug("Pending block failed during processing: " + nextBlockHash);
+
+                    final Boolean blockIsOfficiallyInvalid = blockHeaderDatabaseManager.isBlockInvalid(nextBlockHash, BlockHeaderDatabaseManager.INVALID_PROCESS_THRESHOLD);
+                    if (blockIsOfficiallyInvalid) {
+                        _blockStore.removePendingBlock(nextBlockHash);
+                    }
+
+                    return false;
+                }
+
+                _blockStore.removePendingBlock(nextBlockHash);
+
+                headBlockId = nextBlockId;
+
+                milliTimer.stop();
+                _blockProcessingTimes.push(milliTimer.getMillisecondsElapsed());
+                milliTimer.start();
+
+                _updateAverageBlockProcessingTime();
+
+                previousBlock = block;
             }
-
-            _blockStore.removePendingBlock(nextBlockHash);
-
-            headBlockId = nextBlockId;
-
-            milliTimer.stop();
-            _blockProcessingTimes.push(milliTimer.getMillisecondsElapsed());
-            milliTimer.start();
-
-            _updateAverageBlockProcessingTime();
         }
 
         return false;

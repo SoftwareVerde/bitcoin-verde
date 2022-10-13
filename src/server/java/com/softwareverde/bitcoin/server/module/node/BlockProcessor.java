@@ -371,7 +371,7 @@ public class BlockProcessor {
                     return ProcessBlockResult.invalid(block, blockHeight, "Could not find UTXOs for block.");
                 }
                 unspentTransactionOutputContext = mutableUnspentTransactionOutputSet;
-                Logger.debug("Using liveLoadedUnspentTransactionOutputs for blockHeight: " + blockHeight);
+                Logger.debug("Using liveLoadedUnspentTransactionOutputs for blockHeight: " + blockHeight + "; blockIsConnectedToUtxoSet=" + blockIsConnectedToUtxoSet);
             }
         }
         multiTimer.mark("utxoContext");
