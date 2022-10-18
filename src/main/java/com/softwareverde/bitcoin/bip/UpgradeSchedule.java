@@ -162,4 +162,10 @@ public interface UpgradeSchedule {
      * Enabled in HF20220515.
      */
     Boolean isMultiplyOperationEnabled(MedianBlockTime medianBlockTime);
+
+    /**
+     * Requires all Transactions use versions 1 or 2.
+     * Enabled in HF20230515.
+     */
+    Boolean areTransactionVersionsRestricted(MedianBlockTime medianBlockTime);
 }

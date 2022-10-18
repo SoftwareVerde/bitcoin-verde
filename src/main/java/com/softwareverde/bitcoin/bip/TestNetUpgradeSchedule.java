@@ -169,4 +169,9 @@ public class TestNetUpgradeSchedule implements UpgradeSchedule {
     public Boolean isMultiplyOperationEnabled(final MedianBlockTime medianBlockTime) {
         return (medianBlockTime.getCurrentTimeInSeconds() >= HF20220515_ACTIVATION_TIME);
     }
+
+    @Override
+    public Boolean areTransactionVersionsRestricted(final MedianBlockTime medianBlockTime) {
+        return (medianBlockTime.getCurrentTimeInSeconds() >= HF20230515_ACTIVATION_TIME);
+    }
 }

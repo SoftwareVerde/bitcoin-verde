@@ -9,4 +9,9 @@ public class ChipNetUpgradeSchedule extends TestNet4UpgradeSchedule {
     public Boolean areTransactionsLessThanSixtyFiveBytesDisallowed(final MedianBlockTime medianBlockTime) {
         return (medianBlockTime.getCurrentTimeInSeconds() >= HF20230515_ACTIVATION_TIME);
     }
+
+    @Override
+    public Boolean areTransactionVersionsRestricted(final MedianBlockTime medianBlockTime) {
+        return (medianBlockTime.getCurrentTimeInSeconds() >= HF20230515_ACTIVATION_TIME);
+    }
 }

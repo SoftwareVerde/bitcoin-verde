@@ -276,14 +276,24 @@ public class TransactionValidatorCore implements TransactionValidator {
             if (upgradeSchedule.areTransactionsLessThanSixtyFiveBytesDisallowed(medianBlockTime)) {
                 final Integer transactionByteCount = transaction.getByteCount();
                 if (transactionByteCount < BitcoinConstants.getTransactionMinByteCount()) {
-                    final Json errorJson = _createInvalidTransactionReport("Invalid byte count." + transactionByteCount + " " + transactionHash, transaction, transactionContext);
+                    final Json errorJson = _createInvalidTransactionReport("Invalid byte count. " + transactionByteCount + " " + transactionHash, transaction, transactionContext);
                     return TransactionValidationResult.invalid(errorJson);
                 }
             }
             else if (upgradeSchedule.areTransactionsLessThanOneHundredBytesDisallowed(blockHeight)) { // NOTE: This check becomes disabled once HF20230515 activates, thus ELSEIF and not IF. // TODO: Remove after HF20230515.
                 final Integer transactionByteCount = transaction.getByteCount();
                 if (transactionByteCount < 100) {
-                    final Json errorJson = _createInvalidTransactionReport("Invalid byte count." + transactionByteCount + " " + transactionHash, transaction, transactionContext);
+                    final Json errorJson = _createInvalidTransactionReport("Invalid byte count. " + transactionByteCount + " " + transactionHash, transaction, transactionContext);
+                    return TransactionValidationResult.invalid(errorJson);
+                }
+            }
+        }
+
+        { // Enforce Transaction versions...
+            if (upgradeSchedule.areTransactionVersionsRestricted(medianBlockTime)) {
+                final Long transactionVersion = transaction.getVersion();
+                if (transactionVersion != 1L && transactionVersion != 2L) {
+                    final Json errorJson = _createInvalidTransactionReport("Invalid transaction version. v" + transactionVersion + " " + transactionHash, transaction, transactionContext);
                     return TransactionValidationResult.invalid(errorJson);
                 }
             }

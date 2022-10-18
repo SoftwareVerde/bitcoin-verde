@@ -43,6 +43,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     protected Boolean _areIntrospectionOperationsEnabled;
     protected Boolean _are64BitScriptIntegersEnabled;
     protected Boolean _isMultiplyOperationEnabled;
+    protected Boolean _areTransactionVersionsRestricted;
 
     public FakeUpgradeSchedule(final UpgradeSchedule upgradeSchedule) {
         _parentUpgradeSchedule = upgradeSchedule;
@@ -197,6 +198,11 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
         return _isOverriddenOrEnabled(_isMultiplyOperationEnabled, _parentUpgradeSchedule.isMultiplyOperationEnabled(Util.coalesce(medianBlockTime, MedianBlockTime.MAX_VALUE)));
     }
 
+    @Override
+    public Boolean areTransactionVersionsRestricted(final MedianBlockTime medianBlockTime) {
+        return _isOverriddenOrEnabled(_areTransactionVersionsRestricted, _parentUpgradeSchedule.areTransactionVersionsRestricted(Util.coalesce(medianBlockTime, MedianBlockTime.MAX_VALUE)));
+    }
+
     public void setMinimalNumberEncodingRequired(final Boolean minimalNumberEncodingRequired) {
         _isMinimalNumberEncodingRequired = minimalNumberEncodingRequired;
     }
@@ -311,5 +317,9 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
 
     public void setMultiplyOperationEnabled(final Boolean multiplyOperationEnabled) {
         _isMultiplyOperationEnabled = multiplyOperationEnabled;
+    }
+
+    public void setAreTransactionVersionsRestricted(final Boolean areTransactionVersionsRestricted) {
+        _areTransactionVersionsRestricted = areTransactionVersionsRestricted;
     }
 }
