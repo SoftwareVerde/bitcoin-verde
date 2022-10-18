@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node;
 
 import com.softwareverde.bitcoin.CoreInflater;
+import com.softwareverde.bitcoin.bip.ChipNetUpgradeSchedule;
 import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
 import com.softwareverde.bitcoin.bip.TestNet4UpgradeSchedule;
 import com.softwareverde.bitcoin.bip.TestNetUpgradeSchedule;
@@ -365,6 +366,9 @@ public class NodeModule {
                 switch (networkType) {
                     case TEST_NET4: {
                         _upgradeSchedule = new TestNet4UpgradeSchedule();
+                    } break;
+                    case CHIP_NET: {
+                        _upgradeSchedule = new ChipNetUpgradeSchedule();
                     } break;
                     default: {
                         _upgradeSchedule = new TestNetUpgradeSchedule();

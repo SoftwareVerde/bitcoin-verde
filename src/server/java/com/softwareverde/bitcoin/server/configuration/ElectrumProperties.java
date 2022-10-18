@@ -63,6 +63,7 @@ public class ElectrumProperties {
     public NetworkType getNetworkType() {
         switch (_testNet) {
             case 4: return NetworkType.TEST_NET4;
+            case 5: return NetworkType.CHIP_NET;
 
             case 1:
             case 3: return NetworkType.TEST_NET;

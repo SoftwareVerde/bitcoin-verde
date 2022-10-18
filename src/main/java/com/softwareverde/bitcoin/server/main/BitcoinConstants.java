@@ -50,7 +50,9 @@ public class BitcoinConstants {
     protected static Integer DEFAULT_RPC_PORT;
     protected static Integer DEFAULT_TEST_RPC_PORT;
 
-    protected static Integer TRANSACTION_MIN_BYTE_COUNT = 100;
+    @Deprecated
+    protected static Integer TRANSACTION_MIN_BYTE_COUNT_HF20181115 = 100;
+    protected static Integer TRANSACTION_MIN_BYTE_COUNT = 65;
     protected static Integer TRANSACTION_MAX_BYTE_COUNT = (int) (2L * ByteUtil.Unit.Si.MEGABYTES);
     protected static Integer BLOCK_MAX_BYTE_COUNT = (int) (32L * ByteUtil.Unit.Si.MEGABYTES);
 
@@ -99,6 +101,15 @@ public class BitcoinConstants {
     );
 
     public static final Default TestNet4 = new Default(
+        "000000001DD410C49A788668CE26751718CC797474D3152A5FC073DD44FD9F7B",
+        1597811185L, // In seconds.
+        28333,
+        "AFDAB7E2",
+        TEST_NET4_ASERT_REFERENCE_BLOCK,
+        (int) (32L * ByteUtil.Unit.Si.MEGABYTES)
+    );
+
+    public static final Default ChipNet = new Default(
         "000000001DD410C49A788668CE26751718CC797474D3152A5FC073DD44FD9F7B",
         1597811185L, // In seconds.
         28333,
@@ -168,6 +179,14 @@ public class BitcoinConstants {
                 BitcoinConstants.setDefaultNetworkPort(BitcoinConstants.TestNet4.defaultNetworkPort);
                 BitcoinConstants.setDefaultRpcPort(BitcoinConstants.TestNet4.defaultRpcPort);
                 BitcoinConstants.setAsertReferenceBlock(BitcoinConstants.TestNet4.asertReferenceBlock);
+            } break;
+            case CHIP_NET: {
+                BitcoinConstants.setGenesisBlockHash(BitcoinConstants.ChipNet.genesisBlockHash);
+                BitcoinConstants.setGenesisBlockTimestamp(BitcoinConstants.ChipNet.genesisBlockTimestamp);
+                BitcoinConstants.setNetMagicNumber(BitcoinConstants.ChipNet.netMagicNumber);
+                BitcoinConstants.setDefaultNetworkPort(BitcoinConstants.ChipNet.defaultNetworkPort);
+                BitcoinConstants.setDefaultRpcPort(BitcoinConstants.ChipNet.defaultRpcPort);
+                BitcoinConstants.setAsertReferenceBlock(BitcoinConstants.ChipNet.asertReferenceBlock);
             } break;
             default: {
                 BitcoinConstants.setGenesisBlockHash(BitcoinConstants.MainNet.genesisBlockHash);

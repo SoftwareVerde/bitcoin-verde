@@ -96,8 +96,17 @@ public interface UpgradeSchedule {
      * Requires Transactions be at least 100 bytes in size.
      * This feature protects SPV Wallet users from a Merkle Tree vulnerability that allows attackers to spoof transactions.
      * Enabled in HF20181115.
+     * Deprecated as of HF20230515 when the minimum was reduced to 65 bytes.
      */
-    Boolean areTransactionsLessThanOneHundredBytesDisallowed(Long blockHeight);
+    @Deprecated
+    Boolean areTransactionsLessThanOneHundredBytesDisallowed(Long blockHeight); // TODO: Remove after HF20230815.
+
+    /**
+     * Requires Transactions be at least 65 bytes in size.
+     * This feature protects SPV Wallet users from a Merkle Tree vulnerability that allows attackers to spoof transactions.
+     * Enabled in HF20230515; the minimum was reduced from 100 to 65 in HF20230515.
+     */
+    Boolean areTransactionsLessThanSixtyFiveBytesDisallowed(MedianBlockTime medianBlockTime);
 
     /**
      * Enable an exemption from the Dirty Stack rule for Segwit P2SH Scripts.
@@ -153,6 +162,4 @@ public interface UpgradeSchedule {
      * Enabled in HF20220515.
      */
     Boolean isMultiplyOperationEnabled(MedianBlockTime medianBlockTime);
-
-
 }

@@ -22,6 +22,7 @@ public class TestNet4UpgradeSchedule implements UpgradeSchedule {
     private static final long HF20200515_ACTIVATION_TIME = 0L;
     private static final long HF20201115_ACTIVATION_TIME = 1605441600L;
     private static final long HF20220515_ACTIVATION_TIME = 1637694000L;
+    private static final long HF20230515_ACTIVATION_TIME = 1684152000L;
 
     @Override
     public Boolean isMinimalNumberEncodingRequired(final MedianBlockTime medianBlockTime) {
@@ -124,10 +125,14 @@ public class TestNet4UpgradeSchedule implements UpgradeSchedule {
     }
 
     @Override
+    public Boolean areTransactionsLessThanSixtyFiveBytesDisallowed(final MedianBlockTime medianBlockTime) {
+        return (medianBlockTime.getCurrentTimeInSeconds() >= HF20230515_ACTIVATION_TIME);
+    }
+
+    @Override
     public Boolean areUnusedValuesAfterSegwitScriptExecutionAllowed(final MedianBlockTime medianBlockTime) {
         return (medianBlockTime.getCurrentTimeInSeconds() >= HF20190515_ACTIVATION_TIME);
     }
-
 
     @Override
     public Boolean isSignatureOperationCountingVersionTwoEnabled(final MedianBlockTime medianBlockTime) {

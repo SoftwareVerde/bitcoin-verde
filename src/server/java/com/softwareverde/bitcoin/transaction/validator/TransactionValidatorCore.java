@@ -273,9 +273,16 @@ public class TransactionValidatorCore implements TransactionValidator {
         }
 
         { // Enforce Transaction minimum byte count...
-            if (upgradeSchedule.areTransactionsLessThanOneHundredBytesDisallowed(blockHeight)) {
+            if (upgradeSchedule.areTransactionsLessThanSixtyFiveBytesDisallowed(medianBlockTime)) {
                 final Integer transactionByteCount = transaction.getByteCount();
                 if (transactionByteCount < BitcoinConstants.getTransactionMinByteCount()) {
+                    final Json errorJson = _createInvalidTransactionReport("Invalid byte count." + transactionByteCount + " " + transactionHash, transaction, transactionContext);
+                    return TransactionValidationResult.invalid(errorJson);
+                }
+            }
+            else if (upgradeSchedule.areTransactionsLessThanOneHundredBytesDisallowed(blockHeight)) { // NOTE: This check becomes disabled once HF20230515 activates, thus ELSEIF and not IF. // TODO: Remove after HF20230515.
+                final Integer transactionByteCount = transaction.getByteCount();
+                if (transactionByteCount < 100) {
                     final Json errorJson = _createInvalidTransactionReport("Invalid byte count." + transactionByteCount + " " + transactionHash, transaction, transactionContext);
                     return TransactionValidationResult.invalid(errorJson);
                 }

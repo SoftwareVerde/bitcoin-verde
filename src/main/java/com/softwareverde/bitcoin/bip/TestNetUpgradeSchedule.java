@@ -22,6 +22,7 @@ public class TestNetUpgradeSchedule implements UpgradeSchedule {
     private static final long HF20200515_ACTIVATION_TIME = 1589544294L;
     private static final long HF20201115_ACTIVATION_TIME = 1605441600L;
     private static final long HF20220515_ACTIVATION_TIME = 1637694000L;
+    private static final long HF20230515_ACTIVATION_TIME = 1684152000L;
 
     @Override
     public Boolean isMinimalNumberEncodingRequired(final MedianBlockTime medianBlockTime) {
@@ -121,6 +122,11 @@ public class TestNetUpgradeSchedule implements UpgradeSchedule {
     @Override
     public Boolean areTransactionsLessThanOneHundredBytesDisallowed(final Long blockHeight) {
         return (blockHeight >= HF20181115_ACTIVATION_BLOCK_HEIGHT);
+    }
+
+    @Override
+    public Boolean areTransactionsLessThanSixtyFiveBytesDisallowed(final MedianBlockTime medianBlockTime) {
+        return (medianBlockTime.getCurrentTimeInSeconds() >= HF20230515_ACTIVATION_TIME);
     }
 
     @Override

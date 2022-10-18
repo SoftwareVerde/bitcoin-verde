@@ -34,6 +34,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     protected Boolean _areDerSignaturesRequiredToBeStrictlyEncoded;
     protected Boolean _areUnusedValuesAfterScriptExecutionDisallowed;
     protected Boolean _areTransactionsLessThanOneHundredBytesDisallowed;
+    protected Boolean _areTransactionsLessThanSixtyFiveBytesDisallowed;
     protected Boolean _areUnusedValuesAfterSegwitScriptExecutionAllowed;
     protected Boolean _isSignatureOperationCountingVersionTwoEnabled;
     protected Boolean _isCheckDataSignatureOperationEnabled;
@@ -149,6 +150,11 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     @Override
     public Boolean areTransactionsLessThanOneHundredBytesDisallowed(final Long blockHeight) {
         return _isOverriddenOrEnabled(_areTransactionsLessThanOneHundredBytesDisallowed, _parentUpgradeSchedule.areTransactionsLessThanOneHundredBytesDisallowed(Util.coalesce(blockHeight, Long.MAX_VALUE)));
+    }
+
+    @Override
+    public Boolean areTransactionsLessThanSixtyFiveBytesDisallowed(final MedianBlockTime medianBlockTime) {
+        return _isOverriddenOrEnabled(_areTransactionsLessThanSixtyFiveBytesDisallowed, _parentUpgradeSchedule.areTransactionsLessThanSixtyFiveBytesDisallowed(Util.coalesce(medianBlockTime, MedianBlockTime.MAX_VALUE)));
     }
 
     @Override
@@ -269,6 +275,10 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
 
     public void setTransactionsLessThanOneHundredBytesDisallowed(final Boolean areTransactionsLessThanOneHundredBytesDisallowed) {
         _areTransactionsLessThanOneHundredBytesDisallowed = areTransactionsLessThanOneHundredBytesDisallowed;
+    }
+
+    public void setTransactionsLessThanSixtyFiveBytesDisallowed(final Boolean areTransactionsLessThanSixtyFiveBytesDisallowed) {
+        _areTransactionsLessThanSixtyFiveBytesDisallowed = areTransactionsLessThanSixtyFiveBytesDisallowed;
     }
 
     public void setUnusedValuesAfterSegwitScriptExecutionAllowed(final Boolean areUnusedValuesAfterSegwitScriptExecutionAllowed) {
