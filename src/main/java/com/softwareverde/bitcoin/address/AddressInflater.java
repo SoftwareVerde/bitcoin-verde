@@ -13,7 +13,7 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 
 public class AddressInflater {
-    public static final Integer BYTE_COUNT = Address.BYTE_COUNT;
+    // public static final Integer BYTE_COUNT = Address.BYTE_COUNT;
 
     protected byte[] _hashPublicKey(final PublicKey publicKey) {
         return HashUtil.ripemd160(HashUtil.sha256(publicKey.getBytes()));
@@ -225,7 +225,7 @@ public class AddressInflater {
     }
 
     public Address fromBytes(final Address.Type addressType, final ByteArray bytes, final Boolean isCompressed) {
-        if (bytes.getByteCount() != Address.BYTE_COUNT) { return null; }
+        if (! Address.isValidByteCount(bytes)) { return null; }
         return new Address(addressType, bytes.getBytes(), isCompressed);
     }
 

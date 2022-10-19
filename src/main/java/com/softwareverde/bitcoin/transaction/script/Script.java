@@ -5,6 +5,7 @@ import com.softwareverde.constable.Constable;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.ripemd160.Ripemd160Hash;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Jsonable;
 
 public interface Script extends Constable<ImmutableScript>, Jsonable {
@@ -16,7 +17,8 @@ public interface Script extends Constable<ImmutableScript>, Jsonable {
     Script EMPTY_SCRIPT = new ImmutableScript();
 
     Boolean isValid();
-    Ripemd160Hash getHash();
+    Sha256Hash getHash();
+    Ripemd160Hash getLegacyHash();
     List<Operation> getOperations();
     int getByteCount();
     ByteArray getBytes();

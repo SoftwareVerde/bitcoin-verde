@@ -33,7 +33,6 @@ import com.softwareverde.bitcoin.server.message.type.node.feefilter.FeeFilterMes
 import com.softwareverde.bitcoin.server.message.type.node.ping.BitcoinPingMessage;
 import com.softwareverde.bitcoin.server.message.type.node.pong.BitcoinPongMessage;
 import com.softwareverde.bitcoin.server.message.type.query.RequestDataMessage;
-import com.softwareverde.bitcoin.server.message.type.query.address.QueryAddressBlocksMessage;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessage;
 import com.softwareverde.bitcoin.server.message.type.query.header.RequestBlockHeadersMessage;
 import com.softwareverde.bitcoin.server.message.type.query.mempool.QueryUnconfirmedTransactionsMessage;
@@ -46,11 +45,9 @@ import com.softwareverde.bitcoin.server.message.type.query.response.hash.Invento
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemType;
 import com.softwareverde.bitcoin.server.message.type.query.response.transaction.TransactionMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.utxo.UtxoCommitmentMessage;
-import com.softwareverde.bitcoin.server.message.type.query.slp.QuerySlpStatusMessage;
 import com.softwareverde.bitcoin.server.message.type.query.utxo.NodeSpecificUtxoCommitmentBreakdown;
 import com.softwareverde.bitcoin.server.message.type.query.utxo.QueryUtxoCommitmentsMessage;
 import com.softwareverde.bitcoin.server.message.type.query.utxo.UtxoCommitmentsMessage;
-import com.softwareverde.bitcoin.server.message.type.slp.EnableSlpTransactionsMessage;
 import com.softwareverde.bitcoin.server.message.type.thin.block.ExtraThinBlockMessage;
 import com.softwareverde.bitcoin.server.message.type.thin.block.ThinBlockMessage;
 import com.softwareverde.bitcoin.server.message.type.thin.request.block.RequestExtraThinBlockMessage;
@@ -286,7 +283,6 @@ public class BitcoinNode extends Node {
     protected RequestPeersHandler _requestPeersHandler;
     protected RequestUnconfirmedTransactionsHandler _queryUnconfirmedTransactionsCallback;
     protected RequestSpvBlocksHandler _requestSpvBlocksHandler;
-    protected RequestSlpTransactionsHandler _requestSlpTransactionsHandler;
     protected QueryUtxoCommitmentsHandler _queryUtxoCommitmentsHandler;
 
     protected RequestExtraThinBlockHandler _requestExtraThinBlockCallback;
@@ -302,11 +298,9 @@ public class BitcoinNode extends Node {
 
     protected Boolean _announceNewBlocksViaHeadersIsEnabled = false;
     protected Integer _compactBlocksVersion;
-    protected Boolean _slpTransactionsIsEnabled = false;
 
     protected NewBloomFilterHandler _onNewBloomFilterCallback;
     protected Boolean _transactionRelayIsEnabled = true;
-    protected Boolean _slpValidityCheckingIsEnabled = false;
 
     protected MutableBloomFilter _bloomFilter;
     protected Sha256Hash _batchContinueHash; // https://en.bitcoin.it/wiki/Satoshi_Client_Block_Exchange#Batch_Continue_Mechanism
@@ -416,20 +410,6 @@ public class BitcoinNode extends Node {
         return (30L * 1000L); // 30 seconds...
     }
 
-    protected void _requestAddressBlocks(final List<Address> addresses) {
-        final QueryAddressBlocksMessage queryAddressBlocksMessage = _protocolMessageFactory.newQueryAddressBlocksMessage();
-        for (final Address address : addresses) {
-            queryAddressBlocksMessage.addAddress(address);
-        }
-        _queueMessage(queryAddressBlocksMessage);
-
-
-        final MessageType messageType = queryAddressBlocksMessage.getCommand();
-        for (final BitcoinNodeObserver observer : _observers) {
-            observer.onDataRequested(BitcoinNode.this, messageType);
-        }
-    }
-
     @Override
     protected void _onHandshakeComplete() {
         super._onHandshakeComplete();
@@ -479,7 +459,6 @@ public class BitcoinNode extends Node {
             _queryBlockHeadersCallback = null;
             _requestDataHandler = null;
             _requestSpvBlocksHandler = null;
-            _requestSlpTransactionsHandler = null;
             _queryUtxoCommitmentsHandler = null;
             _blockInventoryMessageHandler = null;
             _requestExtraThinBlockCallback = null;
@@ -733,12 +712,7 @@ public class BitcoinNode extends Node {
         _messageRouter.addRoute(MessageType.SET_TRANSACTION_BLOOM_FILTER,   (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onSetTransactionBloomFilterMessageReceived((SetTransactionBloomFilterMessage) message); });
         _messageRouter.addRoute(MessageType.UPDATE_TRANSACTION_BLOOM_FILTER,(final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onUpdateTransactionBloomFilterMessageReceived((UpdateTransactionBloomFilterMessage) message); });
         _messageRouter.addRoute(MessageType.CLEAR_TRANSACTION_BLOOM_FILTER, (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onClearTransactionBloomFilterMessageReceived((ClearTransactionBloomFilterMessage) message); });
-        _messageRouter.addRoute(MessageType.QUERY_ADDRESS_BLOCKS,           (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onQueryAddressBlocks((QueryAddressBlocksMessage) message); });
-        _messageRouter.addRoute(MessageType.ENABLE_SLP_TRANSACTIONS,        (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> {
-            final EnableSlpTransactionsMessage enableSlpTransactionsMessage = (EnableSlpTransactionsMessage) message;
-            _slpTransactionsIsEnabled = enableSlpTransactionsMessage.isEnabled();
-        });
-        _messageRouter.addRoute(MessageType.QUERY_SLP_STATUS,               (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onQuerySlpStatusReceived((QuerySlpStatusMessage) message); });
+
         _messageRouter.addRoute(MessageType.QUERY_UTXO_COMMITMENTS,         (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onQueryUtxoCommitmentsMessageReceived((QueryUtxoCommitmentsMessage) message); });
         _messageRouter.addRoute(MessageType.UTXO_COMMITMENTS,               (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onUtxoCommitmentsReceived((UtxoCommitmentsMessage) message); });
         _messageRouter.addRoute(MessageType.UTXO_COMMITMENT,                (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onUtxoCommitmentMessageReceived((UtxoCommitmentMessage) message); });
@@ -809,23 +783,13 @@ public class BitcoinNode extends Node {
                     }
                 } break;
 
-                case VALID_SLP_TRANSACTION:
-                case INVALID_SLP_TRANSACTION:
                 case TRANSACTION: {
-                    final boolean isSlp = (inventoryItemType != InventoryItemType.TRANSACTION);
-
                     final TransactionInventoryAnnouncementHandler transactionsAnnouncementCallback = _transactionsAnnouncementCallback;
                     if (transactionsAnnouncementCallback != null) {
                         _threadPool.execute(new Runnable() {
                             @Override
                             public void run() {
-                                if (isSlp) {
-                                    final boolean isValid = (inventoryItemType == InventoryItemType.VALID_SLP_TRANSACTION);
-                                    transactionsAnnouncementCallback.onResult(BitcoinNode.this, objectHashes, isValid);
-                                }
-                                else {
-                                    transactionsAnnouncementCallback.onResult(BitcoinNode.this, objectHashes);
-                                }
+                                transactionsAnnouncementCallback.onResult(BitcoinNode.this, objectHashes);
                             }
                         });
                     }
@@ -1452,45 +1416,6 @@ public class BitcoinNode extends Node {
         _transactionRelayIsEnabled = true; // NOTE: This behavior mimics Bitcoin Unlimited...
     }
 
-    protected void _onQueryAddressBlocks(final QueryAddressBlocksMessage queryAddressBlocksMessage) {
-        final RequestSpvBlocksHandler requestDataHandler = _requestSpvBlocksHandler;
-        if (requestDataHandler != null) {
-            final List<Address> addresses = queryAddressBlocksMessage.getAddresses().asConst();
-            _threadPool.execute(new Runnable() {
-                @Override
-                public void run() {
-                    requestDataHandler.run(BitcoinNode.this, addresses);
-                }
-            });
-        }
-        else {
-            Logger.debug("No handler set for RequestSpvBlocks message.");
-        }
-    }
-
-    protected void _onQuerySlpStatusReceived(final QuerySlpStatusMessage querySlpStatusMessage) {
-        if (_slpTransactionsIsEnabled) {
-            final RequestSlpTransactionsHandler requestDataHandler = _requestSlpTransactionsHandler;
-            if (requestDataHandler != null) {
-                final List<Sha256Hash> transactionHashes = querySlpStatusMessage.getHashes().asConst();
-                _threadPool.execute(new Runnable() {
-                    @Override
-                    public void run() {
-                        requestDataHandler.run(BitcoinNode.this, transactionHashes);
-                    }
-                });
-            }
-            else {
-                Logger.debug("No handler set for RequestSlpTransactions message.");
-            }
-        }
-
-        final MessageType messageType = querySlpStatusMessage.getCommand();
-        for (final BitcoinNodeObserver observer : _observers) {
-            observer.onDataRequested(BitcoinNode.this, messageType);
-        }
-    }
-
     protected void _onQueryUtxoCommitmentsMessageReceived(final QueryUtxoCommitmentsMessage queryUtxoCommitmentsMessage) {
         final QueryUtxoCommitmentsHandler queryUtxoCommitmentsHandler = _queryUtxoCommitmentsHandler;
         if (queryUtxoCommitmentsHandler == null) {
@@ -1628,52 +1553,6 @@ public class BitcoinNode extends Node {
         final MessageType messageType = requestTransactionMessage.getCommand();
         for (final BitcoinNodeObserver observer : _observers) {
             observer.onDataRequested(BitcoinNode.this, messageType);
-        }
-    }
-
-    protected void _requestSlpStatus(final List<Sha256Hash> transactionHashes) {
-        if (! _slpValidityCheckingIsEnabled) {
-            Logger.warn("Attempting to Request SLP Status for " + transactionHashes.getCount() + " transactions when SLP validity checking has not been enabled.");
-            return;
-        }
-
-        final QuerySlpStatusMessage querySlpStatusMessage = _protocolMessageFactory.newQuerySlpStatusMessage();
-        for (final Sha256Hash transactionHash : transactionHashes) {
-            querySlpStatusMessage.addHash(transactionHash);
-        }
-        _queueMessage(querySlpStatusMessage);
-
-        final MessageType messageType = querySlpStatusMessage.getCommand();
-        for (final BitcoinNodeObserver observer : _observers) {
-            observer.onDataRequested(BitcoinNode.this, messageType);
-        }
-    }
-
-    protected void _enableSlpValidityChecking(final Boolean shouldEnableSlpValidityChecking) {
-        if (_synchronizeVersionMessage == null) {
-            Logger.warn("Unable to set SLP validity checking for un-handshaked node: " + this.getRemoteNodeIpAddress());
-            return;
-        }
-
-        final NodeFeatures remoteNodeFeatures = _synchronizeVersionMessage.getNodeFeatures();
-        if (remoteNodeFeatures == null) {
-            Logger.warn("Unable to verify SLP index node feature for node: " + this.getRemoteNodeIpAddress());
-            return;
-        }
-
-        if (remoteNodeFeatures.isFeatureEnabled(NodeFeatures.Feature.SLP_INDEX_ENABLED)) {
-            Logger.debug("Enabling SLP Validity checking for node " + this.getRemoteNodeIpAddress());
-            final EnableSlpTransactionsMessage enableSlpTransactionsMessage = new EnableSlpTransactionsMessage();
-            enableSlpTransactionsMessage.setIsEnabled(shouldEnableSlpValidityChecking);
-
-            _queueMessage(enableSlpTransactionsMessage);
-
-            _slpValidityCheckingIsEnabled = shouldEnableSlpValidityChecking;
-
-            final MessageType messageType = enableSlpTransactionsMessage.getCommand();
-            for (final BitcoinNodeObserver observer : _observers) {
-                observer.onDataRequested(BitcoinNode.this, messageType);
-            }
         }
     }
 
@@ -2035,26 +1914,9 @@ public class BitcoinNode extends Node {
     }
 
     public void transmitTransactionHashes(final List<Sha256Hash> transactionHashes) {
-        final RequestSlpTransactionsHandler requestSlpTransactionsCallback = _requestSlpTransactionsHandler;
-
         final InventoryMessage inventoryMessage = _protocolMessageFactory.newInventoryMessage();
         for (final Sha256Hash transactionHash : transactionHashes) {
-            final InventoryItem inventoryItem;
-            if ( (! _slpTransactionsIsEnabled) || (requestSlpTransactionsCallback == null) ) {
-                inventoryItem = new InventoryItem(InventoryItemType.TRANSACTION, transactionHash);
-            }
-            else {
-                final Boolean isValid = requestSlpTransactionsCallback.getSlpStatus(transactionHash);
-                if (isValid == null) {
-                    inventoryItem = new InventoryItem(InventoryItemType.TRANSACTION, transactionHash);
-                }
-                else if (isValid) {
-                    inventoryItem = new InventoryItem(InventoryItemType.VALID_SLP_TRANSACTION, transactionHash);
-                }
-                else {
-                    inventoryItem = new InventoryItem(InventoryItemType.INVALID_SLP_TRANSACTION, transactionHash);
-                }
-            }
+            final InventoryItem inventoryItem = new InventoryItem(InventoryItemType.TRANSACTION, transactionHash);
             inventoryMessage.addInventoryItem(inventoryItem);
         }
 
@@ -2210,10 +2072,6 @@ public class BitcoinNode extends Node {
         _requestSpvBlocksHandler = requestSpvBlocksCallback;
     }
 
-    public void setRequestSlpTransactionsHandler(final RequestSlpTransactionsHandler requestSlpTransactionsCallback) {
-        _requestSlpTransactionsHandler = requestSlpTransactionsCallback;
-    }
-
     public void setQueryUtxoCommitmentsHandler(final QueryUtxoCommitmentsHandler queryUtxoCommitmentsHandler) {
         _queryUtxoCommitmentsHandler = queryUtxoCommitmentsHandler;
     }
@@ -2289,13 +2147,6 @@ public class BitcoinNode extends Node {
         return (synchronizeVersionMessage.transactionRelayIsEnabled());
     }
 
-    /**
-     * If the remote peer supports SLP validity checking, send an enable SLP transactions message.
-     */
-    public void enableSlpValidityChecking(final Boolean shouldEnableSlpValidityChecking) {
-        _enableSlpValidityChecking(shouldEnableSlpValidityChecking);
-    }
-
     public void queueMessage(final BitcoinProtocolMessage protocolMessage) {
         _queueMessage(protocolMessage);
     }
@@ -2344,31 +2195,6 @@ public class BitcoinNode extends Node {
     public void enableNewBlockViaHeaders() {
         final NewBlocksViaHeadersMessage newBlocksViaHeadersMessage = new NewBlocksViaHeadersMessage();
         _queueMessage(newBlocksViaHeadersMessage);
-    }
-
-    public RequestId getAddressBlocks(final List<Address> addresses) {
-        final RequestId requestId = _newRequestId();
-
-        _requestAddressBlocks(addresses);
-
-        return requestId;
-    }
-
-    public RequestId getAddressBlocks(final List<Address> addresses, final BlockInventoryAnnouncementHandler addressBlocksCallback) {
-        final RequestId requestId = _newRequestId();
-
-        if (addressBlocksCallback != null) {
-            synchronized (_downloadAddressBlocksRequests) {
-                _downloadAddressBlocksRequests.put(requestId, addressBlocksCallback);
-            }
-        }
-
-        _requestAddressBlocks(addresses);
-        return requestId;
-    }
-
-    public void getSlpStatus(final List<Sha256Hash> transactionHashes) {
-        _requestSlpStatus(transactionHashes);
     }
 
     public RequestId requestUtxoCommitments(final UtxoCommitmentsCallback utxoCommitmentsCallback) {

@@ -187,9 +187,11 @@ public class ScriptRunner {
 
             final Boolean segwitRecoveryIsEnabled = _upgradeSchedule.areUnusedValuesAfterSegwitScriptExecutionAllowed(medianBlockTime);
             if (segwitRecoveryIsEnabled) {
-                // NOTE: Contrary to the original specification, Bitcoin ABC's 0.19 behavior does not run P2SH Scripts that match the Segwit format...
                 final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
-                final Boolean unlockingScriptIsSegregatedWitnessProgram = scriptPatternMatcher.matchesSegregatedWitnessProgram(unlockingScript);
+                final Boolean isLegacyPayToScriptHashLockingScript = scriptPatternMatcher.matchesLegacyPayToScriptHashFormat(lockingScript); // https://gitlab.com/0353F40E/p2sh32/-/blob/main/CHIP-2022-05_Pay-to-Script-Hash-32_(P2SH32)_for_Bitcoin_Cash.md#segwit-recovery
+
+                // NOTE: Contrary to the original specification, Bitcoin ABC's 0.19 behavior does not run P2SH Scripts that match the Segwit format...
+                final boolean unlockingScriptIsSegregatedWitnessProgram = (isLegacyPayToScriptHashLockingScript && scriptPatternMatcher.matchesSegregatedWitnessProgram(unlockingScript));
                 shouldRunPayToScriptHashScript = ( payToScriptHashValidationRulesAreEnabled && scriptIsPayToScriptHash && (! unlockingScriptIsSegregatedWitnessProgram) );
             }
             else {

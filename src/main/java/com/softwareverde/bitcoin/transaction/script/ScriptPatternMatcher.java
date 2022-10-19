@@ -19,9 +19,15 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.cryptography.hash.ripemd160.Ripemd160Hash;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 
 public class ScriptPatternMatcher {
+    public enum PayToScriptHashType {
+        RIPEMD_160, SHA_256
+    }
+
     protected static final List<Opcode> PAY_TO_PUBLIC_KEY_PATTERN;
     static {
         final ImmutableListBuilder<Opcode> listBuilder = new ImmutableListBuilder<>(3);
@@ -45,7 +51,7 @@ public class ScriptPatternMatcher {
         PAY_TO_PUBLIC_KEY_HASH_PATTERN = listBuilder.build();
     }
 
-    protected static final List<Opcode> PAY_TO_SCRIPT_HASH_PATTERN;
+    protected static final List<Opcode> PAY_TO_SCRIPT_HASH_PATTERN_LEGACY;
     static {
         final ImmutableListBuilder<Opcode> listBuilder = new ImmutableListBuilder<>(3);
 
@@ -53,7 +59,18 @@ public class ScriptPatternMatcher {
         listBuilder.add(Opcode.PUSH_DATA);
         listBuilder.add(Opcode.IS_EQUAL);
 
-        PAY_TO_SCRIPT_HASH_PATTERN = listBuilder.build();
+        PAY_TO_SCRIPT_HASH_PATTERN_LEGACY = listBuilder.build();
+    }
+
+    protected static final List<Opcode> PAY_TO_SCRIPT_HASH_PATTERN_SHA256;
+    static {
+        final ImmutableListBuilder<Opcode> listBuilder = new ImmutableListBuilder<>(3);
+
+        listBuilder.add(Opcode.DOUBLE_SHA_256);
+        listBuilder.add(Opcode.PUSH_DATA);
+        listBuilder.add(Opcode.IS_EQUAL);
+
+        PAY_TO_SCRIPT_HASH_PATTERN_SHA256 = listBuilder.build();
     }
 
     protected Boolean _matchesPattern(final List<Opcode> pattern, final List<Operation> scriptOperations) {
@@ -99,26 +116,42 @@ public class ScriptPatternMatcher {
         final Operation pushOperation = scriptOperations.get(2);
         if (pushOperation instanceof PushOperation) {
             final int pushedByteCount = ((PushOperation) pushOperation).getValue().getByteCount();
-            if (pushedByteCount != 20) { return false; }
+            if (pushedByteCount != Ripemd160Hash.BYTE_COUNT) { return false; }
         }
         else { return false; }
 
         return true;
     }
 
-    protected Boolean _matchesPayToScriptHashFormat(final Script lockingScript) {
+    protected PayToScriptHashType _getPayToScriptHashType(final List<Operation> scriptOperations) {
+        final boolean matchesLegacyPattern = _matchesPattern(PAY_TO_SCRIPT_HASH_PATTERN_LEGACY, scriptOperations);
+        if (matchesLegacyPattern) {
+            return PayToScriptHashType.RIPEMD_160;
+        }
+
+        final boolean matchesSha256Pattern = _matchesPattern(PAY_TO_SCRIPT_HASH_PATTERN_SHA256, scriptOperations);
+        if (matchesSha256Pattern) {
+            return PayToScriptHashType.SHA_256;
+        }
+
+        return null;
+    }
+
+    protected PayToScriptHashType _matchesPayToScriptHashFormat(final Script lockingScript) {
         final List<Operation> scriptOperations = lockingScript.getOperations();
-        final boolean matchesPattern = _matchesPattern(PAY_TO_SCRIPT_HASH_PATTERN, scriptOperations);
-        if (! matchesPattern) { return false; }
+        final PayToScriptHashType payToScriptHashType = _getPayToScriptHashType(scriptOperations);
+        if (payToScriptHashType == null) { return null; }
 
         final Operation pushOperation = scriptOperations.get(1);
-        if (pushOperation instanceof PushOperation) {
-            final int pushedByteCount = ((PushOperation) pushOperation).getValue().getByteCount();
-            if (pushedByteCount != 20) { return false; }
-        }
-        else { return false; }
+        if (! (pushOperation instanceof PushOperation)) { return null; }
 
-        return true;
+        final Value pushedValue = ((PushOperation) pushOperation).getValue();
+        final int pushedByteCount = pushedValue.getByteCount();
+
+        final boolean isValidByteCount = ( (pushedByteCount == Ripemd160Hash.BYTE_COUNT) || (pushedByteCount == Sha256Hash.BYTE_COUNT) );
+        if (! isValidByteCount) { return null; }
+
+        return payToScriptHashType;
     }
 
     protected PublicKey _extractPublicKeyFromPayToPublicKey(final Script lockingScript) {
@@ -163,10 +196,12 @@ public class ScriptPatternMatcher {
         return addressInflater.fromBytes(Address.Type.P2PKH, bytes, isCompressed);
     }
 
-    protected Address _extractAddressFromPayToScriptHash(final Script lockingScript, final Boolean isCompressed) {
+    protected Address _extractAddressFromPayToScriptHash(final Script lockingScript) {
         final List<Operation> scriptOperations = lockingScript.getOperations();
         if (scriptOperations == null) { return null; }
-        if (scriptOperations.getCount() != PAY_TO_SCRIPT_HASH_PATTERN.getCount()) { return null; }
+
+        final int operationCount = scriptOperations.getCount();
+        if ( (operationCount != PAY_TO_SCRIPT_HASH_PATTERN_LEGACY.getCount()) && (operationCount != PAY_TO_SCRIPT_HASH_PATTERN_SHA256.getCount()) ) { return null; }
 
         final Operation operation = scriptOperations.get(1);
         if (! (operation instanceof PushOperation)) {
@@ -177,7 +212,7 @@ public class ScriptPatternMatcher {
         final ByteArray bytes = MutableByteArray.wrap(pushOperation.getValue().getBytes());
 
         final AddressInflater addressInflater = new AddressInflater();
-        return addressInflater.fromBytes(Address.Type.P2SH, bytes, isCompressed);
+        return addressInflater.fromBytes(Address.Type.P2SH, bytes, false);
     }
 
     protected Address _extractAddress(final ScriptType scriptType, final LockingScript lockingScript) {
@@ -193,7 +228,7 @@ public class ScriptPatternMatcher {
                 } break;
 
                 case PAY_TO_SCRIPT_HASH: {
-                    address = _extractAddressFromPayToScriptHash(lockingScript, false);
+                    address = _extractAddressFromPayToScriptHash(lockingScript);
                 } break;
 
                 default: {
@@ -210,7 +245,7 @@ public class ScriptPatternMatcher {
             return ScriptType.PAY_TO_PUBLIC_KEY_HASH;
         }
 
-        final Boolean isPayToScriptHash = _matchesPayToScriptHashFormat(lockingScript);
+        final boolean isPayToScriptHash = (_matchesPayToScriptHashFormat(lockingScript) != null);
         if (isPayToScriptHash) {
             return ScriptType.PAY_TO_SCRIPT_HASH;
         }
@@ -320,15 +355,27 @@ public class ScriptPatternMatcher {
     }
 
     public Address extractAddressFromPayToScriptHash(final LockingScript lockingScript) {
-        return _extractAddressFromPayToScriptHash(lockingScript, false);
+        return _extractAddressFromPayToScriptHash(lockingScript);
     }
 
     /**
      * Returns true if the provided script matches the Pay-To-Script-Hash (P2SH) script format.
-     *  The P2SH format is: HASH160 <20-byte redeem-script-hash> EQUAL
+     *  The P2SH format has two possible formats:
+     *      HASH160 <20-byte redeem-script-hash> EQUAL
+     *      HASH256 <32-byte redeem-script-hash> EQUAL
      */
     public Boolean matchesPayToScriptHashFormat(final LockingScript lockingScript) {
-        return _matchesPayToScriptHashFormat(lockingScript);
+        final PayToScriptHashType payToScriptHashType = _matchesPayToScriptHashFormat(lockingScript);
+        return (payToScriptHashType != null);
+    }
+
+    /**
+     * Returns true iff the provided script matches the RIPMD-160 (Legacy) version of the Pay-To-Script-Hash (P2SH) script format.
+     *  The Legacy P2SH format is: HASH160 <20-byte redeem-script-hash> EQUAL
+     */
+    public Boolean matchesLegacyPayToScriptHashFormat(final LockingScript lockingScript) {
+        final PayToScriptHashType payToScriptHashType = _matchesPayToScriptHashFormat(lockingScript);
+        return (payToScriptHashType == PayToScriptHashType.RIPEMD_160);
     }
 
     public ScriptType getScriptType(final LockingScript lockingScript) {

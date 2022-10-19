@@ -3,6 +3,8 @@ package com.softwareverde.bitcoin.address;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.ImmutableByteArray;
+import com.softwareverde.cryptography.hash.ripemd160.Ripemd160Hash;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.util.HashUtil;
 import com.softwareverde.util.Base32Util;
 import com.softwareverde.util.ByteUtil;
@@ -37,10 +39,18 @@ public class Address extends ImmutableByteArray {
         }
     }
 
-    public static final Integer BYTE_COUNT = 20;
     public static final String BASE_32_BCH_LABEL = "bitcoincash";
     public static final String BASE_32_SLP_LABEL = "simpleledger";
     public static final String BASE_32_TESTNET_BCH_LABEL = "bchtest";
+
+    public static final Integer BYTE_COUNT_RIPE_MD = Ripemd160Hash.BYTE_COUNT;
+    public static final Integer BYTE_COUNT_SHA_256 = Sha256Hash.BYTE_COUNT;
+
+    public static Boolean isValidByteCount(final ByteArray byteArray) {
+        if (byteArray == null) { return false; }
+        final int byteCount = byteArray.getByteCount();
+        return (byteCount == 20 || byteCount == 32);
+    }
 
     protected static final Integer PREFIX_BYTE_COUNT = 1;
     protected static final Integer CHECKSUM_BYTE_COUNT = 4;
