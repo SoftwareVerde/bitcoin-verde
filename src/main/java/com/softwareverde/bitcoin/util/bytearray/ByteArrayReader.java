@@ -9,6 +9,29 @@ public class ByteArrayReader extends com.softwareverde.util.bytearray.ByteArrayR
         public final long value;
         public final int bytesConsumedCount;
 
+        public Boolean isCanonical() {
+            // (Below ranges are inclusive)
+            // 0-252: 1 byte                        (>   0x00000000000000FD)
+            // 253-65535: prefix + 2 bytes          (>   0x0000000000010000)
+            // 65536-4294967295: prefix + 4 bytes   (>   0x0000000100000000)
+            // 4294967296+: prefix + 8 bytes        (> 0x010000000000000000)
+
+            if (this.value < 0xFD) {
+                return (this.bytesConsumedCount == 1);
+            }
+
+            final int valueByteCount = (this.bytesConsumedCount - 1);
+            if (valueByteCount == 2) {
+                return (this.value >= 0xFDL);
+            }
+            else if (valueByteCount == 4) {
+                return (this.value > 0xFFFFL);
+            }
+            else {
+                return (this.value > 0xFFFFFFFFL);
+            }
+        }
+
         public CompactVariableLengthInteger(final long value, final int byteCount) {
             this.value = value;
             this.bytesConsumedCount = byteCount;
@@ -55,12 +78,6 @@ public class ByteArrayReader extends com.softwareverde.util.bytearray.ByteArrayR
         super(byteArray);
     }
 
-    // For compatibility with libraries built against older versions of bitcoin-verde
-    @Deprecated
-    public Long readVariableSizedInteger() {
-        return readVariableLengthInteger();
-    }
-
     public Long readVariableLengthInteger() {
         final CompactVariableLengthInteger variableLengthInteger = ByteArrayReader.peakVariableLengthInteger(this);
         _index += variableLengthInteger.bytesConsumedCount;
@@ -69,12 +86,6 @@ public class ByteArrayReader extends com.softwareverde.util.bytearray.ByteArrayR
 
     public CompactVariableLengthInteger peakVariableLengthInteger() {
         return ByteArrayReader.peakVariableLengthInteger(this);
-    }
-
-    // For compatibility with projects libraries built against older versions of bitcoin-verde
-    @Deprecated
-    public String readVariableSizedString() {
-        return readVariableLengthString();
     }
 
     public String readVariableLengthString() {
