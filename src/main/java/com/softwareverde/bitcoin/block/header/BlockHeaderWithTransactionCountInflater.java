@@ -1,14 +1,19 @@
 package com.softwareverde.bitcoin.block.header;
 
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 
 public class BlockHeaderWithTransactionCountInflater extends BlockHeaderInflater {
     @Override
     protected MutableBlockHeaderWithTransactionCount _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
         final MutableBlockHeader blockHeader = super._fromByteArrayReader(byteArrayReader);
-        final Integer transactionCount = byteArrayReader.readVariableLengthInteger().intValue();
-        return new MutableBlockHeaderWithTransactionCount(blockHeader, transactionCount);
+        if (blockHeader == null) { return null; }
+
+        final CompactVariableLengthInteger transactionCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
+        if (! transactionCount.isCanonical()) { return null; }
+
+        return new MutableBlockHeaderWithTransactionCount(blockHeader, transactionCount.intValue());
     }
 
     @Override

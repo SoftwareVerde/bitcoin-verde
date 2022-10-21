@@ -1,24 +1,26 @@
 package com.softwareverde.bitcoin.bloomfilter;
 
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
 
 public class BloomFilterInflater {
     public static final Integer MAX_BYTE_COUNT = (32 * 1024 * 1024);
 
     protected MutableBloomFilter _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
-        final int bloomFilterByteCount = byteArrayReader.readVariableLengthInteger().intValue();
-        if (bloomFilterByteCount > MAX_BYTE_COUNT) { return null; }
+        final CompactVariableLengthInteger bloomFilterByteCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
+        if (! bloomFilterByteCount.isCanonical()) { return null; }
+        if (bloomFilterByteCount.value > MAX_BYTE_COUNT) { return null; }
 
-        final int bloomFilterBitCount = (bloomFilterByteCount * 8);
-        final ByteArray bytes = MutableByteArray.wrap(byteArrayReader.readBytes(bloomFilterByteCount, Endian.BIG));
+        final int bloomFilterBitCount = (bloomFilterByteCount.intValue() * 8);
+        final ByteArray bytes = MutableByteArray.wrap(byteArrayReader.readBytes(bloomFilterByteCount.intValue(), Endian.BIG));
         final Integer hashFunctionCount = byteArrayReader.readInteger(4, Endian.LITTLE);
         final Long nonce = byteArrayReader.readLong(4, Endian.LITTLE);
 
-        final MutableByteArray bloomFilterBytes = new MutableByteArray(bloomFilterByteCount);
+        final MutableByteArray bloomFilterBytes = new MutableByteArray(bloomFilterByteCount.intValue());
         for (int i = 0; i < bloomFilterBitCount; ++i) {
             final int bitcoinBloomFilterIndex = ( (i & 0x7FFFFFF8) + ((~i) & 0x00000007) ); // Aka: ( ((i / 8) * 8) + (7 - (i % 8)) )
             final boolean bit = bytes.getBit(i);

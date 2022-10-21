@@ -27,46 +27,46 @@ public class ByteArrayReaderTests extends UnitTest {
         //                                             FEDCBA9876543210
 
         // 1 Byte
-        Assert.assertTrue((new ByteArrayReader.CompactVariableLengthInteger(0, 1)).isCanonical());
-        Assert.assertTrue((new ByteArrayReader.CompactVariableLengthInteger(252, 1)).isCanonical());
+        Assert.assertTrue((new CompactVariableLengthInteger(0, 1)).isCanonical());
+        Assert.assertTrue((new CompactVariableLengthInteger(252, 1)).isCanonical());
 
-        Assert.assertFalse((new ByteArrayReader.CompactVariableLengthInteger(0, 3)).isCanonical());
-        Assert.assertFalse((new ByteArrayReader.CompactVariableLengthInteger(0, 5)).isCanonical());
-        Assert.assertFalse((new ByteArrayReader.CompactVariableLengthInteger(0, 9)).isCanonical());
+        Assert.assertFalse((new CompactVariableLengthInteger(0, 3)).isCanonical());
+        Assert.assertFalse((new CompactVariableLengthInteger(0, 5)).isCanonical());
+        Assert.assertFalse((new CompactVariableLengthInteger(0, 9)).isCanonical());
 
         // 3 Bytes
-        Assert.assertTrue((new ByteArrayReader.CompactVariableLengthInteger(253, 3)).isCanonical());
-        Assert.assertTrue((new ByteArrayReader.CompactVariableLengthInteger(254, 3)).isCanonical());
-        Assert.assertTrue((new ByteArrayReader.CompactVariableLengthInteger(255, 3)).isCanonical());
-        Assert.assertTrue((new ByteArrayReader.CompactVariableLengthInteger(256, 3)).isCanonical());
-        Assert.assertTrue((new ByteArrayReader.CompactVariableLengthInteger(257, 3)).isCanonical());
-        Assert.assertTrue((new ByteArrayReader.CompactVariableLengthInteger(65535, 3)).isCanonical());
+        Assert.assertTrue((new CompactVariableLengthInteger(253, 3)).isCanonical());
+        Assert.assertTrue((new CompactVariableLengthInteger(254, 3)).isCanonical());
+        Assert.assertTrue((new CompactVariableLengthInteger(255, 3)).isCanonical());
+        Assert.assertTrue((new CompactVariableLengthInteger(256, 3)).isCanonical());
+        Assert.assertTrue((new CompactVariableLengthInteger(257, 3)).isCanonical());
+        Assert.assertTrue((new CompactVariableLengthInteger(65535, 3)).isCanonical());
 
 
-        Assert.assertFalse((new ByteArrayReader.CompactVariableLengthInteger(253, 5)).isCanonical());
-        Assert.assertFalse((new ByteArrayReader.CompactVariableLengthInteger(253, 9)).isCanonical());
-        Assert.assertFalse((new ByteArrayReader.CompactVariableLengthInteger(254, 5)).isCanonical());
-        Assert.assertFalse((new ByteArrayReader.CompactVariableLengthInteger(254, 9)).isCanonical());
-        Assert.assertFalse((new ByteArrayReader.CompactVariableLengthInteger(255, 5)).isCanonical());
-        Assert.assertFalse((new ByteArrayReader.CompactVariableLengthInteger(255, 9)).isCanonical());
-        Assert.assertFalse((new ByteArrayReader.CompactVariableLengthInteger(256, 5)).isCanonical());
-        Assert.assertFalse((new ByteArrayReader.CompactVariableLengthInteger(256, 9)).isCanonical());
-        Assert.assertFalse((new ByteArrayReader.CompactVariableLengthInteger(257, 5)).isCanonical());
-        Assert.assertFalse((new ByteArrayReader.CompactVariableLengthInteger(257, 9)).isCanonical());
-        Assert.assertFalse((new ByteArrayReader.CompactVariableLengthInteger(65535, 5)).isCanonical());
-        Assert.assertFalse((new ByteArrayReader.CompactVariableLengthInteger(65535, 9)).isCanonical());
+        Assert.assertFalse((new CompactVariableLengthInteger(253, 5)).isCanonical());
+        Assert.assertFalse((new CompactVariableLengthInteger(253, 9)).isCanonical());
+        Assert.assertFalse((new CompactVariableLengthInteger(254, 5)).isCanonical());
+        Assert.assertFalse((new CompactVariableLengthInteger(254, 9)).isCanonical());
+        Assert.assertFalse((new CompactVariableLengthInteger(255, 5)).isCanonical());
+        Assert.assertFalse((new CompactVariableLengthInteger(255, 9)).isCanonical());
+        Assert.assertFalse((new CompactVariableLengthInteger(256, 5)).isCanonical());
+        Assert.assertFalse((new CompactVariableLengthInteger(256, 9)).isCanonical());
+        Assert.assertFalse((new CompactVariableLengthInteger(257, 5)).isCanonical());
+        Assert.assertFalse((new CompactVariableLengthInteger(257, 9)).isCanonical());
+        Assert.assertFalse((new CompactVariableLengthInteger(65535, 5)).isCanonical());
+        Assert.assertFalse((new CompactVariableLengthInteger(65535, 9)).isCanonical());
 
         // 5 Bytes
-        Assert.assertTrue((new ByteArrayReader.CompactVariableLengthInteger(65536, 5)).isCanonical());
-        Assert.assertTrue((new ByteArrayReader.CompactVariableLengthInteger(65537, 5)).isCanonical());
-        Assert.assertTrue((new ByteArrayReader.CompactVariableLengthInteger(4294967295L, 5)).isCanonical());
+        Assert.assertTrue((new CompactVariableLengthInteger(65536, 5)).isCanonical());
+        Assert.assertTrue((new CompactVariableLengthInteger(65537, 5)).isCanonical());
+        Assert.assertTrue((new CompactVariableLengthInteger(4294967295L, 5)).isCanonical());
 
-        Assert.assertFalse((new ByteArrayReader.CompactVariableLengthInteger(65536, 9)).isCanonical());
-        Assert.assertFalse((new ByteArrayReader.CompactVariableLengthInteger(65537, 9)).isCanonical());
-        Assert.assertFalse((new ByteArrayReader.CompactVariableLengthInteger(4294967295L, 9)).isCanonical());
+        Assert.assertFalse((new CompactVariableLengthInteger(65536, 9)).isCanonical());
+        Assert.assertFalse((new CompactVariableLengthInteger(65537, 9)).isCanonical());
+        Assert.assertFalse((new CompactVariableLengthInteger(4294967295L, 9)).isCanonical());
 
         // 9 Bytes
-        Assert.assertTrue((new ByteArrayReader.CompactVariableLengthInteger(4294967296L, 9)).isCanonical());
-        Assert.assertTrue((new ByteArrayReader.CompactVariableLengthInteger(Long.MAX_VALUE, 9)).isCanonical());
+        Assert.assertTrue((new CompactVariableLengthInteger(4294967296L, 9)).isCanonical());
+        Assert.assertTrue((new CompactVariableLengthInteger(Long.MAX_VALUE, 9)).isCanonical());
     }
 }

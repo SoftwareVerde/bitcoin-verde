@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.utxo;
 
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -16,10 +17,11 @@ public class CommittedUnspentTransactionOutputInflater {
         final ByteArray outputIndexBytes = ByteArray.wrap(byteArrayReader.readBytes(4, Endian.LITTLE));
         final MutableByteArray blockHeightAndIsCoinbaseBytes = MutableByteArray.wrap(byteArrayReader.readBytes(4, Endian.LITTLE));
         final ByteArray amountBytes = ByteArray.wrap(byteArrayReader.readBytes(8, Endian.LITTLE));
-        final Long lockingScriptByteCount = ByteUtil.readVariableLengthInteger(byteArrayReader);
+        final CompactVariableLengthInteger lockingScriptByteCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
+        if (! lockingScriptByteCount.isCanonical()) { return null; }
 
-        if (lockingScriptByteCount > LockingScript.MAX_SPENDABLE_SCRIPT_BYTE_COUNT) { return null; }
-        if (lockingScriptByteCount < 0L) { return null; }
+        if (lockingScriptByteCount.value > LockingScript.MAX_SPENDABLE_SCRIPT_BYTE_COUNT) { return null; }
+        if (lockingScriptByteCount.value < 0L) { return null; }
 
         final ByteArray lockingScriptBytes = ByteArray.wrap(byteArrayReader.readBytes(lockingScriptByteCount.intValue()));
 

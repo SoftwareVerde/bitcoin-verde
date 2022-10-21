@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.util;
 
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.ByteArray;
 
 import java.math.BigInteger;
@@ -82,11 +81,5 @@ public class ByteUtil extends com.softwareverde.util.ByteUtil {
 
     public static BigInteger bytesToBigIntegerUnsigned(final byte[] bytes) {
         return new BigInteger(1, bytes);
-    }
-
-    public static Long readVariableLengthInteger(final com.softwareverde.util.bytearray.ByteArrayReader byteArrayReader) {
-        final ByteArrayReader.CompactVariableLengthInteger compactVariableLengthInteger = ByteArrayReader.peakVariableLengthInteger(byteArrayReader);
-        byteArrayReader.skipBytes(compactVariableLengthInteger.bytesConsumedCount);
-        return compactVariableLengthInteger.value;
     }
 }

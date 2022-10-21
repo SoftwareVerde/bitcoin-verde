@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
@@ -16,7 +17,7 @@ public class ErrorMessage extends BitcoinProtocolMessage {
 
         public static RejectMessageType fromString(final String string) {
             for (final RejectMessageType rejectMessageType : RejectMessageType.values()) {
-                if (rejectMessageType._value.equals(string)) {
+                if (Util.areEqual(rejectMessageType._value, string)) {
                     return rejectMessageType;
                 }
             }

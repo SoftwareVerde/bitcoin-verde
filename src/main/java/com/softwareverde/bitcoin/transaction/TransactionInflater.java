@@ -9,10 +9,11 @@ import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputInflater;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
 
 public class TransactionInflater {
@@ -24,8 +25,10 @@ public class TransactionInflater {
         transaction._version = byteArrayReader.readLong(4, Endian.LITTLE);
 
         final TransactionInputInflater transactionInputInflater = new TransactionInputInflater();
-        final Long transactionInputCount = byteArrayReader.readVariableLengthInteger();
-        for (int i = 0; i < transactionInputCount; ++i) {
+        final CompactVariableLengthInteger transactionInputCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
+        if (! transactionInputCount.isCanonical()) { return null; }
+
+        for (int i = 0; i < transactionInputCount.value; ++i) {
             if (byteArrayReader.remainingByteCount() < 1) { return null; }
             final MutableTransactionInput transactionInput = transactionInputInflater.fromBytes(byteArrayReader);
             if (transactionInput == null) { return null; }
@@ -33,8 +36,9 @@ public class TransactionInflater {
         }
 
         final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
-        final Long transactionOutputCount = byteArrayReader.readVariableLengthInteger();
-        for (int i = 0; i < transactionOutputCount; ++i) {
+        final CompactVariableLengthInteger transactionOutputCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
+        if (! transactionOutputCount.isCanonical()) { return null; }
+        for (int i = 0; i < transactionOutputCount.value; ++i) {
             if (byteArrayReader.remainingByteCount() < 1) { return null; }
             final MutableTransactionOutput transactionOutput = transactionOutputInflater.fromBytes(i, byteArrayReader);
             if (transactionOutput == null) { return null; }
@@ -65,7 +69,7 @@ public class TransactionInflater {
         System.out.println("Version: " + HexUtil.toHexString(byteArrayReader.readBytes(4)));
 
         {
-            final ByteArrayReader.CompactVariableLengthInteger inputCount = byteArrayReader.peakVariableLengthInteger();
+            final CompactVariableLengthInteger inputCount = CompactVariableLengthInteger.peakVariableLengthInteger(byteArrayReader);
             System.out.println("Tx Input Count: " + HexUtil.toHexString(byteArrayReader.readBytes(inputCount.bytesConsumedCount)));
 
             final TransactionInputInflater transactionInputInflater = new TransactionInputInflater();
@@ -75,7 +79,7 @@ public class TransactionInflater {
         }
 
         {
-            final ByteArrayReader.CompactVariableLengthInteger outputCount = byteArrayReader.peakVariableLengthInteger();
+            final CompactVariableLengthInteger outputCount = CompactVariableLengthInteger.peakVariableLengthInteger(byteArrayReader);
             System.out.println("Tx Output Count: " + HexUtil.toHexString(byteArrayReader.readBytes(outputCount.bytesConsumedCount)));
             final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
             for (int i = 0; i < outputCount.value; ++i) {

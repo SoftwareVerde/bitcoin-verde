@@ -8,8 +8,9 @@ import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.server.message.type.query.header.RequestBlockHeadersMessage;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 
 public class BlockHeadersMessageInflater extends BitcoinProtocolMessageInflater {
 
@@ -27,19 +28,20 @@ public class BlockHeadersMessageInflater extends BitcoinProtocolMessageInflater 
         final BitcoinProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, MessageType.BLOCK_HEADERS);
         if (protocolMessageHeader == null) { return null; }
 
-        final int blockHeaderCount = byteArrayReader.readVariableLengthInteger().intValue();
-        if (blockHeaderCount > RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT) {
+        final CompactVariableLengthInteger blockHeaderCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
+        if (! blockHeaderCount.isCanonical()) { return null; }
+        if (blockHeaderCount.value > RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT) {
             Logger.debug("Block Header Count Exceeded: " + blockHeaderCount);
             return null;
         }
 
-        final Integer bytesRequired = ( blockHeaderCount * (BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT + 1) );
+        final Integer bytesRequired = ( blockHeaderCount.intValue() * (BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT + 1) );
         if (byteArrayReader.remainingByteCount() < bytesRequired) { return null; }
 
         final BlockHeaderWithTransactionCountInflater blockHeaderInflater = _blockHeaderInflaters.getBlockHeaderWithTransactionCountInflater();
 
         // NOTE: The BlockHeaders message always appends a zero variable-sized-integer to represent the TransactionCount.
-        for (int i = 0; i < blockHeaderCount; ++i) {
+        for (int i = 0; i < blockHeaderCount.value; ++i) {
             final BlockHeader blockHeader = blockHeaderInflater.fromBytes(byteArrayReader);
             if (blockHeader == null) { return null; }
 

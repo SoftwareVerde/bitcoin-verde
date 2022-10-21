@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.transaction.input;
 
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 
 /**
  * Is functionally the same as a regular TransactionInputInflater, however additional checks are in place to assert

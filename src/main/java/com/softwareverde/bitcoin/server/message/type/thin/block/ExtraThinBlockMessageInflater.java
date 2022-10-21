@@ -10,10 +10,11 @@ import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHea
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
 
 public class ExtraThinBlockMessageInflater extends BitcoinProtocolMessageInflater {
@@ -37,22 +38,24 @@ public class ExtraThinBlockMessageInflater extends BitcoinProtocolMessageInflate
         final BlockHeader blockHeader = blockHeaderInflater.fromBytes(byteArrayReader);
         extraThinBlockMessage.setBlockHeader(blockHeader);
 
-        final int transactionCount = byteArrayReader.readVariableLengthInteger().intValue();
-        if (transactionCount > BitcoinConstants.getMaxTransactionCountPerBlock()) { return null; }
+        final CompactVariableLengthInteger transactionCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
+        if (! transactionCount.isCanonical()) { return null; }
+        if (transactionCount.intValue() > BitcoinConstants.getMaxTransactionCountPerBlock()) { return null; }
 
-        final ImmutableListBuilder<ByteArray> transactionShortHashesListBuilder = new ImmutableListBuilder<>(transactionCount);
-        for (int i = 0; i < transactionCount; ++i) {
+        final ImmutableListBuilder<ByteArray> transactionShortHashesListBuilder = new ImmutableListBuilder<>(transactionCount.intValue());
+        for (int i = 0; i < transactionCount.intValue(); ++i) {
             final ByteArray transactionShortHash = MutableByteArray.wrap(byteArrayReader.readBytes(4, Endian.LITTLE));
             transactionShortHashesListBuilder.add(transactionShortHash);
         }
         extraThinBlockMessage.setTransactionHashes(transactionShortHashesListBuilder.build());
 
-        final int missingTransactionCount = byteArrayReader.readVariableLengthInteger().intValue();
-        if (missingTransactionCount > transactionCount) { return null; }
+        final CompactVariableLengthInteger missingTransactionCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
+        if (! missingTransactionCount.isCanonical()) { return null; }
+        if (missingTransactionCount.intValue() > transactionCount.intValue()) { return null; }
 
         final TransactionInflater transactionInflater = _transactionInflaters.getTransactionInflater();
-        final ImmutableListBuilder<Transaction> missingTransactionsListBuilder = new ImmutableListBuilder<>(missingTransactionCount);
-        for (int i = 0; i < missingTransactionCount; ++i) {
+        final ImmutableListBuilder<Transaction> missingTransactionsListBuilder = new ImmutableListBuilder<>(missingTransactionCount.intValue());
+        for (int i = 0; i < missingTransactionCount.intValue(); ++i) {
             final Transaction transaction = transactionInflater.fromBytes(byteArrayReader);
             if (transaction == null) { return null; }
             missingTransactionsListBuilder.add(transaction);
