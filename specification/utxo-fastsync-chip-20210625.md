@@ -213,11 +213,11 @@ Peers with incompatible bucket definitions ignore the commitment breakdown after
 The current convention recommends 128 buckets; using a different convention could render snapshots incompatible between implementations.
 
 Each UTXO is placed in its canonical bucket by taking the first 7 bits of the first byte of a single Sha256 hash of the following preimage, and interpreting the resulting bits as an integer index:
-1. the commitment's block hash**, as little endian
+1. the commitment's prevoius block hash**, as little endian
 2. the UTXO's transaction hash, as little endian
 3. the UTXO's output index, as a 4-byte integer, little endian
 
-** The commitment's block hash is included in the bucket-index calculation in order to mitigate malicious crafting of outputs that could render buckets disproportionately sized.
+** The commitment's previous block hash is included in the bucket-index calculation in order to mitigate malicious crafting of outputs that could render buckets disproportionately sized. While the current block hash that the commitment advertises for could have been chosen, technically speaking the commitment itself is committing to the blockchain's state as of previous block hash, and as such, generation of the buckets should use the previous block hash. Additionally, the choice to use the previous block hash here opens up the possibility that some hypothetical future software may calculate UTXO buckets for the next block in real-time, as it waits 10 minutes the next block's creation.
 
 Pseudocode implementation, where `|` indicates concatenation and `Sha256` returns a single SHA-256 hash as big-endian:
 ```
@@ -258,9 +258,7 @@ It is possible that two blocks on the same blockchain will result in the same UT
 this duplicate snapshot will have the same public key and the same contents as its other.
 
 In this scenario, while the combined contents will be the same, the sub-buckets themselves will be different and have different public keys.
-The buckets will have different public keys since the block hash is included in the bucket-index calculation for each UTXO;
-therefore, despite having the same overall set of UTXOs, the UTXOs will reside in different buckets.
-Since files are requested by bucket public key, there is no ambiguity between them when requesting files.
+The buckets will have different public keys since the previous block hash is included in the bucket-index calculation for each UTXO (bearing in mind that each UTXO actually is all of the UTXOs that were confirmed up to and including this previous block hash); therefore, despite having the same overall set of UTXOs, the UTXOs will reside in different buckets. Since files are requested by bucket public key, there is no ambiguity between them when requesting files.
 
 ## Specification
 
@@ -507,13 +505,13 @@ Those incentivized to run a node that serves UTXO snapshots should include anyon
 
 ## Q &amp; A
 
-**Q**: Why is the bucket index tied to the block hash?
+**Q**: Why is the bucket index tied to the previous block hash?
 Couldn't this cause problems if two blocks have the same UTXO set?
 
 **A**: The bucket index is only used for breaking down the commitments into smaller P2P buckets for download, so it has no connection to future UTXO commitments or the snapshot's identifier/hash/public-key and has no connection to future consensus;
 in fact, the design could be completely changed in the future without forking.
 If other implementations decided to use a different bucket-indexing formula then the only consequence would be that the two implementation's wouldn't be able to download the other's snapshot (but the commitment public key would be the same).
-The reason the block hash is included is because it eliminates the ability for an attacker to force one bucket to contain a disproportionate number of utxos by grinding their transaction hash.
+The reason the previous block hash is included is because it eliminates the ability for an attacker to force one bucket to contain a disproportionate number of utxos by grinding their transaction hash.  Remember: the utxo set being download actually is for all of the UTXOs that existed as of the previous block hash (including transactions in the previous block itself), so it would be impossible for an attacker to skew the buckets in any way if this hash is included.
 
 **Q**: What happens if the node switches chains right on a UTXO snapshot block?
 
