@@ -213,7 +213,7 @@ Peers with incompatible bucket definitions ignore the commitment breakdown after
 The current convention recommends 128 buckets; using a different convention could render snapshots incompatible between implementations.
 
 Each UTXO is placed in its canonical bucket by taking the first 7 bits of the first byte of a single Sha256 hash of the following preimage, and interpreting the resulting bits as an integer index:
-1. the commitment's prevoius block hash**, as little endian
+1. the commitment's previous block hash**, as little endian
 2. the UTXO's transaction hash, as little endian
 3. the UTXO's output index, as a 4-byte integer, little endian
 
