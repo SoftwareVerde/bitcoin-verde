@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.transaction.output;
 
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.token.CashToken;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.Util;
@@ -10,6 +11,7 @@ public class MutableTransactionOutput implements TransactionOutput {
     protected Long _amount = 0L;
     protected Integer _index = 0;
     protected LockingScript _lockingScript = LockingScript.EMPTY_SCRIPT;
+    protected CashToken _cashToken = null;
 
     protected Integer _cachedHashCode = null;
 
@@ -40,6 +42,15 @@ public class MutableTransactionOutput implements TransactionOutput {
 
     @Override
     public LockingScript getLockingScript() { return _lockingScript; }
+
+    @Override
+    public CashToken getCashToken() {
+        return _cashToken;
+    }
+
+    public void setCashToken(final CashToken cashToken) {
+        _cashToken = cashToken;
+    }
 
     public void setLockingScript(final LockingScript lockingScript) {
         _lockingScript = lockingScript.asConst();
@@ -82,6 +93,7 @@ public class MutableTransactionOutput implements TransactionOutput {
         if (! Util.areEqual(_amount, transactionOutput.getAmount())) { return false; }
         if (! Util.areEqual(_index, transactionOutput.getIndex())) { return false; }
         if (! Util.areEqual(_lockingScript, transactionOutput.getLockingScript())) { return false; }
+        if (! Util.areEqual(_cashToken, transactionOutput.getCashToken())) { return false; }
         return true;
     }
 }

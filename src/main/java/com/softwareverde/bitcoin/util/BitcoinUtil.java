@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.util;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.secp256k1.signature.BitcoinMessageSignature;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.Secp256k1;
@@ -28,7 +29,7 @@ public class BitcoinUtil {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendByte((byte) (preambleBytes.length & 0xFF));
         byteArrayBuilder.appendBytes(preambleBytes);
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(messageBytes.length));
+        byteArrayBuilder.appendBytes(CompactVariableLengthInteger.variableLengthIntegerToBytes(messageBytes.length));
         byteArrayBuilder.appendBytes(messageBytes);
         return HashUtil.doubleSha256(MutableByteArray.wrap(byteArrayBuilder.build()));
     }

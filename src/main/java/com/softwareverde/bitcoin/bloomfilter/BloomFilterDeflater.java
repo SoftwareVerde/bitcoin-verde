@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.bloomfilter;
 
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
@@ -17,7 +18,7 @@ public class BloomFilterDeflater {
         final byte updateMode = bloomFilter.getUpdateMode();
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(bloomFilterByteCount));
+        byteArrayBuilder.appendBytes(CompactVariableLengthInteger.variableLengthIntegerToBytes(bloomFilterByteCount));
 
         {
             final MutableByteArray littleEndianBytes = new MutableByteArray(bloomFilterByteCount);
@@ -40,8 +41,8 @@ public class BloomFilterDeflater {
 
     public Integer getByteCount(final BloomFilter bloomFilter) {
         final int bloomFilterByteCount = bloomFilter.getByteCount();
-        final byte[] bloomFilterByteCountBytes = ByteUtil.variableLengthIntegerToBytes(bloomFilterByteCount);
+        final ByteArray bloomFilterByteCountBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(bloomFilterByteCount);
 
-        return (bloomFilterByteCountBytes.length + 4 + 4 + 1 + bloomFilterByteCount);
+        return (bloomFilterByteCountBytes.getByteCount() + 4 + 4 + 1 + bloomFilterByteCount);
     }
 }

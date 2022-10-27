@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.message.type.node.address;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -40,7 +41,7 @@ public class BitcoinNodeIpAddressMessage extends BitcoinProtocolMessage implemen
         final int networkAddressByteCount = BitcoinNodeIpAddress.BYTE_COUNT_WITH_TIMESTAMP;
         final int networkAddressCount = _nodeIpAddresses.getCount();
 
-        final byte[] addressCountBytes = ByteUtil.variableLengthIntegerToBytes(networkAddressCount);
+        final ByteArray addressCountBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(networkAddressCount);
         final byte[] networkAddressesBytes = new byte[networkAddressCount * networkAddressByteCount];
 
         int addressesByteCount = 0;
@@ -68,7 +69,7 @@ public class BitcoinNodeIpAddressMessage extends BitcoinProtocolMessage implemen
         final int networkAddressByteCount = BitcoinNodeIpAddress.BYTE_COUNT_WITH_TIMESTAMP;
         final int networkAddressCount = _nodeIpAddresses.getCount();
 
-        final byte[] addressCountBytes = ByteUtil.variableLengthIntegerToBytes(networkAddressCount);
-        return (addressCountBytes.length + (networkAddressCount * networkAddressByteCount));
+        final ByteArray addressCountBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(networkAddressCount);
+        return (addressCountBytes.getByteCount() + (networkAddressCount * networkAddressByteCount));
     }
 }

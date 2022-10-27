@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.transaction.output;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.token.CashToken;
 import com.softwareverde.constable.Constable;
 import com.softwareverde.json.Jsonable;
 
@@ -18,6 +19,7 @@ public interface TransactionOutput extends Constable<ImmutableTransactionOutput>
     Long getAmount();
     Integer getIndex();
     LockingScript getLockingScript();
+    CashToken getCashToken();
 
     @Override
     ImmutableTransactionOutput asConst();

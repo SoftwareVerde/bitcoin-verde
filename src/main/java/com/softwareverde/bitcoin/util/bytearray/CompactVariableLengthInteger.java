@@ -1,10 +1,58 @@
 package com.softwareverde.bitcoin.util.bytearray;
 
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 
 public class CompactVariableLengthInteger {
+    public static ByteArray variableLengthIntegerToBytes(final long value) {
+        final byte[] bytes = ByteUtil.longToBytes(value);
+
+        if (value < 0xFDL) {
+            return MutableByteArray.wrap(new byte[] { bytes[7] });
+        }
+        else if (value <= 0xFFFFL) {
+            return MutableByteArray.wrap(new byte[] {
+                (byte) 0xFD,
+                bytes[7],
+                bytes[6]
+            });
+        }
+        else if (value <= 0xFFFFFFFFL) {
+            return MutableByteArray.wrap(new byte[] {
+                (byte) 0xFE,
+                bytes[7],
+                bytes[6],
+                bytes[5],
+                bytes[4]
+            });
+        }
+        else {
+            return MutableByteArray.wrap(new byte[] {
+                (byte) 0xFF,
+                bytes[7],
+                bytes[6],
+                bytes[5],
+                bytes[4],
+                bytes[3],
+                bytes[2],
+                bytes[1],
+                bytes[0]
+            });
+        }
+    }
+
+    public static ByteArray variableLengthStringToBytes(final String variableLengthString) {
+        final int stringLength = variableLengthString.length();
+        final ByteArray variableLengthIntegerBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(stringLength);
+        final MutableByteArray bytes = new MutableByteArray(variableLengthString.length() + variableLengthIntegerBytes.getByteCount());
+        bytes.setBytes(0, variableLengthIntegerBytes);
+        bytes.setBytes(variableLengthIntegerBytes.getByteCount(), StringUtil.stringToBytes(variableLengthString));
+        return bytes;
+    }
+
     public static CompactVariableLengthInteger peakVariableLengthInteger(final ByteArrayReader byteArrayReader) {
         final int prefix = ByteUtil.byteToInteger(byteArrayReader.peakByte());
 

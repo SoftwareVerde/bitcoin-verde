@@ -1,15 +1,19 @@
 package com.softwareverde.bitcoin.transaction.output;
 
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
+import com.softwareverde.bitcoin.transaction.token.CashToken;
 import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
 
 public class TransactionOutputInflater {
+    protected static final Integer MAX_COMMITMENT_LENGTH = 65535; // The max commitment length that can be parsed (not necessarily what is valid). https://github.com/bitjson/cashtokens#token-prefix-validation
+
     protected MutableTransactionOutput _fromByteArrayReader(final Integer index, final ByteArrayReader byteArrayReader) {
         final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
 
@@ -19,7 +23,71 @@ public class TransactionOutputInflater {
         final CompactVariableLengthInteger scriptByteCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
         if (! scriptByteCount.isCanonical()) { return null; }
 
-        final ByteArray lockingScriptBytes = MutableByteArray.wrap(byteArrayReader.readBytes(scriptByteCount.intValue(), Endian.BIG));
+        final ByteArray lockingScriptBytes;
+        final byte prefixByte = byteArrayReader.peakByte();
+        if (prefixByte == CashToken.PREFIX) {
+            final int cashTokenStartIndex = byteArrayReader.getPosition();
+            byteArrayReader.skipBytes(1);
+            final Sha256Hash tokenPrefix = Sha256Hash.wrap(byteArrayReader.readBytes(Sha256Hash.BYTE_COUNT, Endian.LITTLE));
+
+            final ByteArray bitfield = MutableByteArray.wrap(new byte[] { byteArrayReader.readByte() });
+            if (bitfield.getBit(0L)) { return null; } // RESERVED_BIT must be unset.
+            final boolean hasCommitmentLength = bitfield.getBit(1L);
+            final boolean hasNft = bitfield.getBit(2L);
+            final boolean hasAmount = bitfield.getBit(3L);
+
+            final CashToken.NftCapability nftCapability;
+            final byte nftBitField = (byte) (bitfield.getByte(0) & 0x0F);
+            if (hasNft) {
+                nftCapability = CashToken.NftCapability.fromByte(nftBitField);
+                if (nftCapability == null) { return null; } // Reserved values are not permitted.
+            }
+            else {
+                if (nftBitField != 0x00) { return null; } // NFT flags must be unset if the bitfield did not register as an NFT.
+                nftCapability = null;
+            }
+
+            final ByteArray commitment;
+            if (hasCommitmentLength) {
+                if (! hasNft) { return null; } // A token prefix encoding HAS_COMMITMENT_LENGTH without HAS_NFT is invalid.
+                final CompactVariableLengthInteger commitmentLength = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
+                if (! commitmentLength.isCanonical()) { return null; }
+                if (commitmentLength.value > MAX_COMMITMENT_LENGTH) { return null; }
+                if (commitmentLength.value == 0L) { return null; }
+
+                commitment = MutableByteArray.wrap(byteArrayReader.readBytes(commitmentLength.intValue()));
+            }
+            else {
+                commitment = null;
+            }
+
+            final Long amount;
+            if (hasAmount) {
+                final CompactVariableLengthInteger variableLengthInteger = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
+                if (! variableLengthInteger.isCanonical()) { return null; }
+
+                amount = variableLengthInteger.value;
+
+                if (amount < 1L) { return null; }
+                // Max value (0x7FFFFFFFFFFFFFFF) is inherently covered by the above <1 check and java Long...
+            }
+            else {
+                if (! hasNft) { return null; } // A token prefix encoding no tokens (both HAS_NFT and HAS_AMOUNT are unset) is invalid.
+                amount = null;
+            }
+
+            if (byteArrayReader.didOverflow()) { return null; } // Abort parsing before reading the end position to prevent negative ByteArray allocation.
+
+            final int cashTokenEndIndex = byteArrayReader.getPosition();
+            final int cashTokenScriptLength = (cashTokenEndIndex - cashTokenStartIndex);
+            transactionOutput._cashToken = new CashToken(tokenPrefix, nftCapability, commitment, amount);
+
+            final int lockingScriptByteCount = (scriptByteCount.intValue() - cashTokenScriptLength);
+            lockingScriptBytes = MutableByteArray.wrap(byteArrayReader.readBytes(lockingScriptByteCount, Endian.LITTLE));
+        }
+        else {
+            lockingScriptBytes = MutableByteArray.wrap(byteArrayReader.readBytes(scriptByteCount.intValue(), Endian.BIG));
+        }
 
         // NOTE: Using an ImmutableLockingScript may be important for the performance of ScriptPatternMatcher::isProvablyUnspendable,
         //  which is used for UTXO acceptance into the UTXO Cache.

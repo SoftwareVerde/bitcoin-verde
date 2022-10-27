@@ -23,7 +23,7 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
-import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -97,7 +97,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         final List<Transaction> transactions = block.getTransactions();
 
         long diskOffset = BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT;
-        diskOffset += ByteUtil.variableLengthIntegerToBytes(transactions.getCount()).length;
+        diskOffset += CompactVariableLengthInteger.variableLengthIntegerToBytes(transactions.getCount()).getByteCount();
 
         final MutableList<Long> diskOffsets = new MutableList<>(transactions.getCount());
         for (final Transaction transaction : transactions) {

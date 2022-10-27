@@ -19,6 +19,7 @@ import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.secp256k1.Schnorr;
@@ -221,7 +222,7 @@ public class TransactionSigner {
             }
 
             final int scriptByteCount = scriptForSigning.getByteCount();
-            final ByteArray scriptByteCountBytes = ByteArray.wrap(ByteUtil.variableLengthIntegerToBytes(scriptByteCount));
+            final ByteArray scriptByteCountBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(scriptByteCount);
             final ByteArray scriptBytes = scriptForSigning.getBytes();
 
             final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();

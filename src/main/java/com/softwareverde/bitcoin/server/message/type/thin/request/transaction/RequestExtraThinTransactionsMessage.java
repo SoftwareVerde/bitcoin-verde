@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.server.message.type.thin.request.transaction;
 
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
-import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -39,7 +39,7 @@ public class RequestExtraThinTransactionsMessage extends BitcoinProtocolMessage 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(_blockHash, Endian.LITTLE);
 
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(_transactionShortHashes.getCount()));
+        byteArrayBuilder.appendBytes(CompactVariableLengthInteger.variableLengthIntegerToBytes(_transactionShortHashes.getCount()));
         for (final ByteArray transactionShortHash : _transactionShortHashes) {
             byteArrayBuilder.appendBytes(transactionShortHash, Endian.LITTLE);
         }

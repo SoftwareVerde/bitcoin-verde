@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.server.message.type.error;
 
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
-import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
@@ -101,9 +101,9 @@ public class ErrorMessage extends BitcoinProtocolMessage {
     @Override
     protected ByteArray _getPayload() {
         final RejectMessageType rejectMessageType = _rejectCode.getRejectMessageType();
-        final byte[] rejectedMessageTypeBytes = ByteUtil.variableLengthStringToBytes(rejectMessageType.getValue());
+        final ByteArray rejectedMessageTypeBytes = CompactVariableLengthInteger.variableLengthStringToBytes(rejectMessageType.getValue());
         final byte[] rejectMessageCodeBytes = new byte[]{ _rejectCode.getCode() };
-        final byte[] rejectDescriptionBytes = ByteUtil.variableLengthStringToBytes(_rejectDescription);
+        final ByteArray rejectDescriptionBytes = CompactVariableLengthInteger.variableLengthStringToBytes(_rejectDescription);
         final byte[] extraDataBytes = _extraData;
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
@@ -117,10 +117,10 @@ public class ErrorMessage extends BitcoinProtocolMessage {
     @Override
     protected Integer _getPayloadByteCount() {
         final RejectMessageType rejectMessageType = _rejectCode.getRejectMessageType();
-        final byte[] rejectedMessageTypeBytes = ByteUtil.variableLengthStringToBytes(rejectMessageType.getValue());
+        final ByteArray rejectedMessageTypeBytes = CompactVariableLengthInteger.variableLengthStringToBytes(rejectMessageType.getValue());
 
         final int stringLength = _rejectDescription.length();
-        final byte[] rejectDescriptionBytes = ByteUtil.variableLengthIntegerToBytes(stringLength);
-        return (rejectedMessageTypeBytes.length + 1 + rejectDescriptionBytes.length + stringLength + _extraData.length);
+        final ByteArray rejectDescriptionBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(stringLength);
+        return (rejectedMessageTypeBytes.getByteCount() + 1 + rejectDescriptionBytes.getByteCount() + stringLength + _extraData.length);
     }
 }

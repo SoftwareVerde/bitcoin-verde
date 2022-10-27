@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.json.Json;
@@ -21,20 +22,20 @@ public class TransactionOutputDeflater {
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(valueBytes, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(lockingScriptBytes.getByteCount()), Endian.BIG);
+        byteArrayBuilder.appendBytes(CompactVariableLengthInteger.variableLengthIntegerToBytes(lockingScriptBytes.getByteCount()), Endian.BIG);
         byteArrayBuilder.appendBytes(lockingScriptBytes, Endian.BIG);
 
         return MutableByteArray.wrap(byteArrayBuilder.build());
     }
 
     public Integer getByteCount(final TransactionOutput transactionOutput) {
-        final Integer valueByteCount = 8;
+        final int valueByteCount = 8;
 
         final Script lockingScript = transactionOutput.getLockingScript();
-        final Integer scriptByteCount;
+        final int scriptByteCount;
         {
             int byteCount = 0;
-            byteCount += ByteUtil.variableLengthIntegerToBytes(lockingScript.getByteCount()).length;
+            byteCount += CompactVariableLengthInteger.variableLengthIntegerToBytes(lockingScript.getByteCount()).getByteCount();
             byteCount += lockingScript.getByteCount();
             scriptByteCount = byteCount;
         }

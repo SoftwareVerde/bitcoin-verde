@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
-import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.json.Json;
@@ -20,7 +20,7 @@ public class BlockDeflater {
 
         final int transactionCount = transactions.getCount();
         final ByteArrayBuilder byteArrayBuilder = _blockHeaderDeflater.toByteArrayBuilder(block);
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionCount), Endian.BIG);
+        byteArrayBuilder.appendBytes(CompactVariableLengthInteger.variableLengthIntegerToBytes(transactionCount), Endian.BIG);
 
         for (int i = 0; i < transactionCount; ++i) {
             final Transaction transaction = transactions.get(i);
@@ -37,7 +37,7 @@ public class BlockDeflater {
         Integer byteCount = BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT;
 
         final int transactionCount = transactions.getCount();
-        byteCount += ByteUtil.variableLengthIntegerToBytes(transactionCount).length;
+        byteCount += CompactVariableLengthInteger.variableLengthIntegerToBytes(transactionCount).getByteCount();
 
         for (int i = 0; i < transactionCount; ++i) {
             final Transaction transaction = transactions.get(i);

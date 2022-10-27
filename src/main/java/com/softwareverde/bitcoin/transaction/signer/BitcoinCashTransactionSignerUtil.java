@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -136,7 +137,7 @@ public class BitcoinCashTransactionSignerUtil {
             final ByteArrayBuilder serializedTransactionOutput = new ByteArrayBuilder();
 
             serializedTransactionOutput.appendBytes(ByteUtil.longToBytes(transactionOutput.getAmount()), Endian.LITTLE);
-            serializedTransactionOutput.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionOutputScript.getByteCount()));
+            serializedTransactionOutput.appendBytes(CompactVariableLengthInteger.variableLengthIntegerToBytes(transactionOutputScript.getByteCount()));
             serializedTransactionOutput.appendBytes(transactionOutputScript.getBytes());
 
             return HashUtil.doubleSha256(serializedTransactionOutput);
@@ -147,7 +148,7 @@ public class BitcoinCashTransactionSignerUtil {
             final LockingScript transactionOutputScript = transactionOutput.getLockingScript();
 
             serializedTransactionOutput.appendBytes(ByteUtil.longToBytes(transactionOutput.getAmount()), Endian.LITTLE);
-            serializedTransactionOutput.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionOutputScript.getByteCount()));
+            serializedTransactionOutput.appendBytes(CompactVariableLengthInteger.variableLengthIntegerToBytes(transactionOutputScript.getByteCount()));
             serializedTransactionOutput.appendBytes(transactionOutputScript.getBytes());
         }
         return HashUtil.doubleSha256(serializedTransactionOutput);

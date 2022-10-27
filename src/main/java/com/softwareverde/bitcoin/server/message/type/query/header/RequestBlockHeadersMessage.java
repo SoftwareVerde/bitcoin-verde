@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -59,7 +60,7 @@ public class RequestBlockHeadersMessage extends BitcoinProtocolMessage {
         final int blockHashByteCount = Sha256Hash.BYTE_COUNT;
 
         final byte[] versionBytes = ByteUtil.integerToBytes(_version);
-        final byte[] blockHeaderCountBytes = ByteUtil.variableLengthIntegerToBytes(blockHeaderCount);
+        final ByteArray blockHeaderCountBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(blockHeaderCount);
         final byte[] blockHashesBytes = new byte[blockHashByteCount * blockHeaderCount];
 
         for (int i = 0; i < blockHeaderCount; ++i) {
@@ -81,7 +82,7 @@ public class RequestBlockHeadersMessage extends BitcoinProtocolMessage {
     protected Integer _getPayloadByteCount() {
         final int blockHeaderCount = _blockHashes.getCount();
 
-        final byte[] blockHeaderCountBytes = ByteUtil.variableLengthIntegerToBytes(blockHeaderCount);
-        return (4 + blockHeaderCountBytes.length + (Sha256Hash.BYTE_COUNT * (blockHeaderCount + 1)));
+        final ByteArray blockHeaderCountBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(blockHeaderCount);
+        return (4 + blockHeaderCountBytes.getByteCount() + (Sha256Hash.BYTE_COUNT * (blockHeaderCount + 1)));
     }
 }

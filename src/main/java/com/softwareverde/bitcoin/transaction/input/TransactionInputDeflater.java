@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -26,7 +27,7 @@ public class TransactionInputDeflater {
         final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
         headBytes.appendBytes(previousOutputTransactionHash.getBytes(), Endian.LITTLE);
         headBytes.appendBytes(indexBytes, Endian.LITTLE);
-        headBytes.appendBytes(ByteUtil.variableLengthIntegerToBytes(unlockingScriptBytes.getByteCount()), Endian.BIG);
+        headBytes.appendBytes(CompactVariableLengthInteger.variableLengthIntegerToBytes(unlockingScriptBytes.getByteCount()), Endian.BIG);
         headBytes.appendBytes(unlockingScriptBytes, Endian.BIG);
 
         tailBytes.appendBytes(sequenceBytes, Endian.LITTLE);
@@ -48,7 +49,7 @@ public class TransactionInputDeflater {
             final Script unlockingScript = transactionInput.getUnlockingScript();
 
             int byteCount = 0;
-            byteCount += ByteUtil.variableLengthIntegerToBytes(unlockingScript.getByteCount()).length;
+            byteCount += CompactVariableLengthInteger.variableLengthIntegerToBytes(unlockingScript.getByteCount()).getByteCount();
             byteCount += unlockingScript.getByteCount();
             scriptByteCount = byteCount;
         }
