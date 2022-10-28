@@ -481,7 +481,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
                 mutableTransaction.addTransactionInput(transactionInput);
 
                 final TransactionOutput transactionOutput = TransactionTestUtil.createTransactionOutput(
-                    addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW")
+                    addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW").getBytes()
                 );
                 mutableTransaction.addTransactionOutput(transactionOutput);
 

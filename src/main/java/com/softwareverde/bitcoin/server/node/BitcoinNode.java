@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.node;
 
-import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.address.TypedAddress;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.MerkleBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
@@ -177,7 +177,7 @@ public class BitcoinNode extends Node {
     }
 
     public interface RequestSpvBlocksHandler extends BitcoinNodeHandler {
-        void run(BitcoinNode bitcoinNode, List<Address> addresses);
+        void run(BitcoinNode bitcoinNode, List<? extends TypedAddress> addresses);
     }
 
     public interface RequestSlpTransactionsHandler extends BitcoinNodeHandler {

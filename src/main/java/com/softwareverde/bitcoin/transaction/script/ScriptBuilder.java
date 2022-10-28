@@ -2,6 +2,9 @@ package com.softwareverde.bitcoin.transaction.script;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.address.AddressType;
+import com.softwareverde.bitcoin.address.ParsedAddress;
+import com.softwareverde.bitcoin.address.TypedAddress;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.ComparisonOperation;
 import com.softwareverde.bitcoin.transaction.script.opcode.CryptographicOperation;
@@ -24,6 +27,8 @@ import com.softwareverde.util.bytearray.Endian;
 
 public class ScriptBuilder {
     protected static LockingScript _createPayToAddressScript(final Address address) {
+        if (address == null) { return null; }
+
         // TODO: Refactor to use ScriptBuilder (i.e. implement ScriptBuilder.pushOperation())...
         final byte[] addressBytes = address.getBytes();
 
@@ -42,10 +47,16 @@ public class ScriptBuilder {
     // NOTE: Also known as payToPublicKeyHash (or P2PKH)...
     public static LockingScript payToAddress(final String base58Address) {
         final AddressInflater addressInflater = new AddressInflater();
-        return _createPayToAddressScript(addressInflater.fromBase58Check(base58Address));
+        final ParsedAddress parsedAddress = addressInflater.fromBase58Check(base58Address);
+        final Address address = (parsedAddress != null ? parsedAddress.getBytes() : null);
+        return _createPayToAddressScript(address);
     }
     public static LockingScript payToAddress(final Address base58Address) {
         return _createPayToAddressScript(base58Address);
+    }
+    public static LockingScript payToAddress(final ParsedAddress base58Address) {
+        final Address address = (base58Address != null ? base58Address.getBytes() : null);
+        return _createPayToAddressScript(address);
     }
 
     public static UnlockingScript unlockPayToAddress(final ScriptSignature signature, final PublicKey publicKey) {
@@ -66,15 +77,32 @@ public class ScriptBuilder {
         scriptBuilder.pushOperation(ComparisonOperation.IS_EQUAL);
         return scriptBuilder.buildLockingScript();
     }
+    public static LockingScript payToScriptHash(final Sha256Hash scriptHash) {
+        final ScriptBuilder scriptBuilder = new ScriptBuilder();
+        scriptBuilder.pushOperation(CryptographicOperation.DOUBLE_SHA_256);
+        scriptBuilder.pushOperation(PushOperation.pushBytes(scriptHash));
+        scriptBuilder.pushOperation(ComparisonOperation.IS_EQUAL);
+        return scriptBuilder.buildLockingScript();
+    }
 
     /**
      * Reverse engineer an Address's LockingScript to compute its hash...
      */
-    public static Sha256Hash computeScriptHash(final Address address) {
+    public static Sha256Hash computeScriptHash(final TypedAddress parsedAddress) {
+        return ScriptBuilder.computeScriptHash(parsedAddress.getType(), parsedAddress.getBytes());
+    }
+
+    public static Sha256Hash computeScriptHash(final AddressType addressType, final Address address) {
         final LockingScript lockingScript;
-        if (address.getType() == Address.Type.P2SH) {
-            final Ripemd160Hash payToScriptHash = Ripemd160Hash.wrap(address.getBytes());
-            lockingScript = ScriptBuilder.payToScriptHash(payToScriptHash);
+        if (addressType == AddressType.P2SH) {
+            if (address.getByteCount() == Sha256Hash.BYTE_COUNT) {
+                final Sha256Hash payToScriptHash = Sha256Hash.wrap(address.getBytes());
+                lockingScript = ScriptBuilder.payToScriptHash(payToScriptHash);
+            }
+            else {
+                final Ripemd160Hash payToScriptHash = Ripemd160Hash.wrap(address.getBytes());
+                lockingScript = ScriptBuilder.payToScriptHash(payToScriptHash);
+            }
         }
         else {
             lockingScript = ScriptBuilder.payToAddress(address);

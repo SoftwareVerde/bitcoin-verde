@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.chain;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.address.ParsedAddress;
 import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.Block;
@@ -1222,7 +1223,7 @@ class Void {
         mutableBlock.setTimestamp(block5.getTimestamp() + (tenMinutesInSeconds));
         mutableBlock.setVersion(block5.getVersion());
 
-        final PrivateKey privateKey = PrivateKey.fromHexString("9F40477DAB2F6822360E6C690F8278DB73E536156A402BBBE798A85DCBE1A8AC");
+        final PrivateKey privateKey = PrivateKey.createNewKey();
         final Address payToAddress = addressInflater.fromPrivateKey(privateKey, false);
 
         {
@@ -1279,7 +1280,7 @@ class Void {
         final BlockDeflater blockDeflater = new BlockDeflater();
 
         System.out.println(privateKey);
-        System.out.println(payToAddress.toBase58CheckEncoded());
+        System.out.println(ParsedAddress.toBase58CheckEncoded(payToAddress));
 
         final Miner miner = new Miner(4, 0, null);
         miner.setShouldMutateTimestamp(true);

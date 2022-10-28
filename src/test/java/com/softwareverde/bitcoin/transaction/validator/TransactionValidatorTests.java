@@ -261,7 +261,7 @@ public class TransactionValidatorTests extends UnitTest {
             final TransactionInput transactionInput = TransactionTestUtil.createTransactionInput(transactionOutputIdentifierToSpend);
             mutableTransaction.addTransactionInput(transactionInput);
 
-            final TransactionOutput transactionOutput = TransactionTestUtil.createTransactionOutput(addressInflater.fromBase58Check("149uLAy8vkn1Gm68t5NoLQtUqBtngjySLF", false));
+            final TransactionOutput transactionOutput = TransactionTestUtil.createTransactionOutput(addressInflater.fromBase58Check("149uLAy8vkn1Gm68t5NoLQtUqBtngjySLF").getBytes());
             mutableTransaction.addTransactionOutput(transactionOutput);
 
             unsignedTransaction = mutableTransaction;

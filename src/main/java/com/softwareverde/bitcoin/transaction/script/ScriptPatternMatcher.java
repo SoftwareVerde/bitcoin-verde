@@ -179,7 +179,7 @@ public class ScriptPatternMatcher {
         return addressInflater.fromPublicKey(publicKey);
     }
 
-    protected Address _extractAddressFromPayToPublicKeyHash(final Script lockingScript, final Boolean isCompressed) {
+    protected Address _extractAddressFromPayToPublicKeyHash(final Script lockingScript) {
         final List<Operation> scriptOperations = lockingScript.getOperations();
         if (scriptOperations == null) { return null; }
         if (scriptOperations.getCount() != PAY_TO_PUBLIC_KEY_HASH_PATTERN.getCount()) { return null; }
@@ -193,7 +193,7 @@ public class ScriptPatternMatcher {
         final ByteArray bytes = MutableByteArray.wrap(pushOperation.getValue().getBytes());
 
         final AddressInflater addressInflater = new AddressInflater();
-        return addressInflater.fromBytes(Address.Type.P2PKH, bytes, isCompressed);
+        return addressInflater.fromBytes(bytes);
     }
 
     protected Address _extractAddressFromPayToScriptHash(final Script lockingScript) {
@@ -209,34 +209,30 @@ public class ScriptPatternMatcher {
         }
 
         final PushOperation pushOperation = (PushOperation) operation;
-        final ByteArray bytes = MutableByteArray.wrap(pushOperation.getValue().getBytes());
+        final ByteArray bytes = pushOperation.getValue();
 
         final AddressInflater addressInflater = new AddressInflater();
-        return addressInflater.fromBytes(Address.Type.P2SH, bytes, false);
+        return addressInflater.fromBytes(bytes);
     }
 
     protected Address _extractAddress(final ScriptType scriptType, final LockingScript lockingScript) {
-        final Address address;
-        {
-            switch (scriptType) {
-                case PAY_TO_PUBLIC_KEY: {
-                    address = _extractAddressFromPayToPublicKey(lockingScript);
-                } break;
+        switch (scriptType) {
+            case PAY_TO_PUBLIC_KEY: {
+                return _extractAddressFromPayToPublicKey(lockingScript);
+            }
 
-                case PAY_TO_PUBLIC_KEY_HASH: {
-                    address = _extractAddressFromPayToPublicKeyHash(lockingScript, false);
-                } break;
+            case PAY_TO_PUBLIC_KEY_HASH: {
+                return _extractAddressFromPayToPublicKeyHash(lockingScript);
+            }
 
-                case PAY_TO_SCRIPT_HASH: {
-                    address = _extractAddressFromPayToScriptHash(lockingScript);
-                } break;
+            case PAY_TO_SCRIPT_HASH: {
+                return _extractAddressFromPayToScriptHash(lockingScript);
+            }
 
-                default: {
-                    address = null;
-                } break;
+            default: {
+                return null;
             }
         }
-        return address;
     }
 
     protected ScriptType _getScriptType(final LockingScript lockingScript) {
@@ -347,11 +343,7 @@ public class ScriptPatternMatcher {
     }
 
     public Address extractAddressFromPayToPublicKeyHash(final LockingScript lockingScript) {
-        return _extractAddressFromPayToPublicKeyHash(lockingScript, false);
-    }
-
-    public Address extractAddressFromPayToPublicKeyHash(final LockingScript lockingScript, final Boolean isCompressed) {
-        return _extractAddressFromPayToPublicKeyHash(lockingScript, isCompressed);
+        return _extractAddressFromPayToPublicKeyHash(lockingScript);
     }
 
     public Address extractAddressFromPayToScriptHash(final LockingScript lockingScript) {

@@ -20,6 +20,9 @@ public interface TransactionOutput extends Constable<ImmutableTransactionOutput>
     Integer getIndex();
     LockingScript getLockingScript();
     CashToken getCashToken();
+    default Boolean hasCashToken() {
+        return (this.getCashToken() != null);
+    }
 
     @Override
     ImmutableTransactionOutput asConst();

@@ -661,10 +661,11 @@ public class AbcScriptRunnerTests extends UnitTest {
                 context.setBlockHeight(Long.MAX_VALUE);
                 medianBlockTime.setMedianBlockTime(Long.MAX_VALUE);
                 final boolean isValidInProduction = scriptRunner.runScript(lockingScript, unlockingScript, context).isValid;
-                final boolean isPossiblyImportant = ( (! expectedResult) && isValidInProduction);
+                final boolean isPossiblyImportant = (expectedResult ^ isValidInProduction);
 
                 if (! skipTest) {
                     failCount += 1;
+                    System.out.println(testVectorJson);
                     System.out.println("FAILED" + (isPossiblyImportant ? " [WARN]" : "") + ": " + i + " (" + testVector.getHash() + " - " + testVector.flagsString + " - " + testVector.expectedResultString + " - \"" + testVector.comments + "\")");
                     System.out.println("Expected: " + expectedResult + " Actual: " + wasValid + " (Production: " + isValidInProduction + ")");
 

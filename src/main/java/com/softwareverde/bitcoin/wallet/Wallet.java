@@ -2,6 +2,9 @@ package com.softwareverde.bitcoin.wallet;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.address.AddressType;
+import com.softwareverde.bitcoin.address.ParsedAddress;
+import com.softwareverde.bitcoin.address.TypedAddress;
 import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
@@ -40,6 +43,7 @@ import com.softwareverde.bitcoin.wallet.utxo.MutableSpendableTransactionOutput;
 import com.softwareverde.bitcoin.wallet.utxo.SpendableTransactionOutput;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
@@ -79,7 +83,12 @@ public class Wallet {
         public final MutableSlpSendScript slpSendScript = new MutableSlpSendScript();
     }
 
-    protected static final Address DUMMY_ADDRESS = (new AddressInflater()).fromBytes(Address.Type.P2PKH, new MutableByteArray(Address.BYTE_COUNT_RIPE_MD), true);
+    protected static final TypedAddress DUMMY_ADDRESS;
+    static {
+        final AddressInflater addressInflater = new AddressInflater();
+        final ByteArray addressBytes = new MutableByteArray(Address.BYTE_COUNT_RIPE_MD);
+        DUMMY_ADDRESS = TypedAddress.wrap(AddressType.P2PKH, addressInflater.fromBytes(addressBytes));
+    }
 
     protected final UpgradeSchedule _upgradeSchedule;
     protected final HashMap<Address, PublicKey> _publicKeys = new HashMap<>();
@@ -141,7 +150,8 @@ public class Wallet {
         }
         Logger.debug("Watched Addresses:");
         for (final Address address : _watchedAddresses) {
-            Logger.debug(address.toBase58CheckEncoded());
+            final ParsedAddress parsedAddress = new ParsedAddress(AddressType.P2PKH, false, address);
+            Logger.debug(parsedAddress.toBase58CheckEncoded());
         }
     }
 
@@ -538,7 +548,7 @@ public class Wallet {
 
                 final TransactionOutput transactionOutput = spendableTransactionOutput.getTransactionOutput();
                 selectedUtxoAmount += transactionOutput.getAmount();
-                feesToSpendOutputs.value += (address.isCompressed() ? feeToSpendOneOutput : feeToSpendOneUncompressedOutput);
+                feesToSpendOutputs.value += (false ? feeToSpendOneOutput : feeToSpendOneUncompressedOutput);
                 transactionOutputsToSpend.add(spendableTransactionOutput);
                 continue;
             }
@@ -561,7 +571,7 @@ public class Wallet {
             if (selectedUtxoAmount >= (minimumUtxoAmount + feesToSpendOutputs.value)) { break; }
 
             final Address address = spendableTransactionOutput.getAddress();
-            final Long feeToSpendThisOutput = (address.isCompressed() ? feeToSpendOneOutput : feeToSpendOneUncompressedOutput);
+            final Long feeToSpendThisOutput = (false ? feeToSpendOneOutput : feeToSpendOneUncompressedOutput);
 
             final TransactionOutput transactionOutput = spendableTransactionOutput.getTransactionOutput();
             final Long transactionOutputAmount = transactionOutput.getAmount();
@@ -580,7 +590,7 @@ public class Wallet {
 
                         // Subtract the fee for spending this output...
                         final Address addressBeingRemoved = selectedTransactionOutput.getAddress();
-                        final long feeToSpendRemovedOutput = (addressBeingRemoved.isCompressed() ? feeToSpendOneOutput : feeToSpendOneUncompressedOutput);
+                        final long feeToSpendRemovedOutput = (false ? feeToSpendOneOutput : feeToSpendOneUncompressedOutput);
                         feesToSpendOutputs.value -= feeToSpendRemovedOutput;
                     }
                 }
@@ -644,7 +654,7 @@ public class Wallet {
         return transactionOutputs;
     }
 
-    protected SlpTokenTransactionConfiguration _createSlpTokenTransactionConfiguration(final SlpTokenId slpTokenId, final List<SlpPaymentAmount> paymentAmounts, final Address changeAddress, final List<TransactionOutputIdentifier> requiredTransactionOutputIdentifiersToSpend, final Boolean shouldIncludeNotYetValidatedTransactions) {
+    protected SlpTokenTransactionConfiguration _createSlpTokenTransactionConfiguration(final SlpTokenId slpTokenId, final List<SlpPaymentAmount> paymentAmounts, final TypedAddress changeAddress, final List<TransactionOutputIdentifier> requiredTransactionOutputIdentifiersToSpend, final Boolean shouldIncludeNotYetValidatedTransactions) {
         final SlpTokenTransactionConfiguration configuration = new SlpTokenTransactionConfiguration();
 
         final BigInteger requiredTokenAmount;
@@ -769,7 +779,7 @@ public class Wallet {
                 }
                 else {
                     // Add the change address as an output...
-                    final Long bchAmount = _calculateDustThreshold(BYTES_PER_TRANSACTION_OUTPUT, changeAddress.isCompressed());
+                    final Long bchAmount = _calculateDustThreshold(BYTES_PER_TRANSACTION_OUTPUT, false);
                     final SlpPaymentAmount changePaymentAmount = new SlpPaymentAmount(changeAddress, bchAmount, changeAmount);
                     configuration.mutablePaymentAmounts.add(changePaymentAmount);
                     changeOutputIndex = (configuration.mutablePaymentAmounts.getCount() - 1);
@@ -854,11 +864,12 @@ public class Wallet {
                 transactionOutput.setAmount(paymentAmount.amount);
                 final LockingScript lockingScript;
                 {
-                    if (paymentAmount.address.getType() == Address.Type.P2SH) {
-                        lockingScript = ScriptBuilder.payToScriptHash(Ripemd160Hash.wrap(paymentAmount.address.getBytes()));
+                    final Address address = paymentAmount.address.getBytes();
+                    if (paymentAmount.address.getType() == AddressType.P2SH) {
+                        lockingScript = ScriptBuilder.payToScriptHash(Ripemd160Hash.wrap(address.getBytes()));
                     }
                     else {
-                        lockingScript = ScriptBuilder.payToAddress(paymentAmount.address);
+                        lockingScript = ScriptBuilder.payToAddress(address);
                     }
                 }
                 transactionOutput.setLockingScript(lockingScript);
@@ -947,7 +958,7 @@ public class Wallet {
         return signedTransaction;
     }
 
-    protected TransactionBundle _createTransactionBundle(final List<PaymentAmount> paymentAmounts, final Address changeAddress, final List<TransactionOutputIdentifier> mandatoryOutputs, final LockingScript opReturnScript, final SlpTokenId slpTokenId) {
+    protected TransactionBundle _createTransactionBundle(final List<PaymentAmount> paymentAmounts, final TypedAddress changeAddress, final List<TransactionOutputIdentifier> mandatoryOutputs, final LockingScript opReturnScript, final SlpTokenId slpTokenId) {
         long totalPaymentAmount = 0L;
         for (final PaymentAmount paymentAmount : paymentAmounts) {
             totalPaymentAmount += paymentAmount.amount;
@@ -1011,7 +1022,7 @@ public class Wallet {
                 }
                 else {
                     // Add the change address as an output...
-                    final Long bchAmount = _calculateDustThreshold(BYTES_PER_TRANSACTION_OUTPUT, changeAddress.isCompressed());
+                    final Long bchAmount = _calculateDustThreshold(BYTES_PER_TRANSACTION_OUTPUT, false);
                     final SlpPaymentAmount slpChangePaymentAmount = new SlpPaymentAmount(changeAddress, bchAmount, slpChangeAmount);
                     paymentAmountsWithChange.add(slpChangePaymentAmount);
                 }
@@ -1028,7 +1039,7 @@ public class Wallet {
         {
             final Long changeAmount = (totalAmountSelected - totalPaymentAmount - feesContainer.value);
             if (changeAddress != null) {
-                final Long dustThreshold = _calculateDustThreshold(BYTES_PER_TRANSACTION_OUTPUT, changeAddress.isCompressed());
+                final Long dustThreshold = _calculateDustThreshold(BYTES_PER_TRANSACTION_OUTPUT, false);
                 shouldIncludeChangeOutput = (changeAmount >= dustThreshold);
             }
             else {
@@ -1106,7 +1117,7 @@ public class Wallet {
         return transactionBundle;
     }
 
-    protected Transaction _createSlpTokenTransaction(final SlpTokenId slpTokenId, final List<SlpPaymentAmount> paymentAmounts, final Address changeAddress, final List<TransactionOutputIdentifier> requiredTransactionOutputIdentifiersToSpend, final Boolean shouldIncludeNotYetValidatedTransactions) {
+    protected Transaction _createSlpTokenTransaction(final SlpTokenId slpTokenId, final List<SlpPaymentAmount> paymentAmounts, final TypedAddress changeAddress, final List<TransactionOutputIdentifier> requiredTransactionOutputIdentifiersToSpend, final Boolean shouldIncludeNotYetValidatedTransactions) {
         final SlpTokenTransactionConfiguration slpTokenTransactionConfiguration = _createSlpTokenTransactionConfiguration(slpTokenId, paymentAmounts, changeAddress, requiredTransactionOutputIdentifiersToSpend, shouldIncludeNotYetValidatedTransactions);
         if (slpTokenTransactionConfiguration == null) { return null; }
 
@@ -1154,7 +1165,7 @@ public class Wallet {
         }
     }
 
-    protected TransactionBundle _createSlpTokenTransactionBundle(final SlpTokenTransactionConfiguration slpTokenTransactionConfiguration, final SlpTokenId slpTokenId, final Address changeAddress) {
+    protected TransactionBundle _createSlpTokenTransactionBundle(final SlpTokenTransactionConfiguration slpTokenTransactionConfiguration, final SlpTokenId slpTokenId, final TypedAddress changeAddress) {
         final SlpScriptBuilder slpScriptBuilder = new SlpScriptBuilder();
         final LockingScript slpTokenScript = slpScriptBuilder.createSendScript(slpTokenTransactionConfiguration.slpSendScript);
         return _createTransactionBundle(slpTokenTransactionConfiguration.mutablePaymentAmounts, changeAddress, slpTokenTransactionConfiguration.transactionOutputIdentifiersToSpend, slpTokenScript, slpTokenId);
@@ -1325,37 +1336,37 @@ public class Wallet {
         return feeContainer.value;
     }
 
-    public synchronized Transaction createTransaction(final List<PaymentAmount> paymentAmounts, final Address changeAddress) {
+    public synchronized Transaction createTransaction(final List<PaymentAmount> paymentAmounts, final TypedAddress changeAddress) {
         final List<TransactionOutputIdentifier> mandatoryTransactionOutputsToSpend = new MutableList<>(0);
         final TransactionBundle transactionBundle = _createTransactionBundle(paymentAmounts, changeAddress, mandatoryTransactionOutputsToSpend, null, null);
         return _createSignedTransaction(transactionBundle);
     }
 
-    public synchronized Transaction createTransaction(final List<PaymentAmount> paymentAmounts, final Address changeAddress, final LockingScript opReturnScript) {
+    public synchronized Transaction createTransaction(final List<PaymentAmount> paymentAmounts, final TypedAddress changeAddress, final LockingScript opReturnScript) {
         final List<TransactionOutputIdentifier> mandatoryTransactionOutputsToSpend = new MutableList<>(0);
         final TransactionBundle transactionBundle = _createTransactionBundle(paymentAmounts, changeAddress, mandatoryTransactionOutputsToSpend, opReturnScript, null);
         return _createSignedTransaction(transactionBundle);
     }
 
-    public synchronized Transaction createTransaction(final List<PaymentAmount> paymentAmounts, final Address changeAddress, final List<TransactionOutputIdentifier> transactionOutputIdentifiersToSpend) {
+    public synchronized Transaction createTransaction(final List<PaymentAmount> paymentAmounts, final TypedAddress changeAddress, final List<TransactionOutputIdentifier> transactionOutputIdentifiersToSpend) {
         final TransactionBundle transactionBundle = _createTransactionBundle(paymentAmounts, changeAddress, transactionOutputIdentifiersToSpend, null, null);
         return _createSignedTransaction(transactionBundle);
     }
 
-    public synchronized Transaction createTransaction(final List<PaymentAmount> paymentAmounts, final Address changeAddress, final List<TransactionOutputIdentifier> transactionOutputIdentifiersToSpend, final LockingScript opReturnScript) {
+    public synchronized Transaction createTransaction(final List<PaymentAmount> paymentAmounts, final TypedAddress changeAddress, final List<TransactionOutputIdentifier> transactionOutputIdentifiersToSpend, final LockingScript opReturnScript) {
         final TransactionBundle transactionBundle = _createTransactionBundle(paymentAmounts, changeAddress, transactionOutputIdentifiersToSpend, opReturnScript, null);
         return _createSignedTransaction(transactionBundle);
     }
 
-    public synchronized Transaction createSlpTokenTransaction(final SlpTokenId slpTokenId, final List<SlpPaymentAmount> paymentAmounts, final Address changeAddress) {
+    public synchronized Transaction createSlpTokenTransaction(final SlpTokenId slpTokenId, final List<SlpPaymentAmount> paymentAmounts, final TypedAddress changeAddress) {
         return _createSlpTokenTransaction(slpTokenId, paymentAmounts, changeAddress, new MutableList<>(0), true);
     }
 
-    public synchronized Transaction createSlpTokenTransaction(final SlpTokenId slpTokenId, final List<SlpPaymentAmount> paymentAmounts, final Address changeAddress, final List<TransactionOutputIdentifier> requiredTransactionOutputIdentifiersToSpend) {
+    public synchronized Transaction createSlpTokenTransaction(final SlpTokenId slpTokenId, final List<SlpPaymentAmount> paymentAmounts, final TypedAddress changeAddress, final List<TransactionOutputIdentifier> requiredTransactionOutputIdentifiersToSpend) {
         return _createSlpTokenTransaction(slpTokenId, paymentAmounts, changeAddress, requiredTransactionOutputIdentifiersToSpend, true);
     }
 
-    public synchronized Transaction createSlpTokenTransaction(final SlpTokenId slpTokenId, final List<SlpPaymentAmount> paymentAmounts, final Address changeAddress, final List<TransactionOutputIdentifier> requiredTransactionOutputIdentifiersToSpend, final Boolean shouldIncludeNotYetValidatedTransactions) {
+    public synchronized Transaction createSlpTokenTransaction(final SlpTokenId slpTokenId, final List<SlpPaymentAmount> paymentAmounts, final TypedAddress changeAddress, final List<TransactionOutputIdentifier> requiredTransactionOutputIdentifiersToSpend, final Boolean shouldIncludeNotYetValidatedTransactions) {
         return _createSlpTokenTransaction(slpTokenId, paymentAmounts, changeAddress, requiredTransactionOutputIdentifiersToSpend, shouldIncludeNotYetValidatedTransactions);
     }
 

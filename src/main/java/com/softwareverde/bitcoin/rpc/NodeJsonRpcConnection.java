@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.rpc;
 
 import com.softwareverde.bitcoin.CoreInflater;
-import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.TypedAddress;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
@@ -92,7 +92,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return (jsonProtocolMessage != null ? jsonProtocolMessage.getMessage() : null);
     }
 
-    protected Json _createRegisterHookRpcJson(final Boolean returnRawData, final Boolean includeTransactionFees, final List<Address> addressFilter) {
+    protected Json _createRegisterHookRpcJson(final Boolean returnRawData, final Boolean includeTransactionFees, final List<TypedAddress> addressFilter) {
         final Json eventTypesJson = new Json(true);
         eventTypesJson.add("NEW_BLOCK");
         eventTypesJson.add("NEW_TRANSACTION");
@@ -105,8 +105,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
 
         if (addressFilter != null) {
             final Json addressFilterJson = new Json(true);
-            for (final Address address : addressFilter) {
-                final String addressString = address.toBase58CheckEncoded();
+            for (final TypedAddress address : addressFilter) {
+                final String addressString = address.toString();
                 addressFilterJson.add(addressString);
             }
             parametersJson.put("addressFilter", addressFilterJson);
@@ -248,12 +248,12 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return _executeJsonRequest(rpcRequestJson);
     }
 
-    protected Json _getAddressTransactions(final Address address, final Sha256Hash scriptHash, final Boolean hexFormat, final Boolean shouldReturnTransactionHashes) {
+    protected Json _getAddressTransactions(final TypedAddress address, final Sha256Hash scriptHash, final Boolean hexFormat, final Boolean shouldReturnTransactionHashes) {
         if (_jsonSocket == null) { return null; } // Socket was unable to connect.
 
         final Json rpcParametersJson = new Json();
         if (address != null) {
-            rpcParametersJson.put("address", address.toBase58CheckEncoded());
+            rpcParametersJson.put("address", address);
         }
         else {
             rpcParametersJson.put("scriptHash", scriptHash);
@@ -273,12 +273,12 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return _executeJsonRequest(rpcRequestJson);
     }
 
-    protected Json _getAddressBalance(final Address address, final Sha256Hash scriptHash) {
+    protected Json _getAddressBalance(final TypedAddress address, final Sha256Hash scriptHash) {
         if (_jsonSocket == null) { return null; } // Socket was unable to connect.
 
         final Json rpcParametersJson = new Json();
         if (address != null) {
-            rpcParametersJson.put("address", address.toBase58CheckEncoded());
+            rpcParametersJson.put("address", address);
         }
         else {
             rpcParametersJson.put("scriptHash", scriptHash);
@@ -457,19 +457,19 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return _executeJsonRequest(rpcRequestJson);
     }
 
-    public Json getAddressTransactions(final Address address) {
-        return this.getAddressTransactions(address, null); // NOTE: null omits parameter (uses server defaults)
+    public Json getAddressTransactions(final TypedAddress TypedAddress) {
+        return this.getAddressTransactions(TypedAddress, null); // NOTE: null omits parameter (uses server defaults)
     }
 
-    public Json getAddressTransactions(final Address address, final Boolean hexFormat) {
-        return _getAddressTransactions(address, null, hexFormat, false);
+    public Json getAddressTransactions(final TypedAddress TypedAddress, final Boolean hexFormat) {
+        return _getAddressTransactions(TypedAddress, null, hexFormat, false);
     }
 
     public Json getAddressTransactions(final Sha256Hash scriptHash, final Boolean hexFormat) {
         return _getAddressTransactions(null, scriptHash, hexFormat, false);
     }
 
-    public Json getAddressTransactionHashes(final Address address) {
+    public Json getAddressTransactionHashes(final TypedAddress address) {
         return _getAddressTransactions(address, null, null, true);
     }
 
@@ -477,7 +477,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return _getAddressTransactions(null, scriptHash, null, true);
     }
 
-    public Json getAddressBalance(final Address address) {
+    public Json getAddressBalance(final TypedAddress address) {
         return _getAddressBalance(address, null);
     }
 
@@ -643,7 +643,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return this.upgradeToAnnouncementHook(announcementHookCallback, null);
     }
 
-    public Boolean upgradeToAnnouncementHook(final AnnouncementHookCallback announcementHookCallback, final List<Address> addressesFilter) {
+    public Boolean upgradeToAnnouncementHook(final AnnouncementHookCallback announcementHookCallback, final List<TypedAddress> addressesFilter) {
         if (announcementHookCallback == null) { throw new NullPointerException("Attempted to create AnnouncementHook without a callback."); }
         if (_jsonSocket == null) { return false; } // Socket was unable to connect.
 
@@ -685,7 +685,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return true;
     }
 
-    public Boolean replaceAnnouncementHookAddressFilter(final List<Address> addressesFilter) {
+    public Boolean replaceAnnouncementHookAddressFilter(final List<TypedAddress> addressesFilter) {
         if (! _isUpgradedToHook) { return false; }
         if (_jsonSocket == null) { return false; } // Socket was unable to connect.
 
@@ -699,7 +699,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     public Boolean upgradeToAnnouncementHook(final RawAnnouncementHookCallback announcementHookCallback) {
         return this.upgradeToAnnouncementHook(announcementHookCallback, null);
     }
-    public Boolean upgradeToAnnouncementHook(final RawAnnouncementHookCallback announcementHookCallback, final List<Address> addressesFilter) {
+    public Boolean upgradeToAnnouncementHook(final RawAnnouncementHookCallback announcementHookCallback, final List<TypedAddress> addressesFilter) {
         if (announcementHookCallback == null) { throw new NullPointerException("Null AnnouncementHookCallback found."); }
         if (_jsonSocket == null) { return false; } // Socket was unable to connect.
 

@@ -51,7 +51,7 @@ public class BitcoinUtilTests {
         final String message = "Mary had a little lamb.";
 
         final BitcoinMessageSignature signature = BitcoinMessageSignature.fromBase64(signatureString);
-        final Address address = addressInflater.fromBase58Check(addressString);
+        final Address address = addressInflater.fromBase58Check(addressString).getBytes();
         final Boolean isValid = BitcoinUtil.verifyBitcoinMessage(message, address, signature);
 
         Assert.assertTrue(isValid);
@@ -66,7 +66,7 @@ public class BitcoinUtilTests {
         final String message = "Test";
 
         final BitcoinMessageSignature signature = BitcoinMessageSignature.fromBase64(signatureString);
-        final Address address = addressInflater.fromBase58Check(addressString);
+        final Address address = addressInflater.fromBase58Check(addressString).getBytes();
         final Boolean isValid = BitcoinUtil.verifyBitcoinMessage(message, address, signature);
 
         Assert.assertTrue(isValid);
@@ -81,7 +81,7 @@ public class BitcoinUtilTests {
         final String message = "Tess";
 
         final BitcoinMessageSignature signature = BitcoinMessageSignature.fromBase64(signatureString);
-        final Address address = addressInflater.fromBase58Check(addressString);
+        final Address address = addressInflater.fromBase58Check(addressString).getBytes();
         final Boolean isValid = BitcoinUtil.verifyBitcoinMessage(message, address, signature);
 
         Assert.assertFalse(isValid);
@@ -96,7 +96,7 @@ public class BitcoinUtilTests {
         final String message = "Test";
 
         final BitcoinMessageSignature signature = BitcoinMessageSignature.fromBase64(signatureString);
-        final Address address = addressInflater.fromBase58Check(addressString);
+        final Address address = addressInflater.fromBase58Check(addressString).getBytes();
         final Boolean isValid = BitcoinUtil.verifyBitcoinMessage(message, address, signature);
 
         Assert.assertFalse(isValid);
@@ -112,7 +112,7 @@ public class BitcoinUtilTests {
         final String message = "Test";
 
         final BitcoinMessageSignature signature = BitcoinMessageSignature.fromBase64(signatureString);
-        final Address address = addressInflater.fromBase58Check(addressString);
+        final Address address = addressInflater.fromBase58Check(addressString).getBytes();
         final Boolean isValid = BitcoinUtil.verifyBitcoinMessage(message, address, signature);
 
         Assert.assertFalse(isValid);
@@ -127,7 +127,7 @@ public class BitcoinUtilTests {
         final String message = "Test";
 
         final BitcoinMessageSignature signature = BitcoinMessageSignature.fromBase64(signatureString);
-        final Address address = addressInflater.fromBase58Check(addressString);
+        final Address address = addressInflater.fromBase58Check(addressString).getBytes();
         final Boolean isValid = BitcoinUtil.verifyBitcoinMessage(message, address, signature);
 
         Assert.assertFalse(isValid);

@@ -22,7 +22,7 @@ public class AddressInflaterTests {
         final String base32AddressString = "bitcoincash:qqswr73n8gzgsygazzfn9qm3qk46dtescsyrzewzuj";
 
         // Action
-        final Address address = addressInflater.fromBase32Check(base32AddressString);
+        final ParsedAddress address = addressInflater.fromBase32Check(base32AddressString);
 
         // Assert
         Assert.assertNotNull(address);
@@ -35,7 +35,7 @@ public class AddressInflaterTests {
         final String base32AddressString = "http://bitcoincash:qqswr73n8gzgsygazzfn9qm3qk46dtescsyrzewzuj";
 
         // Action
-        final Address address = addressInflater.fromBase32Check(base32AddressString);
+        final ParsedAddress address = addressInflater.fromBase32Check(base32AddressString);
 
         // Assert
         Assert.assertNull(address);
@@ -64,8 +64,8 @@ public class AddressInflaterTests {
         // Assert
         TestUtil.assertEqual(expectedPublicKey, publicKey.getBytes());
         TestUtil.assertEqual(expectedCompressedPublicKey, compressedPublicKey.getBytes());
-        Assert.assertEquals(expectedAddressString, bitcoinAddress.toBase58CheckEncoded());
-        Assert.assertEquals(expectedCompressedAddressString, compressedAddress.toBase58CheckEncoded());
+        Assert.assertEquals(expectedAddressString, ParsedAddress.toBase58CheckEncoded(bitcoinAddress));
+        Assert.assertEquals(expectedCompressedAddressString, ParsedAddress.toBase58CheckEncoded(compressedAddress));
     }
 
     @Test
@@ -91,8 +91,8 @@ public class AddressInflaterTests {
         // Assert
         TestUtil.assertEqual(expectedPublicKey, publicKey.getBytes());
         TestUtil.assertEqual(expectedCompressedPublicKey, compressedPublicKey.getBytes());
-        Assert.assertEquals(expectedAddressString, bitcoinAddress.toBase58CheckEncoded());
-        Assert.assertEquals(expectedCompressedAddressString, compressedAddress.toBase58CheckEncoded());
+        Assert.assertEquals(expectedAddressString, ParsedAddress.toBase58CheckEncoded(bitcoinAddress));
+        Assert.assertEquals(expectedCompressedAddressString, ParsedAddress.toBase58CheckEncoded(compressedAddress));
     }
 
     @Test
@@ -120,8 +120,8 @@ public class AddressInflaterTests {
         TestUtil.assertEqual(expectedPublicKey, decompressedPublicKey.getBytes());
         TestUtil.assertEqual(expectedCompressedPublicKey, compressedPublicKey.getBytes());
 
-        Assert.assertEquals(expectedAddressString, decompressedBitcoinAddress.toBase58CheckEncoded());
-        Assert.assertEquals(expectedCompressedAddressString, compressedAddress.toBase58CheckEncoded());
+        Assert.assertEquals(expectedAddressString, ParsedAddress.toBase58CheckEncoded(decompressedBitcoinAddress));
+        Assert.assertEquals(expectedCompressedAddressString, ParsedAddress.toBase58CheckEncoded(compressedAddress));
     }
 
     @Test
@@ -132,7 +132,7 @@ public class AddressInflaterTests {
         final String invalidSlpAddressString = "simpleledger:qpkpqwnht42ne6gzx3qtuuwjge2gpyqnkszwkc9rg"; // Missing the final letter of the checksum...
 
         // Action
-        final Address address = addressInflater.fromBase32Check(invalidSlpAddressString);
+        final ParsedAddress address = addressInflater.fromBase32Check(invalidSlpAddressString);
 
         // Assert
         Assert.assertNull(address);
@@ -159,7 +159,7 @@ public class AddressInflaterTests {
         final Address address1 = scriptPatternMatcher.extractAddress(transactionOutput1.getLockingScript());
 
         // Assert
-        Assert.assertEquals(expectedAddressString0, address0.toBase32CheckEncoded("bchtest", true));
-        Assert.assertEquals(expectedAddressString1, address1.toBase32CheckEncoded("bchtest", true));
+        Assert.assertEquals(expectedAddressString0, new ParsedAddress(AddressType.P2PKH, false, address0, AddressFormat.BASE_32, "bchtest").toString());
+        Assert.assertEquals(expectedAddressString1, new ParsedAddress(AddressType.P2SH, false, address1, AddressFormat.BASE_32, "bchtest").toString());
     }
 }

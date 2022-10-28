@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.handler.block;
 
-import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.TypedAddress;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.message.type.query.response.InventoryMessage;
@@ -32,7 +32,7 @@ public class RequestSpvBlocksHandler implements BitcoinNode.RequestSpvBlocksHand
     }
 
     @Override
-    public void run(final BitcoinNode bitcoinNode, final List<Address> addresses) {
+    public void run(final BitcoinNode bitcoinNode, final List<? extends TypedAddress> addresses) {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
@@ -42,7 +42,7 @@ public class RequestSpvBlocksHandler implements BitcoinNode.RequestSpvBlocksHand
             final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
             final HashSet<TransactionId> transactionIds = new HashSet<>();
-            for (final Address address : addresses) {
+            for (final TypedAddress address : addresses) {
                 final List<TransactionId> matchedTransactionIds = blockchainIndexerDatabaseManager.getTransactionIds(headBlockchainSegmentId, address, false);
                 for (final TransactionId transactionId : matchedTransactionIds) {
                     transactionIds.add(transactionId);

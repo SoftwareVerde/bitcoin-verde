@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.rpc.handler;
 
 import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.TypedAddress;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -26,7 +27,7 @@ import java.util.HashMap;
 public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
 
-    protected Long _getBalance(final Address address, final Sha256Hash scriptHash, final Boolean includeUnconfirmedTransactions, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
+    protected Long _getBalance(final TypedAddress address, final Sha256Hash scriptHash, final Boolean includeUnconfirmedTransactions, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
         final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = databaseManager.getBlockchainIndexerDatabaseManager();
 
@@ -45,7 +46,7 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
         public static final Transaction TRANSACTION = new MutableTransaction();
     }
 
-    protected <T> List<T> _getAddressTransactions(final Address address, final Sha256Hash scriptHash, final T returnType, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
+    protected <T> List<T> _getAddressTransactions(final TypedAddress address, final Sha256Hash scriptHash, final T returnType, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
@@ -112,7 +113,7 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
     }
 
     @Override
-    public Long getBalance(final Address address, final Boolean includeUnconfirmedTransactions) {
+    public Long getBalance(final TypedAddress address, final Boolean includeUnconfirmedTransactions) {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             return _getBalance(address, null, includeUnconfirmedTransactions, databaseManager);
         }
@@ -134,7 +135,7 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
     }
 
     @Override
-    public List<Transaction> getAddressTransactions(final Address address) {
+    public List<Transaction> getAddressTransactions(final TypedAddress address) {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             return _getAddressTransactions(address, null, GetAddressTransactionsReturnType.TRANSACTION, databaseManager);
         }
@@ -156,7 +157,7 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
     }
 
     @Override
-    public List<Sha256Hash> getAddressTransactionHashes(final Address address) {
+    public List<Sha256Hash> getAddressTransactionHashes(final TypedAddress address) {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             return _getAddressTransactions(address, null, GetAddressTransactionsReturnType.TRANSACTION_HASH, databaseManager);
         }

@@ -55,6 +55,8 @@ public class TransactionOutputInflaterTests extends UnitTest {
         final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
 
         final Json testVectors = Json.parse(IoUtil.getResource("/cash-tokens/token-prefix-valid.json"));
+        Assert.assertTrue(testVectors.length() > 0);
+
         for (int i = 0; i < testVectors.length(); ++i) {
             final Json testVector = testVectors.get(i);
             final ByteArray prefixData = ByteArray.fromHexString(testVector.getString("prefix"));
@@ -92,6 +94,8 @@ public class TransactionOutputInflaterTests extends UnitTest {
         final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
 
         final Json testVectors = Json.parse(IoUtil.getResource("/cash-tokens/token-prefix-invalid.json"));
+        Assert.assertTrue(testVectors.length() > 0);
+
         for (int i = 0; i < testVectors.length(); ++i) {
             final Json testVector = testVectors.get(i);
             final ByteArray prefixData = ByteArray.fromHexString(testVector.getString("prefix"));

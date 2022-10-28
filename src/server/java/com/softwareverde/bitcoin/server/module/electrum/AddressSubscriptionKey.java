@@ -1,6 +1,8 @@
 package com.softwareverde.bitcoin.server.module.electrum;
 
 import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.AddressType;
+import com.softwareverde.bitcoin.address.ParsedAddress;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
@@ -10,7 +12,13 @@ class AddressSubscriptionKey {
     public final String subscriptionString;
     public final Boolean isScriptHash;
 
-    public AddressSubscriptionKey(final Address address, final String subscriptionString) {
+    public AddressSubscriptionKey(final AddressType addressType, final Address address, final String subscriptionString) {
+        this.scriptHash = ScriptBuilder.computeScriptHash(addressType, address);
+        this.subscriptionString = subscriptionString;
+        this.isScriptHash = false;
+    }
+
+    public AddressSubscriptionKey(final ParsedAddress address, final String subscriptionString) {
         this.scriptHash = ScriptBuilder.computeScriptHash(address);
         this.subscriptionString = subscriptionString;
         this.isScriptHash = false;

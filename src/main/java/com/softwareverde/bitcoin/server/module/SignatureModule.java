@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.address.ParsedAddress;
 import com.softwareverde.bitcoin.secp256k1.signature.BitcoinMessageSignature;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.wallet.SeedPhraseGenerator;
@@ -87,14 +88,15 @@ public class SignatureModule {
             return;
         }
 
-        final Address address = addressInflater.fromBase58Check(addressStringBase58Check);
-        if (address == null) {
+        final ParsedAddress parsedAddress = addressInflater.fromBase58Check(addressStringBase58Check);
+        if (parsedAddress == null) {
             Logger.error("Invalid address.");
             return;
         }
 
+        final Address address = parsedAddress.getBytes();
         final Boolean signatureIsValid = BitcoinUtil.verifyBitcoinMessage(message, address, signature);
-        System.out.println("Address:    " + address.toBase58CheckEncoded());
+        System.out.println("Address:    " + parsedAddress.toBase58CheckEncoded());
         System.out.println("Signature:  " + signature.toBase64());
         System.out.println("Message:    " + message);
         System.out.println("------------");

@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.module.explorer.api.v1.get;
 
-import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.address.ParsedAddress;
 import com.softwareverde.bitcoin.rpc.NodeJsonRpcConnection;
 import com.softwareverde.bitcoin.server.module.api.ApiResult;
 import com.softwareverde.bitcoin.server.module.explorer.api.Environment;
@@ -28,13 +28,13 @@ public class GetAddressBalanceHandler implements RequestHandler<Environment> {
     @Override
     public Response handleRequest(final Request request, final Environment environment, final Map<String, String> urlParameters) throws Exception {
         final String addressString;
-        final Address address;
+        final ParsedAddress address;
         {
             final GetParameters getParameters = request.getGetParameters();
             addressString = Util.coalesce(urlParameters.get("address"), getParameters.get("address"));
             if (! Util.isBlank(addressString)) {
-                final Address base58Address = _addressInflater.fromBase58Check(addressString);
-                final Address base32Address = _addressInflater.fromBase32Check(addressString);
+                final ParsedAddress base58Address = _addressInflater.fromBase58Check(addressString);
+                final ParsedAddress base32Address = _addressInflater.fromBase32Check(addressString);
                 address = Util.coalesce(base58Address, base32Address);
             }
             else {

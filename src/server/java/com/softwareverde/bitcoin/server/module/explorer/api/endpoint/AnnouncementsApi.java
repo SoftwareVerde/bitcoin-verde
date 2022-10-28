@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.explorer.api.endpoint;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.address.ParsedAddress;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.bloomfilter.BloomFilterInflater;
@@ -307,10 +308,10 @@ public class AnnouncementsApi implements WebSocketServlet {
         final AddressInflater addressInflater = new AddressInflater();
         final MutableList<Address> addresses = new MutableList<>(addressStrings.getCount());
         for (final String addressString : addressStrings) {
-            final Address address = Util.coalesce(addressInflater.fromBase32Check(addressString), addressInflater.fromBase58Check(addressString));
+            final ParsedAddress address = Util.coalesce(addressInflater.fromBase32Check(addressString), addressInflater.fromBase58Check(addressString));
             if (address == null) { continue; }
 
-            addresses.add(address);
+            addresses.add(address.getBytes());
         }
 
         return addresses;
@@ -692,10 +693,10 @@ public class AnnouncementsApi implements WebSocketServlet {
                 final MutableList<Address> addresses = new MutableList<>();
                 for (int i = 0; i < parameters.length(); ++i) {
                     final String addressString = parameters.getString(i);
-                    final Address address = Util.coalesce(addressInflater.fromBase32Check(addressString), addressInflater.fromBase58Check(addressString));
+                    final ParsedAddress address = Util.coalesce(addressInflater.fromBase32Check(addressString), addressInflater.fromBase58Check(addressString));
                     if (address == null) { continue; }
 
-                    addresses.add(address);
+                    addresses.add(address.getBytes());
                 }
 
                 webSocketConfiguration.addresses = ((! addresses.isEmpty()) ? addresses : null);
