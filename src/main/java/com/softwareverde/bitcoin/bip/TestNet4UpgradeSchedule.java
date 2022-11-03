@@ -45,6 +45,11 @@ public class TestNet4UpgradeSchedule implements UpgradeSchedule {
     }
 
     @Override
+    public Boolean isSha256PayToScriptHashEnabled(final MedianBlockTime medianBlockTime) {
+        return (medianBlockTime.getCurrentTimeInSeconds() >= HF20230515_ACTIVATION_TIME);
+    }
+
+    @Override
     public Boolean isAsertDifficultyAdjustmentAlgorithmEnabled(final MedianBlockTime medianBlockTime) {
         return (medianBlockTime.getCurrentTimeInSeconds() >= HF20201115_ACTIVATION_TIME);
     }

@@ -7,6 +7,7 @@ public interface UpgradeSchedule {
     Boolean isBitcoinCashSignatureHashTypeEnabled(Long blockHeight); // Buip 55
     Boolean areOnlyPushOperationsAllowedWithinUnlockingScript(Long blockHeight); // HF20181115 / Bip 62
     Boolean isPayToScriptHashEnabled(Long blockHeight); // Bip 16
+    Boolean isSha256PayToScriptHashEnabled(MedianBlockTime medianBlockTime); // HF20230515
     Boolean isAsertDifficultyAdjustmentAlgorithmEnabled(MedianBlockTime medianBlockTime); // HF20201115
     Boolean isCw144DifficultyAdjustmentAlgorithmEnabled(Long blockHeight); // HF20171113
     Boolean isEmergencyDifficultyAdjustmentAlgorithmEnabled(Long blockHeight); // Buip 55
