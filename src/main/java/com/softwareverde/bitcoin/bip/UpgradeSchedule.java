@@ -3,6 +3,43 @@ package com.softwareverde.bitcoin.bip;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 
 public interface UpgradeSchedule {
+    enum UpgradeHeight {
+        BIP16_ACTIVATION_BLOCK_HEIGHT(0),       // Pay to Script Hash - https://github.com/bitcoin/bips/blob/master/bip-0016.mediawiki
+        BIP34_ACTIVATION_BLOCK_HEIGHT(1),       // Block v2. Height in Coinbase - https://github.com/bitcoin/bips/blob/master/bip-0034.mediawiki
+        BIP65_ACTIVATION_BLOCK_HEIGHT(2),       // OP_CHECKLOCKTIMEVERIFY -- https://github.com/bitcoin/bips/blob/master/bip-0065.mediawiki
+        BIP66_ACTIVATION_BLOCK_HEIGHT(3),       // Strict DER signatures -- https://github.com/bitcoin/bips/blob/master/bip-0066.mediawiki
+        BIP68_ACTIVATION_BLOCK_HEIGHT(4),       // Relative Lock-Time Using Consensus-Enforced Sequence Numbers - https://github.com/bitcoin/bips/blob/master/bip-0068.mediawiki
+        BIP112_ACTIVATION_BLOCK_HEIGHT(5),      // OP_CHECKSEQUENCEVERIFY -- https://github.com/bitcoin/bips/blob/master/bip-0112.mediawiki
+        BIP113_ACTIVATION_BLOCK_HEIGHT(6),      // Median Time-Past As Endpoint For LockTime Calculations -- https://github.com/bitcoin/bips/blob/master/bip-0113.mediawiki
+
+        // NOTE: BCH-specific activation heights are usually one ahead of the BCHN activation heights since BCHN uses the previous block height for activations.
+        BUIP55_ACTIVATION_BLOCK_HEIGHT(7),      // Bitcoin Cash: UAHF - https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/uahf-technical-spec.md
+        HF20171113_ACTIVATION_BLOCK_HEIGHT(8),  // Bitcoin Cash: 2017-11-07 Hard Fork:  https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/nov-13-hardfork-spec.md
+        HF20180515_ACTIVATION_BLOCK_HEIGHT(9),  // Bitcoin Cash: 2018-05-15 Hard Fork:  https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/may-2018-hardfork.md
+        HF20181115_ACTIVATION_BLOCK_HEIGHT(10); // Bitcoin Cash: 2018-11-15 Hard Fork:  https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/2018-nov-upgrade.md
+
+        public final int value;
+        UpgradeHeight(final int value) {
+            this.value = value;
+        }
+    }
+
+    enum UpgradeTime {
+        HF20190515_ACTIVATION_TIME(0),         // Bitcoin Cash: 2019-05-15 Hard Fork:  https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/2019-05-15-upgrade.md
+        HF20191115_ACTIVATION_TIME(1),         // Bitcoin Cash: 2019-11-15 Hard Fork:  https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/2019-11-15-upgrade.md
+        HF20200515_ACTIVATION_TIME(2),         // Bitcoin Cash: 2020-05-15 Hard Fork:  https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/2020-05-15-upgrade.md
+        HF20201115_ACTIVATION_TIME(3),         // Bitcoin Cash: 2020-11-15 Hard Fork:  https://gitlab.com/bitcoin-cash-node/bchn-sw/bitcoincash-upgrade-specifications/-/blob/master/spec/2020-11-15-upgrade.md
+        HF20220515_ACTIVATION_TIME(4),         // Bitcoin Cash: 2022-05-15 Hard Fork:  https://gitlab.com/bitcoin-cash-node/bchn-sw/bitcoincash-upgrade-specifications/-/blob/master/spec/2022-05-15-upgrade.md
+        HF20230515_ACTIVATION_TIME(5);         // Bitcoin Cash: 2023-05-15 Hard Fork: https://bitcoincashresearch.org/t/2021-bch-upgrade-items-brainstorm/130/29 // TODO: Update upgrade spec.
+
+        public final int value;
+        UpgradeTime(final int value) {
+            this.value = value;
+        }
+    }
+
+    Boolean didUpgradeActivate(Long blockHeight0, MedianBlockTime medianBlockTime0, Long blockHeight1, MedianBlockTime medianBlockTime1);
+
     Boolean isMinimalNumberEncodingRequired(MedianBlockTime medianBlockTime); // HF20191115
     Boolean isBitcoinCashSignatureHashTypeEnabled(Long blockHeight); // Buip 55
     Boolean areOnlyPushOperationsAllowedWithinUnlockingScript(Long blockHeight); // HF20181115 / Bip 62

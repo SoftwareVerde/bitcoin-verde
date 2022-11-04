@@ -46,12 +46,23 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     protected Boolean _isMultiplyOperationEnabled;
     protected Boolean _areTransactionVersionsRestricted;
 
+    protected Boolean _didUpgradeActivate = false;
+
     public FakeUpgradeSchedule(final UpgradeSchedule upgradeSchedule) {
         _parentUpgradeSchedule = upgradeSchedule;
     }
 
     protected Boolean _isOverriddenOrEnabled(final Boolean override, final Boolean isEnabled) {
         return ((override != null) ? override : isEnabled);
+    }
+
+    @Override
+    public Boolean didUpgradeActivate(final Long blockHeight0, final MedianBlockTime medianBlockTime0, final Long blockHeight1, final MedianBlockTime medianBlockTime1) {
+        return _didUpgradeActivate;
+    }
+
+    public void setDidUpgradeActivate(final Boolean didUpgradeActivate) {
+        _didUpgradeActivate = didUpgradeActivate;
     }
 
     @Override
