@@ -599,7 +599,7 @@ public class AbcScriptRunnerTests extends UnitTest {
                 upgradeSchedule.setMinimalNumberEncodingRequired(true);
             }
             if (testVector.flagsString.contains("P2SH")) {
-                upgradeSchedule.setPayToScriptHashEnabled(true);
+                upgradeSchedule.setLegacyPayToScriptHashEnabled(true);
             }
             if (testVector.flagsString.contains("CHECKSEQUENCEVERIFY")) {
                 upgradeSchedule.setCheckSequenceNumberOperationEnabled(true);

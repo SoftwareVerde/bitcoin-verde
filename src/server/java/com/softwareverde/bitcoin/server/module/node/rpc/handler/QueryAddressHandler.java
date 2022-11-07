@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.server.module.node.rpc.handler;
 
-import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.TypedAddress;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;

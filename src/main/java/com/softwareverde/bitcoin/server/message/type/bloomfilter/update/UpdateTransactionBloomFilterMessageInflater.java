@@ -3,9 +3,9 @@ package com.softwareverde.bitcoin.server.message.type.bloomfilter.update;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
-import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.ImmutableByteArray;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 
 public class UpdateTransactionBloomFilterMessageInflater extends BitcoinProtocolMessageInflater {
     @Override

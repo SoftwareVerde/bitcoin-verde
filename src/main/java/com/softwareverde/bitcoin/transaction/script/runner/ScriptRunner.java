@@ -67,12 +67,16 @@ public class ScriptRunner {
         final boolean scriptIsPayToScriptHash = (lockingScript.getScriptType() == ScriptType.PAY_TO_SCRIPT_HASH);
         if (! scriptIsPayToScriptHash) { return false; }
 
-        final Boolean payToScriptHashValidationRulesAreEnabled = _upgradeSchedule.isPayToScriptHashEnabled(blockHeight);
-        if (! payToScriptHashValidationRulesAreEnabled) { return false; }
+        final Boolean legacyPayToScriptHashIsEnabled = _upgradeSchedule.isLegacyPayToScriptHashEnabled(blockHeight);
+        final Boolean sha256PayToScriptHashIsEnabled = _upgradeSchedule.isSha256PayToScriptHashEnabled(medianBlockTime);
+        if ((! legacyPayToScriptHashIsEnabled) && (! sha256PayToScriptHashIsEnabled)) { return false; }
 
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
-        final Boolean sha256PayToScriptHashIsEnabled = _upgradeSchedule.isSha256PayToScriptHashEnabled(medianBlockTime);
-        final boolean isSha256PayToScriptHashFormat = (! scriptPatternMatcher.matchesLegacyPayToScriptHashFormat(lockingScript));
+
+        final boolean isLegacyPayToScriptHashFormat = scriptPatternMatcher.matchesLegacyPayToScriptHashFormat(lockingScript);
+        if ( isLegacyPayToScriptHashFormat && (! legacyPayToScriptHashIsEnabled) ) { return false; }
+
+        final boolean isSha256PayToScriptHashFormat = (! isLegacyPayToScriptHashFormat);
         if ( isSha256PayToScriptHashFormat && (! sha256PayToScriptHashIsEnabled) ) { return false; }
 
         final Boolean segwitRecoveryIsEnabled = _upgradeSchedule.areUnusedValuesAfterSegwitScriptExecutionAllowed(medianBlockTime);

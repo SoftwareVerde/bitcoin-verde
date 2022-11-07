@@ -38,26 +38,33 @@ import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.test.MockBlockStore;
 import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputContext;
+import com.softwareverde.bitcoin.test.fake.FakeUpgradeSchedule;
+import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
+import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.locktime.LockTime;
+import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.MutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.ControlOperation;
 import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
 import com.softwareverde.bitcoin.transaction.script.runner.context.TransactionContext;
+import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlockingScript;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
-import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
@@ -66,6 +73,8 @@ import com.softwareverde.logging.LogLevel;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.util.IoUtil;
+import com.softwareverde.util.Tuple;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.type.time.SystemTime;
 import org.junit.After;
 import org.junit.Assert;
@@ -173,7 +182,7 @@ public class BlockProcessorTests extends IntegrationTest {
         public final BlockInflater blockInflater = _masterInflater.getBlockInflater();
         public final MutableNetworkTime networkTime = new MutableNetworkTime();
         public final FakeUnspentTransactionOutputContext unspentTransactionOutputSet = new FakeUnspentTransactionOutputContext();
-        public final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        public final FakeUpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
 
         public final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(_masterInflater, _masterInflater, _blockStore, _fullNodeDatabaseManagerFactory, this.networkTime, _synchronizationStatus, _difficultyCalculatorFactory, _transactionValidatorFactory, this.upgradeSchedule) {
             @Override
@@ -977,5 +986,112 @@ public class BlockProcessorTests extends IntegrationTest {
         _run_deep_reorg_with_synced_headers_with_semi_real_blocks(true);
     }
 
-    // TODO: Create a test that attempts to spend an output that does not exist, and ensure that output is not added to the mempool (i.e. that block was "unApplied" to the mempool).
+    protected Tuple<Block, TransactionId> _setup_should_remove_transaction_from_mempool_that_is_no_longer_valid_due_to_upgrade(final TestHarness harness) throws Exception {
+        final TransactionOutputIdentifier utxoIdentifierToSpend = new TransactionOutputIdentifier(Sha256Hash.EMPTY_HASH, 0);
+        final TransactionOutput utxoToSpend;
+        {
+            final LockingScript lockingScript = new ImmutableLockingScript(ByteArray.fromHexString("AA205DF6E0E2761359D30A8275058E299FCC0381534545F55CF43E41983F5D4C945687"));
+
+            final MutableTransactionOutput mutableTransactionOutput = new MutableTransactionOutput();
+            mutableTransactionOutput.setAmount(50L * Transaction.SATOSHIS_PER_BITCOIN);
+            mutableTransactionOutput.setIndex(0);
+            mutableTransactionOutput.setLockingScript(lockingScript);
+            utxoToSpend = mutableTransactionOutput;
+        }
+
+        final Transaction transaction;
+        {
+            final UnlockingScript unlockingScript = new ImmutableUnlockingScript(ByteArray.fromHexString("4C00"));
+            final MutableTransaction mutableTransaction = new MutableTransaction();
+            mutableTransaction.setVersion(Transaction.VERSION);
+            mutableTransaction.setLockTime(LockTime.MAX_TIMESTAMP);
+
+            final MutableTransactionInput transactionInput = new MutableTransactionInput();
+            transactionInput.setPreviousOutputTransactionHash(utxoIdentifierToSpend.getTransactionHash());
+            transactionInput.setPreviousOutputIndex(utxoIdentifierToSpend.getOutputIndex());
+            transactionInput.setSequenceNumber(SequenceNumber.MAX_SEQUENCE_NUMBER);
+            transactionInput.setUnlockingScript(unlockingScript);
+            mutableTransaction.addTransactionInput(transactionInput);
+
+            final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
+            transactionOutput.setAmount(1000L);
+            transactionOutput.setIndex(0);
+            transactionOutput.setLockingScript(LockingScript.EMPTY_SCRIPT);
+            mutableTransaction.addTransactionOutput(transactionOutput);
+
+            transaction = mutableTransaction;
+        }
+
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+
+            // Store the UTXO to be spend; this UTXO is locked via a Sha256 P2SH...
+            unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(
+                new ImmutableList<>(utxoIdentifierToSpend),
+                new ImmutableList<>(utxoToSpend),
+                765000L,
+                null
+            );
+
+            // The UtxoToSpend Transaction hash must be registered so its coinbase-status lookup succeeds.
+            transactionDatabaseManager.storeTransactionHash(utxoIdentifierToSpend.getTransactionHash(), 0);
+
+            harness.upgradeSchedule.setSha256PayToScriptHashEnabled(false);
+
+            final Block genesisBlock = harness.inflateBlock(BlockData.MainChain.GENESIS_BLOCK);
+            final Block block01 = harness.inflateBlock(BlockData.MainChain.BLOCK_1);
+            final Block block02 = harness.inflateBlock(BlockData.MainChain.BLOCK_2);
+
+            harness.processBlock(genesisBlock);
+            harness.processBlock(block01);
+
+            databaseManager.startTransaction();
+            final TransactionId transactionId = transactionDatabaseManager.storeUnconfirmedTransaction(transaction);
+            transactionDatabaseManager.addToUnconfirmedTransactions(transactionId);
+            databaseManager.commitTransaction();
+
+            Assert.assertTrue(transactionDatabaseManager.isUnconfirmedTransaction(transactionId));
+
+            return new Tuple<>(block02, transactionId);
+        }
+    }
+
+    @Test
+    public void should_remove_transaction_from_mempool_that_is_no_longer_valid_due_to_upgrade() throws Exception {
+        // Setup
+        final TestHarness harness = new TestHarness();
+        final Tuple<Block, TransactionId> block02AndUnconfirmedTransactionId = _setup_should_remove_transaction_from_mempool_that_is_no_longer_valid_due_to_upgrade(harness);
+
+        // Action
+        harness.upgradeSchedule.setLegacyPayToScriptHashEnabled(true); // Not strictly necessary...
+        harness.upgradeSchedule.setSha256PayToScriptHashEnabled(true); // NOTE: Test must fail with this disabled.
+        harness.upgradeSchedule.setDidUpgradeActivate(true);
+        harness.processBlock(block02AndUnconfirmedTransactionId.first);
+
+        // Assert
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+            Assert.assertFalse(transactionDatabaseManager.isUnconfirmedTransaction(block02AndUnconfirmedTransactionId.second));
+        }
+    }
+
+    @Test
+    public void should_not_remove_transaction_from_mempool_that_is_still_valid_due_to_upgrade() throws Exception {
+        // Setup
+        final TestHarness harness = new TestHarness();
+        final Tuple<Block, TransactionId> block02AndUnconfirmedTransactionId = _setup_should_remove_transaction_from_mempool_that_is_no_longer_valid_due_to_upgrade(harness);
+
+        // Action
+        harness.upgradeSchedule.setLegacyPayToScriptHashEnabled(false); // Not strictly necessary...
+        harness.upgradeSchedule.setSha256PayToScriptHashEnabled(false); // NOTE: Test must fail with this disabled.
+        harness.upgradeSchedule.setDidUpgradeActivate(true);
+        harness.processBlock(block02AndUnconfirmedTransactionId.first);
+
+        // Assert
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+            Assert.assertTrue(transactionDatabaseManager.isUnconfirmedTransaction(block02AndUnconfirmedTransactionId.second));
+        }
+    }
 }

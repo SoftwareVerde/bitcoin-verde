@@ -81,8 +81,8 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     }
 
     @Override
-    public Boolean isPayToScriptHashEnabled(final Long blockHeight) {
-        return _isOverriddenOrEnabled(_isPayToScriptHashEnabled, _parentUpgradeSchedule.isPayToScriptHashEnabled(Util.coalesce(blockHeight, Long.MAX_VALUE)));
+    public Boolean isLegacyPayToScriptHashEnabled(final Long blockHeight) {
+        return _isOverriddenOrEnabled(_isPayToScriptHashEnabled, _parentUpgradeSchedule.isLegacyPayToScriptHashEnabled(Util.coalesce(blockHeight, Long.MAX_VALUE)));
     }
 
     @Override
@@ -232,7 +232,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
         _areOnlyPushOperationsAllowedWithinUnlockingScript = areOnlyPushOperationsAllowedWithinUnlockingScript;
     }
 
-    public void setPayToScriptHashEnabled(final Boolean payToScriptHashEnabled) {
+    public void setLegacyPayToScriptHashEnabled(final Boolean payToScriptHashEnabled) {
         _isPayToScriptHashEnabled = payToScriptHashEnabled;
     }
 

@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.server.configuration;
 
-import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.address.ParsedAddress;
 import com.softwareverde.logging.LogLevel;

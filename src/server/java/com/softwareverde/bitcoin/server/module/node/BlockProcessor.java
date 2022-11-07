@@ -7,7 +7,9 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
 import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
+import com.softwareverde.bitcoin.block.validator.ValidationResult;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.BlockStoreContext;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorFactory;
 import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
@@ -21,7 +23,9 @@ import com.softwareverde.bitcoin.context.core.BlockHeaderValidatorContext;
 import com.softwareverde.bitcoin.context.core.MedianBlockTimeContextCore;
 import com.softwareverde.bitcoin.context.core.MutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
+import com.softwareverde.bitcoin.context.lazy.HeadBlockchainMedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.lazy.LazyBlockValidatorContext;
+import com.softwareverde.bitcoin.context.lazy.LazyUnconfirmedTransactionUtxoSet;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
@@ -55,6 +59,8 @@ import com.softwareverde.util.RotatingQueue;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.timer.MultiTimer;
 import com.softwareverde.util.timer.NanoTimer;
+
+import java.util.Map;
 
 public class BlockProcessor {
     public interface Context extends BlockInflaters, TransactionInflaters, BlockStoreContext, MultiConnectionFullDatabaseContext, NetworkTimeContext, SynchronizationStatusContext, TransactionValidatorFactory, DifficultyCalculatorFactory, UpgradeScheduleContext { }
@@ -490,9 +496,8 @@ public class BlockProcessor {
                     final MutableList<TransactionId> mutableTransactionIds = new MutableList<>(blockTransactionIds);
                     mutableTransactionIds.remove(0); // Exclude the coinbase (not strictly necessary, but performs slightly better)...
 
-                    { // Remove any transactions in the memory pool that were included in this block...
-                        transactionDatabaseManager.removeFromUnconfirmedTransactions(mutableTransactionIds);
-                    }
+                    // Remove any transactions in the memory pool that were included in this block...
+                    transactionDatabaseManager.removeFromUnconfirmedTransactions(mutableTransactionIds);
 
                     { // Remove any transactions in the memory pool that are now considered double-spends...
                         final List<TransactionId> dependentUnconfirmedTransaction = transactionDatabaseManager.getUnconfirmedTransactionsDependingOnSpentInputsOf(blockTransactions);
@@ -508,6 +513,55 @@ public class BlockProcessor {
                 else {
                     // The node is still synchronizing or is substantially behind, so don't bother maintaining the mempool...
                     transactionDatabaseManager.removeAllUnconfirmedTransactions();
+                }
+            }
+
+            if ( blockIsConnectedToUtxoSet && (blockHeight > 0L) ) {
+                final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
+                final Sha256Hash previousBlockHash = block.getPreviousBlockHash();
+                final BlockId previousBlockId = blockHeaderDatabaseManager.getBlockHeaderId(previousBlockHash);
+                final Long previousBlockHeight = blockHeaderDatabaseManager.getBlockHeight(previousBlockId);
+                final MedianBlockTime previousMedianBlockTime = blockHeaderDatabaseManager.getMedianBlockTime(previousBlockId);
+                final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.getMedianBlockTime(blockId);
+
+                final Boolean upgradeActivated = upgradeSchedule.didUpgradeActivate(previousBlockHeight, previousMedianBlockTime, blockHeight, medianBlockTime);
+                if (upgradeActivated) {
+                    TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_WRITE_LOCK.lock();
+                    try {
+                        // Revalidate all transactions within the Unconfirmed Transaction set...
+                        final NanoTimer nanoTimer = new NanoTimer();
+                        nanoTimer.start();
+                        int removedTransactionCount = 0;
+
+                        final UnspentTransactionOutputContext unconfirmedTransactionUtxoSet = new LazyUnconfirmedTransactionUtxoSet(databaseManager, true);
+                        final MedianBlockTimeContext medianBlockTimeContext = new HeadBlockchainMedianBlockTimeContext(databaseManager);
+                        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(_context, networkTime, medianBlockTimeContext, unconfirmedTransactionUtxoSet, upgradeSchedule);
+                        final TransactionValidator unconfirmedTransactionValidator = _transactionValidatorFactory.getUnconfirmedTransactionValidator(transactionValidatorContext);
+
+                        final List<Sha256Hash> unconfirmedTransactions = transactionDatabaseManager.getUnconfirmedTransactionsInHierarchicalOrder();
+                        final Map<Sha256Hash, Transaction> transactions = transactionDatabaseManager.getTransactions(unconfirmedTransactions);
+                        transactionDatabaseManager.removeAllUnconfirmedTransactions();
+
+                        for (final Sha256Hash transactionHash : unconfirmedTransactions) {
+                            final Transaction transaction = transactions.get(transactionHash);
+                            transactionDatabaseManager.storeTransactionHash(transaction);
+
+                            final ValidationResult validationResult = unconfirmedTransactionValidator.validateTransaction((blockHeight + 1L), transaction);
+                            if (!validationResult.isValid) {
+                                removedTransactionCount += 1;
+                                continue;
+                            }
+
+                            final TransactionId transactionId = transactionDatabaseManager.storeUnconfirmedTransaction(transaction);
+                            transactionDatabaseManager.addToUnconfirmedTransactions(transactionId);
+                        }
+
+                        nanoTimer.stop();
+                        Logger.debug("Removed " + removedTransactionCount + " newly invalidated transactions in " + nanoTimer.getMillisecondsElapsed() + "ms.");
+                    }
+                    finally {
+                        TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_WRITE_LOCK.unlock();
+                    }
                 }
             }
         }

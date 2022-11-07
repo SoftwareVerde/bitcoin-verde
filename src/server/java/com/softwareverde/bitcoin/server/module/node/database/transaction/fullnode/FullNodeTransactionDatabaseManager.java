@@ -30,6 +30,7 @@ public interface FullNodeTransactionDatabaseManager extends TransactionDatabaseM
     void removeAllUnconfirmedTransactions() throws DatabaseException;
     Boolean isUnconfirmedTransaction(TransactionId transactionId) throws DatabaseException;
     List<TransactionId> getUnconfirmedTransactionIds() throws DatabaseException;
+    List<Sha256Hash> getUnconfirmedTransactionsInHierarchicalOrder() throws DatabaseException;
 
     // "Select transactions that are unconfirmed that spend an output spent by any of these transactionIds..."
     List<TransactionId> getUnconfirmedTransactionsDependingOnSpentInputsOf(List<Transaction> transactions) throws DatabaseException;

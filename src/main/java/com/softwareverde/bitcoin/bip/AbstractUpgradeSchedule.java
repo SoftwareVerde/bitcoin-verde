@@ -50,7 +50,7 @@ public abstract class AbstractUpgradeSchedule implements UpgradeSchedule {
     }
 
     @Override
-    public Boolean isPayToScriptHashEnabled(final Long blockHeight) {
+    public Boolean isLegacyPayToScriptHashEnabled(final Long blockHeight) {
         return _isActive(blockHeight, UpgradeHeight.BIP16_ACTIVATION_BLOCK_HEIGHT);
     }
 
