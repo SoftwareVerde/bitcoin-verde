@@ -325,6 +325,8 @@ public class ScriptRunnerTests {
         final LockingScript lockingScript = LockingScript.castFrom(scriptInflater.fromBytes(ByteArray.fromHexString("AA20" + redeemScriptHash + "87")));
 
         final FakeUpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
+        upgradeSchedule.setLegacyPayToScriptHashEnabled(true);
+        upgradeSchedule.setSha256PayToScriptHashEnabled(true);
         upgradeSchedule.setUnusedValuesAfterSegwitScriptExecutionAllowed(true);
 
         final MutableMedianBlockTime medianBlockTime = new MutableMedianBlockTime();
