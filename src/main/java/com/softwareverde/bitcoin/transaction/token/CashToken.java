@@ -1,9 +1,13 @@
 package com.softwareverde.bitcoin.transaction.token;
 
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.bytearray.ByteArrayBuilder;
+import com.softwareverde.util.bytearray.Endian;
 
 public class CashToken implements Const {
     public static final byte PREFIX = (byte) 0xEF;
@@ -25,6 +29,27 @@ public class CashToken implements Const {
             }
             return null;
         }
+    }
+
+    protected byte _getBitfield() {
+        final MutableByteArray byteArray = new MutableByteArray(1);
+
+        final boolean hasCommitment = ( (_commitment != null) && (! _commitment.isEmpty()) );
+        byteArray.setBit(1L, hasCommitment);
+
+        final boolean hasNft = (_nftCapability != null);
+        byteArray.setBit(2L, hasNft);
+
+        final boolean hasAmount = ( (_tokenAmount != null) && (_tokenAmount > 0L) );
+        byteArray.setBit(3L, hasAmount);
+
+        if (hasNft) {
+            final byte currentValue = byteArray.getByte(0);
+            final byte newValue = (byte) (currentValue | _nftCapability.flag);
+            byteArray.setByte(0, newValue);
+        }
+
+        return byteArray.getByte(0);
     }
 
     protected final Sha256Hash _tokenPrefix;
@@ -53,6 +78,30 @@ public class CashToken implements Const {
 
     public Long getTokenAmount() {
         return _tokenAmount;
+    }
+
+    public ByteArray getBytes() {
+        final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
+        byteArrayBuilder.appendByte(CashToken.PREFIX);
+        byteArrayBuilder.appendBytes(_tokenPrefix, Endian.LITTLE);
+
+        final byte bitfield = _getBitfield();
+        byteArrayBuilder.appendByte(bitfield);
+
+        final boolean hasCommitment = ( (_commitment != null) && (! _commitment.isEmpty()) );
+        if (hasCommitment) {
+            final ByteArray commitmentByteCountBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(_commitment.getByteCount());
+            byteArrayBuilder.appendBytes(commitmentByteCountBytes);
+            byteArrayBuilder.appendBytes(_commitment);
+        }
+
+        final boolean hasAmount = ( (_tokenAmount != null) && (_tokenAmount > 0L) );
+        if (hasAmount) {
+            final ByteArray tokenAmountBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(_tokenAmount);
+            byteArrayBuilder.appendBytes(tokenAmountBytes);
+        }
+
+        return byteArrayBuilder;
     }
 
     @Override

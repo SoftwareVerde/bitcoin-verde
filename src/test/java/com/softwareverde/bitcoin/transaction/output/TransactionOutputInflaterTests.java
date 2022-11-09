@@ -52,6 +52,7 @@ public class TransactionOutputInflaterTests extends UnitTest {
 
     @Test
     public void should_inflate_valid_cash_tokens() throws Exception {
+        final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
         final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
 
         final Json testVectors = Json.parse(IoUtil.getResource("/cash-tokens/token-prefix-valid.json"));
@@ -66,6 +67,9 @@ public class TransactionOutputInflaterTests extends UnitTest {
             final TransactionOutput transactionOutput = transactionOutputInflater.fromBytes(0, transactionOutputBytes);
             final CashToken cashToken = transactionOutput.getCashToken();
             Assert.assertNotNull(cashToken);
+
+            final ByteArray bytes = transactionOutputDeflater.toBytes(transactionOutput);
+            Assert.assertEquals(transactionOutputBytes, bytes);
 
             Assert.assertEquals(cashTokenData.getLong("amount"), Util.coalesce(cashToken.getTokenAmount()));
             Assert.assertEquals(Sha256Hash.fromHexString(cashTokenData.getString("category")), cashToken.getTokenPrefix());

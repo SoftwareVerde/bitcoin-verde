@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.token.CashToken;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -24,8 +25,24 @@ public class TransactionOutputDeflater {
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(valueBytes, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(CompactVariableLengthInteger.variableLengthIntegerToBytes(lockingScriptBytes.getByteCount()), Endian.BIG);
-        byteArrayBuilder.appendBytes(lockingScriptBytes, Endian.BIG);
+        final CashToken cashToken = transactionOutput.getCashToken();
+        if (cashToken != null) {
+            final ByteArray cashTokenBytes = cashToken.getBytes();
+
+            final int lockingScriptByteCount = lockingScriptBytes.getByteCount();
+            final int cashTokenByteCount = cashTokenBytes.getByteCount();
+            final int totalByteCount = (cashTokenByteCount + lockingScriptByteCount);
+            final ByteArray totalByteCountBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(totalByteCount);
+
+            byteArrayBuilder.appendBytes(totalByteCountBytes, Endian.BIG);
+            byteArrayBuilder.appendBytes(cashTokenBytes, Endian.BIG);
+            byteArrayBuilder.appendBytes(lockingScriptBytes, Endian.BIG);
+        }
+        else {
+            final int lockingScriptByteCount = lockingScriptBytes.getByteCount();
+            byteArrayBuilder.appendBytes(CompactVariableLengthInteger.variableLengthIntegerToBytes(lockingScriptByteCount), Endian.BIG);
+            byteArrayBuilder.appendBytes(lockingScriptBytes, Endian.BIG);
+        }
 
         return MutableByteArray.wrap(byteArrayBuilder.build());
     }

@@ -21,7 +21,10 @@ public class MutableTransactionOutput implements TransactionOutput {
         _amount = transactionOutput.getAmount();
         _index = transactionOutput.getIndex();
 
-        _lockingScript = transactionOutput.getLockingScript().asConst();
+        _cashToken = transactionOutput.getCashToken();
+
+        final LockingScript lockingScript = transactionOutput.getLockingScript();
+        _lockingScript = lockingScript.asConst();
     }
 
     @Override
