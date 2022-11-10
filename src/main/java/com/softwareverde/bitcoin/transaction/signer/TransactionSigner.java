@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
 import com.softwareverde.bitcoin.transaction.script.MutableScript;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
@@ -21,6 +22,7 @@ import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.secp256k1.Schnorr;
 import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
@@ -35,13 +37,14 @@ import com.softwareverde.util.bytearray.Endian;
 public class TransactionSigner {
     public static class BitcoinCashSignaturePreimage {
         public ByteArray transactionVersionBytes;           // Step 1,  LE
-        public ByteArray previousTransactionOutputsDigest;  // Step 2,  BE
+        public ByteArray previousOutputIdentifiersHash;     // Step 2,  BE
         public ByteArray sequenceNumbersDigest;             // Step 3,  BE
         public ByteArray previousOutputBytes;               // Step 4,  BE
+        public ByteArray previousOutputsHash;               // Step 4.5 BE ("hashUtxos")
         public ByteArray scriptBytes;                       // Step 5,  BE
         public ByteArray transactionOutputAmountBytes;      // Step 6,  LE
         public ByteArray sequenceNumberBytes;               // Step 7,  LE
-        public ByteArray transactionOutputsDigest;          // Step 8,  BE
+        public ByteArray transactionOutputsHash;            // Step 8,  BE
         public ByteArray lockTimeBytes;                     // Step 9,  LE
         public ByteArray hashTypeBytes;                     // Step 10, LE
     }
@@ -190,7 +193,7 @@ public class TransactionSigner {
         }
 
         { // 2. Serialize this Transaction's TransactionInputs' previous TransactionOutputIdentifiers...
-            signaturePreimage.previousTransactionOutputsDigest = BitcoinCashTransactionSignerUtil.getPreviousOutputIdentifiersHash(transaction, hashType);
+            signaturePreimage.previousOutputIdentifiersHash = BitcoinCashTransactionSignerUtil.getPreviousOutputIdentifiersHash(transaction, hashType);
         }
 
         { // 3. Serialize this Transaction's Inputs' SequenceNumbers...
@@ -199,6 +202,23 @@ public class TransactionSigner {
 
         { // 4. Serialize the signed TransactionInput's previous TransactionOutputIdentifier...
             signaturePreimage.previousOutputBytes = BitcoinCashTransactionSignerUtil.getPreviousTransactionOutputIdentifierBytes(transaction, transactionInputIndex);
+        }
+
+        { // 4.5 Serialize the Transaction's UTXOs...
+            if (hashType.getShouldSignAllPreviousOutputs()) {
+                final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
+                final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
+                final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+                for (int i = 0; i < transactionInputs.getCount(); ++i) {
+                    final TransactionOutput previousTransactionOutput = signatureContext.getTransactionOutputBeingSpent(transactionInputIndex);
+                    final ByteArray transactionOutputBytes = transactionOutputDeflater.toBytes(previousTransactionOutput);
+                    byteArrayBuilder.appendBytes(transactionOutputBytes);
+                }
+                signaturePreimage.previousOutputsHash = HashUtil.sha256(byteArrayBuilder);
+            }
+            else {
+                signaturePreimage.previousOutputsHash = new MutableByteArray(0);
+            }
         }
 
         { // 5. Serialize the script...
@@ -241,7 +261,7 @@ public class TransactionSigner {
         }
 
         { // 8. Serialize this Transaction's TransactionOutputs...
-            signaturePreimage.transactionOutputsDigest = BitcoinCashTransactionSignerUtil.getTransactionOutputsHash(transaction, transactionInputIndex, hashType);
+            signaturePreimage.transactionOutputsHash = BitcoinCashTransactionSignerUtil.getTransactionOutputsHash(transaction, transactionInputIndex, hashType);
         }
 
         { // 9. Serialize this Transaction's LockTime...
@@ -261,13 +281,14 @@ public class TransactionSigner {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
 
         byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.transactionVersionBytes);
-        byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.previousTransactionOutputsDigest);
+        byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.previousOutputIdentifiersHash);
         byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.sequenceNumbersDigest);
         byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.previousOutputBytes);
+        byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.previousOutputsHash);
         byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.scriptBytes);
         byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.transactionOutputAmountBytes);
         byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.sequenceNumberBytes);
-        byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.transactionOutputsDigest);
+        byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.transactionOutputsHash);
         byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.lockTimeBytes);
         byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.hashTypeBytes);
 

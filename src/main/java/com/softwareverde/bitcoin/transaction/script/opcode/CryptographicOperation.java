@@ -73,6 +73,10 @@ public class CryptographicOperation extends SubTypedOperation {
         final Script currentScript = transactionContext.getCurrentScript();
 
         final HashType hashType = scriptSignature.getHashType();
+        if (hashType.getShouldSignAllPreviousOutputs()) {
+            if (! hashType.shouldSignOtherInputs()) { return false; }
+            if (! hashType.isBitcoinCashType()) { return false; }
+        }
 
         final Long blockHeight = transactionContext.getBlockHeight();
 
