@@ -22,7 +22,6 @@ import com.softwareverde.bitcoin.server.module.node.database.blockchain.Blockcha
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
-import com.softwareverde.bitcoin.test.util.TransactionTestUtil;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.coinbase.MutableCoinbaseTransaction;
@@ -1240,6 +1239,7 @@ class Void {
             transaction.setVersion(Transaction.VERSION);
             transaction.setLockTime(LockTime.MIN_TIMESTAMP);
             final int transactionOutputIndex = 0;
+            final List<TransactionOutput> previousTransactionOutputs;
             final TransactionOutput outputBeingSpent;
             {
                 final Transaction transactionToSpend = customBlock6.getCoinbaseTransaction();
@@ -1251,15 +1251,20 @@ class Void {
                 transactionInput.setSequenceNumber(SequenceNumber.MAX_SEQUENCE_NUMBER);
                 transactionInput.setUnlockingScript(UnlockingScript.EMPTY_SCRIPT);
                 transaction.addTransactionInput(transactionInput);
+
+                previousTransactionOutputs = transactionToSpend.getTransactionOutputs();
             }
             transaction.addTransactionOutput(_createTransactionOutput(addressInflater.fromPrivateKey(privateKey, false)));
 
-            final SignatureContext signatureContext = new SignatureContext(transaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, false), Long.MAX_VALUE, upgradeSchedule);
-            signatureContext.setShouldSignInputScript(0, true, outputBeingSpent);
+            final SignatureContext signatureContext = new SignatureContext(
+                transaction,
+                new HashType(Mode.SIGNATURE_HASH_ALL, true, false, false),
+                previousTransactionOutputs,
+                upgradeSchedule
+            );
+            signatureContext.setShouldSignInputScript(0, true);
             final TransactionSigner transactionSigner = new TransactionSigner();
             final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
-
-            final List<TransactionOutput> previousTransactionOutputs = TransactionTestUtil.createPreviousTransactionOutputsList(1, transactionOutputIndex, outputBeingSpent);
 
             final TransactionInput transactionInput = signedTransaction.getTransactionInputs().get(0);
             final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);

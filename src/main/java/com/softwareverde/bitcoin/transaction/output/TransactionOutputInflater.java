@@ -83,7 +83,7 @@ public class TransactionOutputInflater {
             transactionOutput._cashToken = new CashToken(tokenPrefix, nftCapability, commitment, amount);
 
             final int lockingScriptByteCount = (scriptByteCount.intValue() - cashTokenScriptLength);
-            lockingScriptBytes = MutableByteArray.wrap(byteArrayReader.readBytes(lockingScriptByteCount, Endian.LITTLE));
+            lockingScriptBytes = MutableByteArray.wrap(byteArrayReader.readBytes(lockingScriptByteCount, Endian.BIG));
         }
         else {
             lockingScriptBytes = MutableByteArray.wrap(byteArrayReader.readBytes(scriptByteCount.intValue(), Endian.BIG));

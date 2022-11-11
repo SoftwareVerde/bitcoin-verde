@@ -12,9 +12,14 @@ import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
+import com.softwareverde.bitcoin.transaction.token.CashToken;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.util.Util;
+import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.ByteArrayReader;
+import com.softwareverde.util.bytearray.Endian;
 
 public class IntrospectionOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_INTROSPECTION;
@@ -33,6 +38,13 @@ public class IntrospectionOperation extends SubTypedOperation {
     public static final IntrospectionOperation PUSH_INPUT_SEQUENCE_NUMBER               = new IntrospectionOperation(Opcode.PUSH_INPUT_SEQUENCE_NUMBER);
     public static final IntrospectionOperation PUSH_OUTPUT_VALUE                        = new IntrospectionOperation(Opcode.PUSH_OUTPUT_VALUE);
     public static final IntrospectionOperation PUSH_OUTPUT_BYTECODE                     = new IntrospectionOperation(Opcode.PUSH_OUTPUT_BYTECODE);
+
+    public static final IntrospectionOperation PUSH_UTXO_TOKEN_CATEGORY                 = new IntrospectionOperation(Opcode.PUSH_UTXO_TOKEN_CATEGORY);
+    public static final IntrospectionOperation PUSH_UTXO_TOKEN_COMMITMENT               = new IntrospectionOperation(Opcode.PUSH_UTXO_TOKEN_COMMITMENT);
+    public static final IntrospectionOperation PUSH_UTXO_TOKEN_AMOUNT                   = new IntrospectionOperation(Opcode.PUSH_UTXO_TOKEN_AMOUNT);
+    public static final IntrospectionOperation PUSH_OUTPUT_TOKEN_CATEGORY               = new IntrospectionOperation(Opcode.PUSH_OUTPUT_TOKEN_CATEGORY);
+    public static final IntrospectionOperation PUSH_OUTPUT_TOKEN_COMMITMENT             = new IntrospectionOperation(Opcode.PUSH_OUTPUT_TOKEN_COMMITMENT);
+    public static final IntrospectionOperation PUSH_OUTPUT_TOKEN_AMOUNT                 = new IntrospectionOperation(Opcode.PUSH_OUTPUT_TOKEN_AMOUNT);
 
     protected static IntrospectionOperation fromBytes(final ByteArrayReader byteArrayReader) {
         if (! byteArrayReader.hasBytes()) { return null; }
@@ -150,11 +162,11 @@ public class IntrospectionOperation extends SubTypedOperation {
             }
 
             case PUSH_PREVIOUS_OUTPUT_VALUE: {
-                final Integer outputIndex = _popIntegerValue(stack, context);
-                if (outputIndex == null) { return false; }
-                if (outputIndex < 0) { return false; }
+                final Integer inputIndex = _popIntegerValue(stack, context);
+                if (inputIndex == null) { return false; }
+                if (inputIndex < 0) { return false; }
 
-                final TransactionOutput previousOutput = context.getPreviousTransactionOutput(outputIndex);
+                final TransactionOutput previousOutput = context.getPreviousTransactionOutput(inputIndex);
                 if (previousOutput == null) { return false; }
 
                 final Long amount = previousOutput.getAmount();
@@ -165,11 +177,11 @@ public class IntrospectionOperation extends SubTypedOperation {
             }
 
             case PUSH_PREVIOUS_OUTPUT_BYTECODE: {
-                final Integer outputIndex = _popIntegerValue(stack, context);
-                if (outputIndex == null) { return false; }
-                if (outputIndex < 0) { return false; }
+                final Integer inputIndex = _popIntegerValue(stack, context);
+                if (inputIndex == null) { return false; }
+                if (inputIndex < 0) { return false; }
 
-                final TransactionOutput previousOutput = context.getPreviousTransactionOutput(outputIndex);
+                final TransactionOutput previousOutput = context.getPreviousTransactionOutput(inputIndex);
                 if (previousOutput == null) { return false; }
 
                 final Script previousOutputScript = previousOutput.getLockingScript();
@@ -310,6 +322,200 @@ public class IntrospectionOperation extends SubTypedOperation {
                 final Value value = Value.fromBytes(lockingScript.getBytes());
                 if (value == null) { return false; }
 
+                stack.push(value);
+                return true;
+            }
+
+            case PUSH_UTXO_TOKEN_CATEGORY: {
+                if (! upgradeSchedule.areCashTokensEnabled(medianBlockTime)) { return false; }
+
+                final Integer inputIndex = _popIntegerValue(stack, context);
+                if (inputIndex == null) { return false; }
+                if (inputIndex < 0) { return false; }
+
+                final TransactionOutput previousOutput = context.getPreviousTransactionOutput(inputIndex);
+                if (previousOutput == null) { return false; }
+
+                final CashToken cashToken = previousOutput.getCashToken();
+                if (cashToken == null) {
+                    final Value value = Value.fromInteger(0);
+                    stack.push(value);
+                    return true;
+                }
+
+                final Sha256Hash cashTokenPrefix = cashToken.getTokenPrefix();
+                final CashToken.NftCapability nftCapability = cashToken.getNftCapability();
+                if ( (nftCapability == null) || (nftCapability == CashToken.NftCapability.NONE) ) {
+                    final Value value = Value.fromBytes(cashTokenPrefix.toReverseEndian());
+                    stack.push(value);
+                    return true;
+                }
+
+                final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
+                byteArrayBuilder.appendBytes(cashTokenPrefix, Endian.LITTLE);
+                byteArrayBuilder.appendByte(nftCapability.flag);
+                final Value value = Value.fromBytes(byteArrayBuilder);
+                stack.push(value);
+                return true;
+            }
+
+            case PUSH_UTXO_TOKEN_COMMITMENT: {
+                if (! upgradeSchedule.areCashTokensEnabled(medianBlockTime)) { return false; }
+
+                final Integer inputIndex = _popIntegerValue(stack, context);
+                if (inputIndex == null) { return false; }
+                if (inputIndex < 0) { return false; }
+
+                final TransactionOutput previousOutput = context.getPreviousTransactionOutput(inputIndex);
+                if (previousOutput == null) { return false; }
+
+                final CashToken cashToken = previousOutput.getCashToken();
+                if (cashToken == null) {
+                    final Value value = Value.fromInteger(0);
+                    stack.push(value);
+                    return true;
+                }
+
+                final ByteArray cashTokenCommitment = cashToken.getCommitment();
+                if (cashTokenCommitment == null || cashTokenCommitment.isEmpty()) {
+                    final Value value = Value.fromInteger(0);
+                    stack.push(value);
+                    return true;
+                }
+
+                final Value value = Value.fromBytes(cashTokenCommitment);
+                stack.push(value);
+                return true;
+            }
+
+            case PUSH_UTXO_TOKEN_AMOUNT: {
+                if (! upgradeSchedule.areCashTokensEnabled(medianBlockTime)) { return false; }
+
+                final Integer inputIndex = _popIntegerValue(stack, context);
+                if (inputIndex == null) { return false; }
+                if (inputIndex < 0) { return false; }
+
+                final TransactionOutput previousOutput = context.getPreviousTransactionOutput(inputIndex);
+                if (previousOutput == null) { return false; }
+
+                final CashToken cashToken = previousOutput.getCashToken();
+                if (cashToken == null) {
+                    final Value value = Value.fromInteger(0);
+                    stack.push(value);
+                    return true;
+                }
+
+                final Long tokenAmount = Util.coalesce(cashToken.getTokenAmount());
+                final Value value = Value.fromInteger(tokenAmount);
+                stack.push(value);
+                return true;
+            }
+
+            case PUSH_OUTPUT_TOKEN_CATEGORY: {
+                if (! upgradeSchedule.areCashTokensEnabled(medianBlockTime)) { return false; }
+
+                final Integer outputIndex = _popIntegerValue(stack, context);
+                if (outputIndex == null) { return false; }
+                if (outputIndex < 0) { return false; }
+
+                final TransactionOutput transactionOutput;
+                {
+                    final Transaction transaction = context.getTransaction();
+                    final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+                    final int transactionOutputCount = transactionOutputs.getCount();
+                    if (outputIndex >= transactionOutputCount) { return false; }
+                    if (outputIndex < 0) { return false; }
+
+                    transactionOutput = transactionOutputs.get(outputIndex);
+                }
+
+                final CashToken cashToken = transactionOutput.getCashToken();
+                if (cashToken == null) {
+                    final Value value = Value.fromInteger(0);
+                    stack.push(value);
+                    return true;
+                }
+
+                final Sha256Hash cashTokenPrefix = cashToken.getTokenPrefix();
+                final CashToken.NftCapability nftCapability = cashToken.getNftCapability();
+                if ( (nftCapability == null) || (nftCapability == CashToken.NftCapability.NONE) ) {
+                    final Value value = Value.fromBytes(cashTokenPrefix.toReverseEndian());
+                    stack.push(value);
+                    return true;
+                }
+
+                final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
+                byteArrayBuilder.appendBytes(cashTokenPrefix, Endian.LITTLE);
+                byteArrayBuilder.appendByte(nftCapability.flag);
+                final Value value = Value.fromBytes(byteArrayBuilder);
+                stack.push(value);
+                return true;
+            }
+
+            case PUSH_OUTPUT_TOKEN_COMMITMENT: {
+                if (! upgradeSchedule.areCashTokensEnabled(medianBlockTime)) { return false; }
+
+                final Integer outputIndex = _popIntegerValue(stack, context);
+                if (outputIndex == null) { return false; }
+                if (outputIndex < 0) { return false; }
+
+                final TransactionOutput transactionOutput;
+                {
+                    final Transaction transaction = context.getTransaction();
+                    final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+                    final int transactionOutputCount = transactionOutputs.getCount();
+                    if (outputIndex >= transactionOutputCount) { return false; }
+                    if (outputIndex < 0) { return false; }
+
+                    transactionOutput = transactionOutputs.get(outputIndex);
+                }
+
+                final CashToken cashToken = transactionOutput.getCashToken();
+                if (cashToken == null) {
+                    final Value value = Value.fromInteger(0);
+                    stack.push(value);
+                    return true;
+                }
+
+                final ByteArray cashTokenCommitment = cashToken.getCommitment();
+                if (cashTokenCommitment == null || cashTokenCommitment.isEmpty()) {
+                    final Value value = Value.fromInteger(0);
+                    stack.push(value);
+                    return true;
+                }
+
+                final Value value = Value.fromBytes(cashTokenCommitment);
+                stack.push(value);
+                return true;
+            }
+
+            case PUSH_OUTPUT_TOKEN_AMOUNT: {
+                if (! upgradeSchedule.areCashTokensEnabled(medianBlockTime)) { return false; }
+
+                final Integer outputIndex = _popIntegerValue(stack, context);
+                if (outputIndex == null) { return false; }
+                if (outputIndex < 0) { return false; }
+
+                final TransactionOutput transactionOutput;
+                {
+                    final Transaction transaction = context.getTransaction();
+                    final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+                    final int transactionOutputCount = transactionOutputs.getCount();
+                    if (outputIndex >= transactionOutputCount) { return false; }
+                    if (outputIndex < 0) { return false; }
+
+                    transactionOutput = transactionOutputs.get(outputIndex);
+                }
+
+                final CashToken cashToken = transactionOutput.getCashToken();
+                if (cashToken == null) {
+                    final Value value = Value.fromInteger(0);
+                    stack.push(value);
+                    return true;
+                }
+
+                final Long tokenAmount = Util.coalesce(cashToken.getTokenAmount());
+                final Value value = Value.fromInteger(tokenAmount);
                 stack.push(value);
                 return true;
             }

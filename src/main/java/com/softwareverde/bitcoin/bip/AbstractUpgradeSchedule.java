@@ -189,4 +189,9 @@ public abstract class AbstractUpgradeSchedule implements UpgradeSchedule {
     public Boolean areTransactionVersionsRestricted(final MedianBlockTime medianBlockTime) {
         return _isActive(medianBlockTime, UpgradeTime.HF20230515_ACTIVATION_TIME);
     }
+
+    @Override
+    public Boolean areCashTokensEnabled(final MedianBlockTime medianBlockTime) {
+        return _isActive(medianBlockTime, UpgradeTime.HF20230515_ACTIVATION_TIME);
+    }
 }

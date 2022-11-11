@@ -68,6 +68,7 @@ public class TransactionOutputDeflater {
 
     public Json toJson(final TransactionOutput transactionOutput) {
         final Boolean isTokenAware = transactionOutput.hasCashToken();
+        final CashToken cashToken = transactionOutput.getCashToken();
 
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
         final LockingScript lockingScript = transactionOutput.getLockingScript();
@@ -77,10 +78,12 @@ public class TransactionOutputDeflater {
         final AddressType addressType = AddressType.fromScriptType(scriptType);
         final ParsedAddress parsedAddress = (address != null ? new ParsedAddress(addressType, isTokenAware, address) : null);
 
+
         final Json json = new Json();
         json.put("amount", transactionOutput.getAmount());
         json.put("index", transactionOutput.getIndex());
         json.put("lockingScript", transactionOutput.getLockingScript());
+        json.put("cashToken", cashToken);
         json.put("type", scriptType);
         json.put("address", parsedAddress);
 

@@ -3,8 +3,6 @@ package com.softwareverde.bitcoin.transaction.script.opcode;
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.secp256k1.Secp256k1;
-import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
@@ -66,24 +64,20 @@ public class CryptographicOperation extends SubTypedOperation {
 
     protected static Boolean verifySignature(final TransactionContext transactionContext, final PublicKey publicKey, final ScriptSignature scriptSignature, final List<ByteArray> bytesToExcludeFromScript) {
         final UpgradeSchedule upgradeSchedule = transactionContext.getUpgradeSchedule();
-        final Transaction transaction = transactionContext.getTransaction();
         final Integer transactionInputIndexBeingSigned = transactionContext.getTransactionInputIndex();
-        final TransactionOutput transactionOutputBeingSpent = transactionContext.getTransactionOutputBeingSpent();
         final Integer codeSeparatorIndex = transactionContext.getScriptLastCodeSeparatorIndex();
         final Script currentScript = transactionContext.getCurrentScript();
 
         final HashType hashType = scriptSignature.getHashType();
-        if (hashType.getShouldSignAllPreviousOutputs()) {
+        if (hashType.shouldSignAllPreviousOutputs()) {
             if (! hashType.shouldSignOtherInputs()) { return false; }
             if (! hashType.isBitcoinCashType()) { return false; }
         }
 
-        final Long blockHeight = transactionContext.getBlockHeight();
-
         final TransactionSigner transactionSigner = transactionContext.getTransactionSigner();
-        final SignatureContext signatureContext = new SignatureContext(transaction, hashType, blockHeight, upgradeSchedule);
+        final SignatureContext signatureContext = new SignatureContext(transactionContext, hashType, upgradeSchedule);
         signatureContext.setInputIndexBeingSigned(transactionInputIndexBeingSigned);
-        signatureContext.setShouldSignInputScript(transactionInputIndexBeingSigned, true, transactionOutputBeingSpent);
+        signatureContext.setShouldSignInputScript(transactionInputIndexBeingSigned, true);
         signatureContext.setLastCodeSeparatorIndex(transactionInputIndexBeingSigned, codeSeparatorIndex);
         signatureContext.setCurrentScript(currentScript);
         signatureContext.setBytesToExcludeFromScript(bytesToExcludeFromScript);

@@ -199,6 +199,7 @@ public class BlockValidatorTests extends UnitTest {
         {
             final AddressInflater addressInflater = new AddressInflater();
             final Transaction transactionToSpend = modifiedBlock01.getCoinbaseTransaction();
+            final List<TransactionOutput> previousTransactionOutputs;
             final HashMapTransactionOutputRepository transactionOutputRepository = new HashMapTransactionOutputRepository();
             {
                 final Sha256Hash transactionToSpendHash = transactionToSpend.getHash();
@@ -208,6 +209,8 @@ public class BlockValidatorTests extends UnitTest {
                     transactionOutputRepository.put(transactionOutputIdentifierBeingSpent, transactionOutput);
                     outputIndex += 1;
                 }
+
+                previousTransactionOutputs = transactionToSpend.getTransactionOutputs();
             }
 
             final PrivateKey privateKey = PrivateKey.fromHexString("697D9CCCD7A09A31ED41C1D1BFF35E2481098FB03B4E73FAB7D4C15CF01FADCC");
@@ -219,16 +222,18 @@ public class BlockValidatorTests extends UnitTest {
             { // Sign the transaction...
                 Transaction partiallySignedTransaction = unsignedTransaction;
                 final TransactionSigner transactionSigner = new TransactionSigner();
-                final SignatureContext signatureContext = new SignatureContext(partiallySignedTransaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, false), upgradeSchedule); // BCH is not enabled at this block height...
+                final SignatureContext signatureContext = new SignatureContext(
+                    partiallySignedTransaction,
+                    new HashType(Mode.SIGNATURE_HASH_ALL, true, false, false), // BCH is not enabled at this block height...
+                    previousTransactionOutputs,
+                    upgradeSchedule
+                );
 
                 int inputIndex = 0;
                 final List<TransactionInput> transactionInputs = unsignedTransaction.getTransactionInputs();
-                for (final TransactionInput transactionInput : transactionInputs) {
-                    final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-                    final TransactionOutput transactionOutputBeingSpent = transactionOutputRepository.get(transactionOutputIdentifierBeingSpent);
-
+                for (int i = 0; i < transactionInputs.getCount(); ++i) {
                     signatureContext.setInputIndexBeingSigned(inputIndex);
-                    signatureContext.setShouldSignInputScript(inputIndex, true, transactionOutputBeingSpent);
+                    signatureContext.setShouldSignInputScript(inputIndex, true);
                     partiallySignedTransaction = transactionSigner.signTransaction(signatureContext, privateKey, false);
                 }
 
@@ -340,8 +345,6 @@ public class BlockValidatorTests extends UnitTest {
         final FakeBlockValidatorContext blockValidatorContext = new FakeBlockValidatorContext(NetworkTime.MAX_VALUE, upgradeSchedule);
         final BlockValidator blockValidator = new BlockValidator(blockValidatorContext);
 
-        final HashMapTransactionOutputRepository transactionOutputRepository = new HashMapTransactionOutputRepository();
-
         {
             final Block block = inflateBlock(blockInflater, BlockData.MainChain.GENESIS_BLOCK);
             blockValidatorContext.addBlock(block, 0L);
@@ -351,6 +354,7 @@ public class BlockValidatorTests extends UnitTest {
         final Transaction transactionToSpend;
         final TransactionOutputIdentifier outputIdentifierToSpend;
         final TransactionOutput outputToSpend;
+        final List<TransactionOutput> previousTransactionOutputs;
         { // Inflate a modified version of block 1 with a UTXO we can spend...
             final TransactionInflater transactionInflater = new TransactionInflater();
             // This transaction is actually the coinbase from ForkChain2.Block1. It is unlocked via 697D9CCCD7A09A31ED41C1D1BFF35E2481098FB03B4E73FAB7D4C15CF01FADCC.
@@ -358,6 +362,7 @@ public class BlockValidatorTests extends UnitTest {
             transactionToSpend = transactionInflater.fromBytes(ByteArray.fromHexString("01000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF230101172F706F6F6C2E626974636F696E76657264652E6F72672F08631A5438BF010000FFFFFFFF0100F2052A010000001976A9147E2277B34EE9E690F696DE9286D2CD5CD84D0FF788AC00000000"));
             outputIdentifierToSpend = new TransactionOutputIdentifier(transactionToSpend.getHash(), 0);
             outputToSpend = transactionToSpend.getTransactionOutputs().get(0);
+            previousTransactionOutputs = transactionToSpend.getTransactionOutputs();
 
             final Block originalBlock01 = inflateBlock(blockInflater, BlockData.MainChain.BLOCK_1);
 
@@ -378,8 +383,6 @@ public class BlockValidatorTests extends UnitTest {
             blockValidatorContext.addBlock(mutableBlock, 1L, MedianBlockTime.fromSeconds(MedianBlockTime.GENESIS_BLOCK_TIMESTAMP), null);
             modifiedBlock01 = mutableBlock;
         }
-
-        transactionOutputRepository.put(outputIdentifierToSpend, outputToSpend);
 
         final PrivateKey privateKey = PrivateKey.fromHexString("697D9CCCD7A09A31ED41C1D1BFF35E2481098FB03B4E73FAB7D4C15CF01FADCC");
         final MutableBlock mutableBlock;
@@ -409,16 +412,18 @@ public class BlockValidatorTests extends UnitTest {
             { // Sign the transaction...
                 Transaction partiallySignedTransaction = unsignedTransaction;
                 final TransactionSigner transactionSigner = new TransactionSigner();
-                final SignatureContext signatureContext = new SignatureContext(partiallySignedTransaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, false), upgradeSchedule); // BCH is not enabled at this block height...
+                final SignatureContext signatureContext = new SignatureContext(
+                    partiallySignedTransaction,
+                    new HashType(Mode.SIGNATURE_HASH_ALL, true, false, false), // BCH is not enabled at this block height...
+                    previousTransactionOutputs,
+                    upgradeSchedule
+                );
 
                 int inputIndex = 0;
                 final List<TransactionInput> transactionInputs = unsignedTransaction.getTransactionInputs();
-                for (final TransactionInput transactionInput : transactionInputs) {
-                    final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-                    final TransactionOutput transactionOutputBeingSpent = transactionOutputRepository.get(transactionOutputIdentifierBeingSpent);
-
+                for (int i = 0; i < transactionInputs.getCount(); ++i) {
                     signatureContext.setInputIndexBeingSigned(inputIndex);
-                    signatureContext.setShouldSignInputScript(inputIndex, true, transactionOutputBeingSpent);
+                    signatureContext.setShouldSignInputScript(inputIndex, true);
                     partiallySignedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
                 }
 

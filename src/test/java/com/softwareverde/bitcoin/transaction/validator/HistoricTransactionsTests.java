@@ -59,7 +59,7 @@ public class HistoricTransactionsTests extends UnitTest {
     }
 
     public static Json toBitcoinjTestCase(final TestConfig testConfig, final UpgradeSchedule upgradeSchedule) {
-        final TransactionContext transactionContext = HistoricTransactionsTests.initContext(testConfig, null, upgradeSchedule);
+        final TransactionContext transactionContext = HistoricTransactionsTests.initContext(testConfig, (Map<Sha256Hash, Transaction>) null, upgradeSchedule);
         return HistoricTransactionsTests.toBitcoinjTestCase(transactionContext);
     }
 
@@ -107,6 +107,39 @@ public class HistoricTransactionsTests extends UnitTest {
             transactionInputCount = transactionInputs.getCount();
         }
 
+        final List<TransactionOutput> outputsToSpend;
+        if (transactionsToSpend != null) {
+            final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+            outputsToSpend = TransactionTestUtil.createPreviousTransactionOutputsList(transactionInputs, transactionsToSpend);
+        }
+        else {
+            final TransactionOutput transactionOutput;
+            {
+                if (testConfig.transactionOutputBytes != null) {
+                    final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
+                    transactionOutput = transactionOutputInflater.fromBytes(testConfig.transactionOutputIndex, HexUtil.hexStringToByteArray(testConfig.transactionOutputBytes));
+                }
+                else {
+                    transactionOutput = null;
+                }
+            }
+
+            outputsToSpend = TransactionTestUtil.createPreviousTransactionOutputsList(transactionInputCount, testConfig.transactionInputIndex, transactionOutput);
+        }
+
+        return HistoricTransactionsTests.initContext(testConfig, outputsToSpend, upgradeSchedule);
+    }
+
+    public static TransactionContext initContext(final TestConfig testConfig, final List<TransactionOutput> transactionOutputsToSpend, final UpgradeSchedule upgradeSchedule) {
+        final TransactionInflater transactionInflater = new TransactionInflater();
+        final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(testConfig.transactionBytes));
+
+        final int transactionInputCount;
+        {
+            final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+            transactionInputCount = transactionInputs.getCount();
+        }
+
         final TransactionInput transactionInput;
         {
             if (testConfig.transactionInputBytes != null) {
@@ -139,9 +172,8 @@ public class HistoricTransactionsTests extends UnitTest {
             }
 
             context.setTransactionInput(transactionInput);
-            if (transactionsToSpend != null) {
-                final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-                context.setPreviousTransactionOutputs(TransactionTestUtil.createPreviousTransactionOutputsList(transactionInputs, transactionsToSpend));
+            if (transactionOutputsToSpend != null) {
+                context.setPreviousTransactionOutputs(transactionOutputsToSpend);
             }
             else {
                 context.setPreviousTransactionOutputs(TransactionTestUtil.createPreviousTransactionOutputsList(transactionInputCount, testConfig.transactionInputIndex, transactionOutput));
@@ -168,7 +200,7 @@ public class HistoricTransactionsTests extends UnitTest {
 
     public static void runScripts(final TestConfig testConfig, final UpgradeSchedule upgradeSchedule, final Boolean expectedResult) {
         // Setup
-        final TransactionContext transactionContext = HistoricTransactionsTests.initContext(testConfig, null, upgradeSchedule);
+        final TransactionContext transactionContext = HistoricTransactionsTests.initContext(testConfig, (Map<Sha256Hash, Transaction>) null, upgradeSchedule);
 
         final LockingScript lockingScript = new ImmutableLockingScript(MutableByteArray.wrap(HexUtil.hexStringToByteArray(testConfig.lockingScriptBytes)));
         final UnlockingScript unlockingScript = new ImmutableUnlockingScript(MutableByteArray.wrap(HexUtil.hexStringToByteArray(testConfig.unlockingScriptBytes)));
@@ -183,7 +215,6 @@ public class HistoricTransactionsTests extends UnitTest {
     }
 
     public static Boolean runScripts(final TestConfig testConfig, final Map<Sha256Hash, Transaction> transactionsToSpend, final UpgradeSchedule upgradeSchedule) {
-        // Setup
         final TransactionContext transactionContext = HistoricTransactionsTests.initContext(testConfig, transactionsToSpend, upgradeSchedule);
 
         final LockingScript lockingScript = new ImmutableLockingScript(MutableByteArray.wrap(HexUtil.hexStringToByteArray(testConfig.lockingScriptBytes)));
@@ -191,11 +222,18 @@ public class HistoricTransactionsTests extends UnitTest {
 
         final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
 
-        // Action
-        final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, transactionContext).isValid;
+        return scriptRunner.runScript(lockingScript, unlockingScript, transactionContext).isValid;
+    }
 
-        // Assert
-        return inputIsUnlocked;
+    public static Boolean runScripts(final TestConfig testConfig, final List<TransactionOutput> outputsToSpend, final UpgradeSchedule upgradeSchedule) {
+        final TransactionContext transactionContext = HistoricTransactionsTests.initContext(testConfig, outputsToSpend, upgradeSchedule);
+
+        final LockingScript lockingScript = new ImmutableLockingScript(MutableByteArray.wrap(HexUtil.hexStringToByteArray(testConfig.lockingScriptBytes)));
+        final UnlockingScript unlockingScript = new ImmutableUnlockingScript(MutableByteArray.wrap(HexUtil.hexStringToByteArray(testConfig.unlockingScriptBytes)));
+
+        final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
+
+        return scriptRunner.runScript(lockingScript, unlockingScript, transactionContext).isValid;
     }
 
     @After
@@ -710,7 +748,7 @@ public class HistoricTransactionsTests extends UnitTest {
         testConfig.transactionInputIndex = 0; // Defined for init, but unused.
 
         final UpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
-        final TransactionContext transactionContext = HistoricTransactionsTests.initContext(testConfig, null, upgradeSchedule);
+        final TransactionContext transactionContext = HistoricTransactionsTests.initContext(testConfig, (Map<Sha256Hash, Transaction>) null, upgradeSchedule);
 
         final MedianBlockTime medianBlockTime = ImmutableMedianBlockTime.fromSeconds(1467969398L);
         final VolatileNetworkTime networkTime = VolatileNetworkTimeWrapper.wrap(ImmutableNetworkTime.fromSeconds(1529680230L));

@@ -62,7 +62,7 @@ public class HashType {
         return _shouldSignOtherInputs;
     }
 
-    public Boolean getShouldSignAllPreviousOutputs() {
+    public Boolean shouldSignAllPreviousOutputs() {
         return _shouldSignAllPreviousOutputs;
     }
 

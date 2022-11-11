@@ -18,6 +18,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     protected Boolean _isBitcoinCashSignatureHashTypeEnabled;
     protected Boolean _areOnlyPushOperationsAllowedWithinUnlockingScript;
     protected Boolean _isPayToScriptHashEnabled;
+    protected Boolean _areCashTokensEnabled;
     protected Boolean _isSha256PayToScriptHashEnabled;
     protected Boolean _isAsertDifficultyAdjustmentAlgorithmEnabled;
     protected Boolean _isCw144DifficultyAdjustmentAlgorithmEnabled;
@@ -220,6 +221,11 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
         return _isOverriddenOrEnabled(_areTransactionVersionsRestricted, _parentUpgradeSchedule.areTransactionVersionsRestricted(Util.coalesce(medianBlockTime, MedianBlockTime.MAX_VALUE)));
     }
 
+    @Override
+    public Boolean areCashTokensEnabled(final MedianBlockTime medianBlockTime) {
+        return _isOverriddenOrEnabled(_areCashTokensEnabled, _parentUpgradeSchedule.areCashTokensEnabled(Util.coalesce(medianBlockTime, MedianBlockTime.MAX_VALUE)));
+    }
+
     public void setMinimalNumberEncodingRequired(final Boolean minimalNumberEncodingRequired) {
         _isMinimalNumberEncodingRequired = minimalNumberEncodingRequired;
     }
@@ -234,6 +240,10 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
 
     public void setLegacyPayToScriptHashEnabled(final Boolean payToScriptHashEnabled) {
         _isPayToScriptHashEnabled = payToScriptHashEnabled;
+    }
+
+    public void setCashTokensEnabled(final Boolean cashTokensEnabled) {
+        _areCashTokensEnabled = cashTokensEnabled;
     }
 
     public void setSha256PayToScriptHashEnabled(final Boolean sha256PayToScriptHashIsEnabled) {

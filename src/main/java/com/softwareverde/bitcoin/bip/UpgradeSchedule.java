@@ -206,4 +206,9 @@ public interface UpgradeSchedule {
      * Enabled in HF20230515.
      */
     Boolean areTransactionVersionsRestricted(MedianBlockTime medianBlockTime);
+
+    /**
+     * Enabled in HF20230515.
+     */
+    Boolean areCashTokensEnabled(MedianBlockTime medianBlockTime);
 }

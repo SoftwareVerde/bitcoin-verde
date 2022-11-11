@@ -884,8 +884,15 @@ public class Wallet {
 
         final Transaction signedTransaction;
         {
-            Transaction transactionBeingSigned = transaction;
             final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+            final MutableList<TransactionOutput> transactionOutputsBeingSpent = new MutableList<>();
+            for (int i = 0; i < transactionInputs.getCount(); ++i) {
+                final SpendableTransactionOutput spendableTransactionOutput = transactionOutputsToSpend.get(i);
+                final TransactionOutput previousTransactionOutput = spendableTransactionOutput.getTransactionOutput();
+                transactionOutputsBeingSpent.add(previousTransactionOutput);
+            }
+
+            Transaction transactionBeingSigned = transaction;
             for (int i = 0; i < transactionInputs.getCount(); ++i) {
                 final SpendableTransactionOutput spendableTransactionOutput = transactionOutputsToSpend.get(i);
                 final TransactionOutput transactionOutputBeingSpent = spendableTransactionOutput.getTransactionOutput();
@@ -901,9 +908,14 @@ public class Wallet {
                     useCompressedPublicKey = publicKey.isCompressed();
                 }
 
-                final SignatureContext signatureContext = new SignatureContext(transactionBeingSigned, new HashType(Mode.SIGNATURE_HASH_ALL, true, true), _upgradeSchedule);
+                final SignatureContext signatureContext = new SignatureContext(
+                    transactionBeingSigned,
+                    new HashType(Mode.SIGNATURE_HASH_ALL, true, false, true),
+                    transactionOutputsBeingSpent,
+                    _upgradeSchedule
+                );
                 signatureContext.setInputIndexBeingSigned(i);
-                signatureContext.setShouldSignInputScript(i, true, transactionOutputBeingSpent);
+                signatureContext.setShouldSignInputScript(i, true);
                 transactionBeingSigned = transactionSigner.signTransaction(signatureContext, privateKey, useCompressedPublicKey);
             }
 
