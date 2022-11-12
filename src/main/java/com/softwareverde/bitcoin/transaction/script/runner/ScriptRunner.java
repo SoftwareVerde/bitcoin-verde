@@ -213,11 +213,6 @@ public class ScriptRunner {
             shouldRunPayToScriptHashScript = _shouldRunPayToScriptHashScript(lockingScript, unlockingScript, medianBlockTime, blockHeight);
 
             if (shouldRunPayToScriptHashScript) {
-                final Boolean unlockingScriptContainsNonPushOperations = unlockingScript.containsNonPushOperations();
-                if (unlockingScriptContainsNonPushOperations) {
-                    return ScriptRunnerResult.invalid(mutableContext);
-                }
-
                 try {
                     final Value redeemScriptValue = payToScriptHashStack.pop();
                     if (payToScriptHashStack.didOverflow()) {

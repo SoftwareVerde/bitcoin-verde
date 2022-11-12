@@ -52,6 +52,11 @@ public class LazyBlockValidatorContext extends BlockHeaderValidatorContext imple
     }
 
     @Override
+    public Boolean isPreActivationTokenForgery(final TransactionOutputIdentifier transactionOutputIdentifier, final UpgradeSchedule upgradeSchedule) {
+        return _unspentTransactionOutputContext.isPreActivationTokenForgery(transactionOutputIdentifier, upgradeSchedule);
+    }
+
+    @Override
     public TransactionValidator getTransactionValidator(final BlockOutputs blockOutputs, final TransactionValidator.Context transactionValidatorContext) {
         return _transactionValidatorFactory.getTransactionValidator(blockOutputs, transactionValidatorContext);
     }

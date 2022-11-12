@@ -128,6 +128,16 @@ public class TransactionValidatorCore implements TransactionValidator {
         return null;
     }
 
+    protected Boolean _isTransactionOutputPreActivationCashToken(final TransactionOutputIdentifier transactionOutputIdentifier, final MedianBlockTime medianBlockTime, final UpgradeSchedule upgradeSchedule) {
+        final Boolean isPatfo = _context.isPreActivationTokenForgery(transactionOutputIdentifier, upgradeSchedule);
+        if (isPatfo == null) {
+            // UTXO must be from this block.
+            return upgradeSchedule.areCashTokensEnabled(medianBlockTime);
+        }
+
+        return isPatfo;
+    }
+
     /**
      * Returns the blockHeight of `transactionOutputIdentifier`, or `blockHeight` if the identifier is within the currently-validating block.
      *  Therefore, for chained mempool Transactions, this function returns null.
@@ -265,6 +275,19 @@ public class TransactionValidatorCore implements TransactionValidator {
                 if (transactionOutput == null) {
                     final Json errorJson = _createInvalidTransactionReport("Transaction output (" + transactionOutputIdentifier + ") does not exist or has been spent.", transaction, transactionContext);
                     return TransactionValidationResult.invalid(errorJson);
+                }
+
+                if (transactionOutput.hasCashToken()) {
+                    if (upgradeSchedule.areCashTokensEnabled(medianBlockTime)) {
+                        if (_isTransactionOutputPreActivationCashToken(transactionOutputIdentifier, medianBlockTime, upgradeSchedule)) {
+                            final Json errorJson = _createInvalidTransactionReport("Attempted to spend PATFO CashToken.", transaction, transactionContext);
+                            return TransactionValidationResult.invalid(errorJson);
+                        }
+                    }
+                    else {
+                        final Json errorJson = _createInvalidTransactionReport("Attempted to spend CashToken output before activation.", transaction, transactionContext);
+                        return TransactionValidationResult.invalid(errorJson);
+                    }
                 }
 
                 transactionOutputsBeingSpent.add(transactionOutput);

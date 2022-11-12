@@ -59,6 +59,11 @@ public class TransactionValidatorContext implements TransactionValidator.Context
     }
 
     @Override
+    public Boolean isPreActivationTokenForgery(final TransactionOutputIdentifier transactionOutputIdentifier, final UpgradeSchedule upgradeSchedule) {
+        return _unspentTransactionOutputContext.isPreActivationTokenForgery(transactionOutputIdentifier, upgradeSchedule);
+    }
+
+    @Override
     public TransactionInflater getTransactionInflater() {
         return _transactionInflaters.getTransactionInflater();
     }

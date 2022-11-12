@@ -1,7 +1,9 @@
 package com.softwareverde.bitcoin.context.lazy;
 
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
@@ -126,6 +128,50 @@ public class LazyUnconfirmedTransactionUtxoSet implements UnspentTransactionOutp
             if (transactionId == null) { return null; }
 
             return transactionDatabaseManager.isCoinbaseTransaction(transactionHash);
+        }
+        catch (final DatabaseException exception) {
+            Logger.debug(exception);
+            return null;
+        }
+    }
+
+    @Override
+    public Boolean isPreActivationTokenForgery(final TransactionOutputIdentifier transactionOutputIdentifier, final UpgradeSchedule upgradeSchedule) {
+        try {
+            final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
+
+            final TransactionOutput transactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifier);
+            if (transactionOutput != null) {
+                if (! transactionOutput.hasCashToken()) { return false; }
+
+                final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
+                final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
+                if (transactionId == null) { return null; }
+                final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+                final BlockId blockId = transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId);
+                if (blockId == null) {
+                    final BlockId headBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
+                    final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.getMedianBlockTime(headBlockId);
+                    return (! upgradeSchedule.areCashTokensEnabled(medianBlockTime));
+                }
+
+                final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.getMedianBlockTime(blockId);
+                return (! upgradeSchedule.areCashTokensEnabled(medianBlockTime));
+            }
+            else {
+                final UnconfirmedTransactionOutputDatabaseManager unconfirmedTransactionOutputDatabaseManager = _databaseManager.getUnconfirmedTransactionOutputDatabaseManager();
+                final UnconfirmedTransactionOutputId transactionOutputId = unconfirmedTransactionOutputDatabaseManager.getUnconfirmedTransactionOutputId(transactionOutputIdentifier);
+                final TransactionOutput unconfirmedTransactionOutput = unconfirmedTransactionOutputDatabaseManager.getUnconfirmedTransactionOutput(transactionOutputId);
+                if (unconfirmedTransactionOutput == null) { return null; }
+                if (! unconfirmedTransactionOutput.hasCashToken()) { return false; }
+
+                final BlockId headBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
+                final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.getMedianBlockTime(headBlockId);
+                return (! upgradeSchedule.areCashTokensEnabled(medianBlockTime));
+            }
         }
         catch (final DatabaseException exception) {
             Logger.debug(exception);

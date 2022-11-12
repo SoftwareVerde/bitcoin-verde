@@ -1,8 +1,10 @@
 package com.softwareverde.bitcoin.context.core;
 
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
@@ -36,6 +38,7 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
     protected final HashMap<TransactionOutputIdentifier, UnspentTransactionOutput> _transactionOutputs = new HashMap<>();
     protected final HashMap<Sha256Hash, Long> _transactionBlockHeights = new HashMap<>();
     protected final HashMap<Long, Sha256Hash> _blockHashesByBlockHeight = new HashMap<>();
+    protected final HashMap<Sha256Hash, MedianBlockTime> _blockMedianBlockTimes = new HashMap<>();
 
     protected void _populateUnknownTransactionBlockHeights(final BlockchainSegmentId blockchainSegmentId, final HashSet<Sha256Hash> unknownTransactionBlockHeightsSet, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
@@ -184,6 +187,10 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
 
         _blockHashesByBlockHeight.put(blockHeight, blockHash);
 
+        final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.getMedianBlockTime(blockId);
+        _blockMedianBlockTimes.put(blockHash, medianBlockTime);
+        multiTimer.mark("medianBlockTime");
+
         final List<Transaction> transactions = block.getTransactions();
 
         Transaction coinbaseTransaction = null;
@@ -300,11 +307,12 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
     /**
      * Adds new outputs created by the provided block and removes outputs spent by the block.
      */
-    public synchronized void update(Block block, final Long blockHeight) {
+    public synchronized void update(Block block, final Long blockHeight, final MedianBlockTime medianBlockTime) {
         final List<Transaction> transactions = block.getTransactions();
 
         final Sha256Hash blockHash = block.getHash();
         _blockHashesByBlockHeight.put(blockHeight, blockHash);
+        _blockMedianBlockTimes.put(blockHash, medianBlockTime);
 
         Transaction coinbaseTransaction = null;
         { // Add the new outputs created by the block...
@@ -337,6 +345,24 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
                 }
             }
         }
+    }
+
+    /**
+     * Returns true if the TransactionOutput associated with the provided TransactionOutputIdentifier is a CashToken output
+     *  that was created before the CashToken activation fork.  CashTokens generated before the activation are not spendable.
+     *  TODO: this implementation depends on MedianBlockTimes but may be optimized to use blockHeight once activation is known;
+     *      this will remove the need for the _blockMedianBlockTimes hashmap completely.
+     */
+    public Boolean isPreActivationTokenForgery(final TransactionOutputIdentifier transactionOutputIdentifier, final UpgradeSchedule upgradeSchedule) {
+        final TransactionOutput transactionOutput = _transactionOutputs.get(transactionOutputIdentifier);
+        if (transactionOutput == null) { return null; }
+        if (! transactionOutput.hasCashToken()) { return false; }
+
+        final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
+        final Long blockHeight = _transactionBlockHeights.get(transactionHash);
+        final Sha256Hash blockHash = _blockHashesByBlockHeight.get(blockHeight);
+        final MedianBlockTime medianBlockTime = _blockMedianBlockTimes.get(blockHash);
+        return (! upgradeSchedule.areTransactionVersionsRestricted(medianBlockTime));
     }
 
     public synchronized void clear() {

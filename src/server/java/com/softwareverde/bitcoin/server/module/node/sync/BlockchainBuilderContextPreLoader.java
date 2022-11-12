@@ -1,10 +1,14 @@
 package com.softwareverde.bitcoin.server.module.node.sync;
 
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.context.core.MutableUnspentTransactionOutputSet;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.logging.LoggerInstance;
@@ -30,6 +34,7 @@ public class BlockchainBuilderContextPreLoader implements AutoCloseable {
         public Block block;
         public Long blockHeight;
         public Boolean isFullyLoaded = false;
+        public MedianBlockTime medianBlockTime;
 
         public PreLoadedUnspentTransactionOutputSet(final Block block, final Long blockHeight) {
             this.block = block;
@@ -43,7 +48,6 @@ public class BlockchainBuilderContextPreLoader implements AutoCloseable {
     protected final AtomicBoolean _threadIsAlive = new AtomicBoolean(false);
 
     protected final SynchronousQueue<BlockHeightTuple> _pendingWork = new SynchronousQueue<>();
-    protected final Container<BlockHeightTuple> _activeWork = new Container<>();
     protected final Container<PreLoadedUnspentTransactionOutputSet> _completedWork = new Container<>();
 
     public BlockchainBuilderContextPreLoader(final FullNodeDatabaseManagerFactory databaseManagerFactory) {
@@ -64,6 +68,13 @@ public class BlockchainBuilderContextPreLoader implements AutoCloseable {
                         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
                             final NanoTimer nanoTimer = new NanoTimer();
                             nanoTimer.start();
+
+                            { // Load the Block's MedianBlockTime. TODO: remove after CashToken (20230515) activation.
+                                final Sha256Hash blockHash = block.getHash();
+                                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                                final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+                                unspentTransactionOutputContext.medianBlockTime = blockHeaderDatabaseManager.getMedianBlockTime(blockId);
+                            }
 
                             unspentTransactionOutputContext.isFullyLoaded = unspentTransactionOutputContext.loadOutputsForBlock(databaseManager, block, blockHeight);
 
@@ -128,7 +139,7 @@ public class BlockchainBuilderContextPreLoader implements AutoCloseable {
             if ( (previousBlock == null) || (! Util.areEqual(previousBlock.getHash(), completedWork.block.getPreviousBlockHash())) ) { return null; }
 
             final long previousBlockHeight = (completedWork.blockHeight - 1L);
-            completedWork.update(previousBlock, previousBlockHeight);
+            completedWork.update(previousBlock, previousBlockHeight, completedWork.medianBlockTime);
         }
 
         // return the preloaded context

@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.test.fake;
 
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
@@ -16,6 +17,7 @@ public class FakeUnspentTransactionOutputContext implements UnspentTransactionOu
     protected final HashMap<TransactionOutputIdentifier, Boolean> _transactionCoinbaseStatuses = new HashMap<>();
     protected final HashMap<TransactionOutputIdentifier, Sha256Hash> _transactionBlockHashes = new HashMap<>();
     protected final HashMap<TransactionOutputIdentifier, Long> _transactionBlockHeights = new HashMap<>();
+    protected final HashMap<TransactionOutputIdentifier, Boolean> _patfoStatuses = new HashMap<>();
 
     public FakeUnspentTransactionOutputContext() {
         _logNonExistentOutputs = true;
@@ -60,6 +62,15 @@ public class FakeUnspentTransactionOutputContext implements UnspentTransactionOu
         return _transactionCoinbaseStatuses.get(transactionOutputIdentifier);
     }
 
+    @Override
+    public Boolean isPreActivationTokenForgery(final TransactionOutputIdentifier transactionOutputIdentifier, final UpgradeSchedule upgradeSchedule) {
+        if ( (! _patfoStatuses.containsKey(transactionOutputIdentifier)) && _logNonExistentOutputs ) {
+            Logger.debug("Requested non-existent PATFO status: " + transactionOutputIdentifier, new Exception());
+        }
+
+        return _patfoStatuses.get(transactionOutputIdentifier);
+    }
+
     public void addTransaction(final Transaction transaction, final Sha256Hash blockHash, final Long blockHeight, final Boolean isCoinbaseTransaction) {
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
 
@@ -71,8 +82,13 @@ public class FakeUnspentTransactionOutputContext implements UnspentTransactionOu
             _transactionBlockHeights.put(transactionOutputIdentifier, blockHeight);
             _transactionCoinbaseStatuses.put(transactionOutputIdentifier, isCoinbaseTransaction);
             _transactionBlockHashes.put(transactionOutputIdentifier, blockHash);
+            _patfoStatuses.put(transactionOutputIdentifier, false);
             outputIndex += 1;
         }
+    }
+
+    public void setPatfoStatus(final TransactionOutputIdentifier transactionOutputIdentifier, final Boolean isPatfo) {
+        _patfoStatuses.put(transactionOutputIdentifier, isPatfo);
     }
 
     public void clear() {
