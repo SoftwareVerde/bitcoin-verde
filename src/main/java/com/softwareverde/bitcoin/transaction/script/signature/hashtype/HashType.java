@@ -1,5 +1,8 @@
 package com.softwareverde.bitcoin.transaction.script.signature.hashtype;
 
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+
 public class HashType {
     public static final Integer BYTE_COUNT = 1;
 
@@ -7,7 +10,9 @@ public class HashType {
     protected static final byte BITCOIN_CASH_FLAG = (byte) 0x40;
     protected static final byte HASH_UTXOS_FLAG = (byte) 0x20;
 
-    protected static final byte USED_BITS_MASK = (BITCOIN_CASH_FLAG | ANYONE_CAN_PAY_FLAG | HASH_UTXOS_FLAG | Mode.BIT_MASK); // Bitmask containing the range of bits used to determine the HashType.
+    // Bitmask containing the range of bits used to determine the HashType.
+    protected static final byte USED_BITS_MASK =        (BITCOIN_CASH_FLAG | ANYONE_CAN_PAY_FLAG | HASH_UTXOS_FLAG | Mode.BIT_MASK);
+    protected static final byte LEGACY_USED_BITS_MASK = (BITCOIN_CASH_FLAG | ANYONE_CAN_PAY_FLAG |                   Mode.BIT_MASK);
 
     public static HashType fromByte(final byte b) {
         return new HashType(b);
@@ -70,7 +75,10 @@ public class HashType {
         return _value;
     }
 
-    public Boolean hasUnknownFlags() {
+    public Boolean hasUnknownFlags(final MedianBlockTime medianBlockTime, final UpgradeSchedule upgradeSchedule) {
+        if (! upgradeSchedule.areCashTokensEnabled(medianBlockTime)) { // TODO: Remove after 20230515...
+            return ((_value & ~(HashType.LEGACY_USED_BITS_MASK)) != 0x00);
+        }
         return ((_value & ~(HashType.USED_BITS_MASK)) != 0x00);
     }
 

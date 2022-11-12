@@ -30,7 +30,6 @@ import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.cryptography.secp256k1.signature.Signature;
 import com.softwareverde.cryptography.util.HashUtil;
-import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
@@ -51,7 +50,8 @@ public class TransactionSigner {
         public ByteArray hashTypeBytes;                     // Step 10, LE
     }
 
-    private static final byte[] INVALID_SIGNATURE_HASH_SINGLE_VALUE = HexUtil.hexStringToByteArray("0100000000000000000000000000000000000000000000000000000000000000");
+    protected static final ByteArray INVALID_SIGNATURE_HASH_SINGLE_VALUE = ByteArray.fromHexString("0100000000000000000000000000000000000000000000000000000000000000");
+    protected static final ByteArray EMPTY_BYTE_ARRAY = (new MutableByteArray(0)).asConst();
 
     protected byte[] _getBytesForSigning(final SignatureContext signatureContext) {
         if (! signatureContext.shouldUseBitcoinCashSigningAlgorithm()) {
@@ -85,7 +85,7 @@ public class TransactionSigner {
             final Mode signatureMode = hashType.getMode();
             if (signatureMode == Mode.SIGNATURE_HASH_SINGLE) {
                 if (signatureContext.getInputIndexBeingSigned() >= transactionOutputs.getCount()) {
-                    return INVALID_SIGNATURE_HASH_SINGLE_VALUE;
+                    return INVALID_SIGNATURE_HASH_SINGLE_VALUE.getBytes();
                 }
             }
         }
@@ -219,7 +219,7 @@ public class TransactionSigner {
                 signaturePreimage.previousOutputsHash = HashUtil.doubleSha256(byteArrayBuilder);
             }
             else {
-                signaturePreimage.previousOutputsHash = new MutableByteArray(0);
+                signaturePreimage.previousOutputsHash = TransactionSigner.EMPTY_BYTE_ARRAY;
             }
         }
 
@@ -231,8 +231,11 @@ public class TransactionSigner {
                     signaturePreimage.cashTokenData = cashToken.getBytes();
                 }
                 else {
-                    signaturePreimage.cashTokenData = new MutableByteArray(0);
+                    signaturePreimage.cashTokenData = TransactionSigner.EMPTY_BYTE_ARRAY;
                 }
+            }
+            else {
+                signaturePreimage.cashTokenData = TransactionSigner.EMPTY_BYTE_ARRAY;
             }
         }
 

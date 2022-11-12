@@ -69,9 +69,13 @@ public class CryptographicOperation extends SubTypedOperation {
         final Script currentScript = transactionContext.getCurrentScript();
 
         final HashType hashType = scriptSignature.getHashType();
-        if (hashType.shouldSignAllPreviousOutputs()) {
-            if (! hashType.shouldSignOtherInputs()) { return false; }
-            if (! hashType.isBitcoinCashType()) { return false; }
+
+        final MedianBlockTime medianBlockTime = transactionContext.getMedianBlockTime();
+        if (upgradeSchedule.areCashTokensEnabled(medianBlockTime)) {
+            if (hashType.shouldSignAllPreviousOutputs()) {
+                if (! hashType.shouldSignOtherInputs()) { return false; }
+                if (! hashType.isBitcoinCashType()) { return false; }
+            }
         }
 
         final TransactionSigner transactionSigner = transactionContext.getTransactionSigner();
@@ -86,6 +90,7 @@ public class CryptographicOperation extends SubTypedOperation {
 
     protected static Boolean validateStrictSignatureEncoding(final ScriptSignature scriptSignature, final ScriptSignatureContext scriptSignatureContext, final TransactionContext transactionContext) {
         final UpgradeSchedule upgradeSchedule = transactionContext.getUpgradeSchedule();
+        final MedianBlockTime medianBlockTime = transactionContext.getMedianBlockTime();
         final Long blockHeight = transactionContext.getBlockHeight();
 
         if (scriptSignature == null) { return false; }
@@ -100,7 +105,7 @@ public class CryptographicOperation extends SubTypedOperation {
             if (hashType == null) { return false; }
 
             if (hashType.getMode() == null) { return false; }
-            if (hashType.hasUnknownFlags()) { return false; }
+            if (hashType.hasUnknownFlags(medianBlockTime, upgradeSchedule)) { return false; }
 
             if (upgradeSchedule.isBitcoinCashSignatureHashTypeEnabled(blockHeight)) {
                 // if BCH signatures are enabled, they are required

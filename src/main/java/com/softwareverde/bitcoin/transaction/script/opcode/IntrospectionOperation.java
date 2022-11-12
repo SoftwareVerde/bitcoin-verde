@@ -94,11 +94,34 @@ public class IntrospectionOperation extends SubTypedOperation {
         super(opcode.getValue(), TYPE, opcode);
     }
 
+    protected Boolean _isCashTokenOperation() {
+        switch (_opcode) {
+            case  PUSH_UTXO_TOKEN_CATEGORY:
+            case PUSH_UTXO_TOKEN_COMMITMENT:
+            case PUSH_UTXO_TOKEN_AMOUNT:
+            case PUSH_OUTPUT_TOKEN_CATEGORY:
+            case PUSH_OUTPUT_TOKEN_COMMITMENT:
+            case PUSH_OUTPUT_TOKEN_AMOUNT: {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     @Override
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableTransactionContext context) {
         final MedianBlockTime medianBlockTime = context.getMedianBlockTime();
         final UpgradeSchedule upgradeSchedule = context.getUpgradeSchedule();
-        if (! upgradeSchedule.areIntrospectionOperationsEnabled(medianBlockTime)) { return true; } // Opcodes were NO-OPs prior to upgrade...
+
+        final Boolean isCashTokenOperation = _isCashTokenOperation();
+        if ( isCashTokenOperation && (! upgradeSchedule.areCashTokensEnabled(medianBlockTime)) ) {
+            return false;
+        }
+
+        if (! upgradeSchedule.areIntrospectionOperationsEnabled(medianBlockTime)) {
+            return true; // Opcodes were NO-OPs prior to upgrade...
+        }
 
         switch (_opcode) {
             case PUSH_INPUT_INDEX: {
@@ -522,5 +545,9 @@ public class IntrospectionOperation extends SubTypedOperation {
 
             default: { return false; }
         }
+    }
+
+    public Boolean isCashTokenOperation() {
+        return _isCashTokenOperation();
     }
 }
