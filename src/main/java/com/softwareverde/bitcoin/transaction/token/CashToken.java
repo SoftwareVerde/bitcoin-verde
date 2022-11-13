@@ -106,6 +106,26 @@ public class CashToken implements Jsonable, Const {
         return byteArrayBuilder;
     }
 
+    public Integer getByteCount() {
+        int byteCount = (1 + Sha256Hash.BYTE_COUNT + 1); // Prefix + Category + Bitfield
+
+        final boolean hasCommitment = ( (_commitment != null) && (! _commitment.isEmpty()) );
+        if (hasCommitment) {
+            final int commitmentByteCount = _commitment.getByteCount();
+            final ByteArray commitmentByteCountBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(commitmentByteCount);
+            byteCount += commitmentByteCountBytes.getByteCount();
+            byteCount += commitmentByteCount;
+        }
+
+        final boolean hasAmount = ( (_tokenAmount != null) && (_tokenAmount > 0L) );
+        if (hasAmount) {
+            final ByteArray tokenAmountBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(_tokenAmount);
+            byteCount += tokenAmountBytes.getByteCount();
+        }
+
+        return byteCount;
+    }
+
     @Override
     public boolean equals(final Object object) {
         if (object == this) { return true; }

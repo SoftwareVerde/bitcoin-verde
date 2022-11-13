@@ -229,6 +229,12 @@
 .transaction .io .transaction-output > .label .token-amount > .token-name {
     padding-left: 0.25em;
 }
+.transaction .io .transaction-output > .cash-token {
+    display: none;
+}
+.transaction .io .transaction-output.cash-token > .cash-token {
+    display: block;
+}
 
 .transaction > div,
 .block .block-header {

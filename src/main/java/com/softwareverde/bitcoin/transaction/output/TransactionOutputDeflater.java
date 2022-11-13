@@ -52,7 +52,18 @@ public class TransactionOutputDeflater {
 
         final Script lockingScript = transactionOutput.getLockingScript();
         final int scriptByteCount;
-        {
+        if (transactionOutput.hasCashToken()) {
+            final CashToken cashToken = transactionOutput.getCashToken();
+            final int lockingScriptByteCount = lockingScript.getByteCount();
+            final int cashTokenByteCount = cashToken.getByteCount();
+            final int variableByteCount = (cashTokenByteCount + lockingScriptByteCount);
+
+            int byteCount = 0;
+            byteCount += CompactVariableLengthInteger.variableLengthIntegerToBytes(variableByteCount).getByteCount();
+            byteCount += variableByteCount;
+            scriptByteCount = byteCount;
+        }
+        else {
             int byteCount = 0;
             byteCount += CompactVariableLengthInteger.variableLengthIntegerToBytes(lockingScript.getByteCount()).getByteCount();
             byteCount += lockingScript.getByteCount();

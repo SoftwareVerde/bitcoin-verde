@@ -280,6 +280,25 @@ class Ui {
             }
         }
 
+        if (transactionOutput.cashToken) {
+            const cashToken = transactionOutput.cashToken;
+            transactionOutputUi.toggleClass("cash-token", true);
+
+            const cashTokenUi = $(".cash-token", transactionOutputUi);
+            if (cashToken.category) {
+                $(".category", cashTokenUi).text(cashToken.category);
+            }
+            if (cashToken.nftCapability) {
+                $(".nft-capability", cashTokenUi).text(cashToken.nftCapability);
+            }
+            if (cashToken.commitment) {
+                $(".commitment", cashTokenUi).text(cashToken.commitment);
+            }
+            if (cashToken.tokenAmount) {
+                $(".token-amount", cashTokenUi).text(cashToken.tokenAmount);
+            }
+        }
+
         $("div.label", transactionOutputUi).on("click", function() {
             $("> div:not(:first-child)", transactionOutputUi).slideToggle(250, function() {
                 window.HashResizer(transactionOutputUi);
