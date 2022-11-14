@@ -730,7 +730,6 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
         Logger.info("Validating Prototype Block: " + block.getHash());
 
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
@@ -744,7 +743,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                     final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
 
                     final MutableUnspentTransactionOutputSet unspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
-                    final Boolean utxosAreAvailable = unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight);
+                    final Boolean utxosAreAvailable = unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight, _upgradeSchedule);
                     if (! utxosAreAvailable) {
                         final BlockValidationResult blockValidationResult = BlockValidationResult.invalid("Missing UTXOs for block.");
                         Logger.info("Prototype Block: " + block.getHash() + " INVALID " + blockValidationResult.errorMessage);
@@ -779,7 +778,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
             final MedianBlockTimeContext medianBlockTimeContext = new MedianBlockTimeContextCore(blockchainSegmentId, databaseManager);
-            final LazyUnconfirmedTransactionUtxoSet unconfirmedTransactionUtxoSet = new LazyUnconfirmedTransactionUtxoSet(databaseManager);
+            final LazyUnconfirmedTransactionUtxoSet unconfirmedTransactionUtxoSet = new LazyUnconfirmedTransactionUtxoSet(databaseManager, _upgradeSchedule);
             final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(_masterInflater, _networkTime, medianBlockTimeContext, unconfirmedTransactionUtxoSet, _upgradeSchedule);
             final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 

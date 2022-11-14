@@ -49,6 +49,7 @@ import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
@@ -219,7 +220,7 @@ public class BlockProcessorTests extends IntegrationTest {
             }
 
             final MutableUnspentTransactionOutputSet unspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
-            unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight);
+            unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight, upgradeSchedule);
             return this.blockProcessor.processBlock(block, databaseManager, unspentTransactionOutputSet).blockHeight;
         }
 
@@ -718,10 +719,11 @@ public class BlockProcessorTests extends IntegrationTest {
                                 .setParameter(transactionByteCount)
                         );
 
+                        final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
                         // Add the Transaction's Outputs to the pruned_previous_transaction_outputs since this test (semi-)emulates a pruned node.
                         for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
                             final Integer outputIndex = transactionOutput.getIndex();
-                            final LockingScript lockingScript = transactionOutput.getLockingScript();
+                            final ByteArray legacyLockingScriptBytes = transactionOutputDeflater.toLegacyScriptBytes(transactionOutput);
 
                             databaseConnection.executeSql(
                                 new Query("INSERT INTO pruned_previous_transaction_outputs (transaction_hash, `index`, block_height, amount, locking_script, expires_after_block_height) VALUES (?, ?, ?, ?, ?, ?)")
@@ -729,7 +731,7 @@ public class BlockProcessorTests extends IntegrationTest {
                                     .setParameter(outputIndex)
                                     .setParameter(663749L)
                                     .setParameter(transactionOutput.getAmount())
-                                    .setParameter(lockingScript.getBytes())
+                                    .setParameter(legacyLockingScriptBytes)
                                     .setParameter(663749L + UndoLogDatabaseManager.MAX_REORG_DEPTH)
                             );
                         }
@@ -859,7 +861,7 @@ public class BlockProcessorTests extends IntegrationTest {
                 };
             }
         };
-        final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, databaseManagerFactory, bitcoinNodeManager, systemTime, _threadPool);
+        final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, databaseManagerFactory, upgradeSchedule, bitcoinNodeManager, systemTime, _threadPool);
 
         final BlockProcessor blockProcessor = new BlockProcessor(blockProcessorContext);
         blockProcessor.setMaxThreadCount(8);

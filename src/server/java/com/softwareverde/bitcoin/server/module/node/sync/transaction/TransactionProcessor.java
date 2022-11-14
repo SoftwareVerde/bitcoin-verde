@@ -91,6 +91,7 @@ public class TransactionProcessor extends SleepyService {
         final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
         final VolatileNetworkTime networkTime = _context.getNetworkTime();
         final SystemTime systemTime = _context.getSystemTime();
+        final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
 
         final Thread thread = Thread.currentThread();
 
@@ -101,9 +102,8 @@ public class TransactionProcessor extends SleepyService {
             final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = databaseManager.getBlockchainIndexerDatabaseManager();
 
             final TransactionInflaters transactionInflaters = _context;
-            final UnspentTransactionOutputContext unconfirmedTransactionUtxoSet = new LazyUnconfirmedTransactionUtxoSet(databaseManager, true);
+            final UnspentTransactionOutputContext unconfirmedTransactionUtxoSet = new LazyUnconfirmedTransactionUtxoSet(databaseManager, upgradeSchedule, true);
             final MedianBlockTimeContext medianBlockTimeContext = new HeadBlockchainMedianBlockTimeContext(databaseManager);
-            final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
             final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(transactionInflaters, networkTime, medianBlockTimeContext, unconfirmedTransactionUtxoSet, upgradeSchedule);
             final TransactionValidator transactionValidator = _context.getUnconfirmedTransactionValidator(transactionValidatorContext);
 
@@ -194,7 +194,7 @@ public class TransactionProcessor extends SleepyService {
 
                             final boolean isAttemptedDoubleSpend = (firstSeenTransactionId != null);
                             if (isAttemptedDoubleSpend) {
-                                final DoubleSpendProofUtxoSet doubleSpendProofUtxoSet = new DoubleSpendProofUtxoSet(databaseManager);
+                                final DoubleSpendProofUtxoSet doubleSpendProofUtxoSet = new DoubleSpendProofUtxoSet(databaseManager, upgradeSchedule);
 
                                 boolean shouldAbort = false;
                                 final TransactionOutput transactionOutputBeingDoubleSpent = doubleSpendProofUtxoSet.getTransactionOutput(transactionOutputIdentifierBeingDoubleSpent);

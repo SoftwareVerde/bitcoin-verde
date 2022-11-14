@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.utxo;
 
 import com.softwareverde.bitcoin.transaction.output.MutableUnspentTransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
 import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
@@ -58,7 +59,9 @@ public class MutableCommittedUnspentTransactionOutput extends MutableUnspentTran
         //  Verde's implementation uses the compact variable-length integer format, which is incompatible with BCHD's previous format (but is compatible with BCHD's new format).
         byteArrayBuilder.appendBytes(CompactVariableLengthInteger.variableLengthIntegerToBytes(_lockingScript.getByteCount())); // 1-4 bytes
 
-        byteArrayBuilder.appendBytes(_lockingScript.getBytes()); // ? bytes
+        final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
+        final ByteArray lockingScriptBytes = transactionOutputDeflater.toLegacyScriptBytes(this);
+        byteArrayBuilder.appendBytes(lockingScriptBytes); // ? bytes
 
         return byteArrayBuilder;
     }

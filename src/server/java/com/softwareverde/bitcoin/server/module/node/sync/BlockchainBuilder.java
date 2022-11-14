@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.sync;
 
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
@@ -10,6 +11,7 @@ import com.softwareverde.bitcoin.context.NodeManagerContext;
 import com.softwareverde.bitcoin.context.SystemTimeContext;
 import com.softwareverde.bitcoin.context.ThreadPoolContext;
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
+import com.softwareverde.bitcoin.context.UpgradeScheduleContext;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
@@ -44,7 +46,7 @@ import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.timer.NanoTimer;
 
 public class BlockchainBuilder extends GracefulSleepyService {
-    public interface Context extends MultiConnectionFullDatabaseContext, ThreadPoolContext, BlockInflaters, NodeManagerContext, SystemTimeContext { }
+    public interface Context extends MultiConnectionFullDatabaseContext, ThreadPoolContext, BlockInflaters, NodeManagerContext, SystemTimeContext, UpgradeScheduleContext { }
 
     public interface NewBlockProcessedCallback {
         void onNewBlock(ProcessBlockResult processBlockResult);
@@ -269,8 +271,9 @@ public class BlockchainBuilder extends GracefulSleepyService {
         }
         if (headBlockId == null) { return false; }
 
+        final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
         final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
-        try (final BlockchainBuilderContextPreLoader preLoader = new BlockchainBuilderContextPreLoader(databaseManagerFactory)) {
+        try (final BlockchainBuilderContextPreLoader preLoader = new BlockchainBuilderContextPreLoader(databaseManagerFactory, upgradeSchedule)) {
             Block previousBlock = null;
             while (! _shouldAbort()) {
                 final BlockId nextBlockId = blockHeaderDatabaseManager.getChildBlockId(blockchainSegmentId, headBlockId);

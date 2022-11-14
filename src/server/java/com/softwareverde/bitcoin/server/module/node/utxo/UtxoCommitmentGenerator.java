@@ -25,8 +25,11 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.database.utxo.UtxoCommitmentDatabaseManager;
 import com.softwareverde.bitcoin.server.properties.PropertiesStore;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputInflater;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.token.CashToken;
 import com.softwareverde.bitcoin.util.BlockUtil;
 import com.softwareverde.concurrent.service.PausableSleepyService;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -159,6 +162,7 @@ public class UtxoCommitmentGenerator extends PausableSleepyService {
     }
 
     protected UtxoCommitment _publishUtxoCommitment(final BlockId blockId, final Sha256Hash blockHash, final Long commitBlockHeight, final FullNodeDatabaseManager databaseManager) throws Exception {
+        final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
         final UtxoCommitmentDatabaseManager utxoCommitmentDatabaseManager = databaseManager.getUtxoCommitmentDatabaseManager();
         { // Check if a UTXO commitment already exists for this blockId...
             // NOTE: This can happen if the node has imported a UTXO set and/or if UTXO sets are being manually regenerated.
@@ -316,7 +320,8 @@ public class UtxoCommitmentGenerator extends PausableSleepyService {
                     final Long blockHeight = row.getLong("block_height");
                     final Boolean isCoinbase = row.getBoolean("is_coinbase");
                     final Long amount = row.getLong("amount");
-                    final ByteArray lockingScriptBytes = ByteArray.wrap(row.getBytes("locking_script"));
+                    final ByteArray legacyLockingScriptBytes = ByteArray.wrap(row.getBytes("locking_script"));
+                    final Tuple<LockingScript, CashToken> lockingScriptTuple = transactionOutputInflater.fromLegacyScriptBytes(legacyLockingScriptBytes);
                     bucketQueueTimer.mark("row values");
 
                     if (amount <= 0L) { continue; } // NOTE: Should not happen, and is excessively defensive. (committed_unspent_transaction_outputs table possibly using negative amounts during reorg, but are excluded from the IBD import...)
@@ -329,7 +334,8 @@ public class UtxoCommitmentGenerator extends PausableSleepyService {
                     committedUnspentTransactionOutput.setBlockHeight(blockHeight);
                     committedUnspentTransactionOutput.setIsCoinbase(isCoinbase);
                     committedUnspentTransactionOutput.setAmount(amount);
-                    committedUnspentTransactionOutput.setLockingScript(lockingScriptBytes);
+                    committedUnspentTransactionOutput.setLockingScript(lockingScriptTuple.first);
+                    committedUnspentTransactionOutput.setCashToken(lockingScriptTuple.second);
                     bucketQueueTimer.mark("committedUnspentTransactionOutput inflation");
 
                     final int bucketIndex = _calculateBucketIndex(blockHash, transactionOutputIdentifier);
@@ -480,6 +486,7 @@ public class UtxoCommitmentGenerator extends PausableSleepyService {
     }
 
     protected void _updateStagedCommitment(final FullNodeDatabaseManager databaseManager) throws Exception {
+        final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
@@ -572,7 +579,7 @@ public class UtxoCommitmentGenerator extends PausableSleepyService {
             databaseManager.startTransaction();
 
             final long blockHeight = stagedUtxoBlockHeight;
-            identifierBatchRunner.run(sortedUnspentIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
+            identifierBatchRunner.run(sortedUnspentIdentifiers, new BatchRunner.Batch<>() {
                 @Override
                 public void run(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws Exception {
                     // NOTE: Overwriting the block_height is necessary for duplicate transactions correctness. (i.e. E3BF3D07D4B0375638D5F1DB5255FE07BA2C4CB067CD81B84EE974B6585FB468 & D5D27987D2A3DFC724E359870C6644B40E497BDC0589A033220FE15429D88599)
@@ -583,8 +590,7 @@ public class UtxoCommitmentGenerator extends PausableSleepyService {
 
                         final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
                         final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
-                        final LockingScript lockingScript = transactionOutput.getLockingScript();
-                        final ByteArray lockingScriptBytes = lockingScript.getBytes();
+                        final ByteArray lockingScriptBytes = transactionOutputDeflater.toLegacyScriptBytes(transactionOutput);
 
                         final Boolean isCoinbase = (Util.areEqual(blockUtxoDiff.coinbaseTransactionHash, transactionHash));
 

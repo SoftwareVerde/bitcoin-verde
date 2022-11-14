@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.context;
 
-import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.list.List;
@@ -22,7 +21,7 @@ public interface UnspentTransactionOutputContext {
 
     TransactionOutput getTransactionOutput(TransactionOutputIdentifier transactionOutputIdentifier);
     Long getBlockHeight(TransactionOutputIdentifier transactionOutputIdentifier);
-    Sha256Hash getBlockHash(TransactionOutputIdentifier transactionOutputIdentifier);
+    // Sha256Hash getBlockHash(TransactionOutputIdentifier transactionOutputIdentifier);
     Boolean isCoinbaseTransactionOutput(TransactionOutputIdentifier transactionOutputIdentifier);
-    Boolean isPreActivationTokenForgery(TransactionOutputIdentifier transactionOutputIdentifier, UpgradeSchedule upgradeSchedule);
+    Boolean isPreActivationTokenForgery(TransactionOutputIdentifier transactionOutputIdentifier);
 }

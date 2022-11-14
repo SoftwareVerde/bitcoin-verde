@@ -20,16 +20,18 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 
 public class LazyUnconfirmedTransactionUtxoSet implements UnspentTransactionOutputContext {
+    protected final UpgradeSchedule _upgradeSchedule;
     protected final FullNodeDatabaseManager _databaseManager;
     protected final Boolean _includeUnconfirmedTransactions;
 
-    public LazyUnconfirmedTransactionUtxoSet(final FullNodeDatabaseManager databaseManager) {
-        this(databaseManager, false);
+    public LazyUnconfirmedTransactionUtxoSet(final FullNodeDatabaseManager databaseManager, final UpgradeSchedule upgradeSchedule) {
+        this(databaseManager, upgradeSchedule, false);
     }
 
-    public LazyUnconfirmedTransactionUtxoSet(final FullNodeDatabaseManager databaseManager, final Boolean includeUnconfirmedTransactions) {
+    public LazyUnconfirmedTransactionUtxoSet(final FullNodeDatabaseManager databaseManager, final UpgradeSchedule upgradeSchedule, final Boolean includeUnconfirmedTransactions) {
         _databaseManager = databaseManager;
         _includeUnconfirmedTransactions = includeUnconfirmedTransactions;
+        _upgradeSchedule = upgradeSchedule;
     }
 
     @Override
@@ -92,33 +94,6 @@ public class LazyUnconfirmedTransactionUtxoSet implements UnspentTransactionOutp
     }
 
     @Override
-    public Sha256Hash getBlockHash(final TransactionOutputIdentifier transactionOutputIdentifier) {
-        try {
-            final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
-
-            final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
-            final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
-
-            final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
-            if (transactionId == null) { return null; }
-
-            // final Boolean isUnconfirmedTransaction = transactionDatabaseManager.isUnconfirmedTransaction(transactionId);
-            // if (isUnconfirmedTransaction) { return null; }
-
-            final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-            final BlockId blockId = transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId);
-            if (blockId == null) { return null; }
-
-            return blockHeaderDatabaseManager.getBlockHash(blockId);
-        }
-        catch (final DatabaseException exception) {
-            Logger.debug(exception);
-            return null;
-        }
-    }
-
-    @Override
     public Boolean isCoinbaseTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
         try {
             final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
@@ -136,7 +111,7 @@ public class LazyUnconfirmedTransactionUtxoSet implements UnspentTransactionOutp
     }
 
     @Override
-    public Boolean isPreActivationTokenForgery(final TransactionOutputIdentifier transactionOutputIdentifier, final UpgradeSchedule upgradeSchedule) {
+    public Boolean isPreActivationTokenForgery(final TransactionOutputIdentifier transactionOutputIdentifier) {
         try {
             final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
@@ -150,18 +125,13 @@ public class LazyUnconfirmedTransactionUtxoSet implements UnspentTransactionOutp
                 final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
                 final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
                 if (transactionId == null) { return null; }
+
                 final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
                 final BlockId blockId = transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId);
-                if (blockId == null) {
-                    final BlockId headBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
-                    final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.getMedianBlockTime(headBlockId);
-                    return (! upgradeSchedule.areCashTokensEnabled(medianBlockTime));
-                }
-
-                final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.getMedianBlockTime(blockId);
-                return (! upgradeSchedule.areCashTokensEnabled(medianBlockTime));
+                final MedianBlockTime medianTimePast = blockHeaderDatabaseManager.getMedianTimePast(blockId);
+                return (! _upgradeSchedule.areCashTokensEnabled(medianTimePast));
             }
-            else {
+            else { // Unconfirmed UTXO.
                 final UnconfirmedTransactionOutputDatabaseManager unconfirmedTransactionOutputDatabaseManager = _databaseManager.getUnconfirmedTransactionOutputDatabaseManager();
                 final UnconfirmedTransactionOutputId transactionOutputId = unconfirmedTransactionOutputDatabaseManager.getUnconfirmedTransactionOutputId(transactionOutputIdentifier);
                 final TransactionOutput unconfirmedTransactionOutput = unconfirmedTransactionOutputDatabaseManager.getUnconfirmedTransactionOutput(transactionOutputId);
@@ -170,7 +140,7 @@ public class LazyUnconfirmedTransactionUtxoSet implements UnspentTransactionOutp
 
                 final BlockId headBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
                 final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.getMedianBlockTime(headBlockId);
-                return (! upgradeSchedule.areCashTokensEnabled(medianBlockTime));
+                return (! _upgradeSchedule.areCashTokensEnabled(medianBlockTime));
             }
         }
         catch (final DatabaseException exception) {

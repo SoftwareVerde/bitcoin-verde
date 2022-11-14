@@ -23,8 +23,11 @@ import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.test.util.BlockTestUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputInflater;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.token.CashToken;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
@@ -34,6 +37,7 @@ import com.softwareverde.cryptography.secp256k1.EcMultiset;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.cryptography.util.HashUtil;
 import com.softwareverde.database.row.Row;
+import com.softwareverde.util.Tuple;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -53,28 +57,33 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
     }
 
     protected static MutableCommittedUnspentTransactionOutput inflateCommittedUnspentTransactionOutput(final Sha256Hash transactionHash, final Integer outputIndex, final Long blockHeight, final Boolean isCoinbase, final Long amount, final String lockingScript) {
+        final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
+        final ByteArray legacyLockingScriptBytes = ByteArray.fromHexString(lockingScript);
+        final Tuple<LockingScript, CashToken> lockingScriptTuple = transactionOutputInflater.fromLegacyScriptBytes(legacyLockingScriptBytes);
+
         final MutableCommittedUnspentTransactionOutput unspentTransactionOutput = new MutableCommittedUnspentTransactionOutput();
         unspentTransactionOutput.setTransactionHash(transactionHash);
         unspentTransactionOutput.setIndex(outputIndex);
         unspentTransactionOutput.setBlockHeight(blockHeight);
         unspentTransactionOutput.setIsCoinbase(isCoinbase);
         unspentTransactionOutput.setAmount(amount);
-        unspentTransactionOutput.setLockingScript(ByteArray.fromHexString(lockingScript));
+        unspentTransactionOutput.setLockingScript(lockingScriptTuple.first);
+        unspentTransactionOutput.setCashToken(lockingScriptTuple.second);
 
         return unspentTransactionOutput;
     }
 
     protected static void stageUnspentTransactionOutputs(final MutableList<CommittedUnspentTransactionOutput> unspentTransactionOutputs, final DatabaseConnectionFactory databaseConnectionFactory) throws Exception {
         final BatchRunner<CommittedUnspentTransactionOutput> batchRunner = new BatchRunner<>(1024);
-        batchRunner.run(unspentTransactionOutputs, new BatchRunner.Batch<CommittedUnspentTransactionOutput>() {
+        batchRunner.run(unspentTransactionOutputs, new BatchRunner.Batch<>() {
             @Override
             public void run(final List<CommittedUnspentTransactionOutput> outputsBatch) throws Exception {
+                final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
                 final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO staged_utxo_commitment (transaction_hash, `index`, block_height, is_coinbase, amount, locking_script) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE block_height = VALUES(block_height), amount = VALUES(amount)");
                 for (final CommittedUnspentTransactionOutput transactionOutput : outputsBatch) {
                     final Sha256Hash transactionHash = transactionOutput.getTransactionHash();
                     final Integer outputIndex = transactionOutput.getIndex();
-                    final LockingScript lockingScript = transactionOutput.getLockingScript();
-                    final ByteArray lockingScriptBytes = lockingScript.getBytes();
+                    final ByteArray legacyLockingScriptBytes = transactionOutputDeflater.toLegacyScriptBytes(transactionOutput);
 
                     final Long blockHeight = transactionOutput.getBlockHeight();
                     final Boolean isCoinbase = transactionOutput.isCoinbase();
@@ -84,7 +93,7 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
                     batchedInsertQuery.setParameter(blockHeight);
                     batchedInsertQuery.setParameter(isCoinbase);
                     batchedInsertQuery.setParameter(transactionOutput.getAmount());
-                    batchedInsertQuery.setParameter(lockingScriptBytes);
+                    batchedInsertQuery.setParameter(legacyLockingScriptBytes);
                 }
 
                 try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {

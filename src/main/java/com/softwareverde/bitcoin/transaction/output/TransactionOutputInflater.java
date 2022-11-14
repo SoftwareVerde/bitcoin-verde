@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.transaction.output;
 
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
+import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.token.CashToken;
 import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -8,21 +9,18 @@ import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.Tuple;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
 
 public class TransactionOutputInflater {
     protected static final Integer MAX_COMMITMENT_LENGTH = 65535; // The max commitment length that can be parsed (not necessarily what is valid). https://github.com/bitjson/cashtokens#token-prefix-validation
 
-    protected MutableTransactionOutput _fromByteArrayReader(final Integer index, final ByteArrayReader byteArrayReader) {
-        final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
-
-        transactionOutput._amount = byteArrayReader.readLong(8, Endian.LITTLE);
-        transactionOutput._index = index;
-
+    protected Tuple<LockingScript, CashToken> _fromLegacyScriptBytes(final ByteArrayReader byteArrayReader) {
         final CompactVariableLengthInteger scriptByteCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
         if (! scriptByteCount.isCanonical()) { return null; }
 
+        final CashToken cashToken;
         final ByteArray lockingScriptBytes;
         final byte prefixByte = byteArrayReader.peakByte();
         if (prefixByte == CashToken.PREFIX) {
@@ -80,18 +78,34 @@ public class TransactionOutputInflater {
 
             final int cashTokenEndIndex = byteArrayReader.getPosition();
             final int cashTokenScriptLength = (cashTokenEndIndex - cashTokenStartIndex);
-            transactionOutput._cashToken = new CashToken(tokenPrefix, nftCapability, commitment, amount);
+            cashToken = new CashToken(tokenPrefix, nftCapability, commitment, amount);
 
             final int lockingScriptByteCount = (scriptByteCount.intValue() - cashTokenScriptLength);
             lockingScriptBytes = MutableByteArray.wrap(byteArrayReader.readBytes(lockingScriptByteCount, Endian.BIG));
         }
         else {
             lockingScriptBytes = MutableByteArray.wrap(byteArrayReader.readBytes(scriptByteCount.intValue(), Endian.BIG));
+            cashToken = null;
         }
 
         // NOTE: Using an ImmutableLockingScript may be important for the performance of ScriptPatternMatcher::isProvablyUnspendable,
         //  which is used for UTXO acceptance into the UTXO Cache.
-        transactionOutput._lockingScript = new ImmutableLockingScript(lockingScriptBytes);
+        final LockingScript lockingScript = new ImmutableLockingScript(lockingScriptBytes);
+
+        return new Tuple<>(lockingScript, cashToken);
+    }
+
+    protected MutableTransactionOutput _fromByteArrayReader(final Integer index, final ByteArrayReader byteArrayReader) {
+        final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
+
+        transactionOutput._amount = byteArrayReader.readLong(8, Endian.LITTLE);
+        transactionOutput._index = index;
+
+        final Tuple<LockingScript, CashToken> scriptTuple = _fromLegacyScriptBytes(byteArrayReader);
+        if (scriptTuple == null) { return null; }
+
+        transactionOutput._lockingScript = scriptTuple.first;
+        transactionOutput._cashToken = scriptTuple.second;
 
         if (byteArrayReader.didOverflow()) { return null; }
 
@@ -118,5 +132,10 @@ public class TransactionOutputInflater {
     public MutableTransactionOutput fromBytes(final Integer index, final byte[] bytes) {
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
         return _fromByteArrayReader(index, byteArrayReader);
+    }
+
+    public Tuple<LockingScript, CashToken> fromLegacyScriptBytes(final ByteArray legacyScriptBytes) {
+        final ByteArrayReader byteArrayReader = ( (legacyScriptBytes instanceof ByteArrayReader) ? ((ByteArrayReader) legacyScriptBytes) : new ByteArrayReader(legacyScriptBytes) );
+        return _fromLegacyScriptBytes(byteArrayReader);
     }
 }

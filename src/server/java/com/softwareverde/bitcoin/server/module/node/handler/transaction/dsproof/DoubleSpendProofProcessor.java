@@ -40,13 +40,12 @@ public class DoubleSpendProofProcessor {
         final TransactionOutputIdentifier transactionOutputIdentifier = doubleSpendProof.getTransactionOutputIdentifierBeingDoubleSpent();
         final Sha256Hash doubleSpendProofHash = doubleSpendProof.getHash();
 
+        final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
         final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
         // final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
-        final DoubleSpendProofUtxoSet unconfirmedTransactionUtxoSet = new DoubleSpendProofUtxoSet(databaseManager);
-
-        final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
+        final DoubleSpendProofUtxoSet unconfirmedTransactionUtxoSet = new DoubleSpendProofUtxoSet(databaseManager, upgradeSchedule);
 
         final Long headBlockHeight;
         final MedianBlockTime medianTimePast;

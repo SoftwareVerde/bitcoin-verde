@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.test.fake;
 
-import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
@@ -45,15 +44,6 @@ public class FakeUnspentTransactionOutputContext implements UnspentTransactionOu
     }
 
     @Override
-    public Sha256Hash getBlockHash(final TransactionOutputIdentifier transactionOutputIdentifier) {
-        if ( (! _transactionBlockHeights.containsKey(transactionOutputIdentifier)) && _logNonExistentOutputs ) {
-            Logger.debug("Requested non-existent output Block hash: " + transactionOutputIdentifier, new Exception());
-        }
-
-        return _transactionBlockHashes.get(transactionOutputIdentifier);
-    }
-
-    @Override
     public Boolean isCoinbaseTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
         if ( (! _transactionBlockHeights.containsKey(transactionOutputIdentifier)) && _logNonExistentOutputs ) {
             Logger.debug("Requested non-existent coinbase output: " + transactionOutputIdentifier, new Exception());
@@ -63,7 +53,7 @@ public class FakeUnspentTransactionOutputContext implements UnspentTransactionOu
     }
 
     @Override
-    public Boolean isPreActivationTokenForgery(final TransactionOutputIdentifier transactionOutputIdentifier, final UpgradeSchedule upgradeSchedule) {
+    public Boolean isPreActivationTokenForgery(final TransactionOutputIdentifier transactionOutputIdentifier) {
         if ( (! _patfoStatuses.containsKey(transactionOutputIdentifier)) && _logNonExistentOutputs ) {
             Logger.debug("Requested non-existent PATFO status: " + transactionOutputIdentifier, new Exception());
         }

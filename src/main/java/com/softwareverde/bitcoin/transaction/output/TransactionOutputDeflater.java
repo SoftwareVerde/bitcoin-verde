@@ -18,13 +18,22 @@ import com.softwareverde.util.bytearray.Endian;
 
 public class TransactionOutputDeflater {
     protected ByteArray _toBytes(final TransactionOutput transactionOutput) {
-        final byte[] valueBytes = new byte[8];
-        ByteUtil.setBytes(valueBytes, ByteUtil.longToBytes(transactionOutput.getAmount()));
-
-        final ByteArray lockingScriptBytes = transactionOutput.getLockingScript().getBytes();
+        final byte[] valueBytes = ByteUtil.longToBytes(transactionOutput.getAmount());
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(valueBytes, Endian.LITTLE);
+
+        final ByteArray scriptBytes = _getScriptBytes(transactionOutput);
+        byteArrayBuilder.appendBytes(scriptBytes);
+
+        return MutableByteArray.wrap(byteArrayBuilder.build());
+    }
+
+    protected ByteArray _getScriptBytes(final TransactionOutput transactionOutput) {
+        final LockingScript lockingScript = transactionOutput.getLockingScript();
+        final ByteArray lockingScriptBytes = lockingScript.getBytes();
+
+        final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         final CashToken cashToken = transactionOutput.getCashToken();
         if (cashToken != null) {
             final ByteArray cashTokenBytes = cashToken.getBytes();
@@ -44,7 +53,7 @@ public class TransactionOutputDeflater {
             byteArrayBuilder.appendBytes(lockingScriptBytes, Endian.BIG);
         }
 
-        return MutableByteArray.wrap(byteArrayBuilder.build());
+        return byteArrayBuilder;
     }
 
     public Integer getByteCount(final TransactionOutput transactionOutput) {
@@ -77,6 +86,10 @@ public class TransactionOutputDeflater {
         return _toBytes(transactionOutput);
     }
 
+    public ByteArray toLegacyScriptBytes(final TransactionOutput transactionOutput) {
+        return _getScriptBytes(transactionOutput);
+    }
+
     public Json toJson(final TransactionOutput transactionOutput) {
         final Boolean isTokenAware = transactionOutput.hasCashToken();
         final CashToken cashToken = transactionOutput.getCashToken();
@@ -88,7 +101,6 @@ public class TransactionOutputDeflater {
 
         final AddressType addressType = AddressType.fromScriptType(scriptType);
         final ParsedAddress parsedAddress = (address != null ? new ParsedAddress(addressType, isTokenAware, address) : null);
-
 
         final Json json = new Json();
         json.put("amount", transactionOutput.getAmount());

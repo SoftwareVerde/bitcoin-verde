@@ -9,8 +9,8 @@ import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -37,6 +37,7 @@ public class UndoLogDatabaseManager {
     protected final DatabaseManager _databaseManager;
 
     protected void _createUndoLog(final Long blockHeight, final Block block, final UnspentTransactionOutputContext unspentTransactionOutputContext, final DatabaseConnection databaseConnection) throws DatabaseException {
+        final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
         final List<Transaction> transactions = block.getTransactions();
         final int transactionCount = transactions.getCount();
 
@@ -104,8 +105,7 @@ public class UndoLogDatabaseManager {
             final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
 
             final Long amount = transactionOutput.getAmount();
-            final LockingScript lockingScript = transactionOutput.getLockingScript();
-            final ByteArray lockingScriptBytes = lockingScript.getBytes();
+            final ByteArray lockingScriptBytes = transactionOutputDeflater.toLegacyScriptBytes(transactionOutput);
 
             query.setParameter(transactionHash);
             query.setParameter(outputIndex);

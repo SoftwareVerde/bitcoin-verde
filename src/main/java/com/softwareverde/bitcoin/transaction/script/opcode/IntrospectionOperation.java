@@ -7,7 +7,9 @@ import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
 import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
@@ -341,8 +343,16 @@ public class IntrospectionOperation extends SubTypedOperation {
                     transactionOutput = transactionOutputs.get(outputIndex);
                 }
 
-                final Script lockingScript = transactionOutput.getLockingScript();
-                final Value value = Value.fromBytes(lockingScript.getBytes());
+                final ByteArray lockingScriptBytes;
+                if (upgradeSchedule.areCashTokensEnabled(medianBlockTime)) {
+                    final LockingScript lockingScript = transactionOutput.getLockingScript();
+                    lockingScriptBytes = lockingScript.getBytes();
+                }
+                else {
+                    final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
+                    lockingScriptBytes = transactionOutputDeflater.toLegacyScriptBytes(transactionOutput);
+                }
+                final Value value = Value.fromBytes(lockingScriptBytes);
                 if (value == null) { return false; }
 
                 stack.push(value);

@@ -24,10 +24,12 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.MutableUnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputInflater;
 import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.token.CashToken;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
@@ -85,13 +87,19 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
     }
 
     protected static UnspentTransactionOutput inflateTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier, final UtxoValue utxoValue) {
+        final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
         final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
         final MutableUnspentTransactionOutput transactionOutput = new MutableUnspentTransactionOutput();
         transactionOutput.setIndex(outputIndex);
         transactionOutput.setBlockHeight(utxoValue.blockHeight);
         transactionOutput.setIsCoinbase(utxoValue.isCoinbase);
         transactionOutput.setAmount(utxoValue.amount);
-        transactionOutput.setLockingScript(ByteArray.wrap(utxoValue.lockingScript));
+
+        final ByteArray legacyLockingScriptBytes = ByteArray.wrap(utxoValue.lockingScript);
+        final Tuple<LockingScript, CashToken> lockingScriptTuple = transactionOutputInflater.fromLegacyScriptBytes(legacyLockingScriptBytes);
+        transactionOutput.setLockingScript(lockingScriptTuple.first);
+        transactionOutput.setCashToken(lockingScriptTuple.second);
+
         return transactionOutput;
     }
 
@@ -202,6 +210,8 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
     }
 
     protected void _insertUnspentTransactionOutputs(final List<TransactionOutputIdentifier> transactionOutputIdentifiers, final List<TransactionOutput> transactionOutputs, final Long blockHeight, final Sha256Hash coinbaseTransactionHash) {
+        final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
+
         Sha256Hash previousTransactionHash = null;
         byte[] previousTransactionHashBytes = null;
 
@@ -233,9 +243,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                 spentState.setIsFlushMandatory(false);
 
                 final long amount = transactionOutput.getAmount();
-
-                final LockingScript lockingScript = transactionOutput.getLockingScript();
-                final ByteArray lockingScriptBytes = lockingScript.getBytes();
+                final ByteArray lockingScriptBytes = transactionOutputDeflater.toLegacyScriptBytes(transactionOutput);
 
                 utxoValue = new UtxoValue(spentState, blockHeight, isCoinbase, amount, lockingScriptBytes.getBytes());
             }
@@ -300,6 +308,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
      *  then the mempool, then the block flat file.
      */
     protected OutputData _findOutputData(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
+        final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
         final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
         final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
 
@@ -365,8 +374,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
 
             final TransactionOutput transactionOutput = transactionOutputs.get(outputIndex);
             final Long amount = transactionOutput.getAmount();
-            final LockingScript lockingScript = transactionOutput.getLockingScript();
-            final ByteArray lockingScriptBytes = lockingScript.getBytes();
+            final ByteArray lockingScriptBytes = transactionOutputDeflater.toLegacyScriptBytes(transactionOutput);
             return new OutputData(blockHeight, isCoinbase, amount, lockingScriptBytes.getBytes());
         }
     }
@@ -781,17 +789,20 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
     }
 
     protected Tuple<UtxoKey, UtxoValue> _inflateUtxoFromCommittedTransactionOutputRow(final TransactionOutputIdentifier transactionOutputIdentifier, final Row row) {
+        final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
         final Long blockHeight = row.getLong("block_height");
         final Boolean isCoinbase = row.getBoolean("is_coinbase");
         final Long amount = row.getLong("amount");
-        final ByteArray lockingScript = ByteArray.wrap(row.getBytes("locking_script"));
+        final ByteArray legacyScriptBytes = ByteArray.wrap(row.getBytes("locking_script"));
+        final Tuple<LockingScript, CashToken> lockingScriptTuple = transactionOutputInflater.fromLegacyScriptBytes(legacyScriptBytes);
 
         final MutableUnspentTransactionOutput transactionOutput = new MutableUnspentTransactionOutput();
         {
             final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
             transactionOutput.setIndex(outputIndex);
             transactionOutput.setAmount(amount);
-            transactionOutput.setLockingScript(lockingScript);
+            transactionOutput.setLockingScript(lockingScriptTuple.first);
+            transactionOutput.setCashToken(lockingScriptTuple.second);
             transactionOutput.setBlockHeight(blockHeight);
         }
 
@@ -801,7 +812,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         newSpentState.setIsFlushMandatory(false);
 
         final UtxoKey utxoKey = new UtxoKey(transactionOutputIdentifier);
-        final UtxoValue utxoValue = new UtxoValue(newSpentState, blockHeight, isCoinbase, amount, lockingScript.getBytes());
+        final UtxoValue utxoValue = new UtxoValue(newSpentState, blockHeight, isCoinbase, amount, legacyScriptBytes.getBytes());
 
         return new Tuple<>(utxoKey, utxoValue);
     }
@@ -999,6 +1010,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
 
 
     protected UnspentTransactionOutput _getUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier, final Boolean updateCacheOnMiss) throws DatabaseException {
+        final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
         final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
         final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
 
@@ -1038,7 +1050,8 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
 
                     final Long blockHeight = row.getLong("block_height");
                     final Boolean isCoinbase = row.getBoolean("is_coinbase");
-                    final ByteArray lockingScript = ByteArray.wrap(row.getBytes("locking_script"));
+                    final ByteArray legacyLockingScriptBytes = ByteArray.wrap(row.getBytes("locking_script"));
+                    final Tuple<LockingScript, CashToken> lockingScriptTuple = transactionOutputInflater.fromLegacyScriptBytes(legacyLockingScriptBytes);
 
                     final MutableUnspentTransactionOutput transactionOutput = new MutableUnspentTransactionOutput();
                     {
@@ -1046,7 +1059,8 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                         transactionOutput.setBlockHeight(blockHeight);
                         transactionOutput.setIsCoinbase(isCoinbase);
                         transactionOutput.setAmount(amount);
-                        transactionOutput.setLockingScript(lockingScript);
+                        transactionOutput.setLockingScript(lockingScriptTuple.first);
+                        transactionOutput.setCashToken(lockingScriptTuple.second);
                     }
 
                     if (updateCacheOnMiss) {
@@ -1174,6 +1188,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         if (UtxoCacheStaticState.isUtxoCacheDefunct()) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
         if (transactionOutputIdentifiers.isEmpty()) { return new MutableList<>(0); }
 
+        final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final int transactionOutputIdentifierCount = transactionOutputIdentifiers.getCount();
 
@@ -1253,7 +1268,8 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                         final Long blockHeight = row.getLong("block_height");
                         final Boolean isCoinbase = row.getBoolean("is_coinbase");
                         final Long amount = row.getLong("amount");
-                        final ByteArray lockingScript = ByteArray.wrap(row.getBytes("locking_script"));
+                        final ByteArray legacyLockingScriptBytes = ByteArray.wrap(row.getBytes("locking_script"));
+                        final Tuple<LockingScript, CashToken> lockingScriptTuple = transactionOutputInflater.fromLegacyScriptBytes(legacyLockingScriptBytes);
 
                         final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
                         unspentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
@@ -1264,7 +1280,8 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                             transactionOutput.setBlockHeight(blockHeight);
                             transactionOutput.setIsCoinbase(isCoinbase);
                             transactionOutput.setAmount(amount);
-                            transactionOutput.setLockingScript(lockingScript);
+                            transactionOutput.setLockingScript(lockingScriptTuple.first);
+                            transactionOutput.setCashToken(lockingScriptTuple.second);
                         }
 
                         transactionOutputs.put(transactionOutputIdentifier, transactionOutput);
@@ -1467,18 +1484,20 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
 
     @Override
     public UnspentTransactionOutput findOutputData(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
+        final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
         final OutputData outputData = _findOutputData(transactionOutputIdentifier);
         if (outputData == null) { return null; }
 
         final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
-        final ByteArray lockingScriptBytes = ByteArray.wrap(outputData.lockingScript);
-        final LockingScript lockingScript = new ImmutableLockingScript(lockingScriptBytes);
+        final ByteArray legacyLockingScriptBytes = ByteArray.wrap(outputData.lockingScript);
+        final Tuple<LockingScript, CashToken> lockingScriptTuple = transactionOutputInflater.fromLegacyScriptBytes(legacyLockingScriptBytes);
 
         final MutableUnspentTransactionOutput unspentTransactionOutput = new MutableUnspentTransactionOutput();
         unspentTransactionOutput.setIndex(outputIndex);
         unspentTransactionOutput.setBlockHeight(outputData.blockHeight);
         unspentTransactionOutput.setIsCoinbase(outputData.isCoinbase);
-        unspentTransactionOutput.setLockingScript(lockingScript);
+        unspentTransactionOutput.setLockingScript(lockingScriptTuple.first);
+        unspentTransactionOutput.setCashToken(lockingScriptTuple.second);
         unspentTransactionOutput.setAmount(outputData.amount);
 
         return unspentTransactionOutput;

@@ -264,8 +264,9 @@ public class BlockProcessor {
         final BlockOutputs reorgBlockOutputs;
         final UnspentTransactionOutputContext reorgUnspentTransactionOutputContext;
         {
+            final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
             final MutableUnspentTransactionOutputSet mutableUnspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
-            mutableUnspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight);
+            mutableUnspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight, upgradeSchedule);
             reorgUnspentTransactionOutputContext = mutableUnspentTransactionOutputSet;
             reorgBlockOutputs = BlockOutputs.fromBlock(block);
         }
@@ -369,8 +370,9 @@ public class BlockProcessor {
                 Logger.debug("Using preLoadedUnspentTransactionOutputs for blockHeight: " + blockHeight);
             }
             else {
+                final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
                 final MutableUnspentTransactionOutputSet mutableUnspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
-                final Boolean unspentTransactionOutputsExistForBlock = mutableUnspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight); // Ensure the the UTXOs for this block are pre-loaded into the cache...
+                final Boolean unspentTransactionOutputsExistForBlock = mutableUnspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight, upgradeSchedule); // Ensure the the UTXOs for this block are pre-loaded into the cache...
                 if (! unspentTransactionOutputsExistForBlock) {
                     databaseManager.rollbackTransaction();
                     Logger.debug("Invalid block. Could not find UTXOs for block: " + blockHash);
@@ -533,7 +535,7 @@ public class BlockProcessor {
                         nanoTimer.start();
                         int removedTransactionCount = 0;
 
-                        final UnspentTransactionOutputContext unconfirmedTransactionUtxoSet = new LazyUnconfirmedTransactionUtxoSet(databaseManager, true);
+                        final UnspentTransactionOutputContext unconfirmedTransactionUtxoSet = new LazyUnconfirmedTransactionUtxoSet(databaseManager, upgradeSchedule, true);
                         final MedianBlockTimeContext medianBlockTimeContext = new HeadBlockchainMedianBlockTimeContext(databaseManager);
                         final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(_context, networkTime, medianBlockTimeContext, unconfirmedTransactionUtxoSet, upgradeSchedule);
                         final TransactionValidator unconfirmedTransactionValidator = _transactionValidatorFactory.getUnconfirmedTransactionValidator(transactionValidatorContext);

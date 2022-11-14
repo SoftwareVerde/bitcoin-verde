@@ -30,7 +30,7 @@ public class TransactionOutputInflaterTests extends UnitTest {
         final int amountByteCount = 8;
         final LockingScript lockingScript = LockingScript.EMPTY_SCRIPT;
 
-        final ByteArray scriptLengthBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(prefixData.getByteCount()); // TODO: Rename.
+        final ByteArray scriptLengthBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(prefixData.getByteCount());
 
         final MutableByteArray byteArray = new MutableByteArray(amountByteCount + scriptLengthBytes.getByteCount() + prefixData.getByteCount() + lockingScript.getByteCount());
 
