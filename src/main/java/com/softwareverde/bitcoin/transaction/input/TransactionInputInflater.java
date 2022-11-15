@@ -21,6 +21,7 @@ public class TransactionInputInflater {
         final CompactVariableLengthInteger scriptByteCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
         if (! scriptByteCount.isCanonical()) { return null; }
         if ( (scriptByteCount.intValue() > Script.MAX_BYTE_COUNT) || (scriptByteCount.intValue() < 0)) { return null; }
+
         transactionInput._unlockingScript = new ImmutableUnlockingScript(MutableByteArray.wrap(byteArrayReader.readBytes(scriptByteCount.intValue(), Endian.BIG)));
         transactionInput._sequenceNumber = new ImmutableSequenceNumber(byteArrayReader.readLong(4, Endian.LITTLE));
 

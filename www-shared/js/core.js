@@ -626,7 +626,7 @@ class Ui {
 
             return false;
         });
-        $(".version, .byte-count, .fee, .block-hashes, .lock-time, .version, .slp", transactionUi).css("display", "none");
+        $(".version, .byte-count, .fee, .block-hashes, .lock-time, .version, .slp, transaction-output > .cash-token", transactionUi).css("display", "none");
 
         const transactionHashElement = $(".hash .value", transactionUi);
         transactionHashElement.text(transaction.hash);

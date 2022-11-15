@@ -229,11 +229,38 @@
 .transaction .io .transaction-output > .label .token-amount > .token-name {
     padding-left: 0.25em;
 }
+
+.transaction .cash-token .category,
+.transaction .cash-token .nft-capability,
+.transaction .cash-token .commitment,
+.transaction .cash-token .token-amount {
+    display: block;
+    font-size: 0.75em;
+    margin-bottom: 0.5em;
+    margin-left: 0.5em;
+}
+.transaction .cash-token .category::before,
+.transaction .cash-token .nft-capability::before,
+.transaction .cash-token .commitment::before,
+.transaction .cash-token .token-amount::before {
+    display: block;
+    color: #AAAAAA;
+    margin-left: -0.5em;
+}
+.transaction .cash-token .category::before {
+    content: 'Category';
+}
+.transaction .cash-token .nft-capability::before {
+    content: 'NFT Capability';
+}
+.transaction .cash-token .commitment::before {
+    content: 'Commitment';
+}
+.transaction .cash-token .token-amount::before {
+    content: 'Token Amount';
+}
 .transaction .io .transaction-output > .cash-token {
     display: none;
-}
-.transaction .io .transaction-output.cash-token > .cash-token {
-    display: block;
 }
 
 .transaction > div,
@@ -496,6 +523,7 @@
     color: #303030;
 }
 
+.transaction.collapsed .cash-token,
 .transaction.collapsed .memo,
 .transaction.collapsed .slp-genesis {
     display: none;
