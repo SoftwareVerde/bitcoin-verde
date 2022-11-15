@@ -16,10 +16,7 @@ import com.softwareverde.util.bytearray.Endian;
 public class TransactionOutputInflater {
     protected static final Integer MAX_COMMITMENT_LENGTH = 65535; // The max commitment length that can be parsed (not necessarily what is valid). https://github.com/bitjson/cashtokens#token-prefix-validation
 
-    protected Tuple<LockingScript, CashToken> _fromLegacyScriptBytes(final ByteArrayReader byteArrayReader) {
-        final CompactVariableLengthInteger scriptByteCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
-        if (! scriptByteCount.isCanonical()) { return null; }
-
+    protected Tuple<LockingScript, CashToken> _fromLegacyScriptBytes(final Integer scriptByteCount, final ByteArrayReader byteArrayReader) {
         final CashToken cashToken;
         final ByteArray lockingScriptBytes;
         final byte prefixByte = byteArrayReader.peakByte();
@@ -80,11 +77,11 @@ public class TransactionOutputInflater {
             final int cashTokenScriptLength = (cashTokenEndIndex - cashTokenStartIndex);
             cashToken = new CashToken(tokenPrefix, nftCapability, commitment, amount);
 
-            final int lockingScriptByteCount = (scriptByteCount.intValue() - cashTokenScriptLength);
+            final int lockingScriptByteCount = (scriptByteCount - cashTokenScriptLength);
             lockingScriptBytes = MutableByteArray.wrap(byteArrayReader.readBytes(lockingScriptByteCount, Endian.BIG));
         }
         else {
-            lockingScriptBytes = MutableByteArray.wrap(byteArrayReader.readBytes(scriptByteCount.intValue(), Endian.BIG));
+            lockingScriptBytes = MutableByteArray.wrap(byteArrayReader.readBytes(scriptByteCount, Endian.BIG));
             cashToken = null;
         }
 
@@ -101,7 +98,10 @@ public class TransactionOutputInflater {
         transactionOutput._amount = byteArrayReader.readLong(8, Endian.LITTLE);
         transactionOutput._index = index;
 
-        final Tuple<LockingScript, CashToken> scriptTuple = _fromLegacyScriptBytes(byteArrayReader);
+        final CompactVariableLengthInteger scriptByteCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
+        if (! scriptByteCount.isCanonical()) { return null; }
+
+        final Tuple<LockingScript, CashToken> scriptTuple = _fromLegacyScriptBytes(scriptByteCount.intValue(), byteArrayReader);
         if (scriptTuple == null) { return null; }
 
         transactionOutput._lockingScript = scriptTuple.first;
@@ -135,7 +135,8 @@ public class TransactionOutputInflater {
     }
 
     public Tuple<LockingScript, CashToken> fromLegacyScriptBytes(final ByteArray legacyScriptBytes) {
-        final ByteArrayReader byteArrayReader = ( (legacyScriptBytes instanceof ByteArrayReader) ? ((ByteArrayReader) legacyScriptBytes) : new ByteArrayReader(legacyScriptBytes) );
-        return _fromLegacyScriptBytes(byteArrayReader);
+        final Integer byteCount = legacyScriptBytes.getByteCount();
+        final ByteArrayReader byteArrayReader = new ByteArrayReader(legacyScriptBytes);
+        return _fromLegacyScriptBytes(byteCount, byteArrayReader);
     }
 }

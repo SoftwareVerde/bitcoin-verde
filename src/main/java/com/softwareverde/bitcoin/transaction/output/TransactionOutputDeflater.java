@@ -24,6 +24,10 @@ public class TransactionOutputDeflater {
         byteArrayBuilder.appendBytes(valueBytes, Endian.LITTLE);
 
         final ByteArray scriptBytes = _getScriptBytes(transactionOutput);
+        final int scriptByteCount = scriptBytes.getByteCount();
+        final ByteArray scriptByteCountBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(scriptByteCount);
+
+        byteArrayBuilder.appendBytes(scriptByteCountBytes);
         byteArrayBuilder.appendBytes(scriptBytes);
 
         return MutableByteArray.wrap(byteArrayBuilder.build());
@@ -38,18 +42,10 @@ public class TransactionOutputDeflater {
         if (cashToken != null) {
             final ByteArray cashTokenBytes = cashToken.getBytes();
 
-            final int lockingScriptByteCount = lockingScriptBytes.getByteCount();
-            final int cashTokenByteCount = cashTokenBytes.getByteCount();
-            final int totalByteCount = (cashTokenByteCount + lockingScriptByteCount);
-            final ByteArray totalByteCountBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(totalByteCount);
-
-            byteArrayBuilder.appendBytes(totalByteCountBytes, Endian.BIG);
             byteArrayBuilder.appendBytes(cashTokenBytes, Endian.BIG);
             byteArrayBuilder.appendBytes(lockingScriptBytes, Endian.BIG);
         }
         else {
-            final int lockingScriptByteCount = lockingScriptBytes.getByteCount();
-            byteArrayBuilder.appendBytes(CompactVariableLengthInteger.variableLengthIntegerToBytes(lockingScriptByteCount), Endian.BIG);
             byteArrayBuilder.appendBytes(lockingScriptBytes, Endian.BIG);
         }
 
