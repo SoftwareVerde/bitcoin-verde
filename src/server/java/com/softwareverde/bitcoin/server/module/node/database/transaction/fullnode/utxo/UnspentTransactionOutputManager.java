@@ -15,6 +15,7 @@ import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutput
 import com.softwareverde.bitcoin.util.BlockUtil;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
@@ -200,15 +201,20 @@ public class UnspentTransactionOutputManager {
      * Removes UTXOs generated, and re-adds UTXOs spent, by the provided Block.
      */
     public void removeBlockFromUtxoSet(final Block block, final Long blockHeight) throws DatabaseException {
-        Logger.debug("Un-Applying Block from UTXO set: " + block.getHash());
+        final Sha256Hash blockHash = block.getHash();
+        Logger.debug("Un-Applying Block from UTXO set: " + blockHash);
 
         UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.lock();
         try {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
             final Long uncommittedUtxoBlockHeight = unspentTransactionOutputDatabaseManager.getUncommittedUnspentTransactionOutputBlockHeight();
             if (! Util.areEqual(blockHeight, uncommittedUtxoBlockHeight)) {
                 throw new DatabaseException("Attempted to update UTXO set with out-of-order block. blockHeight=" + blockHeight + ", utxoHeight=" + uncommittedUtxoBlockHeight);
             }
+
+            final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+            final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
 
             final List<Transaction> transactions = block.getTransactions();
             final MutableList<TransactionOutputIdentifier> previousOutputIdentifiers = new MutableList<>();
@@ -229,7 +235,7 @@ public class UnspentTransactionOutputManager {
             }
 
             unspentTransactionOutputDatabaseManager.undoCreationOfTransactionOutputs(newOutputIdentifiers);
-            unspentTransactionOutputDatabaseManager.undoSpendingOfTransactionOutputs(previousOutputIdentifiers);
+            unspentTransactionOutputDatabaseManager.undoSpendingOfTransactionOutputs(previousOutputIdentifiers, blockchainSegmentId);
             unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(blockHeight - 1L);
             Logger.trace("UTXO Block Height: " + (blockHeight - 1L) + " " + unspentTransactionOutputDatabaseManager.getUncommittedUnspentTransactionOutputBlockHeight());
         }

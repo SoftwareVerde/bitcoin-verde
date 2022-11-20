@@ -110,9 +110,9 @@ public class BitcoinConstants {
     );
 
     public static final Default ChipNet = new Default(
-        "000000001DD410C49A788668CE26751718CC797474D3152A5FC073DD44FD9F7B",
-        1597811185L, // In seconds.
-        28333,
+        TestNet4.genesisBlockHash,
+        TestNet4.genesisBlockTimestamp, // In seconds.
+        48333,
         "AFDAB7E2",
         TEST_NET4_ASERT_REFERENCE_BLOCK,
         (int) (32L * ByteUtil.Unit.Si.MEGABYTES)

@@ -353,6 +353,7 @@ public class BlockchainBuilder extends GracefulSleepyService {
                 final Boolean processBlockWasSuccessful = _processPendingBlock(block, databaseManager, unspentTransactionOutputContext);
 
                 if (! processBlockWasSuccessful) {
+                    databaseManager.startTransaction();
                     blockHeaderDatabaseManager.markBlockAsInvalid(nextBlockHash, 1);
                     Logger.debug("Pending block failed during processing: " + nextBlockHash);
 
@@ -360,6 +361,7 @@ public class BlockchainBuilder extends GracefulSleepyService {
                     if (blockIsOfficiallyInvalid) {
                         _blockStore.removePendingBlock(nextBlockHash);
                     }
+                    databaseManager.commitTransaction();
 
                     return false;
                 }

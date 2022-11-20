@@ -307,7 +307,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
      *  Lookup is attempted first via the utxo table, then the pruned outputs table (aka the semi- undo log, if enabled),
      *  then the mempool, then the block flat file.
      */
-    protected OutputData _findOutputData(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
+    protected OutputData _findOutputData(final TransactionOutputIdentifier transactionOutputIdentifier, final BlockchainSegmentId blockchainSegmentIdBeingUndone) throws DatabaseException {
         final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
         final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
         final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
@@ -364,9 +364,16 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
             final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
             if (outputIndex >= transactionOutputs.getCount()) { return null; }
 
-            final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-            final BlockId blockId = transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId);
-            if (blockId == null) { return null; }
+            final BlockId blockId;
+            if (blockchainSegmentIdBeingUndone != null) {
+                blockId = transactionDatabaseManager.getBlockId(blockchainSegmentIdBeingUndone, transactionId);
+                if (blockId == null) { return null; }
+            }
+            else {
+                final List<BlockId> blockIds = transactionDatabaseManager.getBlockIds(transactionId);
+                if (blockIds.isEmpty()) { return null; }
+                blockId = blockIds.get(0); // Any block with this transaction is sufficient.
+            }
 
             final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
             final Boolean isCoinbase = transactionDatabaseManager.isCoinbaseTransaction(transactionHash);
@@ -379,7 +386,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         }
     }
 
-    protected void _undoSpendingOfTransactionOutputs(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException {
+    protected void _undoSpendingOfTransactionOutputs(final List<TransactionOutputIdentifier> transactionOutputIdentifiers, final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
         final TreeMap<UtxoKey, UtxoValue> queuedUpdates = new TreeMap<>(UtxoKey.COMPARATOR);
         for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
             final UtxoKey utxoKey = new UtxoKey(transactionOutputIdentifier);
@@ -416,7 +423,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                 newSpentState.setIsFlushedToDisk(false);
                 newSpentState.setIsFlushMandatory(true); // It is unknown if the UTXO was flushed to disk.
 
-                final OutputData utxoData = _findOutputData(transactionOutputIdentifier);
+                final OutputData utxoData = _findOutputData(transactionOutputIdentifier, blockchainSegmentId);
                 if (utxoData == null) {
                     throw new DatabaseException("Unable to restore UTXO: " + HexUtil.toHexString(utxoKey.transactionHash) + ":" + utxoKey.outputIndex);
                 }
@@ -548,6 +555,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
 
             if (startSize >= 10) {
                 if ((i % (startSize / 10)) == 0) {
+                    // TODO: The percentage/frequency of this logging is wrong. ("Flushing thread 130% done. 1 remaining.")
                     Logger.trace("Flushing thread " + ((10 * i) / (startSize / 10)) + "% done. " + (startSize - i) + " remaining.");
                 }
             }
@@ -1141,13 +1149,13 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
     }
 
     @Override
-    public void undoSpendingOfTransactionOutputs(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException {
+    public void undoSpendingOfTransactionOutputs(final List<TransactionOutputIdentifier> transactionOutputIdentifiers, final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
         if (UtxoCacheStaticState.isUtxoCacheDefunct()) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
         if (transactionOutputIdentifiers.isEmpty()) { return; }
 
         UTXO_WRITE_MUTEX.lock();
         try {
-            _undoSpendingOfTransactionOutputs(transactionOutputIdentifiers);
+            _undoSpendingOfTransactionOutputs(transactionOutputIdentifiers, blockchainSegmentId);
         }
         catch (final Exception exception) {
             _invalidateUncommittedUtxoSetAndRethrow(exception);
@@ -1483,9 +1491,9 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
     }
 
     @Override
-    public UnspentTransactionOutput findOutputData(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
+    public UnspentTransactionOutput findOutputData(final TransactionOutputIdentifier transactionOutputIdentifier, final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
         final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
-        final OutputData outputData = _findOutputData(transactionOutputIdentifier);
+        final OutputData outputData = _findOutputData(transactionOutputIdentifier, blockchainSegmentId);
         if (outputData == null) { return null; }
 
         final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
