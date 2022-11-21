@@ -182,11 +182,9 @@ public class BlockchainBuilder extends GracefulSleepyService {
                         final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
                         // Manually store the genesis block, bypassing the BlockProcessor since the Genesis Block should not be validated or added to the UTXO set.
-                        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                            databaseManager.startTransaction();
-                            blockDatabaseManager.storeBlock(genesisBlock);
-                            databaseManager.commitTransaction();
-                        }
+                        databaseManager.startTransaction();
+                        blockDatabaseManager.storeBlock(genesisBlock);
+                        databaseManager.commitTransaction();
 
                         final ProcessBlockResult processBlockResult = ProcessBlockResult.valid(genesisBlock, 0L, true, false);
                         genesisBlockWasLoaded = true;
@@ -403,11 +401,13 @@ public class BlockchainBuilder extends GracefulSleepyService {
         if (_shouldAbort()) { return false; }
 
         final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
-        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-            _assembleBlockchain(databaseManager);
-        }
-        catch (final DatabaseException exception) {
-            Logger.debug(exception);
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                _assembleBlockchain(databaseManager);
+            }
+            catch (final DatabaseException exception) {
+                Logger.debug(exception);
+            }
         }
 
         return false;

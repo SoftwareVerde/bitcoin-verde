@@ -742,7 +742,7 @@ public class BlockProcessorTests extends IntegrationTest {
             @Override
             public FullNodeDatabaseManager newDatabaseManager() throws DatabaseException {
                 final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection();
-                return new FullNodeDatabaseManager(databaseConnection, _maxQueryBatchSize, _propertiesStore, _blockStore, _utxoCommitmentStore, _masterInflater, _checkpointConfiguration, _maxUtxoCount, _utxoPurgePercent, _blockchainCacheManager) {{
+                return new FullNodeDatabaseManager(databaseConnection, _maxQueryBatchSize, _propertiesStore, _blockStore, _utxoCommitmentStore, _masterInflater, _checkpointConfiguration, _maxUtxoCount, _utxoPurgePercent, _blockchainCache) {{
                     _transactionDatabaseManager = new FullNodeTransactionDatabaseManagerCore(this, _blockStore, _masterInflater) {
                         @Override
                         public TransactionId getTransactionId(final Sha256Hash transactionHash) throws DatabaseException {

@@ -403,23 +403,22 @@ public class SpvModule {
                 final AddressInflater addressInflater = _masterInflater.getAddressInflater();
                 final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(walletBloomFilter, addressInflater);
 
-                try (final SpvDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-                    final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-                    final SpvBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-                    final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                    try (final SpvDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                        final SpvBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+                        final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
-                    databaseManager.startTransaction();
-                    final Sha256Hash previousBlockHash = merkleBlock.getPreviousBlockHash();
-                    if (! Util.areEqual(previousBlockHash, Sha256Hash.EMPTY_HASH)) { // Check for Genesis Block...
-                        final BlockId previousBlockId = blockHeaderDatabaseManager.getBlockHeaderId(merkleBlock.getPreviousBlockHash());
-                        if (previousBlockId == null) {
-                            Logger.debug("Out of order MerkleBlock received. Discarding. " + merkleBlock.getHash());
-                            return;
+                        databaseManager.startTransaction();
+                        final Sha256Hash previousBlockHash = merkleBlock.getPreviousBlockHash();
+                        if (! Util.areEqual(previousBlockHash, Sha256Hash.EMPTY_HASH)) { // Check for Genesis Block...
+                            final BlockId previousBlockId = blockHeaderDatabaseManager.getBlockHeaderId(merkleBlock.getPreviousBlockHash());
+                            if (previousBlockId == null) {
+                                Logger.debug("Out of order MerkleBlock received. Discarding. " + merkleBlock.getHash());
+                                return;
+                            }
                         }
-                    }
 
-                    synchronized (BlockHeaderDatabaseManager.MUTEX) {
                         final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(merkleBlock);
                         blockDatabaseManager.storePartialMerkleTree(blockId, merkleBlock.getPartialMerkleTree());
 
@@ -431,12 +430,12 @@ public class SpvModule {
                                 _wallet.addTransaction(transaction);
                             }
                         }
+                        databaseManager.commitTransaction();
                     }
-                    databaseManager.commitTransaction();
-                }
-                catch (final DatabaseException exception) {
-                    Logger.warn(exception);
-                    return;
+                    catch (final DatabaseException exception) {
+                        Logger.warn(exception);
+                        return;
+                    }
                 }
 
                 final NewTransactionCallback newTransactionCallback = _newTransactionCallback;

@@ -44,6 +44,69 @@ public class HeadersBootstrapper {
         return (startingHeight < maxDatFileHeight);
     }
 
+    protected void _run(final DatabaseManager databaseManager) throws Exception {
+        final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+        final BlockId headBlockHeaderId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
+        final long startingHeight = (headBlockHeaderId == null ? 0L : blockHeaderDatabaseManager.getBlockHeight(headBlockHeaderId) + 1);
+
+        long currentBlockHeight = startingHeight;
+
+        try (final InputStream inputStream = HeadersBootstrapper.class.getResourceAsStream("/bootstrap/headers.dat")) {
+            if (inputStream == null) {
+                Logger.warn("Unable to open headers bootstrap file.");
+                return;
+            }
+
+            IoUtil.skipBytes((startingHeight * BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT), inputStream);
+
+            final MutableByteArray buffer = new MutableByteArray(BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT);
+
+            final int batchSize = 4096;
+            final MutableList<BlockHeader> batchedHeaders = new MutableList<>(batchSize);
+
+            final Thread currentThread = Thread.currentThread();
+            while ( (! _abortInit) && (! currentThread.isInterrupted()) ) {
+                int readByteCount = inputStream.read(buffer.unwrap());
+                while ( (readByteCount >= 0) && (readByteCount < BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT) ) {
+                    final int nextByte = inputStream.read();
+                    if (nextByte < 0) { break; }
+
+                    buffer.setByte(readByteCount, (byte) nextByte);
+                    readByteCount += 1;
+                }
+                if (readByteCount != BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT) { break; }
+
+                final BlockHeader blockHeader = blockHeaderInflater.fromBytes(buffer);
+                if (blockHeader == null) { break; }
+
+                batchedHeaders.add(blockHeader);
+                if (batchedHeaders.getCount() == batchSize) {
+                    final List<BlockId> blockIds = _insertBlockHeaders(databaseManager, batchedHeaders);
+
+                    batchedHeaders.clear();
+
+                    if (blockIds == null) { break; }
+                    currentBlockHeight += blockIds.getCount();
+                }
+
+                _currentBlockHeight = currentBlockHeight;
+            }
+
+            if (! batchedHeaders.isEmpty()) {
+                final List<BlockId> blockIds = _insertBlockHeaders(databaseManager, batchedHeaders);
+
+                batchedHeaders.clear();
+
+                if (blockIds != null) {
+                    _currentBlockHeight += blockIds.getCount();
+                }
+            }
+
+            if ( (Thread.interrupted()) || (_abortInit) ) { return; } // Intentionally always clear the interrupted flag...
+        }
+    }
+
     public HeadersBootstrapper(final DatabaseManagerFactory databaseManagerFactory) {
         _databaseManagerFactory = databaseManagerFactory;
     }
@@ -59,75 +122,16 @@ public class HeadersBootstrapper {
     }
 
     public void run() {
-        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final BlockId headBlockHeaderId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
-            final long startingHeight = (headBlockHeaderId == null ? 0L : blockHeaderDatabaseManager.getBlockHeight(headBlockHeaderId) + 1);
-            final Boolean shouldRun = _shouldRun(databaseManager);
-            if (shouldRun) {
-                long currentBlockHeight = startingHeight;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                final Boolean shouldRun = _shouldRun(databaseManager);
+                if (! shouldRun) { return; }
 
-                final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
-
-                try (final InputStream inputStream = HeadersBootstrapper.class.getResourceAsStream("/bootstrap/headers.dat")) {
-                    if (inputStream == null) {
-                        Logger.warn("Unable to open headers bootstrap file.");
-                        return;
-                    }
-
-                    synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                        IoUtil.skipBytes((startingHeight * BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT), inputStream);
-
-                        final MutableByteArray buffer = new MutableByteArray(BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT);
-
-                        final int batchSize = 4096;
-                        final MutableList<BlockHeader> batchedHeaders = new MutableList<>(batchSize);
-
-                        final Thread currentThread = Thread.currentThread();
-                        while ( (! _abortInit) && (! currentThread.isInterrupted()) ) {
-                            int readByteCount = inputStream.read(buffer.unwrap());
-                            while ( (readByteCount >= 0) && (readByteCount < BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT) ) {
-                                final int nextByte = inputStream.read();
-                                if (nextByte < 0) { break; }
-
-                                buffer.setByte(readByteCount, (byte) nextByte);
-                                readByteCount += 1;
-                            }
-                            if (readByteCount != BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT) { break; }
-
-                            final BlockHeader blockHeader = blockHeaderInflater.fromBytes(buffer);
-                            if (blockHeader == null) { break; }
-
-                            batchedHeaders.add(blockHeader);
-                            if (batchedHeaders.getCount() == batchSize) {
-                                final List<BlockId> blockIds = _insertBlockHeaders(databaseManager, batchedHeaders);
-
-                                batchedHeaders.clear();
-
-                                if (blockIds == null) { break; }
-                                currentBlockHeight += blockIds.getCount();
-                            }
-
-                            _currentBlockHeight = currentBlockHeight;
-                        }
-
-                        if (! batchedHeaders.isEmpty()) {
-                            final List<BlockId> blockIds = _insertBlockHeaders(databaseManager, batchedHeaders);
-
-                            batchedHeaders.clear();
-
-                            if (blockIds != null) {
-                                _currentBlockHeight += blockIds.getCount();
-                            }
-                        }
-
-                        if ( (Thread.interrupted()) || (_abortInit) ) { return; } // Intentionally always clear the interrupted flag...
-                    }
-                }
+                _run(databaseManager);
             }
-        }
-        catch (final Exception exception) {
-            Logger.warn(exception);
+            catch (final Exception exception) {
+                Logger.warn(exception);
+            }
         }
     }
 

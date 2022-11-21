@@ -34,6 +34,7 @@ import com.softwareverde.bitcoin.server.module.node.utxo.UtxoCommitmentManagerCo
 import com.softwareverde.bitcoin.server.properties.PropertiesStore;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
+import com.softwareverde.logging.Logger;
 
 public class FullNodeDatabaseManager implements DatabaseManager {
     protected final DatabaseConnection _databaseConnection;
@@ -64,6 +65,8 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     protected final BlockchainCacheReference _blockchainCacheChildReference;
     protected Boolean _cacheWasMutated = false;
     protected MutableBlockchainCache _localBlockchainCache = null;
+    protected Boolean _hasDatabaseTransaction = false;
+    protected Boolean _localBlockchainCacheWasCreatedWithBlockHeaderLock = false;
 
     protected Integer _getVersion() {
         if (_globalBlockchainCache == null) { return null; }
@@ -90,8 +93,15 @@ public class FullNodeDatabaseManager implements DatabaseManager {
             @Override
             public BlockchainCache getBlockchainCache() {
                 if (_globalBlockchainCache == null) { return null; }
+
+                final boolean holdsBlockHeaderLock = Thread.holdsLock(BlockHeaderDatabaseManager.MUTEX);
+                if ( _cacheWasMutated && (! holdsBlockHeaderLock) ) { // (_cacheWasMutated is reset upon commit/rollback/close)
+                    throw new RuntimeException("BlockHeader Lock was released without committing/rollback back cache-changes.");
+                }
+
                 if (_localBlockchainCache == null) {
                     _localBlockchainCache = _globalBlockchainCache.newCopyOnWriteCache();
+                    _localBlockchainCacheWasCreatedWithBlockHeaderLock = holdsBlockHeaderLock;
                 }
 
                 return _localBlockchainCache;
@@ -100,8 +110,22 @@ public class FullNodeDatabaseManager implements DatabaseManager {
             @Override
             public MutableBlockchainCache getMutableBlockchainCache() {
                 if (_globalBlockchainCache == null) { return null; }
+
+                final boolean holdsBlockHeaderLock = Thread.holdsLock(BlockHeaderDatabaseManager.MUTEX);
+                if (! holdsBlockHeaderLock) {
+                    throw new RuntimeException("Attempting to acquire MutableBlockchainCache without obtaining BlockHeader lock.");
+                }
+
+                if (! _hasDatabaseTransaction) {
+                    throw new RuntimeException("Requested MutableBlockchainCache outside of a database transaction.");
+                }
+
                 if (_localBlockchainCache == null) {
                     _localBlockchainCache = _globalBlockchainCache.newCopyOnWriteCache();
+                    _localBlockchainCacheWasCreatedWithBlockHeaderLock = true;
+                }
+                else if (! _localBlockchainCacheWasCreatedWithBlockHeaderLock) {
+                    throw new RuntimeException("Requested MutableBlockchainCache with dirty read risk; BlockHeader lock must be acquired before any (mutable/immutable) requests for BlockchainCache.");
                 }
 
                 _cacheWasMutated = true;
@@ -237,11 +261,22 @@ public class FullNodeDatabaseManager implements DatabaseManager {
 
     @Override
     public void startTransaction() throws DatabaseException {
+        if (_hasDatabaseTransaction) {
+            Logger.warn("Redundant call to DatabaseManager::startTransaction.", new Exception());
+            return;
+        }
+
         TransactionUtil.startTransaction(_databaseConnection);
+        _hasDatabaseTransaction = true;
     }
 
     @Override
     public void commitTransaction() throws DatabaseException {
+        if (! _hasDatabaseTransaction) {
+            Logger.warn("Attempted to call to DatabaseManager::commitTransaction before calling DatabaseManager::startTransaction.", new Exception());
+            return;
+        }
+
         TransactionUtil.commitTransaction(_databaseConnection);
         if (_cacheWasMutated) {
             // NOTE: Neither _blockchainCacheGlobalReference nor _blockchainCacheLocalReference can be null if _cacheWasMutated is true.
@@ -249,24 +284,43 @@ public class FullNodeDatabaseManager implements DatabaseManager {
             _cacheWasMutated = false;
             _localBlockchainCache = null;
         }
+        _hasDatabaseTransaction = false;
+        _localBlockchainCacheWasCreatedWithBlockHeaderLock = false;
     }
 
     @Override
     public void rollbackTransaction() throws DatabaseException {
+        if (! _hasDatabaseTransaction) {
+            Logger.warn("Attempted to call to DatabaseManager::rollbackTransaction before calling DatabaseManager::startTransaction.", new Exception());
+            return;
+        }
+
         TransactionUtil.rollbackTransaction(_databaseConnection);
         if (_cacheWasMutated) {
             // NOTE: Neither _blockchainCacheGlobalReference nor _blockchainCacheLocalReference can be null if _cacheWasMutated is true.
             _cacheWasMutated = false;
             _localBlockchainCache = null;
         }
+        _hasDatabaseTransaction = false;
+        _localBlockchainCacheWasCreatedWithBlockHeaderLock = false;
     }
 
     @Override
     public void close() throws DatabaseException {
+        if (_hasDatabaseTransaction) {
+            TransactionUtil.rollbackTransaction(_databaseConnection);
+            _hasDatabaseTransaction = false;
+
+            Logger.debug("Implicit rollback.", new Exception());
+        }
+
         if (_cacheWasMutated) {
             _cacheWasMutated = false;
             _localBlockchainCache = null;
+
+            Logger.debug("NOTICE: Discarding BlockchainCache changes.", new Exception());
         }
+        _localBlockchainCacheWasCreatedWithBlockHeaderLock = false;
 
         _databaseConnection.close();
     }

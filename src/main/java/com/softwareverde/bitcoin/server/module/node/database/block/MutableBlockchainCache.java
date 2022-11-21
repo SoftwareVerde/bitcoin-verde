@@ -407,7 +407,8 @@ public class MutableBlockchainCache extends BlockchainCacheCore {
         }
     }
 
-    public MutableBlockchainCache newCopyOnWriteCache() {
+    // NOTE: Method is synchronized to ensure member values are up-to-date across threads.
+    public synchronized MutableBlockchainCache newCopyOnWriteCache() {
         _readLock.lock();
         try {
             final MutableVersionedHashMap<BlockId, BlockHeader> blockHeaders = MutableVersionedHashMap.wrap(_castMap(_blockHeaders));

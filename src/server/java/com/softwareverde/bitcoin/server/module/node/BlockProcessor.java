@@ -154,38 +154,36 @@ public class BlockProcessor {
         }
 
         // Store the BlockHeader...
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            final BlockId blockId;
-            final Long blockHeight;
-            databaseManager.startTransaction();
-            {
-                Logger.debug("Processing Block: " + blockHash);
-                blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
+        final BlockId blockId;
+        final Long blockHeight;
+        databaseManager.startTransaction();
+        {
+            Logger.debug("Processing Block: " + blockHash);
+            blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
 
-                if (blockId == null) {
-                    Logger.debug("Error storing BlockHeader: " + blockHash);
-                    databaseManager.rollbackTransaction();
-                    return null;
-                }
-
-                blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
-
-                final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
-                final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
-
-                final BlockHeaderValidatorContext blockHeaderValidatorContext = new BlockHeaderValidatorContext(blockchainSegmentId, databaseManager, networkTime, _difficultyCalculatorFactory, upgradeSchedule);
-
-                final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(blockHeaderValidatorContext);
-                final BlockHeaderValidator.BlockHeaderValidationResult blockHeaderValidationResult = blockHeaderValidator.validateBlockHeader(blockHeader, blockHeight);
-                if (! blockHeaderValidationResult.isValid) {
-                    Logger.debug("Invalid BlockHeader: " + blockHeaderValidationResult.errorMessage + " (" + blockHash + ")");
-                    databaseManager.rollbackTransaction();
-                    return null;
-                }
+            if (blockId == null) {
+                Logger.debug("Error storing BlockHeader: " + blockHash);
+                databaseManager.rollbackTransaction();
+                return null;
             }
-            databaseManager.commitTransaction();
-            return new ProcessBlockHeaderResult(blockId, blockHeight, false);
+
+            blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+
+            final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
+            final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
+
+            final BlockHeaderValidatorContext blockHeaderValidatorContext = new BlockHeaderValidatorContext(blockchainSegmentId, databaseManager, networkTime, _difficultyCalculatorFactory, upgradeSchedule);
+
+            final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(blockHeaderValidatorContext);
+            final BlockHeaderValidator.BlockHeaderValidationResult blockHeaderValidationResult = blockHeaderValidator.validateBlockHeader(blockHeader, blockHeight);
+            if (! blockHeaderValidationResult.isValid) {
+                Logger.debug("Invalid BlockHeader: " + blockHeaderValidationResult.errorMessage + " (" + blockHash + ")");
+                databaseManager.rollbackTransaction();
+                return null;
+            }
         }
+        databaseManager.commitTransaction();
+        return new ProcessBlockHeaderResult(blockId, blockHeight, false);
     }
 
     protected void _switchHeadBlock(final DatabaseManagerFactory databaseManagerFactory, final FullNodeDatabaseManager databaseManager, final Long blockHeight, final BlockId blockId, final Block block, final BlockId originalHeadBlockId, final BlockchainSegmentId newHeadBlockchainSegmentId, final VolatileNetworkTime networkTime) throws DatabaseException {
@@ -646,7 +644,10 @@ public class BlockProcessor {
      * If provided, the UnspentTransactionOutputSet must include every output spent by the block.
      * If not provided, the UnspentTransactionOutputSet is loaded from the database at validation time.
      */
-    public ProcessBlockResult processBlock(final Block block, final FullNodeDatabaseManager databaseManager) { return this.processBlock(block, databaseManager, null); }
+    public ProcessBlockResult processBlock(final Block block, final FullNodeDatabaseManager databaseManager) {
+        return this.processBlock(block, databaseManager, null);
+    }
+
     public ProcessBlockResult processBlock(final Block block, final FullNodeDatabaseManager databaseManager, final UnspentTransactionOutputContext preLoadedUnspentTransactionOutputContext) {
         try {
             return _processBlock(block, preLoadedUnspentTransactionOutputContext, databaseManager);
