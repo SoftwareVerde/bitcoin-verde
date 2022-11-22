@@ -51,7 +51,7 @@ public class TransactionValidatorCore implements TransactionValidator {
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         for (int i = 0; i < transactionInputs.getCount(); ++i) {
             final TransactionOutput transactionOutput = transactionContext.getPreviousTransactionOutput(i);
-            final ByteArray outputBytes = transactionOutputDeflater.toBytes(transactionOutput);
+            final ByteArray outputBytes = (transactionOutput != null ? transactionOutputDeflater.toBytes(transactionOutput) : null);
             previousOutputs.add(outputBytes);
         }
 

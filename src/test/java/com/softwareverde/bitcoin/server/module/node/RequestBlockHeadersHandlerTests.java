@@ -53,22 +53,24 @@ public class RequestBlockHeadersHandlerTests extends IntegrationTest {
      *
      */
     protected Block[] _initScenario() throws Exception {
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
-            final BlockInflater blockInflater = new BlockInflater();
+                final BlockInflater blockInflater = new BlockInflater();
 
-            final String[] blockDatas = new String[]{BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2, BlockData.MainChain.BLOCK_3, BlockData.MainChain.BLOCK_4};
-            final Block[] blocks = new Block[blockDatas.length];
-            int i = 0;
-            for (final String blockData : blockDatas) {
-                final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
-                blockDatabaseManager.insertBlock(block);
-                blocks[i] = block;
-                i += 1;
+                final String[] blockDatas = new String[]{BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2, BlockData.MainChain.BLOCK_3, BlockData.MainChain.BLOCK_4};
+                final Block[] blocks = new Block[blockDatas.length];
+                int i = 0;
+                for (final String blockData : blockDatas) {
+                    final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
+                    blockDatabaseManager.insertBlock(block);
+                    blocks[i] = block;
+                    i += 1;
+                }
+
+                return blocks;
             }
-
-            return blocks;
         }
     }
 
@@ -89,46 +91,48 @@ public class RequestBlockHeadersHandlerTests extends IntegrationTest {
      *
      */
     protected Block[] _initScenario2(final Block[] blocks) throws Exception {
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
-            final BlockInflater blockInflater = new BlockInflater();
+                final BlockInflater blockInflater = new BlockInflater();
 
-            final Block block5 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_5));
-            blockDatabaseManager.insertBlock(block5);
+                final Block block5 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_5));
+                blockDatabaseManager.insertBlock(block5);
 
-            final Block forkedBlock0 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain3.BLOCK_2));
-            blockDatabaseManager.insertBlock(forkedBlock0);
+                final Block forkedBlock0 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain3.BLOCK_2));
+                blockDatabaseManager.insertBlock(forkedBlock0);
 
-            final Block forkedBlock1; // NOTE: Has an invalid hash, but shouldn't matter...
-            {
-                final MutableBlock mutableBlock = new MutableBlock(blocks[blocks.length - 1]);
-                mutableBlock.setNonce(mutableBlock.getNonce() + 1);
-                forkedBlock1 = mutableBlock;
+                final Block forkedBlock1; // NOTE: Has an invalid hash, but shouldn't matter...
+                {
+                    final MutableBlock mutableBlock = new MutableBlock(blocks[blocks.length - 1]);
+                    mutableBlock.setNonce(mutableBlock.getNonce() + 1);
+                    forkedBlock1 = mutableBlock;
+                }
+                blockDatabaseManager.insertBlock(forkedBlock1);
+
+                final Block[] newBlocks = new Block[blocks.length + 3];
+                for (int i = 0; i < blocks.length; ++i) {
+                    newBlocks[i] = blocks[i];
+                }
+                newBlocks[blocks.length + 0] = block5;
+                newBlocks[blocks.length + 1] = forkedBlock0;
+                newBlocks[blocks.length + 2] = forkedBlock1;
+
+                { //  Sanity check for the appropriate chain structure...
+                    Assert.assertEquals(newBlocks[0].getHash(), newBlocks[1].getPreviousBlockHash());
+                    Assert.assertEquals(newBlocks[1].getHash(), newBlocks[2].getPreviousBlockHash());
+                    Assert.assertEquals(newBlocks[2].getHash(), newBlocks[3].getPreviousBlockHash());
+                    Assert.assertEquals(newBlocks[3].getHash(), newBlocks[4].getPreviousBlockHash());
+                    Assert.assertEquals(newBlocks[4].getHash(), newBlocks[5].getPreviousBlockHash());
+
+                    Assert.assertEquals(newBlocks[1].getHash(), newBlocks[6].getPreviousBlockHash());
+
+                    Assert.assertEquals(newBlocks[3].getHash(), newBlocks[7].getPreviousBlockHash());
+                }
+
+                return newBlocks;
             }
-            blockDatabaseManager.insertBlock(forkedBlock1);
-
-            final Block[] newBlocks = new Block[blocks.length + 3];
-            for (int i = 0; i < blocks.length; ++i) {
-                newBlocks[i] = blocks[i];
-            }
-            newBlocks[blocks.length + 0] = block5;
-            newBlocks[blocks.length + 1] = forkedBlock0;
-            newBlocks[blocks.length + 2] = forkedBlock1;
-
-            { //  Sanity check for the appropriate chain structure...
-                Assert.assertEquals(newBlocks[0].getHash(), newBlocks[1].getPreviousBlockHash());
-                Assert.assertEquals(newBlocks[1].getHash(), newBlocks[2].getPreviousBlockHash());
-                Assert.assertEquals(newBlocks[2].getHash(), newBlocks[3].getPreviousBlockHash());
-                Assert.assertEquals(newBlocks[3].getHash(), newBlocks[4].getPreviousBlockHash());
-                Assert.assertEquals(newBlocks[4].getHash(), newBlocks[5].getPreviousBlockHash());
-
-                Assert.assertEquals(newBlocks[1].getHash(), newBlocks[6].getPreviousBlockHash());
-
-                Assert.assertEquals(newBlocks[3].getHash(), newBlocks[7].getPreviousBlockHash());
-            }
-
-            return newBlocks;
         }
     }
 
@@ -145,12 +149,8 @@ public class RequestBlockHeadersHandlerTests extends IntegrationTest {
     @Test
     public void should_return_genesis_blocks_when_no_matches() throws Exception {
         // Setup
-        final Block[] scenarioBlocks;
-        final Block[] allBlocks;
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            scenarioBlocks = _initScenario();
-            allBlocks = _initScenario2(scenarioBlocks);
-        }
+        final Block[] scenarioBlocks = _initScenario();
+        final Block[] allBlocks = _initScenario2(scenarioBlocks);
 
         final Integer bestChainHeight = scenarioBlocks.length + 1;
         final Block[] mainChainBlocks = new Block[bestChainHeight];
@@ -187,14 +187,10 @@ public class RequestBlockHeadersHandlerTests extends IntegrationTest {
     @Test
     public void should_return_first_block_when_match_found() throws Exception {
         // Setup
-        final Block[] scenarioBlocks;
-        final Block[] allBlocks;
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            scenarioBlocks = _initScenario();
-            allBlocks = _initScenario2(scenarioBlocks);
-        }
+        final Block[] scenarioBlocks = _initScenario();
+        final Block[] allBlocks = _initScenario2(scenarioBlocks);
 
-        final Integer bestChainHeight = scenarioBlocks.length + 1;
+        final int bestChainHeight = scenarioBlocks.length + 1;
         final Block[] mainChainBlocks = new Block[bestChainHeight];
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
@@ -230,14 +226,10 @@ public class RequestBlockHeadersHandlerTests extends IntegrationTest {
     @Test
     public void should_return_first_blocks_when_non_genesis_match_found() throws Exception {
         // Setup
-        final Block[] scenarioBlocks;
-        final Block[] allBlocks;
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            scenarioBlocks = _initScenario();
-            allBlocks = _initScenario2(scenarioBlocks);
-        }
+        final Block[] scenarioBlocks = _initScenario();
+        final Block[] allBlocks = _initScenario2(scenarioBlocks);
 
-        final Integer bestChainHeight = scenarioBlocks.length + 1;
+        final int bestChainHeight = scenarioBlocks.length + 1;
         final Block[] mainChainBlocks = new Block[bestChainHeight];
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
@@ -273,14 +265,10 @@ public class RequestBlockHeadersHandlerTests extends IntegrationTest {
     @Test
     public void should_return_blocks_when_match_found() throws Exception {
         // Setup
-        final Block[] scenarioBlocks;
-        final Block[] allBlocks;
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            scenarioBlocks = _initScenario();
-            allBlocks = _initScenario2(scenarioBlocks);
-        }
+        final Block[] scenarioBlocks = _initScenario();
+        final Block[] allBlocks = _initScenario2(scenarioBlocks);
 
-        final Integer bestChainHeight = scenarioBlocks.length + 1;
+        final int bestChainHeight = scenarioBlocks.length + 1;
         final Block[] mainChainBlocks = new Block[bestChainHeight];
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
@@ -316,21 +304,17 @@ public class RequestBlockHeadersHandlerTests extends IntegrationTest {
     @Test
     public void should_return_forked_blocks_when_match_found() throws Exception {
         // Setup
-        final Block[] scenarioBlocks ;
-        final Block[] allBlocks;
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            scenarioBlocks = _initScenario();
-            allBlocks = _initScenario2(scenarioBlocks);
-        }
+        final Block[] scenarioBlocks = _initScenario();
+        final Block[] allBlocks = _initScenario2(scenarioBlocks);
 
         final Block fPrimeBlock;
         { // Create an additional child onto block E' (F')...
             final MutableBlock mutableBlock = new MutableBlock(allBlocks[allBlocks.length - 1]);
             mutableBlock.setPreviousBlockHash(allBlocks[allBlocks.length - 1].getHash());
 
-            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-                final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                    final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
                     blockDatabaseManager.insertBlock(mutableBlock);
                 }
             }

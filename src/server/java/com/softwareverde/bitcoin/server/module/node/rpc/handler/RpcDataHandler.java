@@ -729,12 +729,12 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     public BlockValidationResult validatePrototypeBlock(final Block block) {
         Logger.info("Validating Prototype Block: " + block.getHash());
 
-        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
-            try {
-                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                try {
                     databaseManager.startTransaction();
 
                     final BlockId blockId = blockDatabaseManager.storeBlock(block);
@@ -757,14 +757,14 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                     Logger.info("Prototype Block: " + block.getHash() + " " + (blockValidationResult.isValid ? "VALID" : ("INVALID " + blockValidationResult.errorMessage)));
                     return blockValidationResult;
                 }
+                finally {
+                    databaseManager.rollbackTransaction(); // Never keep the validated block...
+                }
             }
-            finally {
-                databaseManager.rollbackTransaction(); // Never keep the validated block...
+            catch (final Exception exception) {
+                Logger.debug("Error validating Prototype Block: " + block.getHash(), exception);
+                return BlockValidationResult.invalid("An internal error occurred.");
             }
-        }
-        catch (final Exception exception) {
-            Logger.debug("Error validating Prototype Block: " + block.getHash(), exception);
-            return BlockValidationResult.invalid("An internal error occurred.");
         }
     }
 

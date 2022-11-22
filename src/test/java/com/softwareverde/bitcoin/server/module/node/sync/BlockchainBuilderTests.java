@@ -139,22 +139,22 @@ public class BlockchainBuilderTests extends IntegrationTest {
         final BlockchainBuilder blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, blockStore, BlockchainBuilderTests.FAKE_DOWNLOAD_STATUS_MONITOR);
 
         final Block[] blocks;
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final BlockInflater blockInflater = _masterInflater.getBlockInflater();
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final BlockInflater blockInflater = _masterInflater.getBlockInflater();
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
-            blocks = new Block[6];
-            int blockHeight = 0;
-            for (final String blockData : new String[]{ BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2, BlockData.MainChain.BLOCK_3, BlockData.MainChain.BLOCK_4, BlockData.MainChain.BLOCK_5 }) {
-                final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
+                blocks = new Block[6];
+                int blockHeight = 0;
+                for (final String blockData : new String[]{ BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2, BlockData.MainChain.BLOCK_3, BlockData.MainChain.BLOCK_4, BlockData.MainChain.BLOCK_5 }) {
+                    final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
 
-                synchronized (BlockHeaderDatabaseManager.MUTEX) {
                     blockHeaderDatabaseManager.storeBlockHeader(block);
-                }
 
-                blockStore.storePendingBlock(block);
-                blocks[blockHeight] = block;
-                blockHeight += 1;
+                    blockStore.storePendingBlock(block);
+                    blocks[blockHeight] = block;
+                    blockHeight += 1;
+                }
             }
         }
 
@@ -307,45 +307,41 @@ public class BlockchainBuilderTests extends IntegrationTest {
         }
 
         final Block[] mainChainBlocks;
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final BlockInflater blockInflater = _masterInflater.getBlockInflater();
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final BlockInflater blockInflater = _masterInflater.getBlockInflater();
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
-            int blockHeight = 0;
-            mainChainBlocks = new Block[5];
+                int blockHeight = 0;
+                mainChainBlocks = new Block[5];
 
-            for (final String blockData : new String[]{ BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2 }) {
-                final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
-                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                for (final String blockData : new String[]{ BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2 }) {
+                    final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
                     blockHeaderDatabaseManager.storeBlockHeader(block);
+
+                    blockStore.storePendingBlock(block);
+
+                    mainChainBlocks[blockHeight] = block;
+                    blockHeight += 1;
                 }
 
-                blockStore.storePendingBlock(block);
-
-                mainChainBlocks[blockHeight] = block;
-                blockHeight += 1;
-            }
-
-            for (final Block block : new Block[] { fakeBlock03 }) {
-                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                for (final Block block : new Block[] { fakeBlock03 }) {
                     blockHeaderDatabaseManager.storeBlockHeader(block);
+
+                    blockStore.storePendingBlock(block);
+
+                    mainChainBlocks[blockHeight] = block;
+                    blockHeight += 1;
                 }
 
-                blockStore.storePendingBlock(block);
-
-                mainChainBlocks[blockHeight] = block;
-                blockHeight += 1;
-            }
-
-            for (final Block block : new Block[] { fakeBlock04aSpendingBlock03Coinbase, fakeBlock04bSpendingBlock03Coinbase }) {
-                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                for (final Block block : new Block[] { fakeBlock04aSpendingBlock03Coinbase, fakeBlock04bSpendingBlock03Coinbase }) {
                     blockHeaderDatabaseManager.storeBlockHeader(block);
+
+                    blockStore.storePendingBlock(block);
                 }
 
-                blockStore.storePendingBlock(block);
+                mainChainBlocks[blockHeight] = fakeBlock04aSpendingBlock03Coinbase;
             }
-
-            mainChainBlocks[blockHeight] = fakeBlock04aSpendingBlock03Coinbase;
         }
 
         // NOTE: The blockchainBuilder checks for the Genesis block upon instantiation.
@@ -516,24 +512,21 @@ public class BlockchainBuilderTests extends IntegrationTest {
             fakeBlock03bSpendingBlock03aCoinbase = mutableBlock;
         }
 
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final BlockInflater blockInflater = _masterInflater.getBlockInflater();
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            for (final String blockData : new String[]{ BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2 }) {
-                final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
-                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final BlockInflater blockInflater = _masterInflater.getBlockInflater();
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                for (final String blockData : new String[]{ BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2 }) {
+                    final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
                     blockHeaderDatabaseManager.storeBlockHeader(block);
+
+                    blockStore.storePendingBlock(block);
                 }
 
-                blockStore.storePendingBlock(block);
-            }
-
-            for (final Block block : new Block[] { fakeBlock03a, fakeBlock03bSpendingBlock03aCoinbase }) {
-                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                for (final Block block : new Block[] { fakeBlock03a, fakeBlock03bSpendingBlock03aCoinbase }) {
                     blockHeaderDatabaseManager.storeBlockHeader(block);
+                    blockStore.storePendingBlock(block);
                 }
-
-                blockStore.storePendingBlock(block);
             }
         }
 
@@ -691,25 +684,20 @@ public class BlockchainBuilderTests extends IntegrationTest {
             fakeBlock04 = mutableBlock;
         }
 
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final BlockInflater blockInflater = _masterInflater.getBlockInflater();
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            for (final String blockData : new String[]{ BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2 }) {
-                final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
-
-                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final BlockInflater blockInflater = _masterInflater.getBlockInflater();
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                for (final String blockData : new String[]{ BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2 }) {
+                    final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
                     blockHeaderDatabaseManager.storeBlockHeader(block);
+                    blockStore.storePendingBlock(block);
                 }
 
-                blockStore.storePendingBlock(block);
-            }
-
-            for (final Block block : new Block[] { fakeBlock03, fakeBlock04 }) {
-                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                for (final Block block : new Block[] { fakeBlock03, fakeBlock04 }) {
                     blockHeaderDatabaseManager.storeBlockHeader(block);
+                    blockStore.storePendingBlock(block);
                 }
-
-                blockStore.storePendingBlock(block);
             }
         }
 
