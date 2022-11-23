@@ -945,31 +945,43 @@ public class BlockProcessorTests extends IntegrationTest {
             }
         }
 
+        final BlockchainBuilder blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, blockStore, BlockchainBuilderTests.FAKE_DOWNLOAD_STATUS_MONITOR);
+
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
             try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
                 final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-
-                final BlockchainBuilder blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, blockStore, BlockchainBuilderTests.FAKE_DOWNLOAD_STATUS_MONITOR);
 
                 for (final Block block : new Block[]{ block663750_A }) {
                     blockHeaderDatabaseManager.storeBlockHeader(block);
                     blockStore.storePendingBlock(block);
                 }
+            }
+        }
 
-                { // Process 750A normally.
-                    // Temporarily mark the main chain as invalid so the blockchainBuilder is forced to process the shorter chain...
-                    blockHeaderDatabaseManager.markBlockAsInvalid(block663750_B.getHash(), BlockHeaderDatabaseManager.INVALID_PROCESS_THRESHOLD);
+        { // Process 750A normally.
+            try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                // Temporarily mark the main chain as invalid so the blockchainBuilder is forced to process the shorter chain...
+                blockHeaderDatabaseManager.markBlockAsInvalid(block663750_B.getHash(), BlockHeaderDatabaseManager.INVALID_PROCESS_THRESHOLD);
+            }
 
-                    // Process 750A normally.
-                    _runBlockchainBuilder(blockchainBuilder);
-                    Assert.assertTrue(blockDatabaseManager.hasTransactions(block663750_A.getHash()));
+            // Process 750A normally.
+            _runBlockchainBuilder(blockchainBuilder);
 
-                    // Unmark the main chain as invalid...
-                    blockHeaderDatabaseManager.clearBlockAsInvalid(block663750_B.getHash(), Integer.MAX_VALUE);
-                }
+            try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
-                // Action
+                Assert.assertTrue(blockDatabaseManager.hasTransactions(block663750_A.getHash()));
+
+                // Unmark the main chain as invalid...
+                blockHeaderDatabaseManager.clearBlockAsInvalid(block663750_B.getHash(), Integer.MAX_VALUE);
+            }
+        }
+
+        // Action
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
 
                 if (shouldCommitUtxosBeforeReorg) {
                     final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
@@ -980,15 +992,19 @@ public class BlockProcessorTests extends IntegrationTest {
                 for (final Block block : new Block[]{ block663750_B, block663751_B, block663752_B }) {
                     blockStore.storePendingBlock(block);
                 }
-
-                // Process 750B, 751B, and 752B normally.
-                _runBlockchainBuilder(blockchainBuilder);
-
-                // Assert
-                Assert.assertTrue(blockDatabaseManager.hasTransactions(block663750_B.getHash()));
-                Assert.assertTrue(blockDatabaseManager.hasTransactions(block663751_B.getHash()));
-                Assert.assertTrue(blockDatabaseManager.hasTransactions(block663752_B.getHash()));
             }
+        }
+
+        // Process 750B, 751B, and 752B normally.
+        _runBlockchainBuilder(blockchainBuilder);
+
+        // Assert
+        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+            final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+
+            Assert.assertTrue(blockDatabaseManager.hasTransactions(block663750_B.getHash()));
+            Assert.assertTrue(blockDatabaseManager.hasTransactions(block663751_B.getHash()));
+            Assert.assertTrue(blockDatabaseManager.hasTransactions(block663752_B.getHash()));
         }
     }
 

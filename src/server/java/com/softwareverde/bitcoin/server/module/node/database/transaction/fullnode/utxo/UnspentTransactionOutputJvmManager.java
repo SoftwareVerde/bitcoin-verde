@@ -352,7 +352,6 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         }
 
         { // Attempt to find the amount/script from block flat-file, which may not exist for nodes operating in pruned mode.
-            final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
 
