@@ -31,6 +31,7 @@ import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.State;
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.server.configuration.CheckpointConfiguration;
+import com.softwareverde.bitcoin.server.configuration.ChipNetCheckpointConfiguration;
 import com.softwareverde.bitcoin.server.configuration.NodeProperties;
 import com.softwareverde.bitcoin.server.configuration.TestNetCheckpointConfiguration;
 import com.softwareverde.bitcoin.server.database.Database;
@@ -407,7 +408,14 @@ public class NodeModule {
         { // Block Checkpoints
             final Boolean isTestNet = bitcoinProperties.isTestNet();
             if (isTestNet) {
-                _checkpointConfiguration = new TestNetCheckpointConfiguration();
+                switch (bitcoinProperties.getNetworkType()) {
+                    case CHIP_NET: {
+                        _checkpointConfiguration = new ChipNetCheckpointConfiguration();
+                    } break;
+                    default: {
+                        _checkpointConfiguration = new TestNetCheckpointConfiguration();
+                    } break;
+                }
             }
             else {
                 _checkpointConfiguration = new CheckpointConfiguration();
