@@ -113,6 +113,8 @@ public class AddressInflater {
         if (bytesWithPrefixWithChecksum.getByteCount() < (ParsedAddress.PREFIX_BYTE_COUNT + ParsedAddress.CHECKSUM_BYTE_COUNT)) { return null; }
 
         final int byteCount = (bytesWithPrefixWithChecksum.getByteCount() - ParsedAddress.CHECKSUM_BYTE_COUNT - ParsedAddress.PREFIX_BYTE_COUNT);
+        if (byteCount <= 0) { return null; }
+
         final Address bytesWithoutPrefixAndWithoutChecksum = new Address(bytesWithPrefixWithChecksum.getBytes(ParsedAddress.PREFIX_BYTE_COUNT, byteCount));
 
         final byte prefixByte = bytesWithPrefixWithChecksum.getByte(0);
