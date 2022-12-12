@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.transaction.signer;
 
 import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.test.fake.FakeUpgradeSchedule;
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.test.util.TransactionTestUtil;
@@ -24,6 +25,7 @@ import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.cryptography.hash.sha256.MutableSha256Hash;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
@@ -63,8 +65,15 @@ public class TransactionSignerTests {
 
         final UpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
         final TransactionSigner transactionSigner = new TransactionSigner();
-        final SignatureContext signatureContext = new SignatureContext(transaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, false), 0L, upgradeSchedule);
-        signatureContext.setShouldSignInputScript(0, true, transactionOutputBeingSpent);
+        final SignatureContext signatureContext = new SignatureContext(
+            transaction,
+            new HashType(Mode.SIGNATURE_HASH_ALL, true, false, false),
+            0L,
+            MedianBlockTime.MAX_VALUE,
+            new ImmutableList<>(transactionOutputBeingSpent),
+            upgradeSchedule
+        );
+        signatureContext.setShouldSignInputScript(0, true);
         signatureContext.setCurrentScript(transactionOutputBeingSpent.getLockingScript());
 
         // Action

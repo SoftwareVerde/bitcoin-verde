@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node;
 
 import com.softwareverde.bitcoin.CoreInflater;
+import com.softwareverde.bitcoin.bip.ChipNetUpgradeSchedule;
 import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
 import com.softwareverde.bitcoin.bip.TestNet4UpgradeSchedule;
 import com.softwareverde.bitcoin.bip.TestNetUpgradeSchedule;
@@ -30,6 +31,7 @@ import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.State;
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.server.configuration.CheckpointConfiguration;
+import com.softwareverde.bitcoin.server.configuration.ChipNetCheckpointConfiguration;
 import com.softwareverde.bitcoin.server.configuration.NodeProperties;
 import com.softwareverde.bitcoin.server.configuration.TestNetCheckpointConfiguration;
 import com.softwareverde.bitcoin.server.database.Database;
@@ -69,7 +71,6 @@ import com.softwareverde.bitcoin.server.module.node.handler.block.RequestBlockHa
 import com.softwareverde.bitcoin.server.module.node.handler.block.RequestBlockHeadersHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.RequestSpvBlocksHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.QueryUnconfirmedTransactionsHandler;
-import com.softwareverde.bitcoin.server.module.node.handler.transaction.RequestSlpTransactionsHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.TransactionAnnouncementHandlerFactory;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.dsproof.DoubleSpendProofAnnouncementHandlerFactory;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.dsproof.DoubleSpendProofDatabase;
@@ -366,6 +367,9 @@ public class NodeModule {
                     case TEST_NET4: {
                         _upgradeSchedule = new TestNet4UpgradeSchedule();
                     } break;
+                    case CHIP_NET: {
+                        _upgradeSchedule = new ChipNetUpgradeSchedule();
+                    } break;
                     default: {
                         _upgradeSchedule = new TestNetUpgradeSchedule();
                     }
@@ -404,7 +408,14 @@ public class NodeModule {
         { // Block Checkpoints
             final Boolean isTestNet = bitcoinProperties.isTestNet();
             if (isTestNet) {
-                _checkpointConfiguration = new TestNetCheckpointConfiguration();
+                switch (bitcoinProperties.getNetworkType()) {
+                    case CHIP_NET: {
+                        _checkpointConfiguration = new ChipNetCheckpointConfiguration();
+                    } break;
+                    default: {
+                        _checkpointConfiguration = new TestNetCheckpointConfiguration();
+                    } break;
+                }
             }
             else {
                 _checkpointConfiguration = new CheckpointConfiguration();
@@ -488,11 +499,6 @@ public class NodeModule {
                 nodeFeatures.enableFeature(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
                 nodeFeatures.enableFeature(NodeFeatures.Feature.XTHIN_PROTOCOL_ENABLED);
                 nodeFeatures.enableFeature(NodeFeatures.Feature.BLOOM_CONNECTIONS_ENABLED);
-
-                if (indexModeIsEnabled) {
-                    nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_INDEX_ENABLED); // BitcoinVerde 2019-04-22
-                    nodeFeatures.enableFeature(NodeFeatures.Feature.SLP_INDEX_ENABLED); // BitcoinVerde 2019-10-24
-                }
 
                 nodeFeatures.enableFeature(NodeFeatures.Feature.EXTENDED_DOUBLE_SPEND_PROOFS_ENABLED); // BitcoinVerde 2021-04-27
                 nodeFeatures.enableFeature(NodeFeatures.Feature.UTXO_COMMITMENTS_ENABLED); // BitcoinVerde 2021-05-26
@@ -578,7 +584,6 @@ public class NodeModule {
             nodeInitializerContext.requestBlockHeadersHandler = new RequestBlockHeadersHandler(databaseManagerFactory);
             nodeInitializerContext.requestDataHandler = _transactionWhitelist;
             nodeInitializerContext.requestSpvBlocksHandler = new RequestSpvBlocksHandler(databaseManagerFactory, spvUnconfirmedTransactionsHandler);
-            nodeInitializerContext.requestSlpTransactionsHandler = new RequestSlpTransactionsHandler(databaseManagerFactory);
             nodeInitializerContext.queryUtxoCommitmentsHandler = new QueryUtxoCommitmentsHandler(databaseManagerFactory);
             nodeInitializerContext.requestUnconfirmedTransactionsHandler = new QueryUnconfirmedTransactionsHandler(databaseManagerFactory);
 
@@ -779,7 +784,7 @@ public class NodeModule {
 
         { // Initialize BlockchainBuilder...
             final BlockDownloader.StatusMonitor blockDownloaderStatusMonitor = _blockDownloader.getStatusMonitor();
-            final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(_masterInflater, databaseManagerFactory, _bitcoinNodeManager, _systemTime, _blockProcessingThreadPool);
+            final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(_masterInflater, databaseManagerFactory, _upgradeSchedule, _bitcoinNodeManager, _systemTime, _blockProcessingThreadPool);
             _blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, _blockStore, blockDownloaderStatusMonitor);
             _blockchainBuilder.setUnavailableBlockCallback(new BlockchainBuilder.UnavailableBlockCallback() {
                 @Override

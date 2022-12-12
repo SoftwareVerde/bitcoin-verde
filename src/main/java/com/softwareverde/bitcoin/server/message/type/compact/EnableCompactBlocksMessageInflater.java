@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.server.message.type.compact;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
 
 public class EnableCompactBlocksMessageInflater extends BitcoinProtocolMessageInflater {

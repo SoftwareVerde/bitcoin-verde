@@ -40,6 +40,13 @@ public enum Opcode {
     PUSH_OUTPUT_VALUE                       (0xCC),
     PUSH_OUTPUT_BYTECODE                    (0xCD),
 
+    PUSH_UTXO_TOKEN_CATEGORY                (0xCE),
+    PUSH_UTXO_TOKEN_COMMITMENT              (0xCF),
+    PUSH_UTXO_TOKEN_AMOUNT                  (0xD0),
+    PUSH_OUTPUT_TOKEN_CATEGORY              (0xD1),
+    PUSH_OUTPUT_TOKEN_COMMITMENT            (0xD2),
+    PUSH_OUTPUT_TOKEN_AMOUNT                (0xD3),
+
     // CONTROL
     IF                                  (0x63),
     NOT_IF                              (0x64),

@@ -60,22 +60,30 @@ public class TransactionTestUtil {
      *  If multiple PrivateKeys are provided then the order used corresponds to the Transaction's TransactionInputs.
      *  The number of PrivateKeys may be less than the number of TransactionInputs, in which case the last PrivateKey will be used to sign the remaining TransactionInputs.
      */
-    public static Transaction signTransaction(final TransactionOutputRepository transactionOutputsToSpend, final Transaction unsignedTransaction, final PrivateKey... privateKeys) {
+    public static Transaction signTransaction(final TransactionOutputRepository transactionOutputRepository, final Transaction unsignedTransaction, final PrivateKey... privateKeys) {
         Transaction partiallySignedTransaction = unsignedTransaction;
+        final List<TransactionInput> transactionInputs = unsignedTransaction.getTransactionInputs();
         final TransactionSigner transactionSigner = new TransactionSigner();
 
         int privateKeyIndex = 0;
 
-        int inputIndex = 0;
-        final List<TransactionInput> transactionInputs = unsignedTransaction.getTransactionInputs();
+        final MutableList<TransactionOutput> transactionOutputsToSpend = new MutableList<>();
         for (final TransactionInput transactionInput : transactionInputs) {
             final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-            final TransactionOutput transactionOutputBeingSpent = transactionOutputsToSpend.get(transactionOutputIdentifierBeingSpent);
+            final TransactionOutput previousTransactionOutput = transactionOutputRepository.get(transactionOutputIdentifierBeingSpent);
+            transactionOutputsToSpend.add(previousTransactionOutput);
+        }
 
+        for (int inputIndex = 0; inputIndex < transactionInputs.getCount(); ++inputIndex) {
             final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
-            final SignatureContext signatureContext = new SignatureContext(partiallySignedTransaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, false), upgradeSchedule); // BCH is not enabled at this block height...
+            final SignatureContext signatureContext = new SignatureContext(
+                partiallySignedTransaction,
+                new HashType(Mode.SIGNATURE_HASH_ALL, true, false, false), // BCH is not enabled at this block height...
+                transactionOutputsToSpend,
+                upgradeSchedule
+            );
             signatureContext.setInputIndexBeingSigned(inputIndex);
-            signatureContext.setShouldSignInputScript(inputIndex, true, transactionOutputBeingSpent);
+            signatureContext.setShouldSignInputScript(inputIndex, true);
 
             final PrivateKey privateKey = privateKeys[privateKeyIndex];
             if ((privateKeyIndex + 1) < privateKeys.length) {
@@ -83,8 +91,6 @@ public class TransactionTestUtil {
             }
 
             partiallySignedTransaction = transactionSigner.signTransaction(signatureContext, privateKey, true);
-
-            inputIndex += 1;
         }
 
         return partiallySignedTransaction;

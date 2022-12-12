@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.chain;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.address.ParsedAddress;
 import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.Block;
@@ -21,7 +22,6 @@ import com.softwareverde.bitcoin.server.module.node.database.blockchain.Blockcha
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
-import com.softwareverde.bitcoin.test.util.TransactionTestUtil;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.coinbase.MutableCoinbaseTransaction;
@@ -102,34 +102,33 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
 
          */
 
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+                final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
-            final BlockInflater blockInflater = new BlockInflater();
+                final BlockInflater blockInflater = new BlockInflater();
 
-            final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-            Assert.assertTrue(genesisBlock.isValid());
+                final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+                Assert.assertTrue(genesisBlock.isValid());
 
-            // Action
-            final BlockId genesisBlockId;
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
+                // Action
+                final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
+
+                // Assert
+                Assert.assertEquals(1L, genesisBlockId.longValue());
+
+                final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM blockchain_segments"));
+                Assert.assertEquals(1, rows.size());
+
+                final Row row = rows.get(0);
+
+                assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 0, databaseConnection);
+                assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
+
+                Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(genesisBlockId).longValue());
             }
-
-            // Assert
-            Assert.assertEquals(1L, genesisBlockId.longValue());
-
-            final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM blockchain_segments"));
-            Assert.assertEquals(1, rows.size());
-
-            final Row row = rows.get(0);
-
-            assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 0, databaseConnection);
-            assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
-
-            Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(genesisBlockId).longValue());
         }
     }
 
@@ -152,44 +151,40 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
 
          */
 
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+                final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
-            final BlockInflater blockInflater = new BlockInflater();
+                final BlockInflater blockInflater = new BlockInflater();
 
-            final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-            final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
+                final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+                final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
 
-            Assert.assertTrue(genesisBlock.isValid());
-            Assert.assertTrue(block1.isValid());
+                Assert.assertTrue(genesisBlock.isValid());
+                Assert.assertTrue(block1.isValid());
 
-            final BlockId genesisBlockId;
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
+                final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
+
+                // Action
+                final BlockId block1Id = blockDatabaseManager.insertBlock(block1);
+
+                // Assert
+                Assert.assertEquals(1L, genesisBlockId.longValue());
+                Assert.assertEquals(2L, block1Id.longValue());
+
+                final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM blockchain_segments"));
+                Assert.assertEquals(1, rows.size());
+
+                final Row row = rows.get(0);
+
+                assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
+                assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 2, databaseConnection);
+
+                Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(genesisBlockId).longValue());
+                Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1Id).longValue());
             }
-
-            // Action
-            final BlockId block1Id;
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                block1Id = blockDatabaseManager.insertBlock(block1);
-            }
-
-            // Assert
-            Assert.assertEquals(1L, genesisBlockId.longValue());
-            Assert.assertEquals(2L, block1Id.longValue());
-
-            final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM blockchain_segments"));
-            Assert.assertEquals(1, rows.size());
-
-            final Row row = rows.get(0);
-
-            assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
-            assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 2, databaseConnection);
-
-            Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(genesisBlockId).longValue());
-            Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1Id).longValue());
         }
     }
 
@@ -214,45 +209,40 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
 
          */
 
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+                final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
-            final BlockInflater blockInflater = new BlockInflater();
+                final BlockInflater blockInflater = new BlockInflater();
 
-            final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-            final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
-            final Block block2 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
+                final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+                final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
+                final Block block2 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
 
-            Assert.assertTrue(genesisBlock.isValid());
-            Assert.assertTrue(block1.isValid());
-            Assert.assertTrue(block2.isValid());
+                Assert.assertTrue(genesisBlock.isValid());
+                Assert.assertTrue(block1.isValid());
+                Assert.assertTrue(block2.isValid());
 
-            final BlockId genesisBlockId;
-            final BlockId block1Id;
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
-                block1Id = blockDatabaseManager.insertBlock(block1);
+                final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
+                final BlockId block1Id = blockDatabaseManager.insertBlock(block1);
+
+                // Action
+                final BlockId block2Id = blockDatabaseManager.insertBlock(block2);
+
+                // Assert
+                Assert.assertEquals(1L, genesisBlockId.longValue());
+                Assert.assertEquals(2L, block1Id.longValue());
+                Assert.assertEquals(3L, block2Id.longValue());
+
+                final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM blockchain_segments"));
+                Assert.assertEquals(1, rows.size());
+
+                Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(genesisBlockId).longValue());
+                Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1Id).longValue());
+                Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(block2Id).longValue());
             }
-
-            // Action
-            final BlockId block2Id;
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                block2Id = blockDatabaseManager.insertBlock(block2);
-            }
-
-            // Assert
-            Assert.assertEquals(1L, genesisBlockId.longValue());
-            Assert.assertEquals(2L, block1Id.longValue());
-            Assert.assertEquals(3L, block2Id.longValue());
-
-            final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM blockchain_segments"));
-            Assert.assertEquals(1, rows.size());
-
-            Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(genesisBlockId).longValue());
-            Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1Id).longValue());
-            Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(block2Id).longValue());
         }
     }
 
@@ -277,70 +267,65 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
 
          */
 
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+                final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
-            final BlockInflater blockInflater = new BlockInflater();
+                final BlockInflater blockInflater = new BlockInflater();
 
-            final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-            final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
-            final Block block1Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain1.BLOCK_1));
+                final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+                final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
+                final Block block1Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain1.BLOCK_1));
 
-            Assert.assertTrue(genesisBlock.isValid());
-            Assert.assertTrue(block1.isValid());
-            Assert.assertTrue(block1Prime.isValid());
+                Assert.assertTrue(genesisBlock.isValid());
+                Assert.assertTrue(block1.isValid());
+                Assert.assertTrue(block1Prime.isValid());
 
-            Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1.getPreviousBlockHash());
-            Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1Prime.getPreviousBlockHash());
-            Assert.assertNotEquals(block1.getHash(), block1Prime.getHash());
+                Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1.getPreviousBlockHash());
+                Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1Prime.getPreviousBlockHash());
+                Assert.assertNotEquals(block1.getHash(), block1Prime.getHash());
 
-            final BlockId genesisBlockId;
-            final BlockId block1Id;
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
-                block1Id = blockDatabaseManager.insertBlock(block1);
+                final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
+                final BlockId block1Id = blockDatabaseManager.insertBlock(block1);
+
+                // Action
+                final BlockId block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
+
+                // Assert
+                Assert.assertEquals(1L, genesisBlockId.longValue());
+                Assert.assertEquals(2L, block1Id.longValue());
+                Assert.assertEquals(3L, block1PrimeId.longValue());
+
+                final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM blockchain_segments ORDER BY id ASC"));
+                Assert.assertEquals(3, rows.size());
+
+                { // Chain #1 (baseBlockchain)
+                    final Row row = rows.get(0);
+
+                    assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 0, databaseConnection);
+                    assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
+                }
+
+                { // Chain #2 (refactoredBlockchain)
+                    final Row row = rows.get(1);
+
+                    assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
+                    assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
+                }
+
+                { // Chain #3 (newBlockchain)
+                    final Row row = rows.get(2);
+
+                    assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
+                    assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
+                }
+
+                Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(genesisBlockId).longValue());
+                Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1Id).longValue());
+                Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1PrimeId).longValue());
             }
-
-            // Action
-            final BlockId block1PrimeId;
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
-            }
-
-            // Assert
-            Assert.assertEquals(1L, genesisBlockId.longValue());
-            Assert.assertEquals(2L, block1Id.longValue());
-            Assert.assertEquals(3L, block1PrimeId.longValue());
-
-            final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM blockchain_segments ORDER BY id ASC"));
-            Assert.assertEquals(3, rows.size());
-
-            { // Chain #1 (baseBlockchain)
-                final Row row = rows.get(0);
-
-                assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 0, databaseConnection);
-                assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
-            }
-
-            { // Chain #2 (refactoredBlockchain)
-                final Row row = rows.get(1);
-
-                assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
-                assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
-            }
-
-            { // Chain #3 (newBlockchain)
-                final Row row = rows.get(2);
-
-                assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
-                assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
-            }
-
-            Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(genesisBlockId).longValue());
-            Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1Id).longValue());
-            Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1PrimeId).longValue());
         }
     }
 
@@ -368,77 +353,71 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
 
          */
 
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+                final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
-            final BlockInflater blockInflater = new BlockInflater();
+                final BlockInflater blockInflater = new BlockInflater();
 
-            final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-            final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
-            final Block block2 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
-            final Block block1Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain1.BLOCK_1));
+                final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+                final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
+                final Block block2 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
+                final Block block1Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain1.BLOCK_1));
 
-            Assert.assertTrue(genesisBlock.isValid());
-            Assert.assertTrue(block1.isValid());
-            Assert.assertTrue(block2.isValid());
-            Assert.assertTrue(block1Prime.isValid());
+                Assert.assertTrue(genesisBlock.isValid());
+                Assert.assertTrue(block1.isValid());
+                Assert.assertTrue(block2.isValid());
+                Assert.assertTrue(block1Prime.isValid());
 
-            Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1.getPreviousBlockHash());
-            Assert.assertEquals(block1.getHash(), block2.getPreviousBlockHash());
-            Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1Prime.getPreviousBlockHash());
-            Assert.assertNotEquals(block1.getHash(), block1Prime.getHash());
+                Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1.getPreviousBlockHash());
+                Assert.assertEquals(block1.getHash(), block2.getPreviousBlockHash());
+                Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1Prime.getPreviousBlockHash());
+                Assert.assertNotEquals(block1.getHash(), block1Prime.getHash());
 
-            final BlockId genesisBlockId;
-            final BlockId block1Id;
-            final BlockId block2Id;
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
-                block1Id = blockDatabaseManager.insertBlock(block1);
-                block2Id = blockDatabaseManager.insertBlock(block2);
+                final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
+                final BlockId block1Id = blockDatabaseManager.insertBlock(block1);
+                final BlockId block2Id = blockDatabaseManager.insertBlock(block2);
+
+                // Action
+                final BlockId block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
+
+                // Assert
+                Assert.assertEquals(1L, genesisBlockId.longValue());
+                Assert.assertEquals(2L, block1Id.longValue());
+                Assert.assertEquals(3L, block2Id.longValue());
+                Assert.assertEquals(4L, block1PrimeId.longValue());
+
+                final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM blockchain_segments ORDER BY id ASC"));
+                Assert.assertEquals(3, rows.size());
+
+                { // Chain #1 (baseBlockchain)
+                    final Row row = rows.get(0);
+
+                    assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 0, databaseConnection);
+                    assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
+                }
+
+                { // Chain #2 (refactoredBlockchain)
+                    final Row row = rows.get(1);
+
+                    assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 2, databaseConnection);
+                    assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 2, databaseConnection);
+                }
+
+                { // Chain #3 (newBlockchain)
+                    final Row row = rows.get(2);
+
+                    assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
+                    assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
+                }
+
+                Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(genesisBlockId).longValue());
+                Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1Id).longValue());
+                Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block2Id).longValue());
+                Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1PrimeId).longValue());
             }
-
-            // Action
-            final BlockId block1PrimeId;
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
-            }
-
-            // Assert
-            Assert.assertEquals(1L, genesisBlockId.longValue());
-            Assert.assertEquals(2L, block1Id.longValue());
-            Assert.assertEquals(3L, block2Id.longValue());
-            Assert.assertEquals(4L, block1PrimeId.longValue());
-
-            final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM blockchain_segments ORDER BY id ASC"));
-            Assert.assertEquals(3, rows.size());
-
-            { // Chain #1 (baseBlockchain)
-                final Row row = rows.get(0);
-
-                assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 0, databaseConnection);
-                assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
-            }
-
-            { // Chain #2 (refactoredBlockchain)
-                final Row row = rows.get(1);
-
-                assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 2, databaseConnection);
-                assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 2, databaseConnection);
-            }
-
-            { // Chain #3 (newBlockchain)
-                final Row row = rows.get(2);
-
-                assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
-                assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
-            }
-
-            Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(genesisBlockId).longValue());
-            Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1Id).longValue());
-            Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block2Id).longValue());
-            Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1PrimeId).longValue());
         }
     }
 
@@ -472,118 +451,109 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
 
          */
 
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+                final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
-            final BlockInflater blockInflater = new BlockInflater();
+                final BlockInflater blockInflater = new BlockInflater();
 
-            final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-            final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
-            final Block block2 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
-            final Block block3 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_3));
-            final Block block1Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain1.BLOCK_1));
-            final Block block2Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain1.BLOCK_2));
-            final Block block1DoublePrime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain2.BLOCK_1));
+                final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+                final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
+                final Block block2 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
+                final Block block3 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_3));
+                final Block block1Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain1.BLOCK_1));
+                final Block block2Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain1.BLOCK_2));
+                final Block block1DoublePrime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain2.BLOCK_1));
 
-            Assert.assertTrue(genesisBlock.isValid());
-            Assert.assertTrue(block1.isValid());
-            Assert.assertTrue(block2.isValid());
-            Assert.assertTrue(block3.isValid());
-            Assert.assertTrue(block1Prime.isValid());
-            Assert.assertTrue(block2Prime.isValid());
-            Assert.assertTrue(block1DoublePrime.isValid());
+                Assert.assertTrue(genesisBlock.isValid());
+                Assert.assertTrue(block1.isValid());
+                Assert.assertTrue(block2.isValid());
+                Assert.assertTrue(block3.isValid());
+                Assert.assertTrue(block1Prime.isValid());
+                Assert.assertTrue(block2Prime.isValid());
+                Assert.assertTrue(block1DoublePrime.isValid());
 
-            // Chain 2
-            Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1.getPreviousBlockHash());
-            Assert.assertEquals(block1.getHash(), block2.getPreviousBlockHash());
-            Assert.assertEquals(block2.getHash(), block3.getPreviousBlockHash());
+                // Chain 2
+                Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1.getPreviousBlockHash());
+                Assert.assertEquals(block1.getHash(), block2.getPreviousBlockHash());
+                Assert.assertEquals(block2.getHash(), block3.getPreviousBlockHash());
 
-            // Chain 3
-            Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1Prime.getPreviousBlockHash());
-            Assert.assertEquals(block1Prime.getHash(), block2Prime.getPreviousBlockHash());
-            Assert.assertNotEquals(block1.getHash(), block1Prime.getHash());
+                // Chain 3
+                Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1Prime.getPreviousBlockHash());
+                Assert.assertEquals(block1Prime.getHash(), block2Prime.getPreviousBlockHash());
+                Assert.assertNotEquals(block1.getHash(), block1Prime.getHash());
 
-            // Chain 4
-            Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1DoublePrime.getPreviousBlockHash());
-            Assert.assertNotEquals(block1.getHash(), block1DoublePrime.getHash());
+                // Chain 4
+                Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1DoublePrime.getPreviousBlockHash());
+                Assert.assertNotEquals(block1.getHash(), block1DoublePrime.getHash());
 
-            final BlockId genesisBlockId;
-            final BlockId block1Id;
-            final BlockId block2Id;
-            final BlockId block3Id;
-            final BlockId block1PrimeId;
-            final BlockId block2PrimeId;
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
-                block1Id = blockDatabaseManager.insertBlock(block1);
-                block2Id = blockDatabaseManager.insertBlock(block2);
-                block3Id = blockDatabaseManager.insertBlock(block3);
-                block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
-                block2PrimeId = blockDatabaseManager.insertBlock(block2Prime);
+                final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
+                final BlockId block1Id = blockDatabaseManager.insertBlock(block1);
+                final BlockId block2Id = blockDatabaseManager.insertBlock(block2);
+                final BlockId block3Id = blockDatabaseManager.insertBlock(block3);
+                final BlockId block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
+                final BlockId block2PrimeId = blockDatabaseManager.insertBlock(block2Prime);
+
+                // Action
+                final BlockId block1DoublePrimeId = blockDatabaseManager.insertBlock(block1DoublePrime);
+
+                // Assert
+                Assert.assertEquals(1L, genesisBlockId.longValue());
+                Assert.assertEquals(2L, block1Id.longValue());
+                Assert.assertEquals(3L, block2Id.longValue());
+                Assert.assertEquals(4L, block3Id.longValue());
+                Assert.assertEquals(5L, block1PrimeId.longValue());
+                Assert.assertEquals(6L, block2PrimeId.longValue());
+                Assert.assertEquals(7L, block1DoublePrimeId.longValue());
+
+                final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM blockchain_segments ORDER BY id ASC"));
+                Assert.assertEquals(4, rows.size());
+
+                { // Chain #1 (baseBlockchain)
+                    final Row row = rows.get(0);
+
+                    assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 0, databaseConnection);
+                    assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
+                }
+
+                { // Chain #2 (refactoredBlockchain)
+                    final Row row = rows.get(1);
+
+                    assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 3, databaseConnection);
+                    assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 3, databaseConnection);
+                }
+
+                { // Chain #3 (newBlockchain)
+                    final Row row = rows.get(2);
+
+                    assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 2, databaseConnection);
+                    assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 2, databaseConnection);
+                }
+
+                { // Chain #4 (newestBlockchain)
+                    final Row row = rows.get(3);
+
+                    assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
+                    assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
+                }
+
+                // Chain 1
+                Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(genesisBlockId).longValue());
+
+                // Chain 2
+                Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1Id).longValue());
+                Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block2Id).longValue());
+                Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block3Id).longValue());
+
+                // Chain 3
+                Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1PrimeId).longValue());
+                Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockchainSegmentId(block2PrimeId).longValue());
+
+                // Chain 4
+                Assert.assertEquals(4L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1DoublePrimeId).longValue());
             }
-
-            // Action
-            final BlockId block1DoublePrimeId;
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                block1DoublePrimeId = blockDatabaseManager.insertBlock(block1DoublePrime);
-            }
-
-            // Assert
-            Assert.assertEquals(1L, genesisBlockId.longValue());
-            Assert.assertEquals(2L, block1Id.longValue());
-            Assert.assertEquals(3L, block2Id.longValue());
-            Assert.assertEquals(4L, block3Id.longValue());
-            Assert.assertEquals(5L, block1PrimeId.longValue());
-            Assert.assertEquals(6L, block2PrimeId.longValue());
-            Assert.assertEquals(7L, block1DoublePrimeId.longValue());
-
-            final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM blockchain_segments ORDER BY id ASC"));
-            Assert.assertEquals(4, rows.size());
-
-            { // Chain #1 (baseBlockchain)
-                final Row row = rows.get(0);
-
-                assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 0, databaseConnection);
-                assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
-            }
-
-            { // Chain #2 (refactoredBlockchain)
-                final Row row = rows.get(1);
-
-                assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 3, databaseConnection);
-                assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 3, databaseConnection);
-            }
-
-            { // Chain #3 (newBlockchain)
-                final Row row = rows.get(2);
-
-                assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 2, databaseConnection);
-                assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 2, databaseConnection);
-            }
-
-            { // Chain #4 (newestBlockchain)
-                final Row row = rows.get(3);
-
-                assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
-                assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
-            }
-
-            // Chain 1
-            Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(genesisBlockId).longValue());
-
-            // Chain 2
-            Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1Id).longValue());
-            Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block2Id).longValue());
-            Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block3Id).longValue());
-
-            // Chain 3
-            Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1PrimeId).longValue());
-            Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockchainSegmentId(block2PrimeId).longValue());
-
-            // Chain 4
-            Assert.assertEquals(4L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1DoublePrimeId).longValue());
         }
     }
 
@@ -631,115 +601,108 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
 
          */
 
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+                final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
-            final BlockInflater blockInflater = new BlockInflater();
+                final BlockInflater blockInflater = new BlockInflater();
 
-            final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-            final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
-            final Block block2 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
-            final Block block3 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_3));
-            final Block block1Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain1.BLOCK_1));
-            final Block block2Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain1.BLOCK_2));
-            final Block block1DoublePrime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain2.BLOCK_1));
+                final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+                final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
+                final Block block2 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
+                final Block block3 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_3));
+                final Block block1Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain1.BLOCK_1));
+                final Block block2Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain1.BLOCK_2));
+                final Block block1DoublePrime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain2.BLOCK_1));
 
-            Assert.assertTrue(genesisBlock.isValid());
-            Assert.assertTrue(block1.isValid());
-            Assert.assertTrue(block2.isValid());
-            Assert.assertTrue(block3.isValid());
-            Assert.assertTrue(block1Prime.isValid());
-            Assert.assertTrue(block2Prime.isValid());
-            Assert.assertTrue(block1DoublePrime.isValid());
+                Assert.assertTrue(genesisBlock.isValid());
+                Assert.assertTrue(block1.isValid());
+                Assert.assertTrue(block2.isValid());
+                Assert.assertTrue(block3.isValid());
+                Assert.assertTrue(block1Prime.isValid());
+                Assert.assertTrue(block2Prime.isValid());
+                Assert.assertTrue(block1DoublePrime.isValid());
 
-            // Chain 2
-            Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1.getPreviousBlockHash());
-            Assert.assertEquals(block1.getHash(), block2.getPreviousBlockHash());
-            Assert.assertEquals(block2.getHash(), block3.getPreviousBlockHash());
+                // Chain 2
+                Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1.getPreviousBlockHash());
+                Assert.assertEquals(block1.getHash(), block2.getPreviousBlockHash());
+                Assert.assertEquals(block2.getHash(), block3.getPreviousBlockHash());
 
-            // Chain 3
-            Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1Prime.getPreviousBlockHash());
-            Assert.assertEquals(block1Prime.getHash(), block2Prime.getPreviousBlockHash());
-            Assert.assertNotEquals(block1.getHash(), block1Prime.getHash());
+                // Chain 3
+                Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1Prime.getPreviousBlockHash());
+                Assert.assertEquals(block1Prime.getHash(), block2Prime.getPreviousBlockHash());
+                Assert.assertNotEquals(block1.getHash(), block1Prime.getHash());
 
-            // Chain 4
-            Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1DoublePrime.getPreviousBlockHash());
-            Assert.assertNotEquals(block1.getHash(), block1DoublePrime.getHash());
+                // Chain 4
+                Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1DoublePrime.getPreviousBlockHash());
+                Assert.assertNotEquals(block1.getHash(), block1DoublePrime.getHash());
 
-            // Action
-            final BlockId genesisBlockId;
-            final BlockId block1Id;
-            final BlockId block1PrimeId;
-            final BlockId block2PrimeId;
-            final BlockId block1DoublePrimeId;
-            final BlockId block2Id;
-            final BlockId block3Id;
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
-                block1Id = blockDatabaseManager.insertBlock(block1);
-                block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
-                block2PrimeId = blockDatabaseManager.insertBlock(block2Prime);
-                block1DoublePrimeId = blockDatabaseManager.insertBlock(block1DoublePrime);
-                block2Id = blockDatabaseManager.insertBlock(block2);
-                block3Id = blockDatabaseManager.insertBlock(block3);
+                // Action
+                final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
+                final BlockId block1Id = blockDatabaseManager.insertBlock(block1);
+                final BlockId block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
+                final BlockId block2PrimeId = blockDatabaseManager.insertBlock(block2Prime);
+                final BlockId block1DoublePrimeId = blockDatabaseManager.insertBlock(block1DoublePrime);
+                final BlockId block2Id = blockDatabaseManager.insertBlock(block2);
+                final BlockId block3Id = blockDatabaseManager.insertBlock(block3);
+
+                // Assert
+                Assert.assertEquals(1L, genesisBlockId.longValue());
+                Assert.assertEquals(2L, block1Id.longValue());
+                Assert.assertEquals(3L, block1PrimeId.longValue());
+                Assert.assertEquals(4L, block2PrimeId.longValue());
+                Assert.assertEquals(5L, block1DoublePrimeId.longValue());
+                Assert.assertEquals(6L, block2Id.longValue());
+                Assert.assertEquals(7L, block3Id.longValue());
+
+                final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM blockchain_segments ORDER BY id ASC"));
+                Assert.assertEquals(4, rows.size());
+
+                { // Chain #1 (baseBlockchain)
+                    final Row row = rows.get(0);
+
+                    assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 0, databaseConnection);
+                    assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
+                }
+
+                { // Chain #2 (refactoredBlockchain)
+                    final Row row = rows.get(1);
+
+                    assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 3, databaseConnection);
+                    assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 3, databaseConnection);
+                }
+
+                { // Chain #3 (newBlockchain)
+                    final Row row = rows.get(2);
+
+                    assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 2, databaseConnection);
+                    assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 2, databaseConnection);
+                }
+
+                { // Chain #4 (newestBlockchain)
+                    final Row row = rows.get(3);
+
+                    assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
+                    assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
+                }
+
+                // Chain 1
+                Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(genesisBlockId).longValue());
+
+                // Chain 2
+                Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1Id).longValue());
+                Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block2Id).longValue());
+                Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block3Id).longValue());
+
+                // Chain 3
+                Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1PrimeId).longValue());
+                Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockchainSegmentId(block2PrimeId).longValue());
+
+                // Chain 4
+                Assert.assertEquals(4L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1DoublePrimeId).longValue());
             }
-
-            // Assert
-            Assert.assertEquals(1L, genesisBlockId.longValue());
-            Assert.assertEquals(2L, block1Id.longValue());
-            Assert.assertEquals(3L, block1PrimeId.longValue());
-            Assert.assertEquals(4L, block2PrimeId.longValue());
-            Assert.assertEquals(5L, block1DoublePrimeId.longValue());
-            Assert.assertEquals(6L, block2Id.longValue());
-            Assert.assertEquals(7L, block3Id.longValue());
-
-            final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM blockchain_segments ORDER BY id ASC"));
-            Assert.assertEquals(4, rows.size());
-
-            { // Chain #1 (baseBlockchain)
-                final Row row = rows.get(0);
-
-                assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 0, databaseConnection);
-                assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
-            }
-
-            { // Chain #2 (refactoredBlockchain)
-                final Row row = rows.get(1);
-
-                assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 3, databaseConnection);
-                assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 3, databaseConnection);
-            }
-
-            { // Chain #3 (newBlockchain)
-                final Row row = rows.get(2);
-
-                assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 2, databaseConnection);
-                assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 2, databaseConnection);
-            }
-
-            { // Chain #4 (newestBlockchain)
-                final Row row = rows.get(3);
-
-                assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
-                assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
-            }
-
-            // Chain 1
-            Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(genesisBlockId).longValue());
-
-            // Chain 2
-            Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1Id).longValue());
-            Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block2Id).longValue());
-            Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block3Id).longValue());
-
-            // Chain 3
-            Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1PrimeId).longValue());
-            Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockchainSegmentId(block2PrimeId).longValue());
-
-            // Chain 4
-            Assert.assertEquals(4L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1DoublePrimeId).longValue());
         }
     }
 
@@ -787,158 +750,148 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
 
          */
 
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+                final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
-            final BlockInflater blockInflater = new BlockInflater();
+                final BlockInflater blockInflater = new BlockInflater();
 
-            final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-            final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
-            final Block block2 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
-            final Block block3 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_3));
-            final Block block4 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_4));
-            final Block block2Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain3.BLOCK_2));
-            final Block block3Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain3.BLOCK_3));
-            final Block block1DoublePrime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain1.BLOCK_1));
+                final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+                final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
+                final Block block2 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
+                final Block block3 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_3));
+                final Block block4 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_4));
+                final Block block2Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain3.BLOCK_2));
+                final Block block3Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain3.BLOCK_3));
+                final Block block1DoublePrime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain1.BLOCK_1));
 
-            Assert.assertTrue(genesisBlock.isValid());
-            Assert.assertTrue(block1.isValid());
-            Assert.assertTrue(block2.isValid());
-            Assert.assertTrue(block3.isValid());
-            Assert.assertTrue(block4.isValid());
-            Assert.assertTrue(block2Prime.isValid());
-            Assert.assertTrue(block3Prime.isValid());
-            Assert.assertTrue(block1DoublePrime.isValid());
+                Assert.assertTrue(genesisBlock.isValid());
+                Assert.assertTrue(block1.isValid());
+                Assert.assertTrue(block2.isValid());
+                Assert.assertTrue(block3.isValid());
+                Assert.assertTrue(block4.isValid());
+                Assert.assertTrue(block2Prime.isValid());
+                Assert.assertTrue(block3Prime.isValid());
+                Assert.assertTrue(block1DoublePrime.isValid());
 
-            // Original Chain 1
-            Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1.getPreviousBlockHash());
+                // Original Chain 1
+                Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1.getPreviousBlockHash());
 
-            // Original Chain 2
-            Assert.assertEquals(block1.getHash(), block2.getPreviousBlockHash());
-            Assert.assertEquals(block2.getHash(), block3.getPreviousBlockHash());
-            Assert.assertEquals(block3.getHash(), block4.getPreviousBlockHash());
+                // Original Chain 2
+                Assert.assertEquals(block1.getHash(), block2.getPreviousBlockHash());
+                Assert.assertEquals(block2.getHash(), block3.getPreviousBlockHash());
+                Assert.assertEquals(block3.getHash(), block4.getPreviousBlockHash());
 
-            // Original Chain 3
-            Assert.assertEquals(block1.getHash(), block2Prime.getPreviousBlockHash());
-            Assert.assertEquals(block2Prime.getHash(), block3Prime.getPreviousBlockHash());
-            Assert.assertNotEquals(block2.getHash(), block2Prime.getHash());
-            Assert.assertNotEquals(block3.getHash(), block3Prime.getHash());
+                // Original Chain 3
+                Assert.assertEquals(block1.getHash(), block2Prime.getPreviousBlockHash());
+                Assert.assertEquals(block2Prime.getHash(), block3Prime.getPreviousBlockHash());
+                Assert.assertNotEquals(block2.getHash(), block2Prime.getHash());
+                Assert.assertNotEquals(block3.getHash(), block3Prime.getHash());
 
-            // New Chain 4
-            Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1DoublePrime.getPreviousBlockHash());
-            Assert.assertNotEquals(block1.getHash(), block1DoublePrime.getHash());
+                // New Chain 4
+                Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1DoublePrime.getPreviousBlockHash());
+                Assert.assertNotEquals(block1.getHash(), block1DoublePrime.getHash());
 
-            // Establish Original Blocks/Chains...
-            final BlockId genesisBlockId;
-            final BlockId block1Id;
-            final BlockId block2Id;
-            final BlockId block3Id;
-            final BlockId block4Id;
-            final BlockId block2PrimeId;
-            final BlockId block3PrimeId;
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
-                block1Id = blockDatabaseManager.insertBlock(block1);
-                block2Id = blockDatabaseManager.insertBlock(block2);
-                block3Id = blockDatabaseManager.insertBlock(block3);
-                block4Id = blockDatabaseManager.insertBlock(block4);
-                block2PrimeId = blockDatabaseManager.insertBlock(block2Prime);
-                block3PrimeId = blockDatabaseManager.insertBlock(block3Prime);
+                // Establish Original Blocks/Chains...
+                final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
+                final BlockId block1Id = blockDatabaseManager.insertBlock(block1);
+                final BlockId block2Id = blockDatabaseManager.insertBlock(block2);
+                final BlockId block3Id = blockDatabaseManager.insertBlock(block3);
+                final BlockId block4Id = blockDatabaseManager.insertBlock(block4);
+                final BlockId block2PrimeId = blockDatabaseManager.insertBlock(block2Prime);
+                final BlockId block3PrimeId = blockDatabaseManager.insertBlock(block3Prime);
+
+                // Action
+                final BlockId block1DoublePrimeId = blockDatabaseManager.insertBlock(block1DoublePrime);
+
+                // Assert
+                Assert.assertEquals(1L, genesisBlockId.longValue());
+                Assert.assertEquals(2L, block1Id.longValue());
+                Assert.assertEquals(3L, block2Id.longValue());
+                Assert.assertEquals(4L, block3Id.longValue());
+                Assert.assertEquals(5L, block4Id.longValue());
+                Assert.assertEquals(6L, block2PrimeId.longValue());
+                Assert.assertEquals(7L, block3PrimeId.longValue());
+                Assert.assertEquals(8L, block1DoublePrimeId.longValue());
+
+                final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM blockchain_segments ORDER BY id ASC"));
+                Assert.assertEquals(5, rows.size());
+
+                { // Chain #1 (baseBlockchain)
+                    final Row row = rows.get(0);
+
+                    assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 0, databaseConnection);
+                    assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
+                }
+
+                { // Chain #2 (refactoredBlockchain)
+                    final Row row = rows.get(1);
+
+                    assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 4, databaseConnection);
+                    assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 3, databaseConnection);
+                }
+
+                { // Chain #3 (originalForkedChain)
+                    final Row row = rows.get(2);
+
+                    assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 3, databaseConnection);
+                    assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 2, databaseConnection);
+                }
+
+                { // Chain #4 (refactoredBaseChain)
+                    final Row row = rows.get(3);
+
+                    assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
+                    assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
+                }
+
+                { // Chain #5 (mostRecentlyForkedChain)
+                    final Row row = rows.get(4);
+
+                    assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
+                    assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
+                }
+
+                // Chain 1
+                Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(genesisBlockId).longValue());
+
+                // Chain 2
+                Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block2Id).longValue());
+                Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block3Id).longValue());
+                Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block4Id).longValue());
+
+                // Chain 3
+                Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockchainSegmentId(block2PrimeId).longValue());
+                Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockchainSegmentId(block3PrimeId).longValue());
+
+                // Chain 4
+                Assert.assertEquals(4L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1Id).longValue());
+
+                // Chain 5
+                Assert.assertEquals(5L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1DoublePrimeId).longValue());
             }
-
-            // Action
-            final BlockId block1DoublePrimeId;
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                block1DoublePrimeId = blockDatabaseManager.insertBlock(block1DoublePrime);
-            }
-
-            // Assert
-            Assert.assertEquals(1L, genesisBlockId.longValue());
-            Assert.assertEquals(2L, block1Id.longValue());
-            Assert.assertEquals(3L, block2Id.longValue());
-            Assert.assertEquals(4L, block3Id.longValue());
-            Assert.assertEquals(5L, block4Id.longValue());
-            Assert.assertEquals(6L, block2PrimeId.longValue());
-            Assert.assertEquals(7L, block3PrimeId.longValue());
-            Assert.assertEquals(8L, block1DoublePrimeId.longValue());
-
-            final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM blockchain_segments ORDER BY id ASC"));
-            Assert.assertEquals(5, rows.size());
-
-            { // Chain #1 (baseBlockchain)
-                final Row row = rows.get(0);
-
-                assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 0, databaseConnection);
-                assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
-            }
-
-            { // Chain #2 (refactoredBlockchain)
-                final Row row = rows.get(1);
-
-                assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 4, databaseConnection);
-                assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 3, databaseConnection);
-            }
-
-            { // Chain #3 (originalForkedChain)
-                final Row row = rows.get(2);
-
-                assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 3, databaseConnection);
-                assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 2, databaseConnection);
-            }
-
-            { // Chain #4 (refactoredBaseChain)
-                final Row row = rows.get(3);
-
-                assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
-                assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
-            }
-
-            { // Chain #5 (mostRecentlyForkedChain)
-                final Row row = rows.get(4);
-
-                assertBlockSegmentBlockHeight(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
-                assertBlockSegmentBlockCount(BlockchainSegmentId.wrap(row.getLong("id")), 1, databaseConnection);
-            }
-
-            // Chain 1
-            Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(genesisBlockId).longValue());
-
-            // Chain 2
-            Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block2Id).longValue());
-            Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block3Id).longValue());
-            Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block4Id).longValue());
-
-            // Chain 3
-            Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockchainSegmentId(block2PrimeId).longValue());
-            Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockchainSegmentId(block3PrimeId).longValue());
-
-            // Chain 4
-            Assert.assertEquals(4L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1Id).longValue());
-
-            // Chain 5
-            Assert.assertEquals(5L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1DoublePrimeId).longValue());
         }
     }
 
     protected Long _nonce = 0L;
     protected Sha256Hash _insertBlock(final Sha256Hash parentBlockHash) throws Exception {
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
-            final BlockInflater blockInflater = new BlockInflater();
-            final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+                final BlockInflater blockInflater = new BlockInflater();
+                final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
 
-            final MutableBlockHeader mutableBlockHeader = new MutableBlockHeader(genesisBlock);
-            mutableBlockHeader.setNonce(_nonce++);
-            mutableBlockHeader.setPreviousBlockHash(parentBlockHash);
+                final MutableBlockHeader mutableBlockHeader = new MutableBlockHeader(genesisBlock);
+                mutableBlockHeader.setNonce(_nonce++);
+                mutableBlockHeader.setPreviousBlockHash(parentBlockHash);
 
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
                 blockHeaderDatabaseManager.insertBlockHeader(mutableBlockHeader);
-            }
 
-            return mutableBlockHeader.getHash();
+                return mutableBlockHeader.getHash();
+            }
         }
     }
 
@@ -993,49 +946,49 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
 
          */
 
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
-            final BlockInflater blockInflater = new BlockInflater();
+                final BlockInflater blockInflater = new BlockInflater();
 
-            final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
                 blockDatabaseManager.insertBlock(genesisBlock);
+
+                final Sha256Hash blockHash0 = genesisBlock.getHash();
+                final Sha256Hash blockHash1 = _insertBlock(blockHash0);
+                final Sha256Hash blockHash2 = _insertBlock(blockHash1);
+                final Sha256Hash blockHash3 = _insertBlock(blockHash2);
+                final Sha256Hash blockHash4 = _insertBlock(blockHash3);
+
+                _assertBlockchainSegments(1L, new Sha256Hash[] { blockHash0, blockHash1, blockHash2, blockHash3, blockHash4 });
+
+                final Sha256Hash blockHash3p = _insertBlock(blockHash2);
+
+                _assertIsParent(blockHash0, blockHash1);
+                _assertIsParent(blockHash1, blockHash2);
+                _assertIsParent(blockHash2, blockHash3);
+                _assertIsParent(blockHash3, blockHash4);
+                _assertIsParent(blockHash2, blockHash3p);
+
+                final Sha256Hash blockHash4p = _insertBlock(blockHash3);
+
+                _assertIsParent(blockHash0, blockHash1);
+                _assertIsParent(blockHash1, blockHash2);
+                _assertIsParent(blockHash2, blockHash3);
+                _assertIsParent(blockHash2, blockHash3p);
+                _assertIsParent(blockHash3, blockHash4);
+                _assertIsParent(blockHash3, blockHash4p);
+
+                final Sha256Hash blockHash2p = _insertBlock(blockHash1);
+
+                _assertIsParent(blockHash0, blockHash1);
+                _assertIsParent(blockHash1, blockHash2p);
+                _assertIsParent(blockHash2, blockHash3);
+                _assertIsParent(blockHash2, blockHash3p);
+                _assertIsParent(blockHash3, blockHash4);
+                _assertIsParent(blockHash3, blockHash4p);
             }
-
-            final Sha256Hash blockHash0 = genesisBlock.getHash();
-            final Sha256Hash blockHash1 = _insertBlock(blockHash0);
-            final Sha256Hash blockHash2 = _insertBlock(blockHash1);
-            final Sha256Hash blockHash3 = _insertBlock(blockHash2);
-            final Sha256Hash blockHash4 = _insertBlock(blockHash3);
-
-            _assertBlockchainSegments(1L, new Sha256Hash[] { blockHash0, blockHash1, blockHash2, blockHash3, blockHash4 });
-
-            final Sha256Hash blockHash3p = _insertBlock(blockHash2);
-
-            _assertIsParent(blockHash0, blockHash1);
-            _assertIsParent(blockHash1, blockHash2);
-            _assertIsParent(blockHash2, blockHash3);
-            _assertIsParent(blockHash3, blockHash4);
-            _assertIsParent(blockHash2, blockHash3p);
-
-            final Sha256Hash blockHash4p = _insertBlock(blockHash3);
-
-            _assertIsParent(blockHash0, blockHash1);
-            _assertIsParent(blockHash1, blockHash2);
-            _assertIsParent(blockHash2, blockHash3);
-            _assertIsParent(blockHash2, blockHash3p);
-            _assertIsParent(blockHash3, blockHash4);
-            _assertIsParent(blockHash3, blockHash4p);
-
-            final Sha256Hash blockHash2p = _insertBlock(blockHash1);
-
-            _assertIsParent(blockHash0, blockHash1);
-            _assertIsParent(blockHash1, blockHash2p);
-            _assertIsParent(blockHash2, blockHash3);
-            _assertIsParent(blockHash2, blockHash3p);
-            _assertIsParent(blockHash3, blockHash4);
-            _assertIsParent(blockHash3, blockHash4p);
         }
     }
 
@@ -1069,70 +1022,68 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
 
          */
 
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
-            final BlockInflater blockInflater = new BlockInflater();
+                final BlockInflater blockInflater = new BlockInflater();
 
-            final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
                 blockDatabaseManager.insertBlock(genesisBlock);
+
+                final Sha256Hash blockHash0 = genesisBlock.getHash();
+                final Sha256Hash blockHash1 = _insertBlock(blockHash0);
+                final Sha256Hash blockHash2 = _insertBlock(blockHash1);
+                final Sha256Hash blockHash3 = _insertBlock(blockHash2);
+                final Sha256Hash blockHash4 = _insertBlock(blockHash3);
+                final Sha256Hash blockHash5 = _insertBlock(blockHash4);
+
+                final Sha256Hash blockHash3p = _insertBlock(blockHash2);
+                final Sha256Hash blockHash4p = _insertBlock(blockHash3);
+                final Sha256Hash blockHash5p = _insertBlock(blockHash4p);
+                final Sha256Hash blockHash2p = _insertBlock(blockHash1);
+
+                final Sha256Hash blockHash6 = _insertBlock(blockHash5);
+
+                _assertIsParent(blockHash0, blockHash1);
+                _assertIsParent(blockHash1, blockHash2);
+                _assertIsParent(blockHash2, blockHash3);
+                _assertIsParent(blockHash2, blockHash3p);
+                _assertIsParent(blockHash3, blockHash4);
+                _assertIsParent(blockHash3, blockHash4p);
+                _assertIsParent(blockHash4, blockHash5);
+                _assertIsParent(blockHash4p, blockHash5p);
+                _assertIsParent(blockHash1, blockHash2p);
+
+                final Sha256Hash blockHash7 = _insertBlock(blockHash6);
+                final Sha256Hash blockHash6p = _insertBlock(blockHash5);
+                final Sha256Hash blockHash7p = _insertBlock(blockHash6p);
+                final Sha256Hash blockHash6pp = _insertBlock(blockHash5p);
+
+                _assertIsParent(blockHash0, blockHash1);
+                _assertIsParent(blockHash1, blockHash2);
+                _assertIsParent(blockHash2, blockHash3);
+                _assertIsParent(blockHash2, blockHash3p);
+                _assertIsParent(blockHash3, blockHash4);
+                _assertIsParent(blockHash3, blockHash4p);
+                _assertIsParent(blockHash4, blockHash5);
+                _assertIsParent(blockHash4p, blockHash5p);
+                _assertIsParent(blockHash1, blockHash2p);
+                _assertIsParent(blockHash5, blockHash6);
+                _assertIsParent(blockHash6, blockHash7);
+                _assertIsParent(blockHash5, blockHash6p);
+                _assertIsParent(blockHash6p, blockHash7p);
+                _assertIsParent(blockHash5p, blockHash6pp);
+
+                // // NOTE: All BlockchainSegments start_height should be greater than its parents end_height...
+                //        final java.util.List<Row> rows = databaseConnection.query(new Query("select blockchain_segment_id as id, COALESCE(parent_blockchain_segment_id, 0) as parent_id, count(*) as block_count, min(block_height) as start_height, max(block_height) as end_height from blocks inner join blockchain_segments on blockchain_segments.id = blocks.blockchain_segment_id group by blocks.blockchain_segment_id"));
+                //        for (final Row row : rows) {
+                //            for (final String key : row.getColumnNames()) {
+                //                System.out.print(key + ": " + row.getString(key) + " ");
+                //            }
+                //            System.out.println();
+                //        }
             }
-
-            final Sha256Hash blockHash0 = genesisBlock.getHash();
-            final Sha256Hash blockHash1 = _insertBlock(blockHash0);
-            final Sha256Hash blockHash2 = _insertBlock(blockHash1);
-            final Sha256Hash blockHash3 = _insertBlock(blockHash2);
-            final Sha256Hash blockHash4 = _insertBlock(blockHash3);
-            final Sha256Hash blockHash5 = _insertBlock(blockHash4);
-
-            final Sha256Hash blockHash3p = _insertBlock(blockHash2);
-            final Sha256Hash blockHash4p = _insertBlock(blockHash3);
-            final Sha256Hash blockHash5p = _insertBlock(blockHash4p);
-            final Sha256Hash blockHash2p = _insertBlock(blockHash1);
-
-            final Sha256Hash blockHash6 = _insertBlock(blockHash5);
-
-            _assertIsParent(blockHash0, blockHash1);
-            _assertIsParent(blockHash1, blockHash2);
-            _assertIsParent(blockHash2, blockHash3);
-            _assertIsParent(blockHash2, blockHash3p);
-            _assertIsParent(blockHash3, blockHash4);
-            _assertIsParent(blockHash3, blockHash4p);
-            _assertIsParent(blockHash4, blockHash5);
-            _assertIsParent(blockHash4p, blockHash5p);
-            _assertIsParent(blockHash1, blockHash2p);
-
-            final Sha256Hash blockHash7 = _insertBlock(blockHash6);
-            final Sha256Hash blockHash6p = _insertBlock(blockHash5);
-            final Sha256Hash blockHash7p = _insertBlock(blockHash6p);
-            final Sha256Hash blockHash6pp = _insertBlock(blockHash5p);
-
-            _assertIsParent(blockHash0, blockHash1);
-            _assertIsParent(blockHash1, blockHash2);
-            _assertIsParent(blockHash2, blockHash3);
-            _assertIsParent(blockHash2, blockHash3p);
-            _assertIsParent(blockHash3, blockHash4);
-            _assertIsParent(blockHash3, blockHash4p);
-            _assertIsParent(blockHash4, blockHash5);
-            _assertIsParent(blockHash4p, blockHash5p);
-            _assertIsParent(blockHash1, blockHash2p);
-            _assertIsParent(blockHash5, blockHash6);
-            _assertIsParent(blockHash6, blockHash7);
-            _assertIsParent(blockHash5, blockHash6p);
-            _assertIsParent(blockHash6p, blockHash7p);
-            _assertIsParent(blockHash5p, blockHash6pp);
-
-            // // NOTE: All BlockchainSegments start_height should be greater than its parents end_height...
-            //        final java.util.List<Row> rows = databaseConnection.query(new Query("select blockchain_segment_id as id, COALESCE(parent_blockchain_segment_id, 0) as parent_id, count(*) as block_count, min(block_height) as start_height, max(block_height) as end_height from blocks inner join blockchain_segments on blockchain_segments.id = blocks.blockchain_segment_id group by blocks.blockchain_segment_id"));
-            //        for (final Row row : rows) {
-            //            for (final String key : row.getColumnNames()) {
-            //                System.out.print(key + ": " + row.getString(key) + " ");
-            //            }
-            //            System.out.println();
-            //        }
         }
     }
 
@@ -1140,23 +1091,23 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
     public void should_return_original_head_block_during_contention() throws Exception {
         final BlockInflater blockInflater = _masterInflater.getBlockInflater();
 
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
-            // MainChain Blocks
-            final Block genesisBlock = blockInflater.fromBytes(ByteArray.fromHexString(BlockData.MainChain.GENESIS_BLOCK)); // 000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F
+                // MainChain Blocks
+                final Block genesisBlock = blockInflater.fromBytes(ByteArray.fromHexString(BlockData.MainChain.GENESIS_BLOCK)); // 000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F
 
-            // ForkChain2 Blocks
-            final Block forkChain2Block01 = blockInflater.fromBytes(ByteArray.fromHexString(BlockData.ForkChain2.BLOCK_1)); // 0000000001BE52D653305F7D80ED373837E61CC26AE586AFD343A3C2E64E64A2
-            final Block forkChain2Block02 = blockInflater.fromBytes(ByteArray.fromHexString(BlockData.ForkChain2.BLOCK_2)); // 00000000314E669144E0781C432EB33F2079834D406E46393291E94199F433EE
-            final Block forkChain2Block03 = blockInflater.fromBytes(ByteArray.fromHexString(BlockData.ForkChain2.BLOCK_3)); // 00000000EC006D368F4610AAEA50986B4E71450C81E8A2E1D947A2BF93F0BCB7
+                // ForkChain2 Blocks
+                final Block forkChain2Block01 = blockInflater.fromBytes(ByteArray.fromHexString(BlockData.ForkChain2.BLOCK_1)); // 0000000001BE52D653305F7D80ED373837E61CC26AE586AFD343A3C2E64E64A2
+                final Block forkChain2Block02 = blockInflater.fromBytes(ByteArray.fromHexString(BlockData.ForkChain2.BLOCK_2)); // 00000000314E669144E0781C432EB33F2079834D406E46393291E94199F433EE
+                final Block forkChain2Block03 = blockInflater.fromBytes(ByteArray.fromHexString(BlockData.ForkChain2.BLOCK_3)); // 00000000EC006D368F4610AAEA50986B4E71450C81E8A2E1D947A2BF93F0BCB7
 
-            // ForkChain4 Blocks
-            final Block forkChain4Block03 = blockInflater.fromBytes(ByteArray.fromHexString(BlockData.ForkChain4.BLOCK_3)); // 00000000C77EFC229BD4EF49BBC08C17AB26B7AC242C10B0105179EFA1A2D0D6
+                // ForkChain4 Blocks
+                final Block forkChain4Block03 = blockInflater.fromBytes(ByteArray.fromHexString(BlockData.ForkChain4.BLOCK_3)); // 00000000C77EFC229BD4EF49BBC08C17AB26B7AC242C10B0105179EFA1A2D0D6
 
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
                 // Action/Assert
                 blockDatabaseManager.storeBlock(genesisBlock);
                 Assert.assertEquals(BlockchainSegmentId.wrap(1L), blockchainDatabaseManager.getHeadBlockchainSegmentId());
@@ -1222,7 +1173,7 @@ class Void {
         mutableBlock.setTimestamp(block5.getTimestamp() + (tenMinutesInSeconds));
         mutableBlock.setVersion(block5.getVersion());
 
-        final PrivateKey privateKey = PrivateKey.fromHexString("9F40477DAB2F6822360E6C690F8278DB73E536156A402BBBE798A85DCBE1A8AC");
+        final PrivateKey privateKey = PrivateKey.createNewKey();
         final Address payToAddress = addressInflater.fromPrivateKey(privateKey, false);
 
         {
@@ -1239,6 +1190,7 @@ class Void {
             transaction.setVersion(Transaction.VERSION);
             transaction.setLockTime(LockTime.MIN_TIMESTAMP);
             final int transactionOutputIndex = 0;
+            final List<TransactionOutput> previousTransactionOutputs;
             final TransactionOutput outputBeingSpent;
             {
                 final Transaction transactionToSpend = customBlock6.getCoinbaseTransaction();
@@ -1250,15 +1202,20 @@ class Void {
                 transactionInput.setSequenceNumber(SequenceNumber.MAX_SEQUENCE_NUMBER);
                 transactionInput.setUnlockingScript(UnlockingScript.EMPTY_SCRIPT);
                 transaction.addTransactionInput(transactionInput);
+
+                previousTransactionOutputs = transactionToSpend.getTransactionOutputs();
             }
             transaction.addTransactionOutput(_createTransactionOutput(addressInflater.fromPrivateKey(privateKey, false)));
 
-            final SignatureContext signatureContext = new SignatureContext(transaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, false), Long.MAX_VALUE, upgradeSchedule);
-            signatureContext.setShouldSignInputScript(0, true, outputBeingSpent);
+            final SignatureContext signatureContext = new SignatureContext(
+                transaction,
+                new HashType(Mode.SIGNATURE_HASH_ALL, true, false, false),
+                previousTransactionOutputs,
+                upgradeSchedule
+            );
+            signatureContext.setShouldSignInputScript(0, true);
             final TransactionSigner transactionSigner = new TransactionSigner();
             final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
-
-            final List<TransactionOutput> previousTransactionOutputs = TransactionTestUtil.createPreviousTransactionOutputsList(1, transactionOutputIndex, outputBeingSpent);
 
             final TransactionInput transactionInput = signedTransaction.getTransactionInputs().get(0);
             final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
@@ -1279,7 +1236,7 @@ class Void {
         final BlockDeflater blockDeflater = new BlockDeflater();
 
         System.out.println(privateKey);
-        System.out.println(payToAddress.toBase58CheckEncoded());
+        System.out.println(ParsedAddress.toBase58CheckEncoded(payToAddress));
 
         final Miner miner = new Miner(4, 0, null);
         miner.setShouldMutateTimestamp(true);

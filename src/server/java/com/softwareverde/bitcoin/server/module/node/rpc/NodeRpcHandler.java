@@ -3,6 +3,8 @@ package com.softwareverde.bitcoin.server.module.node.rpc;
 import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.address.ParsedAddress;
+import com.softwareverde.bitcoin.address.TypedAddress;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockInflater;
@@ -86,11 +88,11 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     }
 
     public interface QueryAddressHandler {
-        Long getBalance(Address address, Boolean includeUnconfirmedTransactions);
+        Long getBalance(TypedAddress address, Boolean includeUnconfirmedTransactions);
         Long getBalance(Sha256Hash scriptHash, Boolean includeUnconfirmedTransactions);
-        List<Transaction> getAddressTransactions(Address address);
+        List<Transaction> getAddressTransactions(TypedAddress address);
         List<Transaction> getAddressTransactions(Sha256Hash scriptHash);
-        List<Sha256Hash> getAddressTransactionHashes(Address address);
+        List<Sha256Hash> getAddressTransactionHashes(TypedAddress address);
         List<Sha256Hash> getAddressTransactionHashes(Sha256Hash scriptHash);
     }
 
@@ -1023,7 +1025,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         final String addressString = parameters.getString("address");
         final AddressInflater addressInflater = _masterInflater.getAddressInflater();
-        final Address address = addressInflater.fromBase58Check(addressString);
+        final ParsedAddress address = Util.coalesce(addressInflater.fromBase58Check(addressString), addressInflater.fromBase32Check(addressString));
 
         if (address == null) {
             response.put(ERROR_MESSAGE_KEY, "Invalid address.");
@@ -1044,7 +1046,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         response.put("address", addressJson);
         response.put("balance", balance);
-        response.put("confirmedBalance", balance);
+        response.put("confirmedBalance", confirmedBalance);
 
         response.put(WAS_SUCCESS_KEY, 1);
     }
@@ -1080,11 +1082,11 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         final Long confirmedBalance;
         if (parameters.hasKey("address")) {
             final String addressString = parameters.getString("address");
-            final Address address;
+            final ParsedAddress address;
             {
                 final AddressInflater addressInflater = _masterInflater.getAddressInflater();
-                final Address base58Address = addressInflater.fromBase58Check(addressString);
-                final Address base32Address = addressInflater.fromBase32Check(addressString);
+                final ParsedAddress base58Address = addressInflater.fromBase58Check(addressString);
+                final ParsedAddress base32Address = addressInflater.fromBase32Check(addressString);
                 address = Util.coalesce(base58Address, base32Address);
             }
 
@@ -1441,9 +1443,9 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                 final ImmutableListBuilder<Address> listBuilder = new ImmutableListBuilder<>(itemCount);
                 for (int i = 0; i < itemCount; ++i) {
                     final String addressString = addressFilterJson.getString(i);
-                    final Address address = addressInflater.fromBase58Check(addressString);
+                    final ParsedAddress address = addressInflater.fromBase58Check(addressString);
                     if (address != null) {
-                        listBuilder.add(address);
+                        listBuilder.add(address.getBytes());
                     }
                 }
                 addressFilter = listBuilder.build();

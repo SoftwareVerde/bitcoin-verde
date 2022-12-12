@@ -1,7 +1,8 @@
 package com.softwareverde.bitcoin.server.module.explorer.api.v1.get;
 
-import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.address.ParsedAddress;
+import com.softwareverde.bitcoin.address.TypedAddress;
 import com.softwareverde.bitcoin.rpc.NodeJsonRpcConnection;
 import com.softwareverde.bitcoin.server.module.api.ApiResult;
 import com.softwareverde.bitcoin.server.module.explorer.api.Environment;
@@ -54,9 +55,9 @@ public class SearchHandler implements RequestHandler<Environment> {
                 final int hashCharacterLength = 64;
 
                 final AddressInflater addressInflater = new AddressInflater();
-                final Address address;
+                final TypedAddress address;
                 {
-                    final Address base58Address = addressInflater.fromBase58Check(queryParam);
+                    final ParsedAddress base58Address = addressInflater.fromBase58Check(queryParam);
                     if (base58Address != null) {
                         address = base58Address;
                     }
@@ -96,7 +97,7 @@ public class SearchHandler implements RequestHandler<Environment> {
                                     }
 
                                     final Json queryBlockTransactionsJson = secondNodeJsonRpcConnection.getBlockTransactions(blockHash, 32, 0);
-                                    blockTransactionsJson = queryBlockTransactionsJson.get("transactions");
+                                    blockTransactionsJson = (queryBlockTransactionsJson != null ? queryBlockTransactionsJson.get("transactions") : null);
                                 }
 
                                 final Json blockJson = queryBlockResponseJson.get("block");

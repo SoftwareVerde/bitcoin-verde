@@ -30,9 +30,9 @@ public class MedianBlockTimeCalculatorTests extends IntegrationTest {
 
         final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(1L);
 
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
                 blockHeaderDatabaseManager.storeBlockHeader(blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK)));
             }
         }

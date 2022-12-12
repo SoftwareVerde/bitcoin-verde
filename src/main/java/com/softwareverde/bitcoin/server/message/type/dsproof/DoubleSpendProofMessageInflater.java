@@ -5,8 +5,8 @@ import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHea
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProof;
 import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProofInflater;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 
 public class DoubleSpendProofMessageInflater extends BitcoinProtocolMessageInflater {
     @Override

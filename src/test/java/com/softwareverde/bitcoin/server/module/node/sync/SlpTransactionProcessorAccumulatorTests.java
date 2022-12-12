@@ -53,25 +53,25 @@ public class SlpTransactionProcessorAccumulatorTests extends IntegrationTest {
 
         final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
         final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(blockInflaters, transactionInflaters, blockStore, _fullNodeDatabaseManagerFactory, new MutableNetworkTime(), _synchronizationStatus, _difficultyCalculatorFactory, _transactionValidatorFactory, upgradeSchedule);
-        final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, _fullNodeDatabaseManagerFactory, bitcoinNodeManager, systemTime, _threadPool);
+        final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, _fullNodeDatabaseManagerFactory, upgradeSchedule, bitcoinNodeManager, systemTime, _threadPool);
 
         final BlockProcessor blockProcessor = new BlockProcessor(blockProcessorContext);
 
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
-            for (final String blockData : new String[]{ BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2 }) {
-                final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
-                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                for (final String blockData : new String[]{ BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2 }) {
+                    final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
                     blockHeaderDatabaseManager.storeBlockHeader(block);
+
+                    blockStore.storePendingBlock(block);
                 }
 
-                blockStore.storePendingBlock(block);
+                // Store Unconfirmed transactions...
+                // final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = databaseManager.getPendingTransactionDatabaseManager();
+                // pendingTransactionDatabaseManager.storeTransaction(signedTransaction0);
             }
-
-            // Store Unconfirmed transactions...
-            // final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = databaseManager.getPendingTransactionDatabaseManager();
-            // pendingTransactionDatabaseManager.storeTransaction(signedTransaction0);
         }
 
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {

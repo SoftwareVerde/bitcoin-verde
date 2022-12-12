@@ -155,7 +155,6 @@ public class BitcoinNodeManager {
     protected Thread _preferredPeerMonitorThread;
 
     protected Boolean _transactionRelayIsEnabled = true;
-    protected Boolean _slpValidityCheckingIsEnabled = false;
     protected Boolean _newBlocksViaHeadersIsEnabled = true;
     protected MutableBloomFilter _bloomFilter = null;
     protected Runnable _onNodeListChanged;
@@ -939,12 +938,6 @@ public class BitcoinNodeManager {
         _banFilter.onNodeHandshakeComplete(bitcoinNode);
         if (! bitcoinNode.isConnected()) { return; } // Node was banned.
 
-        if (_slpValidityCheckingIsEnabled) {
-            if (Util.coalesce(bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.SLP_INDEX_ENABLED), false)) {
-                bitcoinNode.enableSlpValidityChecking(true);
-            }
-        }
-
         if (_newBlocksViaHeadersIsEnabled) {
             bitcoinNode.enableNewBlockViaHeaders();
         }
@@ -1368,14 +1361,6 @@ public class BitcoinNodeManager {
 
     public Boolean isTransactionRelayEnabled() {
         return _transactionRelayIsEnabled;
-    }
-
-    public void enableSlpValidityChecking(final Boolean shouldEnableSlpValidityChecking) {
-        _slpValidityCheckingIsEnabled = shouldEnableSlpValidityChecking;
-    }
-
-    public Boolean isSlpValidityCheckingEnabled() {
-        return _slpValidityCheckingIsEnabled;
     }
 
     public void enableNewBlockViaHeaders(final Boolean newBlocksViaHeadersIsEnabled) {

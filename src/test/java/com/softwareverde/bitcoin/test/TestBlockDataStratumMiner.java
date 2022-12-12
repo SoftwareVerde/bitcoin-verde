@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.test;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.address.ParsedAddress;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
@@ -51,7 +52,7 @@ public class TestBlockDataStratumMiner {
 
         final PrivateKey coinbasePrivateKey = PrivateKey.createNewKey();
         Logger.info("Private Key: " + coinbasePrivateKey);
-        Logger.info("Address:     " + addressInflater.fromPrivateKey(coinbasePrivateKey, false).toBase58CheckEncoded());
+        Logger.info("Address:     " + ParsedAddress.toBase58CheckEncoded(addressInflater.fromPrivateKey(coinbasePrivateKey, false)));
 
         final Address address = addressInflater.fromPrivateKey(coinbasePrivateKey, false);
 

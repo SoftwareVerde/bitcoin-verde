@@ -35,8 +35,8 @@ import com.softwareverde.util.bytearray.Endian;
 
 public class DoubleSpendProof implements Jsonable, Hashable, Const {
     public static final List<HashType> SUPPORTED_HASH_TYPES = new ImmutableList<>(
-        new HashType(Mode.SIGNATURE_HASH_ALL, true, false),     // HashType: 0x01
-        new HashType(Mode.SIGNATURE_HASH_SINGLE, true, false)   // HashType: 0x03
+        new HashType(Mode.SIGNATURE_HASH_ALL, true, false, false),     // HashType: 0x01
+        new HashType(Mode.SIGNATURE_HASH_SINGLE, true, false, false)   // HashType: 0x03
     );
 
     public static Boolean arePreimagesInCanonicalOrder(final DoubleSpendProofPreimage doubleSpendProofPreimage0, final DoubleSpendProofPreimage doubleSpendProofPreimage1) {
@@ -130,7 +130,7 @@ public class DoubleSpendProof implements Jsonable, Hashable, Const {
             else {
                 // For non-P2PKH scripts, the DSProof always includes the more complicated digest even if it is
                 //  overwritten during signature validation by an empty hash.
-                hashType = new HashType(Mode.SIGNATURE_HASH_ALL, true, true);
+                hashType = new HashType(Mode.SIGNATURE_HASH_ALL, true, false, true);
             }
 
             final Sha256Hash previousOutputsDigest = BitcoinCashTransactionSignerUtil.getPreviousOutputIdentifiersHash(transaction, hashType);
@@ -145,7 +145,7 @@ public class DoubleSpendProof implements Jsonable, Hashable, Const {
             else {
                 // HashType Modes of SINGLE/ANYONECANPAY/NONE result in the preimage using an empty Sha256Hash, and non-P2PKH
                 //  DoubleSpendProofs always relay the more complicated digest, even if it is not used.
-                hashType = new HashType(Mode.SIGNATURE_HASH_ALL, true, true);
+                hashType = new HashType(Mode.SIGNATURE_HASH_ALL, true, false, true);
             }
             final Sha256Hash sequenceNumbersDigest = BitcoinCashTransactionSignerUtil.getTransactionInputsSequenceNumbersHash(transaction, hashType);
             doubleSpendProofPreimage.setSequenceNumbersDigest(sequenceNumbersDigest);

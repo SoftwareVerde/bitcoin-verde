@@ -3,6 +3,8 @@ package com.softwareverde.bitcoin.server.module.stratum;
 import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.address.AddressType;
+import com.softwareverde.bitcoin.address.ParsedAddress;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
@@ -250,7 +252,7 @@ public class StratumModule {
         _databasePropertiesStore.start();
 
         { // Ensure the StratumServer's PropertiesStore has the correct payout address; if a payout address does not exist, then create an encrypted one.
-            final Address coinbaseAddress;
+            final ParsedAddress coinbaseAddress;
             {
                 final AddressInflater addressInflater = new AddressInflater();
                 final String privateKeyCipher = _databasePropertiesStore.getString(StratumModule.COINBASE_PRIVATE_KEY_KEY);
@@ -263,14 +265,16 @@ public class StratumModule {
                     }
                     _databasePropertiesStore.set(StratumModule.COINBASE_PRIVATE_KEY_KEY, encryptedPrivateKey);
 
-                    coinbaseAddress = addressInflater.fromPrivateKey(privateKey, true);
+                    final Address address = addressInflater.fromPrivateKey(privateKey, true);
+                    coinbaseAddress = new ParsedAddress(AddressType.P2PKH, false, address);
                 }
                 else {
                     final ByteArray privateKeyCipherBytes = ByteArray.fromHexString(privateKeyCipher);
                     final ByteArray privateKeyBytes = serverEncryptionKey.decrypt(privateKeyCipherBytes);
                     final PrivateKey privateKey = PrivateKey.fromBytes(privateKeyBytes);
 
-                    coinbaseAddress = addressInflater.fromPrivateKey(privateKey, true);
+                    final Address address = addressInflater.fromPrivateKey(privateKey, true);
+                    coinbaseAddress = new ParsedAddress(AddressType.P2PKH, false, address);
                 }
             }
 

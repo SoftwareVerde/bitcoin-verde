@@ -1,10 +1,12 @@
 package com.softwareverde.bitcoin.transaction.signer;
 
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.bitcoin.transaction.script.runner.context.TransactionContext;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -16,6 +18,7 @@ public class SignatureContext {
     protected final Transaction _transaction;
     protected final HashType _hashType;
     protected final Long _blockHeight;
+    protected final MedianBlockTime _medianBlockTime;
 
     protected final UpgradeSchedule _upgradeSchedule;
     protected final MutableList<Boolean> _inputScriptsToSign = new MutableList<>(); // Determines if the script is left intact or replaced with an empty script...
@@ -26,27 +29,32 @@ public class SignatureContext {
     protected Script _currentScript;
     protected List<ByteArray> _bytesToExcludeFromScript = new MutableList<>();
 
-    public SignatureContext(final Transaction transaction, final HashType hashType, final UpgradeSchedule upgradeSchedule) {
-        this(transaction, hashType, Long.MAX_VALUE, upgradeSchedule);
+    public SignatureContext(final Transaction transaction, final HashType hashType, final List<TransactionOutput> previousTransactionOutputsBeingSpent, final UpgradeSchedule upgradeSchedule) {
+        this(transaction, hashType, Long.MAX_VALUE, MedianBlockTime.MAX_VALUE, previousTransactionOutputsBeingSpent, upgradeSchedule);
     }
 
-    public SignatureContext(final Transaction transaction, final HashType hashType, final Long blockHeight, final UpgradeSchedule upgradeSchedule) {
+    public SignatureContext(final TransactionContext transactionContext, final HashType hashType, final UpgradeSchedule upgradeSchedule) {
+        this(transactionContext.getTransaction(), hashType, transactionContext.getBlockHeight(), transactionContext.getMedianBlockTime(), transactionContext.getPreviousTransactionOutputs(), upgradeSchedule);
+    }
+
+    public SignatureContext(final Transaction transaction, final HashType hashType, final Long blockHeight, final MedianBlockTime medianBlockTime, final List<TransactionOutput> previousTransactionOutputsBeingSpent, final UpgradeSchedule upgradeSchedule) {
         _upgradeSchedule = upgradeSchedule;
         _transaction = transaction;
         _hashType = hashType;
         _blockHeight = blockHeight;
+        _medianBlockTime = medianBlockTime;
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         for (int i = 0; i < transactionInputs.getCount(); ++i) {
             _inputScriptsToSign.add(false); // All inputs are NOT signed by default...
-            _previousTransactionOutputsBeingSpent.add(null);
+            final TransactionOutput transactionOutput = previousTransactionOutputsBeingSpent.get(i);
+            _previousTransactionOutputsBeingSpent.add(transactionOutput);
             _codeSeparatorIndexes.add(0);
         }
     }
 
-    public void setShouldSignInputScript(final Integer index, final Boolean shouldSignInput, final TransactionOutput outputBeingSpent) {
+    public void setShouldSignInputScript(final Integer index, final Boolean shouldSignInput) {
         _inputScriptsToSign.set(index, shouldSignInput);
-        _previousTransactionOutputsBeingSpent.set(index, outputBeingSpent);
         _codeSeparatorIndexes.set(index, 0);
     }
 
@@ -158,5 +166,9 @@ public class SignatureContext {
         if (! bitcoinCashSignatureHashIsEnabled) { return false; }
 
         return _hashType.isBitcoinCashType();
+    }
+
+    public Boolean areCashTokensEnabled() {
+        return _upgradeSchedule.areCashTokensEnabled(_medianBlockTime);
     }
 }

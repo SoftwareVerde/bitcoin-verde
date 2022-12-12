@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.database.indexer;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.address.TypedAddress;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -142,7 +143,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         return transactionIds;
     }
 
-    protected AddressTransactions _getAddressTransactions(final BlockchainSegmentId blockchainSegmentId, final Address address, final Sha256Hash nullableScriptHash, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
+    protected AddressTransactions _getAddressTransactions(final BlockchainSegmentId blockchainSegmentId, final TypedAddress address, final Sha256Hash nullableScriptHash, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final Sha256Hash scriptHash;
@@ -242,7 +243,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         return new AddressTransactions(blockchainSegmentId, new ImmutableList<>(connectedTransactionIds), previousOutputs, spentOutputs);
     }
 
-    protected Long _getAddressBalance(final BlockchainSegmentId blockchainSegmentId, final Address address, final Sha256Hash scriptHash, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
+    protected Long _getAddressBalance(final BlockchainSegmentId blockchainSegmentId, final TypedAddress address, final Sha256Hash scriptHash, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
         final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
         final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
         final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
@@ -311,7 +312,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
     }
 
     @Override
-    public List<TransactionId> getTransactionIds(final BlockchainSegmentId blockchainSegmentId, final Address address, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
+    public List<TransactionId> getTransactionIds(final BlockchainSegmentId blockchainSegmentId, final TypedAddress address, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
         final AddressTransactions addressTransactions = _getAddressTransactions(blockchainSegmentId, address, null, includeUnconfirmedTransactions);
         return addressTransactions.transactionIds;
     }
@@ -323,7 +324,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
     }
 
     @Override
-    public Long getAddressBalance(final BlockchainSegmentId blockchainSegmentId, final Address address, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
+    public Long getAddressBalance(final BlockchainSegmentId blockchainSegmentId, final TypedAddress address, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
         return _getAddressBalance(blockchainSegmentId, address, null, includeUnconfirmedTransactions);
     }
 

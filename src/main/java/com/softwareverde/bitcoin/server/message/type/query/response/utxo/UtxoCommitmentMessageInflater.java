@@ -3,9 +3,9 @@ package com.softwareverde.bitcoin.server.message.type.query.response.utxo;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
 
 public class UtxoCommitmentMessageInflater extends BitcoinProtocolMessageInflater {

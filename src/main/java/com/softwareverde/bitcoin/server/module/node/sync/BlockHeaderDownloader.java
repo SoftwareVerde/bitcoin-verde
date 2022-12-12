@@ -142,11 +142,13 @@ public class BlockHeaderDownloader extends PausableSleepyService {
                     final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
 
                     boolean genesisBlockWasStored = false;
-                    try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                        genesisBlockWasStored = _validateAndStoreBlockHeader(block, _headBlockHeight, databaseManager);
-                    }
-                    catch (final DatabaseException databaseException) {
-                        Logger.debug(databaseException);
+                    synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                        try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                            genesisBlockWasStored = _validateAndStoreBlockHeader(block, _headBlockHeight, databaseManager);
+                        }
+                        catch (final DatabaseException databaseException) {
+                            Logger.debug(databaseException);
+                        }
                     }
                     if (! genesisBlockWasStored) {
                         threadPool.execute(retryGenesisBlockDownload);
@@ -190,34 +192,32 @@ public class BlockHeaderDownloader extends PausableSleepyService {
         final VolatileNetworkTime networkTime = _context.getNetworkTime();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            databaseManager.startTransaction();
-            final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
+        databaseManager.startTransaction();
+        final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
 
-            if (blockId == null) {
-                Logger.info("Error storing BlockHeader: " + blockHash);
-                databaseManager.rollbackTransaction();
-                return false;
-            }
-
-            final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
-            final DifficultyCalculatorFactory difficultyCalculatorFactory = _context;
-            final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
-            final BlockHeaderValidatorContext blockHeaderValidatorContext = new BlockHeaderValidatorContext(blockchainSegmentId, databaseManager, networkTime, difficultyCalculatorFactory, upgradeSchedule);
-
-            final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(blockHeaderValidatorContext);
-
-            final BlockHeaderValidator.BlockHeaderValidationResult blockHeaderValidationResult = blockHeaderValidator.validateBlockHeader(blockHeader, blockHeight);
-            if (! blockHeaderValidationResult.isValid) {
-                Logger.info("Invalid BlockHeader: " + blockHeaderValidationResult.errorMessage + " (" + blockHash + ")");
-                databaseManager.rollbackTransaction();
-                return false;
-            }
-
-            _headBlockHeight = Math.max(blockHeight, _headBlockHeight);
-
-            databaseManager.commitTransaction();
+        if (blockId == null) {
+            Logger.info("Error storing BlockHeader: " + blockHash);
+            databaseManager.rollbackTransaction();
+            return false;
         }
+
+        final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
+        final DifficultyCalculatorFactory difficultyCalculatorFactory = _context;
+        final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
+        final BlockHeaderValidatorContext blockHeaderValidatorContext = new BlockHeaderValidatorContext(blockchainSegmentId, databaseManager, networkTime, difficultyCalculatorFactory, upgradeSchedule);
+
+        final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(blockHeaderValidatorContext);
+
+        final BlockHeaderValidator.BlockHeaderValidationResult blockHeaderValidationResult = blockHeaderValidator.validateBlockHeader(blockHeader, blockHeight);
+        if (! blockHeaderValidationResult.isValid) {
+            Logger.info("Invalid BlockHeader: " + blockHeaderValidationResult.errorMessage + " (" + blockHash + ")");
+            databaseManager.rollbackTransaction();
+            return false;
+        }
+
+        _headBlockHeight = Math.max(blockHeight, _headBlockHeight);
+
+        databaseManager.commitTransaction();
 
         return true;
     }
@@ -229,116 +229,114 @@ public class BlockHeaderDownloader extends PausableSleepyService {
         final DifficultyCalculatorFactory difficultyCalculatorFactory = _context;
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            { // Validate blockHeaders are sequential...
-                final BlockHeader firstBlockHeader = blockHeaders.get(0);
-                if (! firstBlockHeader.isValid()) {
+        { // Validate blockHeaders are sequential...
+            final BlockHeader firstBlockHeader = blockHeaders.get(0);
+            if (! firstBlockHeader.isValid()) {
+                if (nullableInvalidBlockHashes != null) {
+                    final Sha256Hash blockHash = firstBlockHeader.getHash();
+                    nullableInvalidBlockHashes.add(blockHash);
+                }
+                return false;
+            }
+
+            final BlockId previousBlockId = blockHeaderDatabaseManager.getBlockHeaderId(firstBlockHeader.getPreviousBlockHash());
+            final boolean previousBlockExists = (previousBlockId != null);
+            if (! previousBlockExists) {
+                final Boolean isGenesisBlock = Util.areEqual(BlockHeader.GENESIS_BLOCK_HASH, firstBlockHeader.getHash());
+                if (! isGenesisBlock) {
+                    // NOTE: The block is not added to nullableInvalidBlockHashes;
+                    //  The previous block not existing does not qualify the block as being definitively invalid.
+                    return false;
+                }
+            }
+            else {
+                final Boolean isContentiousBlock = blockHeaderDatabaseManager.hasChildBlock(previousBlockId);
+                if (isContentiousBlock) {
+                    // BlockHeaders cannot be batched due to potential forks...
+                    long blockHeight = (blockHeaderDatabaseManager.getBlockHeight(previousBlockId) + 1L);
+                    for (final BlockHeader blockHeader : blockHeaders) {
+                        final Boolean isValid = _validateAndStoreBlockHeader(blockHeader, blockHeight, databaseManager);
+                        if (! isValid) {
+                            if (nullableInvalidBlockHashes != null) {
+                                final Sha256Hash blockHash = blockHeader.getHash();
+                                nullableInvalidBlockHashes.add(blockHash);
+                            }
+                            return false;
+                        }
+                        blockHeight += 1L;
+                    }
+                    return true;
+                }
+            }
+            Sha256Hash previousBlockHash = firstBlockHeader.getPreviousBlockHash();
+            for (final BlockHeader blockHeader : blockHeaders) {
+                if (! blockHeader.isValid()) {
                     if (nullableInvalidBlockHashes != null) {
-                        final Sha256Hash blockHash = firstBlockHeader.getHash();
+                        final Sha256Hash blockHash = blockHeader.getHash();
                         nullableInvalidBlockHashes.add(blockHash);
                     }
                     return false;
                 }
+                if (! Util.areEqual(previousBlockHash, blockHeader.getPreviousBlockHash())) {
+                    // NOTE: Non-sequential transmission of blocks does not indefinitely invalidate the block.
+                    return false;
+                }
+                previousBlockHash = blockHeader.getHash();
+            }
+        }
 
-                final BlockId previousBlockId = blockHeaderDatabaseManager.getBlockHeaderId(firstBlockHeader.getPreviousBlockHash());
-                final boolean previousBlockExists = (previousBlockId != null);
-                if (! previousBlockExists) {
-                    final Boolean isGenesisBlock = Util.areEqual(BlockHeader.GENESIS_BLOCK_HASH, firstBlockHeader.getHash());
-                    if (! isGenesisBlock) {
-                        // NOTE: The block is not added to nullableInvalidBlockHashes;
-                        //  The previous block not existing does not qualify the block as being definitively invalid.
-                        return false;
-                    }
-                }
-                else {
-                    final Boolean isContentiousBlock = blockHeaderDatabaseManager.hasChildBlock(previousBlockId);
-                    if (isContentiousBlock) {
-                        // BlockHeaders cannot be batched due to potential forks...
-                        long blockHeight = (blockHeaderDatabaseManager.getBlockHeight(previousBlockId) + 1L);
-                        for (final BlockHeader blockHeader : blockHeaders) {
-                            final Boolean isValid = _validateAndStoreBlockHeader(blockHeader, blockHeight, databaseManager);
-                            if (! isValid) {
-                                if (nullableInvalidBlockHashes != null) {
-                                    final Sha256Hash blockHash = blockHeader.getHash();
-                                    nullableInvalidBlockHashes.add(blockHash);
-                                }
-                                return false;
-                            }
-                            blockHeight += 1L;
-                        }
-                        return true;
-                    }
-                }
-                Sha256Hash previousBlockHash = firstBlockHeader.getPreviousBlockHash();
-                for (final BlockHeader blockHeader : blockHeaders) {
-                    if (! blockHeader.isValid()) {
-                        if (nullableInvalidBlockHashes != null) {
-                            final Sha256Hash blockHash = blockHeader.getHash();
-                            nullableInvalidBlockHashes.add(blockHash);
-                        }
-                        return false;
-                    }
-                    if (! Util.areEqual(previousBlockHash, blockHeader.getPreviousBlockHash())) {
-                        // NOTE: Non-sequential transmission of blocks does not indefinitely invalidate the block.
-                        return false;
-                    }
-                    previousBlockHash = blockHeader.getHash();
-                }
+        databaseManager.startTransaction();
+
+        final List<BlockId> blockIds = _insertBlockHeaders(blockHeaders, blockHeaderDatabaseManager);
+        if ( (blockIds == null) || (blockIds.isEmpty()) ) {
+            databaseManager.rollbackTransaction();
+
+            final BlockHeader firstBlockHeader = blockHeaders.get(0);
+            final Sha256Hash blockHash = firstBlockHeader.getHash();
+            Logger.info("Invalid BlockHeader: " + blockHash);
+
+            if (nullableInvalidBlockHashes != null) {
+                nullableInvalidBlockHashes.add(blockHash);
             }
 
-            databaseManager.startTransaction();
+            return false;
+        }
 
-            final List<BlockId> blockIds = _insertBlockHeaders(blockHeaders, blockHeaderDatabaseManager);
-            if ( (blockIds == null) || (blockIds.isEmpty()) ) {
+        final BlockId firstBlockHeaderId = blockIds.get(0);
+        final Long firstBlockHeight = blockHeaderDatabaseManager.getBlockHeight(firstBlockHeaderId);
+
+        final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(firstBlockHeaderId);
+
+
+        final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
+        final BlockHeaderValidatorContext blockHeaderValidatorContext = new BlockHeaderValidatorContext(blockchainSegmentId, databaseManager, networkTime, difficultyCalculatorFactory, upgradeSchedule);
+
+        final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(blockHeaderValidatorContext);
+
+        long nextBlockHeight = firstBlockHeight;
+        for (final BlockHeader blockHeader : blockHeaders) {
+            final BlockHeaderValidator.BlockHeaderValidationResult blockHeaderValidationResult = blockHeaderValidator.validateBlockHeader(blockHeader, nextBlockHeight);
+            if (!blockHeaderValidationResult.isValid) {
+                Logger.info("Invalid BlockHeader: " + blockHeaderValidationResult.errorMessage);
                 databaseManager.rollbackTransaction();
 
-                final BlockHeader firstBlockHeader = blockHeaders.get(0);
-                final Sha256Hash blockHash = firstBlockHeader.getHash();
-                Logger.info("Invalid BlockHeader: " + blockHash);
-
                 if (nullableInvalidBlockHashes != null) {
+                    final Sha256Hash blockHash = blockHeader.getHash();
                     nullableInvalidBlockHashes.add(blockHash);
                 }
 
                 return false;
             }
 
-            final BlockId firstBlockHeaderId = blockIds.get(0);
-            final Long firstBlockHeight = blockHeaderDatabaseManager.getBlockHeight(firstBlockHeaderId);
-
-            final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(firstBlockHeaderId);
-
-
-            final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
-            final BlockHeaderValidatorContext blockHeaderValidatorContext = new BlockHeaderValidatorContext(blockchainSegmentId, databaseManager, networkTime, difficultyCalculatorFactory, upgradeSchedule);
-
-            final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(blockHeaderValidatorContext);
-
-            long nextBlockHeight = firstBlockHeight;
-            for (final BlockHeader blockHeader : blockHeaders) {
-                final BlockHeaderValidator.BlockHeaderValidationResult blockHeaderValidationResult = blockHeaderValidator.validateBlockHeader(blockHeader, nextBlockHeight);
-                if (!blockHeaderValidationResult.isValid) {
-                    Logger.info("Invalid BlockHeader: " + blockHeaderValidationResult.errorMessage);
-                    databaseManager.rollbackTransaction();
-
-                    if (nullableInvalidBlockHashes != null) {
-                        final Sha256Hash blockHash = blockHeader.getHash();
-                        nullableInvalidBlockHashes.add(blockHash);
-                    }
-
-                    return false;
-                }
-
-                nextBlockHeight += 1L;
-            }
-
-            final long blockHeight = (nextBlockHeight - 1L);
-            _headBlockHeight = Math.max(blockHeight, _headBlockHeight);
-
-            databaseManager.commitTransaction();
-
-            return true;
+            nextBlockHeight += 1L;
         }
+
+        final long blockHeight = (nextBlockHeight - 1L);
+        _headBlockHeight = Math.max(blockHeight, _headBlockHeight);
+
+        databaseManager.commitTransaction();
+
+        return true;
     }
 
     protected Boolean _processBlockHeaders(final List<BlockHeader> blockHeaders, final BitcoinNode bitcoinNode) {
@@ -353,52 +351,54 @@ public class BlockHeaderDownloader extends PausableSleepyService {
 
         final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
 
-        try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-            { // Check that the batch contains a new header...
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                { // Check that the batch contains a new header...
+                    final BlockHeader lastBlockHeader = blockHeaders.get(blockHeaderCount - 1);
+                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+
+                    final Boolean firstBlockHeaderExists = blockHeaderDatabaseManager.blockHeaderExists(firstBlockHeader.getHash());
+                    final Boolean lastBlockHeaderExists = blockHeaderDatabaseManager.blockHeaderExists(lastBlockHeader.getHash());
+
+                    if (firstBlockHeaderExists && lastBlockHeaderExists) {
+                        return false; // Nothing to do.
+                    }
+                }
+
+                final MutableList<Sha256Hash> invalidBlockHashes = new MutableList<>(0);
+                final Boolean headersAreValid = _validateAndStoreBlockHeaders(blockHeaders, databaseManager, invalidBlockHashes);
+                if (! headersAreValid) {
+                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                    for (final Sha256Hash invalidBlockHash : invalidBlockHashes) {
+                        Logger.info("Marking " + invalidBlockHash + " as invalid.");
+                        blockHeaderDatabaseManager.markBlockAsInvalid(invalidBlockHash, BlockHeaderDatabaseManager.INVALID_PROCESS_THRESHOLD); // Auto-ban any invalid headers...
+                    }
+                    return false;
+                }
+
+                if (bitcoinNode != null) {
+                    for (final BlockHeader blockHeader : blockHeaders) {
+                        final Sha256Hash blockHash = blockHeader.getHash();
+                        _blockInventoryTracker.markInventoryAvailable(blockHash, bitcoinNode);
+                    }
+                }
+
                 final BlockHeader lastBlockHeader = blockHeaders.get(blockHeaderCount - 1);
-                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                final Sha256Hash lastBlockHeaderHash = lastBlockHeader.getHash();
 
-                final Boolean firstBlockHeaderExists = blockHeaderDatabaseManager.blockHeaderExists(firstBlockHeader.getHash());
-                final Boolean lastBlockHeaderExists = blockHeaderDatabaseManager.blockHeaderExists(lastBlockHeader.getHash());
+                _lastBlockHeader = lastBlockHeader;
+                _lastBlockHash = lastBlockHeaderHash;
 
-                if (firstBlockHeaderExists && lastBlockHeaderExists) {
-                    return false; // Nothing to do.
-                }
+                _blockHeaderCount += blockHeaderCount;
+
+                _timer.stop();
+                final Long millisecondsElapsed = _timer.getMillisecondsElapsed();
+                _averageBlockHeadersPerSecond = ( (_blockHeaderCount.floatValue() / millisecondsElapsed) * 1000L );
             }
-
-            final MutableList<Sha256Hash> invalidBlockHashes = new MutableList<>(0);
-            final Boolean headersAreValid = _validateAndStoreBlockHeaders(blockHeaders, databaseManager, invalidBlockHashes);
-            if (! headersAreValid) {
-                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-                for (final Sha256Hash invalidBlockHash : invalidBlockHashes) {
-                    Logger.info("Marking " + invalidBlockHash + " as invalid.");
-                    blockHeaderDatabaseManager.markBlockAsInvalid(invalidBlockHash, BlockHeaderDatabaseManager.INVALID_PROCESS_THRESHOLD); // Auto-ban any invalid headers...
-                }
+            catch (final DatabaseException exception) {
+                Logger.warn("Processing BlockHeaders failed.", exception);
                 return false;
             }
-
-            if (bitcoinNode != null) {
-                for (final BlockHeader blockHeader : blockHeaders) {
-                    final Sha256Hash blockHash = blockHeader.getHash();
-                    _blockInventoryTracker.markInventoryAvailable(blockHash, bitcoinNode);
-                }
-            }
-
-            final BlockHeader lastBlockHeader = blockHeaders.get(blockHeaderCount - 1);
-            final Sha256Hash lastBlockHeaderHash = lastBlockHeader.getHash();
-
-            _lastBlockHeader = lastBlockHeader;
-            _lastBlockHash = lastBlockHeaderHash;
-
-            _blockHeaderCount += blockHeaderCount;
-
-            _timer.stop();
-            final Long millisecondsElapsed = _timer.getMillisecondsElapsed();
-            _averageBlockHeadersPerSecond = ( (_blockHeaderCount.floatValue() / millisecondsElapsed) * 1000L );
-        }
-        catch (final DatabaseException exception) {
-            Logger.warn("Processing BlockHeaders failed.", exception);
-            return false;
         }
 
         storeHeadersTimer.stop();
@@ -420,6 +420,10 @@ public class BlockHeaderDownloader extends PausableSleepyService {
             public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final List<BlockHeader> blockHeaders) {
                 if (! _isProcessingHeaders.compareAndSet(false, true)) { return; }
                 if (_shouldAbort()) { return; }
+
+                if (! blockHeaders.isEmpty()) {
+                    Logger.debug("Processing BlockHeaderDownloader: " + blockHeaders.get(0).getHash() + " +" + (blockHeaders.getCount() - 1));
+                }
 
                 try {
                     final Boolean headersAreValid = _processBlockHeaders(blockHeaders, bitcoinNode);

@@ -24,7 +24,6 @@ public class NodeInitializer {
         public BitcoinNode.RequestBlockHeadersHandler requestBlockHeadersHandler;
         public BitcoinNode.RequestDataHandler requestDataHandler;
         public BitcoinNode.RequestSpvBlocksHandler requestSpvBlocksHandler;
-        public BitcoinNode.RequestSlpTransactionsHandler requestSlpTransactionsHandler;
         public BitcoinNode.QueryUtxoCommitmentsHandler queryUtxoCommitmentsHandler;
         public ThreadPoolFactory threadPoolFactory;
         public LocalNodeFeatures localNodeFeatures;
@@ -44,7 +43,6 @@ public class NodeInitializer {
     protected final BitcoinNode.RequestBlockHeadersHandler _requestBlockHeadersHandler;
     protected final BitcoinNode.RequestDataHandler _requestDataHandler;
     protected final BitcoinNode.RequestSpvBlocksHandler _requestSpvBlocksHandler;
-    protected final BitcoinNode.RequestSlpTransactionsHandler _requestSlpTransactionsHandler;
     protected final BitcoinNode.QueryUtxoCommitmentsHandler _queryUtxoCommitmentsHandler;
     protected final ThreadPoolFactory _threadPoolFactory;
     protected final LocalNodeFeatures _localNodeFeatures;
@@ -62,7 +60,6 @@ public class NodeInitializer {
         bitcoinNode.setRequestBlockHeadersHandler(_requestBlockHeadersHandler);
         bitcoinNode.setRequestDataHandler(_requestDataHandler);
         bitcoinNode.setRequestSpvBlocksHandler(_requestSpvBlocksHandler);
-        bitcoinNode.setRequestSlpTransactionsHandler(_requestSlpTransactionsHandler);
         bitcoinNode.setSpvBlockInventoryAnnouncementCallback(_spvBlockInventoryAnnouncementHandler);
         bitcoinNode.setQueryUtxoCommitmentsHandler(_queryUtxoCommitmentsHandler);
 
@@ -96,7 +93,6 @@ public class NodeInitializer {
         _requestBlockHeadersHandler = properties.requestBlockHeadersHandler;
         _requestDataHandler = properties.requestDataHandler;
         _requestSpvBlocksHandler = properties.requestSpvBlocksHandler;
-        _requestSlpTransactionsHandler = properties.requestSlpTransactionsHandler;
         _queryUtxoCommitmentsHandler = properties.queryUtxoCommitmentsHandler;
         _threadPoolFactory = properties.threadPoolFactory;
         _localNodeFeatures = properties.localNodeFeatures;

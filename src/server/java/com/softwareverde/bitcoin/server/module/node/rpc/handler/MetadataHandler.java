@@ -1,6 +1,8 @@
 package com.softwareverde.bitcoin.server.module.node.rpc.handler;
 
 import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.AddressType;
+import com.softwareverde.bitcoin.address.ParsedAddress;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
@@ -194,9 +196,16 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
                     if (previousTransactionOutput != null) {
                         final LockingScript lockingScript = previousTransactionOutput.getLockingScript();
                         final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
-                        final Address address = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
-                        addressString = address.toBase58CheckEncoded();
-                        cashAddressString = address.toBase32CheckEncoded(true);
+                        final Address addressBytes = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
+                        if (addressBytes != null) {
+                            final ParsedAddress parsedAddress = new ParsedAddress(AddressType.P2PKH, false, addressBytes);
+                            addressString = parsedAddress.toBase58CheckEncoded();
+                            cashAddressString = parsedAddress.toBase32CheckEncoded(true);
+                        }
+                        else {
+                            addressString = null;
+                            cashAddressString = null;
+                        }
                     }
                     else {
                         addressString = null;
@@ -246,9 +255,16 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
                     final Sha256Hash scriptHash;
                     {
                         final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
-                        final Address address = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
-                        addressString = (address != null ? address.toBase58CheckEncoded() : null);
-                        cashAddressString = (address != null ? address.toBase32CheckEncoded(true) : null);
+                        final Address addressBytes = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
+                        if (addressBytes != null) {
+                            final ParsedAddress parsedAddress = new ParsedAddress(AddressType.P2PKH, false, addressBytes);
+                            addressString = parsedAddress.toBase58CheckEncoded();
+                            cashAddressString = parsedAddress.toBase32CheckEncoded(true);
+                        }
+                        else {
+                            addressString = null;
+                            cashAddressString = null;
+                        }
                         scriptHash = ScriptBuilder.computeScriptHash(lockingScript);
                     }
 

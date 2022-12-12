@@ -6,8 +6,8 @@ import com.softwareverde.constable.Const;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.cryptography.hash.ripemd160.MutableRipemd160Hash;
 import com.softwareverde.cryptography.hash.ripemd160.Ripemd160Hash;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.util.HashUtil;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.Util;
@@ -51,11 +51,17 @@ public class ImmutableScript implements Script, Const {
     }
 
     @Override
-    public Ripemd160Hash getHash() {
+    public Sha256Hash getHash() {
         final ScriptDeflater scriptDeflater = new ScriptDeflater();
         final ByteArray bytes = scriptDeflater.toBytes(this);
-        final byte[] hashBytes = HashUtil.ripemd160(HashUtil.sha256(bytes.getBytes()));
-        return MutableRipemd160Hash.wrap(hashBytes);
+        return HashUtil.doubleSha256(bytes);
+    }
+
+    @Override
+    public Ripemd160Hash getLegacyHash() {
+        final ScriptDeflater scriptDeflater = new ScriptDeflater();
+        final ByteArray bytes = scriptDeflater.toBytes(this);
+        return HashUtil.ripemd160(HashUtil.sha256(bytes));
     }
 
     @Override

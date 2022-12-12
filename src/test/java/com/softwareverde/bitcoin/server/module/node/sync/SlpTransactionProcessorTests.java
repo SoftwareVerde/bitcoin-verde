@@ -46,27 +46,27 @@ public class SlpTransactionProcessorTests extends IntegrationTest {
         final BlockchainIndexer blockchainIndexer = new BlockchainIndexer(transactionOutputIndexerContext, 0);
 
         final List<Transaction> bvtTransactions = BlockchainIndexerTests.inflateBitcoinVerdeTestTokens();
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            // store genesis block
-            final BlockInflater blockInflater = new BlockInflater();
-            final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                // store genesis block
+                final BlockInflater blockInflater = new BlockInflater();
+                final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
                 final FullNodeBlockDatabaseManager fullNodeBlockDatabaseManager = databaseManager.getBlockDatabaseManager();
                 fullNodeBlockDatabaseManager.storeBlock(genesisBlock);
-            }
 
-            // store transactions
-            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+                // store transactions
+                final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
-            for (final Transaction transaction : bvtTransactions) {
-                final Sha256Hash transactionHash = transaction.getHash();
-                transactionDatabaseManager.storeUnconfirmedTransaction(transaction);
+                for (final Transaction transaction : bvtTransactions) {
+                    final Sha256Hash transactionHash = transaction.getHash();
+                    transactionDatabaseManager.storeUnconfirmedTransaction(transaction);
 
-                final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
-                transactionDatabaseManager.addToUnconfirmedTransactions(transactionId);
+                    final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
+                    transactionDatabaseManager.addToUnconfirmedTransactions(transactionId);
 
-                final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = databaseManager.getBlockchainIndexerDatabaseManager();
-                blockchainIndexerDatabaseManager.queueTransactionsForProcessing(new ImmutableList<>(transactionId));
+                    final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = databaseManager.getBlockchainIndexerDatabaseManager();
+                    blockchainIndexerDatabaseManager.queueTransactionsForProcessing(new ImmutableList<>(transactionId));
+                }
             }
         }
 

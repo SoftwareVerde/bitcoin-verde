@@ -49,9 +49,6 @@ public class MessageType {
     public static final MessageType DOUBLE_SPEND_PROOF = new MessageType("dsproof-beta");
 
     // BitcoinVerde Messages
-    public static final MessageType QUERY_ADDRESS_BLOCKS = new MessageType("addrblocks", true);
-    public static final MessageType ENABLE_SLP_TRANSACTIONS = new MessageType("sendslp", true);
-    public static final MessageType QUERY_SLP_STATUS = new MessageType("getslpstatus", true);
     public static final MessageType QUERY_UTXO_COMMITMENTS = new MessageType("getutxocmts", false);
     public static final MessageType UTXO_COMMITMENTS = new MessageType("utxocmts", true);
     public static final MessageType UTXO_COMMITMENT = new MessageType("utxocmt", true);

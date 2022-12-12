@@ -15,7 +15,6 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
-import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.network.time.VolatileNetworkTime;
 
 public class LazyBlockValidatorContext extends BlockHeaderValidatorContext implements BlockValidator.Context {
@@ -41,14 +40,19 @@ public class LazyBlockValidatorContext extends BlockHeaderValidatorContext imple
         return _unspentTransactionOutputContext.getBlockHeight(transactionOutputIdentifier);
     }
 
-    @Override
-    public Sha256Hash getBlockHash(final TransactionOutputIdentifier transactionOutputIdentifier) {
-        return _unspentTransactionOutputContext.getBlockHash(transactionOutputIdentifier);
-    }
+//    @Override
+//    public Sha256Hash getBlockHash(final TransactionOutputIdentifier transactionOutputIdentifier) {
+//        return _unspentTransactionOutputContext.getBlockHash(transactionOutputIdentifier);
+//    }
 
     @Override
     public Boolean isCoinbaseTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
         return _unspentTransactionOutputContext.isCoinbaseTransactionOutput(transactionOutputIdentifier);
+    }
+
+    @Override
+    public Boolean isPreActivationTokenForgery(final TransactionOutputIdentifier transactionOutputIdentifier) {
+        return _unspentTransactionOutputContext.isPreActivationTokenForgery(transactionOutputIdentifier);
     }
 
     @Override

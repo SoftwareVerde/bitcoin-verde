@@ -3,9 +3,9 @@ package com.softwareverde.bitcoin.transaction.dsproof;
 import com.softwareverde.bitcoin.server.message.type.dsproof.DoubleSpendProofPreimageInflater;
 import com.softwareverde.bitcoin.server.message.type.dsproof.MutableDoubleSpendProofPreimage;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
 
 public class DoubleSpendProofInflater {

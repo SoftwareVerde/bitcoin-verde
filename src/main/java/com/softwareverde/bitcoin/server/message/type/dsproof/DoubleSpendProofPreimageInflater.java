@@ -7,9 +7,10 @@ import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
 
 public class DoubleSpendProofPreimageInflater {
@@ -36,11 +37,13 @@ public class DoubleSpendProofPreimageInflater {
         final Sha256Hash transactionOutputsDigest = Sha256Hash.wrap(byteArrayReader.readBytes(Sha256Hash.BYTE_COUNT, Endian.BIG));
         doubleSpendProofPreimage.setExecutedTransactionOutputsDigest(transactionOutputsDigest);
 
-        final Long pushDataCount = byteArrayReader.readVariableLengthInteger();
-        if (pushDataCount > Script.MAX_OPERATION_COUNT) { return null; }
-        for (int i = 0; i < pushDataCount; ++i) {
-            final Long pushDataByteCount = byteArrayReader.readVariableLengthInteger();
-            if (pushDataByteCount > PushOperation.VALUE_MAX_BYTE_COUNT) { return null; }
+        final CompactVariableLengthInteger pushDataCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
+        if (! pushDataCount.isCanonical()) { return null; }
+        if (pushDataCount.value > Script.MAX_OPERATION_COUNT) { return null; }
+        for (int i = 0; i < pushDataCount.value; ++i) {
+            final CompactVariableLengthInteger pushDataByteCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
+            if (! pushDataByteCount.isCanonical()) { return null; }
+            if (pushDataByteCount.value > PushOperation.VALUE_MAX_BYTE_COUNT) { return null; }
 
             final ByteArray pushedData = ByteArray.wrap(byteArrayReader.readBytes(pushDataByteCount.intValue(), Endian.BIG));
             doubleSpendProofPreimage.addUnlockingScriptPushData(pushedData);
@@ -63,10 +66,11 @@ public class DoubleSpendProofPreimageInflater {
     public void parseExtraTransactionOutputsDigests(final ByteArrayReader byteArrayReader, final MutableDoubleSpendProofPreimage doubleSpendProofPreimage) {
         if (byteArrayReader.remainingByteCount() < 1) { return; }
 
-        final Long extraDigestCount = byteArrayReader.readVariableLengthInteger();
-        if (extraDigestCount > Script.MAX_OPERATION_COUNT) { return; }
+        final CompactVariableLengthInteger extraDigestCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
+        if (! extraDigestCount.isCanonical()) { return; }
+        if (extraDigestCount.value > Script.MAX_OPERATION_COUNT) { return; }
 
-        for (int i = 0; i < extraDigestCount; ++i) {
+        for (int i = 0; i < extraDigestCount.value; ++i) {
             final byte hashTypeByte = byteArrayReader.readByte();
             final Sha256Hash extraTransactionOutputDigest = Sha256Hash.wrap(byteArrayReader.readBytes(Sha256Hash.BYTE_COUNT));
             if (byteArrayReader.didOverflow()) { return; }

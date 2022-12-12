@@ -5,7 +5,7 @@ import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 
 public class TransactionMessageInflater extends BitcoinProtocolMessageInflater {
     protected final TransactionInflaters _transactionInflaters;

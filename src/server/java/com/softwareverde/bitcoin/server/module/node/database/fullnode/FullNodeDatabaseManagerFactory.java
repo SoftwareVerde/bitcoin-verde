@@ -31,7 +31,7 @@ public class FullNodeDatabaseManagerFactory implements DatabaseManagerFactory {
     protected final CheckpointConfiguration _checkpointConfiguration;
     protected final Long _maxUtxoCount;
     protected final Float _utxoPurgePercent;
-    protected MutableBlockchainCache _blockchainCacheManager = null; // Disabled cache unless initialize is called...
+    protected MutableBlockchainCache _blockchainCache = null; // Disabled cache unless initialize is called...
 
     public FullNodeDatabaseManagerFactory(final DatabaseConnectionFactory databaseConnectionFactory, final Integer maxQueryBatchSize, final PropertiesStore propertiesStore, final PendingBlockStore blockStore, final UtxoCommitmentStore utxoCommitmentStore, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration) {
         this(databaseConnectionFactory, maxQueryBatchSize, propertiesStore, blockStore, utxoCommitmentStore, masterInflater, checkpointConfiguration, UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT, UnspentTransactionOutputDatabaseManager.DEFAULT_PURGE_PERCENT);
@@ -82,7 +82,7 @@ public class FullNodeDatabaseManagerFactory implements DatabaseManagerFactory {
             }
 
             blockchainCache.applyVersion();
-            _blockchainCacheManager = blockchainCache;
+            _blockchainCache = blockchainCache;
         }
 
     }
@@ -90,7 +90,7 @@ public class FullNodeDatabaseManagerFactory implements DatabaseManagerFactory {
     @Override
     public FullNodeDatabaseManager newDatabaseManager() throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection();
-        return new FullNodeDatabaseManager(databaseConnection, _maxQueryBatchSize, _propertiesStore, _blockStore, _utxoCommitmentStore, _masterInflater, _checkpointConfiguration, _maxUtxoCount, _utxoPurgePercent, _blockchainCacheManager);
+        return new FullNodeDatabaseManager(databaseConnection, _maxQueryBatchSize, _propertiesStore, _blockStore, _utxoCommitmentStore, _masterInflater, _checkpointConfiguration, _maxUtxoCount, _utxoPurgePercent, _blockchainCache);
     }
 
     @Override

@@ -40,7 +40,6 @@ import com.softwareverde.bitcoin.server.module.node.manager.NodeInitializer;
 import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilter;
 import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilterCore;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
-import com.softwareverde.bitcoin.server.module.node.sync.SpvSlpTransactionValidator;
 import com.softwareverde.bitcoin.server.module.spv.handler.MerkleBlockDownloader;
 import com.softwareverde.bitcoin.server.module.spv.handler.SpvRequestDataHandler;
 import com.softwareverde.bitcoin.server.module.spv.handler.SpvSynchronizationStatusHandler;
@@ -121,7 +120,6 @@ public class SpvModule {
     protected final SpvRequestDataHandler _spvRequestDataHandler = new SpvRequestDataHandler();
     protected BitcoinNodeManager _bitcoinNodeManager;
     protected BlockHeaderDownloader _blockHeaderDownloader;
-    protected SpvSlpTransactionValidator _spvSlpTransactionValidator;
     protected Boolean _shouldOnlyConnectToSeedNodes = false;
 
     protected final SystemTime _systemTime = new SystemTime();
@@ -168,10 +166,6 @@ public class SpvModule {
             if (_isInitialized) { return; }
             try { _initPin.wait(); } catch (final Exception exception) { }
         }
-    }
-
-    protected void _synchronizeSlpValidity() {
-        _spvSlpTransactionValidator.wakeUp();
     }
 
     protected void _executeMerkleBlockSyncUpdateCallback() {
@@ -231,11 +225,6 @@ public class SpvModule {
         if (_blockHeaderDownloader != null) {
             Logger.info("[Stopping Header Downloader]");
             _blockHeaderDownloader.stop();
-        }
-
-        if (_spvSlpTransactionValidator != null) {
-            Logger.info("[Stopping SPV SLP Validator]");
-            _spvSlpTransactionValidator.stop();
         }
 
         if (_bitcoinNodeManager != null) {
@@ -414,23 +403,22 @@ public class SpvModule {
                 final AddressInflater addressInflater = _masterInflater.getAddressInflater();
                 final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(walletBloomFilter, addressInflater);
 
-                try (final SpvDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-                    final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-                    final SpvBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-                    final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                    try (final SpvDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                        final SpvBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+                        final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
-                    databaseManager.startTransaction();
-                    final Sha256Hash previousBlockHash = merkleBlock.getPreviousBlockHash();
-                    if (! Util.areEqual(previousBlockHash, Sha256Hash.EMPTY_HASH)) { // Check for Genesis Block...
-                        final BlockId previousBlockId = blockHeaderDatabaseManager.getBlockHeaderId(merkleBlock.getPreviousBlockHash());
-                        if (previousBlockId == null) {
-                            Logger.debug("Out of order MerkleBlock received. Discarding. " + merkleBlock.getHash());
-                            return;
+                        databaseManager.startTransaction();
+                        final Sha256Hash previousBlockHash = merkleBlock.getPreviousBlockHash();
+                        if (! Util.areEqual(previousBlockHash, Sha256Hash.EMPTY_HASH)) { // Check for Genesis Block...
+                            final BlockId previousBlockId = blockHeaderDatabaseManager.getBlockHeaderId(merkleBlock.getPreviousBlockHash());
+                            if (previousBlockId == null) {
+                                Logger.debug("Out of order MerkleBlock received. Discarding. " + merkleBlock.getHash());
+                                return;
+                            }
                         }
-                    }
 
-                    synchronized (BlockHeaderDatabaseManager.MUTEX) {
                         final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(merkleBlock);
                         blockDatabaseManager.storePartialMerkleTree(blockId, merkleBlock.getPartialMerkleTree());
 
@@ -442,14 +430,12 @@ public class SpvModule {
                                 _wallet.addTransaction(transaction);
                             }
                         }
-
-                        _synchronizeSlpValidity();
+                        databaseManager.commitTransaction();
                     }
-                    databaseManager.commitTransaction();
-                }
-                catch (final DatabaseException exception) {
-                    Logger.warn(exception);
-                    return;
+                    catch (final DatabaseException exception) {
+                        Logger.warn(exception);
+                        return;
+                    }
                 }
 
                 final NewTransactionCallback newTransactionCallback = _newTransactionCallback;
@@ -523,10 +509,6 @@ public class SpvModule {
                                     newTransactionCallback.onNewTransactionReceived(transaction);
                                 }
                             });
-                        }
-
-                        if (Transaction.isSlpTransaction(transaction)) {
-                            _synchronizeSlpValidity();
                         }
                     }
                 };
@@ -607,7 +589,6 @@ public class SpvModule {
                     final List<BitcoinNode> connectedNodes = _bitcoinNodeManager.getNodes();
                     final ImmutableListBuilder<BitcoinNodeIpAddress> nodeIpAddresses = new ImmutableListBuilder<>(connectedNodes.getCount());
                     for (final BitcoinNode bitcoinNode : connectedNodes) {
-
                         final NodeIpAddress nodeIpAddress = bitcoinNode.getRemoteNodeIpAddress();
                         final BitcoinNodeIpAddress bitcoinNodeIpAddress = new BitcoinNodeIpAddress(nodeIpAddress);
                         bitcoinNodeIpAddress.setNodeFeatures(bitcoinNode.getNodeFeatures());
@@ -649,27 +630,9 @@ public class SpvModule {
             nodeInitializerContext.requestBlockHeadersHandler = requestBlockHeadersHandler;
             nodeInitializerContext.requestDataHandler = _spvRequestDataHandler;
             nodeInitializerContext.requestSpvBlocksHandler = null;
-            nodeInitializerContext.requestSlpTransactionsHandler = null;
             nodeInitializerContext.requestUnconfirmedTransactionsHandler = null;
-
             nodeInitializerContext.requestPeersHandler = requestPeersHandler;
             nodeInitializerContext.spvBlockInventoryAnnouncementHandler = _merkleBlockDownloader;
-
-            nodeInitializerContext.requestPeersHandler = new BitcoinNode.RequestPeersHandler() {
-                @Override
-                public List<BitcoinNodeIpAddress> getConnectedPeers() {
-                    final List<BitcoinNode> connectedNodes = _bitcoinNodeManager.getNodes();
-                    final ImmutableListBuilder<BitcoinNodeIpAddress> nodeIpAddresses = new ImmutableListBuilder<>(connectedNodes.getCount());
-                    for (final BitcoinNode bitcoinNode : connectedNodes) {
-                        final NodeIpAddress nodeIpAddress = bitcoinNode.getRemoteNodeIpAddress();
-                        final BitcoinNodeIpAddress bitcoinNodeIpAddress = new BitcoinNodeIpAddress(nodeIpAddress);
-                        bitcoinNodeIpAddress.setNodeFeatures(bitcoinNode.getNodeFeatures());
-
-                        nodeIpAddresses.add(bitcoinNodeIpAddress);
-                    }
-                    return nodeIpAddresses.build();
-                }
-            };
 
             nodeInitializerContext.binaryPacketFormat = binaryPacketFormat;
             nodeInitializerContext.newBloomFilterHandler = null;
@@ -719,7 +682,6 @@ public class SpvModule {
             final Integer externalPort = (_isTestNet ? BitcoinConstants.getDefaultTestNetworkPort() : BitcoinConstants.getDefaultNetworkPort());
             _bitcoinNodeManager.setDefaultExternalPort(externalPort);
             _bitcoinNodeManager.enableTransactionRelay(false);
-            _bitcoinNodeManager.enableSlpValidityChecking(true);
             _bitcoinNodeManager.setShouldOnlyConnectToSeedNodes(_shouldOnlyConnectToSeedNodes);
 
             for (final NodeProperties nodeProperties : _seedNodes) {
@@ -738,10 +700,6 @@ public class SpvModule {
             final BlockHeaderDownloaderContext blockHeaderDownloaderContext = new BlockHeaderDownloaderContext(_bitcoinNodeManager, databaseManagerFactory, _difficultyCalculatorFactory, _mutableNetworkTime, _systemTime, _generalThreadPool, upgradeSchedule);
             _blockHeaderDownloader = new BlockHeaderDownloader(blockHeaderDownloaderContext, null);
             _blockHeaderDownloader.setMinBlockTimestamp(_systemTime.getCurrentTimeInSeconds());
-        }
-
-        { // Initialize SpvSlpValidator
-            _spvSlpTransactionValidator = new SpvSlpTransactionValidator(databaseManagerFactory, _bitcoinNodeManager);
         }
 
         try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
@@ -808,9 +766,6 @@ public class SpvModule {
         Logger.info("[Starting Node Manager]");
         _bitcoinNodeManager.start();
 
-        Logger.info("[Starting SPV SLP Validator]");
-        _spvSlpTransactionValidator.start();
-
         Logger.info("[Starting Header Downloader]");
         _blockHeaderDownloader.start();
 
@@ -818,7 +773,6 @@ public class SpvModule {
             try { Thread.sleep(15000); } catch (final Exception exception) { break; }
 
             _blockHeaderDownloader.wakeUp();
-            _spvSlpTransactionValidator.wakeUp();
         }
 
         Logger.info("[SPV Module Exiting]");
@@ -864,8 +818,6 @@ public class SpvModule {
             Logger.info("Sending Tx Hash " + transaction.getHash() + " to " + bitcoinNode.getConnectionString());
             bitcoinNode.transmitTransactionHashes(transactionHashes);
         }
-
-        _synchronizeSlpValidity();
     }
 
     public void setMerkleBlockSyncUpdateCallback(final MerkleBlockSyncUpdateCallback merkleBlockSyncUpdateCallback) {
@@ -874,10 +826,6 @@ public class SpvModule {
 
     public void synchronizeMerkleBlocks() {
         _synchronizeMerkleBlocks();
-    }
-
-    public void synchronizeSlpValidity() {
-        _synchronizeSlpValidity();
     }
 
     /**

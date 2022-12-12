@@ -5,7 +5,8 @@ import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.server.message.type.node.address.NodeIpAddressInflater;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
 
 public class BitcoinSynchronizeVersionMessageInflater extends BitcoinProtocolMessageInflater {
@@ -37,7 +38,7 @@ public class BitcoinSynchronizeVersionMessageInflater extends BitcoinProtocolMes
         synchronizeVersionMessage._localNodeIpAddress = _nodeIpAddressInflater.fromBytes(localNetworkAddressBytes);
 
         synchronizeVersionMessage._nonce = byteArrayReader.readLong(8, Endian.LITTLE);
-        synchronizeVersionMessage._userAgent = byteArrayReader.readVariableLengthString();
+        synchronizeVersionMessage._userAgent = CompactVariableLengthInteger.readVariableLengthString(byteArrayReader);
         synchronizeVersionMessage._currentBlockHeight = byteArrayReader.readLong(4, Endian.LITTLE);
         synchronizeVersionMessage._transactionRelayIsEnabled = byteArrayReader.readBoolean();
 

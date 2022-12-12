@@ -14,11 +14,15 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptInflater;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.MutableLockingScript;
+import com.softwareverde.bitcoin.transaction.script.opcode.ControlOperation;
+import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.unlocking.MutableUnlockingScript;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.cryptography.hash.ripemd160.Ripemd160Hash;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
 import org.junit.Test;
@@ -290,6 +294,79 @@ public class ScriptRunnerTests {
         final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
         context.setBlockHeight(0L);
         context.setMedianBlockTime(medianBlockTime);
+        final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
+
+        // Action
+        final Boolean isValid = scriptRunner.runScript(lockingScript, unlockingScript, context).isValid;
+
+        // Assert
+        Assert.assertTrue(isValid);
+    }
+
+    @Test
+    public void should_run_p2sh_script_posing_as_segwit_recovery() {
+        // Setup
+        final ScriptInflater scriptInflater = new ScriptInflater();
+        final UnlockingScript redeemScript;
+        {
+            final MutableUnlockingScript mutableUnlockingScript = new MutableUnlockingScript();
+            mutableUnlockingScript.addOperation(ControlOperation.RETURN);
+            redeemScript = mutableUnlockingScript;
+        }
+
+        final UnlockingScript unlockingScript;
+        {
+            final MutableUnlockingScript mutableUnlockingScript = new MutableUnlockingScript();
+            mutableUnlockingScript.addOperation(PushOperation.pushBytes(redeemScript.getBytes()));
+            unlockingScript = mutableUnlockingScript;
+        }
+        final Sha256Hash redeemScriptHash = redeemScript.getHash();
+
+        final LockingScript lockingScript = LockingScript.castFrom(scriptInflater.fromBytes(ByteArray.fromHexString("AA20" + redeemScriptHash + "87")));
+
+        final FakeUpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
+        upgradeSchedule.setLegacyPayToScriptHashEnabled(true);
+        upgradeSchedule.setSha256PayToScriptHashEnabled(true);
+        upgradeSchedule.setUnusedValuesAfterSegwitScriptExecutionAllowed(true);
+
+        final MutableMedianBlockTime medianBlockTime = new MutableMedianBlockTime();
+        final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
+        context.setBlockHeight(800000L);
+        context.setMedianBlockTime(medianBlockTime);
+
+        final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
+
+        // Action
+        final Boolean isValid = scriptRunner.runScript(lockingScript, unlockingScript, context).isValid;
+
+        // Assert
+        Assert.assertFalse(isValid);
+    }
+
+    @Test
+    public void should_not_run_segwit_recovery_p2sh_script() {
+        // Setup
+        final ScriptInflater scriptInflater = new ScriptInflater();
+        final UnlockingScript redeemScript = UnlockingScript.castFrom(scriptInflater.fromBytes(ByteArray.fromHexString("00025A01")));
+
+        final UnlockingScript unlockingScript;
+        {
+            final MutableUnlockingScript mutableUnlockingScript = new MutableUnlockingScript();
+            mutableUnlockingScript.addOperation(PushOperation.pushBytes(redeemScript.getBytes()));
+            unlockingScript = mutableUnlockingScript;
+        }
+        final Ripemd160Hash redeemScriptHash = redeemScript.getLegacyHash();
+
+        final LockingScript lockingScript = LockingScript.castFrom(scriptInflater.fromBytes(ByteArray.fromHexString("A914" + redeemScriptHash + "87")));
+
+        final FakeUpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
+        upgradeSchedule.setUnusedValuesAfterSegwitScriptExecutionAllowed(true);
+
+        final MutableMedianBlockTime medianBlockTime = new MutableMedianBlockTime();
+        final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
+        context.setBlockHeight(800000L);
+        context.setMedianBlockTime(medianBlockTime);
+
         final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
 
         // Action

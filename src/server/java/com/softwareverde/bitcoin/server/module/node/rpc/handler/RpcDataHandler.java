@@ -729,13 +729,12 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     public BlockValidationResult validatePrototypeBlock(final Block block) {
         Logger.info("Validating Prototype Block: " + block.getHash());
 
-        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
-            try {
-                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                try {
                     databaseManager.startTransaction();
 
                     final BlockId blockId = blockDatabaseManager.storeBlock(block);
@@ -744,7 +743,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                     final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
 
                     final MutableUnspentTransactionOutputSet unspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
-                    final Boolean utxosAreAvailable = unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight);
+                    final Boolean utxosAreAvailable = unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight, _upgradeSchedule);
                     if (! utxosAreAvailable) {
                         final BlockValidationResult blockValidationResult = BlockValidationResult.invalid("Missing UTXOs for block.");
                         Logger.info("Prototype Block: " + block.getHash() + " INVALID " + blockValidationResult.errorMessage);
@@ -758,14 +757,14 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                     Logger.info("Prototype Block: " + block.getHash() + " " + (blockValidationResult.isValid ? "VALID" : ("INVALID " + blockValidationResult.errorMessage)));
                     return blockValidationResult;
                 }
+                finally {
+                    databaseManager.rollbackTransaction(); // Never keep the validated block...
+                }
             }
-            finally {
-                databaseManager.rollbackTransaction(); // Never keep the validated block...
+            catch (final Exception exception) {
+                Logger.debug("Error validating Prototype Block: " + block.getHash(), exception);
+                return BlockValidationResult.invalid("An internal error occurred.");
             }
-        }
-        catch (final Exception exception) {
-            Logger.debug("Error validating Prototype Block: " + block.getHash(), exception);
-            return BlockValidationResult.invalid("An internal error occurred.");
         }
     }
 
@@ -779,7 +778,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
             final MedianBlockTimeContext medianBlockTimeContext = new MedianBlockTimeContextCore(blockchainSegmentId, databaseManager);
-            final LazyUnconfirmedTransactionUtxoSet unconfirmedTransactionUtxoSet = new LazyUnconfirmedTransactionUtxoSet(databaseManager);
+            final LazyUnconfirmedTransactionUtxoSet unconfirmedTransactionUtxoSet = new LazyUnconfirmedTransactionUtxoSet(databaseManager, _upgradeSchedule);
             final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(_masterInflater, _networkTime, medianBlockTimeContext, unconfirmedTransactionUtxoSet, _upgradeSchedule);
             final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 

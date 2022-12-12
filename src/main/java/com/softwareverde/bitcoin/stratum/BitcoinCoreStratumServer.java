@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.stratum;
 
 import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.ParsedAddress;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
@@ -71,7 +72,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
     protected final ConcurrentHashMap<Long, StratumMineBlockTask> _olderMineBlockTasks2 = new ConcurrentHashMap<>();
     protected final ConcurrentHashMap<Long, StratumMineBlockTask> _olderMineBlockTasks3 = new ConcurrentHashMap<>(); // Older
 
-    protected Address _coinbaseAddress;
+    protected ParsedAddress _coinbaseAddress;
     protected final Thread _rebuildBlockTemplateThread;
     protected BlockTemplate _blockTemplate;
     protected final NanoTimer _timeSinceLastTemplateValidation = new NanoTimer();
@@ -88,7 +89,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
     protected Boolean _invertDifficultyEnabled = false;
     protected Long _baseShareDifficulty = 2048L;
 
-    protected Address _getCoinbaseAddress() {
+    protected ParsedAddress _getCoinbaseAddress() {
         return _coinbaseAddress;
     }
 
@@ -211,7 +212,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
             _createRandomBytes(8) // Creates a unique job for each task, preventing duplicate shares from being created under high workload.
         );
 
-        final Address address = _getCoinbaseAddress();
+        final ParsedAddress parsedAddress = _getCoinbaseAddress();
 
         final BlockTemplate blockTemplate = _blockTemplate;
         if (blockTemplate == null) {
@@ -226,6 +227,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
         final Long coinbaseAmount = blockTemplate.getCoinbaseAmount();
 
         // NOTE: Coinbase is mutated by the StratumMineTaskFactory to include the Transaction Fees...
+        final Address address = parsedAddress.getBytes();
         final Transaction coinbaseTransaction = transactionInflater.createCoinbaseTransactionWithExtraNonce(blockHeight, coinbaseMessage, extraBytes, _totalExtraNonceByteCount, address, coinbaseAmount);
 
         stratumMineBlockTaskBuilder.setBlockVersion(BlockHeader.VERSION);
@@ -585,7 +587,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
 
         Logger.info("[Server Online]");
 
-        final Address address = _getCoinbaseAddress();
+        final ParsedAddress address = _getCoinbaseAddress();
         Logger.debug("Coinbase Address: " + address.toBase58CheckEncoded());
 
         _rebuildBlockTemplateThread.start();
@@ -661,7 +663,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
     }
 
     @Override
-    public void setCoinbaseAddress(final Address address) {
+    public void setCoinbaseAddress(final ParsedAddress address) {
         _coinbaseAddress = address;
     }
 

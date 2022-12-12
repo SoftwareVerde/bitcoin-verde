@@ -10,7 +10,6 @@ import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
-import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.network.time.VolatileNetworkTime;
 
 public class TransactionValidatorContext implements TransactionValidator.Context {
@@ -49,13 +48,13 @@ public class TransactionValidatorContext implements TransactionValidator.Context
     }
 
     @Override
-    public Sha256Hash getBlockHash(final TransactionOutputIdentifier transactionOutputIdentifier) {
-        return _unspentTransactionOutputContext.getBlockHash(transactionOutputIdentifier);
+    public Boolean isCoinbaseTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
+        return _unspentTransactionOutputContext.isCoinbaseTransactionOutput(transactionOutputIdentifier);
     }
 
     @Override
-    public Boolean isCoinbaseTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
-        return _unspentTransactionOutputContext.isCoinbaseTransactionOutput(transactionOutputIdentifier);
+    public Boolean isPreActivationTokenForgery(final TransactionOutputIdentifier transactionOutputIdentifier) {
+        return _unspentTransactionOutputContext.isPreActivationTokenForgery(transactionOutputIdentifier);
     }
 
     @Override

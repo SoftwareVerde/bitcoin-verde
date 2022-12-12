@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.transaction.script;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.address.ParsedAddress;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -82,7 +83,8 @@ public class ScriptPatternMatcherTests {
         final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
         Assert.assertEquals(ScriptType.PAY_TO_PUBLIC_KEY, scriptType);
 
-        Assert.assertEquals("1JoiKZz2QRd47ARtcYgvgxC9jhnre9aphv", scriptPatternMatcher.extractAddressFromPayToPublicKey(lockingScript).toBase58CheckEncoded());
+        final Address addressBytes = scriptPatternMatcher.extractAddressFromPayToPublicKey(lockingScript);
+        Assert.assertEquals("1JoiKZz2QRd47ARtcYgvgxC9jhnre9aphv", ParsedAddress.toBase58CheckEncoded(addressBytes));
         // Assert.assertEquals("19p8dgapw4MktfhcuaPAevLXpBQaY1Xq8J", scriptPatternMatcher.extractAddressFromPayToPublicKey(lockingScript).toBase58CheckEncoded());
     }
 
@@ -95,7 +97,8 @@ public class ScriptPatternMatcherTests {
         final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
         Assert.assertEquals(ScriptType.PAY_TO_PUBLIC_KEY, scriptType);
 
-        Assert.assertEquals("19p8dgapw4MktfhcuaPAevLXpBQaY1Xq8J", scriptPatternMatcher.extractAddressFromPayToPublicKey(lockingScript).toBase58CheckEncoded());
+        final Address addressBytes = scriptPatternMatcher.extractAddressFromPayToPublicKey(lockingScript);
+        Assert.assertEquals("19p8dgapw4MktfhcuaPAevLXpBQaY1Xq8J", ParsedAddress.toBase58CheckEncoded(addressBytes));
         // Assert.assertEquals("1JoiKZz2QRd47ARtcYgvgxC9jhnre9aphv", scriptPatternMatcher.extractDecompressedAddressFromPayToPublicKey(lockingScript).toBase58CheckEncoded());
     }
 
@@ -206,7 +209,7 @@ public class ScriptPatternMatcherTests {
         final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
         final AddressInflater addressInflater = new AddressInflater();
-        final Address expectedAddress = addressInflater.fromBase58Check("1CfD77hupeUvFwBPxZ2fA8iyWmVwQY22oh");
+        final Address expectedAddress = addressInflater.fromBase58Check("1CfD77hupeUvFwBPxZ2fA8iyWmVwQY22oh").getBytes();
 
         // Action
         final Address address = scriptPatternMatcher.extractAddressFromPayToPublicKeyHash(unlockingScript);

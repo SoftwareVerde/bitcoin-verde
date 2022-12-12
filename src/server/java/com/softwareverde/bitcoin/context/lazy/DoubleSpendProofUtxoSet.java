@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.context.lazy;
 
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.UnconfirmedTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
@@ -11,8 +12,8 @@ import com.softwareverde.logging.Logger;
 
 public class DoubleSpendProofUtxoSet extends LazyUnconfirmedTransactionUtxoSet {
 
-    public DoubleSpendProofUtxoSet(final FullNodeDatabaseManager databaseManager) {
-        super(databaseManager, true);
+    public DoubleSpendProofUtxoSet(final FullNodeDatabaseManager databaseManager, final UpgradeSchedule upgradeSchedule) {
+        super(databaseManager, upgradeSchedule, true);
     }
 
     @Override

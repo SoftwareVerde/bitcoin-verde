@@ -35,15 +35,15 @@ public class BlockchainDatabaseManagerTests2 extends IntegrationTest {
         super.before();
 
         final BlockInflater blockInflater = new BlockInflater();
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
-            final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-            if (! Util.areEqual(BlockHeader.GENESIS_BLOCK_HASH, genesisBlock.getHash())) {
-                throw new RuntimeException("Error inflating Genesis Block.");
-            }
+                final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+                if (! Util.areEqual(BlockHeader.GENESIS_BLOCK_HASH, genesisBlock.getHash())) {
+                    throw new RuntimeException("Error inflating Genesis Block.");
+                }
 
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
                 blockDatabaseManager.insertBlock(genesisBlock);
             }
         }
@@ -55,39 +55,39 @@ public class BlockchainDatabaseManagerTests2 extends IntegrationTest {
     }
 
     private Sha256Hash _insertTestBlocks(final Sha256Hash startingHash, final int blockCount) throws DatabaseException {
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
-            final Random random = new Random();
-            Sha256Hash hash = ((startingHash == null) ? BlockHeader.GENESIS_BLOCK_HASH : startingHash);
+                final Random random = new Random();
+                Sha256Hash hash = ((startingHash == null) ? BlockHeader.GENESIS_BLOCK_HASH : startingHash);
 
-            final BlockHasher blockHasher = new BlockHasher();
+                final BlockHasher blockHasher = new BlockHasher();
 
-            final BlockInflater blockInflater = new BlockInflater();
-            final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+                final BlockInflater blockInflater = new BlockInflater();
+                final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
 
-            for (int i = 0; i < blockCount; i++) {
-                final byte[] nonceBytes = new byte[4];
-                random.nextBytes(nonceBytes);
+                for (int i = 0; i < blockCount; i++) {
+                    final byte[] nonceBytes = new byte[4];
+                    random.nextBytes(nonceBytes);
 
 
-                final MutableBlock block = new MutableBlock();
-                block.setPreviousBlockHash(hash);
-                block.setVersion(1L);
-                block.setTimestamp((long) i+100);
-                block.setNonce(ByteUtil.bytesToLong(nonceBytes));
-                block.setDifficulty(Difficulty.BASE_DIFFICULTY);
+                    final MutableBlock block = new MutableBlock();
+                    block.setPreviousBlockHash(hash);
+                    block.setVersion(1L);
+                    block.setTimestamp((long) i+100);
+                    block.setNonce(ByteUtil.bytesToLong(nonceBytes));
+                    block.setDifficulty(Difficulty.BASE_DIFFICULTY);
 
-                block.addTransaction(genesisBlock.getCoinbaseTransaction());
+                    block.addTransaction(genesisBlock.getCoinbaseTransaction());
 
-                synchronized (BlockHeaderDatabaseManager.MUTEX) {
                     blockDatabaseManager.insertBlock(block);
-                }
 
-                hash = blockHasher.calculateBlockHash(block);
+                    hash = blockHasher.calculateBlockHash(block);
+                }
+                // return final hash
+                return hash;
             }
-            // return final hash
-            return hash;
         }
     }
 

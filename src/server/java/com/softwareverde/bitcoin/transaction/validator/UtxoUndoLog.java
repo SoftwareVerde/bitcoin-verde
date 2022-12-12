@@ -1,6 +1,9 @@
 package com.softwareverde.bitcoin.transaction.validator;
 
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -27,8 +30,13 @@ public class UtxoUndoLog {
     }
 
     public void undoBlock(final Block block) throws DatabaseException {
-        Logger.debug("Undoing Block: " + block.getHash());
+        final Sha256Hash blockHash = block.getHash();
+        Logger.debug("Undoing Block: " + blockHash);
         final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
+
+        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+        final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
 
         boolean isCoinbase = true;
         final List<Transaction> transactions = block.getTransactions();
@@ -40,7 +48,7 @@ public class UtxoUndoLog {
                 final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
                 final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
                 if (! block.hasTransaction(transactionHash)) { // Do not add outputs created by this block to the available UTXO set...
-                    final UnspentTransactionOutput unspentTransactionOutput = unspentTransactionOutputDatabaseManager.findOutputData(transactionOutputIdentifier);
+                    final UnspentTransactionOutput unspentTransactionOutput = unspentTransactionOutputDatabaseManager.findOutputData(transactionOutputIdentifier, blockchainSegmentId);
                     if (unspentTransactionOutput == null) {
                         throw new DatabaseException("Unable to find Output: " + transactionOutputIdentifier);
                     }

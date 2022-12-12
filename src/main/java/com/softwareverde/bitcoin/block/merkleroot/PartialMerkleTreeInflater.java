@@ -1,13 +1,14 @@
 package com.softwareverde.bitcoin.block.merkleroot;
 
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.cryptography.hash.sha256.MutableSha256Hash;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
 
 public class PartialMerkleTreeInflater {
@@ -17,26 +18,28 @@ public class PartialMerkleTreeInflater {
 
         final Integer transactionCount = byteArrayReader.readInteger(4, Endian.LITTLE);
 
-        final int hashesCount = byteArrayReader.readVariableLengthInteger().intValue();
-        if (hashesCount > MAX_HASHES_COUNT) {
+        final CompactVariableLengthInteger hashesCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
+        if (! hashesCount.isCanonical()) { return null; }
+        if (hashesCount.intValue() > MAX_HASHES_COUNT) {
             Logger.debug("MerkleBlock exceeded maximum hashes count: " + hashesCount);
             return null;
         }
 
-        final ImmutableListBuilder<Sha256Hash> hashesBuilder = new ImmutableListBuilder<>(hashesCount);
-        for (int i = 0; i < hashesCount; ++i) {
+        final ImmutableListBuilder<Sha256Hash> hashesBuilder = new ImmutableListBuilder<>(hashesCount.intValue());
+        for (int i = 0; i < hashesCount.intValue(); ++i) {
             final Sha256Hash hash = MutableSha256Hash.wrap(byteArrayReader.readBytes(Sha256Hash.BYTE_COUNT, Endian.LITTLE));
             hashesBuilder.add(hash);
         }
 
-        final int flagsByteCount = byteArrayReader.readVariableLengthInteger().intValue();
-        if (flagsByteCount > MAX_HASHES_COUNT) {
+        final CompactVariableLengthInteger flagsByteCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
+        if (! flagsByteCount.isCanonical()) { return null; }
+        if (flagsByteCount.intValue() > MAX_HASHES_COUNT) {
             Logger.debug("MerkleBlock exceeded maximum flag-bytes count: " + flagsByteCount);
             return null;
         }
 
-        final MutableByteArray flags = MutableByteArray.wrap(byteArrayReader.readBytes(flagsByteCount));
-        for (int i = 0; i < flagsByteCount; ++i) {
+        final MutableByteArray flags = MutableByteArray.wrap(byteArrayReader.readBytes(flagsByteCount.intValue()));
+        for (int i = 0; i < flagsByteCount.intValue(); ++i) {
             flags.setByte(i, ByteUtil.reverseBits(flags.getByte(i)));
         }
 

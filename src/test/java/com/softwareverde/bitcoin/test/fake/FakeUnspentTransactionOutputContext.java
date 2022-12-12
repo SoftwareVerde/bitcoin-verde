@@ -16,6 +16,7 @@ public class FakeUnspentTransactionOutputContext implements UnspentTransactionOu
     protected final HashMap<TransactionOutputIdentifier, Boolean> _transactionCoinbaseStatuses = new HashMap<>();
     protected final HashMap<TransactionOutputIdentifier, Sha256Hash> _transactionBlockHashes = new HashMap<>();
     protected final HashMap<TransactionOutputIdentifier, Long> _transactionBlockHeights = new HashMap<>();
+    protected final HashMap<TransactionOutputIdentifier, Boolean> _patfoStatuses = new HashMap<>();
 
     public FakeUnspentTransactionOutputContext() {
         _logNonExistentOutputs = true;
@@ -43,21 +44,21 @@ public class FakeUnspentTransactionOutputContext implements UnspentTransactionOu
     }
 
     @Override
-    public Sha256Hash getBlockHash(final TransactionOutputIdentifier transactionOutputIdentifier) {
-        if ( (! _transactionBlockHeights.containsKey(transactionOutputIdentifier)) && _logNonExistentOutputs ) {
-            Logger.debug("Requested non-existent output Block hash: " + transactionOutputIdentifier, new Exception());
-        }
-
-        return _transactionBlockHashes.get(transactionOutputIdentifier);
-    }
-
-    @Override
     public Boolean isCoinbaseTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
         if ( (! _transactionBlockHeights.containsKey(transactionOutputIdentifier)) && _logNonExistentOutputs ) {
             Logger.debug("Requested non-existent coinbase output: " + transactionOutputIdentifier, new Exception());
         }
 
         return _transactionCoinbaseStatuses.get(transactionOutputIdentifier);
+    }
+
+    @Override
+    public Boolean isPreActivationTokenForgery(final TransactionOutputIdentifier transactionOutputIdentifier) {
+        if ( (! _patfoStatuses.containsKey(transactionOutputIdentifier)) && _logNonExistentOutputs ) {
+            Logger.debug("Requested non-existent PATFO status: " + transactionOutputIdentifier, new Exception());
+        }
+
+        return _patfoStatuses.get(transactionOutputIdentifier);
     }
 
     public void addTransaction(final Transaction transaction, final Sha256Hash blockHash, final Long blockHeight, final Boolean isCoinbaseTransaction) {
@@ -71,8 +72,13 @@ public class FakeUnspentTransactionOutputContext implements UnspentTransactionOu
             _transactionBlockHeights.put(transactionOutputIdentifier, blockHeight);
             _transactionCoinbaseStatuses.put(transactionOutputIdentifier, isCoinbaseTransaction);
             _transactionBlockHashes.put(transactionOutputIdentifier, blockHash);
+            _patfoStatuses.put(transactionOutputIdentifier, false);
             outputIndex += 1;
         }
+    }
+
+    public void setPatfoStatus(final TransactionOutputIdentifier transactionOutputIdentifier, final Boolean isPatfo) {
+        _patfoStatuses.put(transactionOutputIdentifier, isPatfo);
     }
 
     public void clear() {

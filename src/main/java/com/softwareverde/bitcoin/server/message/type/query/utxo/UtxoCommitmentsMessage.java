@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentSubBucket;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -45,10 +46,10 @@ public class UtxoCommitmentsMessage extends BitcoinProtocolMessage {
         }
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(UtxoCommitmentsMessage.VERSION));
+        byteArrayBuilder.appendBytes(CompactVariableLengthInteger.variableLengthIntegerToBytes(UtxoCommitmentsMessage.VERSION));
 
         final int commitmentCount = _commitments.getCount();
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(commitmentCount));
+        byteArrayBuilder.appendBytes(CompactVariableLengthInteger.variableLengthIntegerToBytes(commitmentCount));
         for (final NodeSpecificUtxoCommitmentBreakdown utxoCommitment : _commitments) {
             final UtxoCommitmentMetadata utxoCommitmentMetadata = utxoCommitment.getMetadata();
             final List<UtxoCommitmentBucket> utxoCommitmentBuckets = utxoCommitment.getBuckets();
@@ -71,7 +72,7 @@ public class UtxoCommitmentsMessage extends BitcoinProtocolMessage {
 
                 final List<UtxoCommitmentSubBucket> subBuckets = utxoCommitmentBucket.getSubBuckets();
                 final int subBucketCount = subBuckets.getCount();
-                byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(subBucketCount));
+                byteArrayBuilder.appendBytes(CompactVariableLengthInteger.variableLengthIntegerToBytes(subBucketCount));
                 for (final UtxoCommitmentSubBucket subBucket : subBuckets) {
                     final PublicKey subBucketPublicKey = subBucket.getPublicKey();
                     final Long subBucketByteCount = subBucket.getByteCount();

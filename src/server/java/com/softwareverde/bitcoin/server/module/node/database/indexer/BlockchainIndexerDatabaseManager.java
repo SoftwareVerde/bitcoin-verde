@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.database.indexer;
 
 import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.TypedAddress;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -13,9 +14,9 @@ import com.softwareverde.database.DatabaseException;
 import java.util.Map;
 
 public interface BlockchainIndexerDatabaseManager {
-    List<TransactionId> getTransactionIds(BlockchainSegmentId blockchainSegmentId, Address address, Boolean includeUnconfirmedTransactions) throws DatabaseException;
+    List<TransactionId> getTransactionIds(BlockchainSegmentId blockchainSegmentId, TypedAddress address, Boolean includeUnconfirmedTransactions) throws DatabaseException;
     List<TransactionId> getTransactionIds(BlockchainSegmentId blockchainSegmentId, Sha256Hash scriptHash, Boolean includeUnconfirmedTransactions) throws DatabaseException;
-    Long getAddressBalance(BlockchainSegmentId blockchainSegmentId, Address address, Boolean includeUnconfirmedTransactions) throws DatabaseException;
+    Long getAddressBalance(BlockchainSegmentId blockchainSegmentId, TypedAddress address, Boolean includeUnconfirmedTransactions) throws DatabaseException;
     Long getAddressBalance(BlockchainSegmentId blockchainSegmentId, Sha256Hash scriptHash, Boolean includeUnconfirmedTransactions) throws DatabaseException;
     Map<Integer, TransactionId> getTransactionsSpendingOutputsOf(TransactionId transactionId) throws DatabaseException;
 

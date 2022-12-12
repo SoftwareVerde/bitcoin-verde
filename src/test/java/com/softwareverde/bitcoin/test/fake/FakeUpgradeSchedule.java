@@ -18,6 +18,8 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     protected Boolean _isBitcoinCashSignatureHashTypeEnabled;
     protected Boolean _areOnlyPushOperationsAllowedWithinUnlockingScript;
     protected Boolean _isPayToScriptHashEnabled;
+    protected Boolean _areCashTokensEnabled;
+    protected Boolean _isSha256PayToScriptHashEnabled;
     protected Boolean _isAsertDifficultyAdjustmentAlgorithmEnabled;
     protected Boolean _isCw144DifficultyAdjustmentAlgorithmEnabled;
     protected Boolean _isEmergencyDifficultyAdjustmentAlgorithmEnabled;
@@ -34,6 +36,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     protected Boolean _areDerSignaturesRequiredToBeStrictlyEncoded;
     protected Boolean _areUnusedValuesAfterScriptExecutionDisallowed;
     protected Boolean _areTransactionsLessThanOneHundredBytesDisallowed;
+    protected Boolean _areTransactionsLessThanSixtyFiveBytesDisallowed;
     protected Boolean _areUnusedValuesAfterSegwitScriptExecutionAllowed;
     protected Boolean _isSignatureOperationCountingVersionTwoEnabled;
     protected Boolean _isCheckDataSignatureOperationEnabled;
@@ -42,6 +45,9 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     protected Boolean _areIntrospectionOperationsEnabled;
     protected Boolean _are64BitScriptIntegersEnabled;
     protected Boolean _isMultiplyOperationEnabled;
+    protected Boolean _areTransactionVersionsRestricted;
+
+    protected Boolean _didUpgradeActivate = false;
 
     public FakeUpgradeSchedule(final UpgradeSchedule upgradeSchedule) {
         _parentUpgradeSchedule = upgradeSchedule;
@@ -49,6 +55,15 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
 
     protected Boolean _isOverriddenOrEnabled(final Boolean override, final Boolean isEnabled) {
         return ((override != null) ? override : isEnabled);
+    }
+
+    @Override
+    public Boolean didUpgradeActivate(final Long blockHeight0, final MedianBlockTime medianBlockTime0, final Long blockHeight1, final MedianBlockTime medianBlockTime1) {
+        return _didUpgradeActivate;
+    }
+
+    public void setDidUpgradeActivate(final Boolean didUpgradeActivate) {
+        _didUpgradeActivate = didUpgradeActivate;
     }
 
     @Override
@@ -67,8 +82,13 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     }
 
     @Override
-    public Boolean isPayToScriptHashEnabled(final Long blockHeight) {
-        return _isOverriddenOrEnabled(_isPayToScriptHashEnabled, _parentUpgradeSchedule.isPayToScriptHashEnabled(Util.coalesce(blockHeight, Long.MAX_VALUE)));
+    public Boolean isLegacyPayToScriptHashEnabled(final Long blockHeight) {
+        return _isOverriddenOrEnabled(_isPayToScriptHashEnabled, _parentUpgradeSchedule.isLegacyPayToScriptHashEnabled(Util.coalesce(blockHeight, Long.MAX_VALUE)));
+    }
+
+    @Override
+    public Boolean isSha256PayToScriptHashEnabled(final MedianBlockTime medianBlockTime) {
+        return _isOverriddenOrEnabled(_isSha256PayToScriptHashEnabled, _parentUpgradeSchedule.isSha256PayToScriptHashEnabled(Util.coalesce(medianBlockTime, MedianBlockTime.MAX_VALUE)));
     }
 
     @Override
@@ -152,6 +172,11 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     }
 
     @Override
+    public Boolean areTransactionsLessThanSixtyFiveBytesDisallowed(final MedianBlockTime medianBlockTime) {
+        return _isOverriddenOrEnabled(_areTransactionsLessThanSixtyFiveBytesDisallowed, _parentUpgradeSchedule.areTransactionsLessThanSixtyFiveBytesDisallowed(Util.coalesce(medianBlockTime, MedianBlockTime.MAX_VALUE)));
+    }
+
+    @Override
     public Boolean areUnusedValuesAfterSegwitScriptExecutionAllowed(final MedianBlockTime medianBlockTime) {
         return _isOverriddenOrEnabled(_areUnusedValuesAfterSegwitScriptExecutionAllowed, _parentUpgradeSchedule.areUnusedValuesAfterSegwitScriptExecutionAllowed(Util.coalesce(medianBlockTime, MedianBlockTime.MAX_VALUE)));
     }
@@ -191,6 +216,16 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
         return _isOverriddenOrEnabled(_isMultiplyOperationEnabled, _parentUpgradeSchedule.isMultiplyOperationEnabled(Util.coalesce(medianBlockTime, MedianBlockTime.MAX_VALUE)));
     }
 
+    @Override
+    public Boolean areTransactionVersionsRestricted(final MedianBlockTime medianBlockTime) {
+        return _isOverriddenOrEnabled(_areTransactionVersionsRestricted, _parentUpgradeSchedule.areTransactionVersionsRestricted(Util.coalesce(medianBlockTime, MedianBlockTime.MAX_VALUE)));
+    }
+
+    @Override
+    public Boolean areCashTokensEnabled(final MedianBlockTime medianBlockTime) {
+        return _isOverriddenOrEnabled(_areCashTokensEnabled, _parentUpgradeSchedule.areCashTokensEnabled(Util.coalesce(medianBlockTime, MedianBlockTime.MAX_VALUE)));
+    }
+
     public void setMinimalNumberEncodingRequired(final Boolean minimalNumberEncodingRequired) {
         _isMinimalNumberEncodingRequired = minimalNumberEncodingRequired;
     }
@@ -203,8 +238,16 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
         _areOnlyPushOperationsAllowedWithinUnlockingScript = areOnlyPushOperationsAllowedWithinUnlockingScript;
     }
 
-    public void setPayToScriptHashEnabled(final Boolean payToScriptHashEnabled) {
+    public void setLegacyPayToScriptHashEnabled(final Boolean payToScriptHashEnabled) {
         _isPayToScriptHashEnabled = payToScriptHashEnabled;
+    }
+
+    public void setCashTokensEnabled(final Boolean cashTokensEnabled) {
+        _areCashTokensEnabled = cashTokensEnabled;
+    }
+
+    public void setSha256PayToScriptHashEnabled(final Boolean sha256PayToScriptHashIsEnabled) {
+        _isSha256PayToScriptHashEnabled = sha256PayToScriptHashIsEnabled;
     }
 
     public void setAsertDifficultyAdjustmentAlgorithmEnabled(final Boolean asertDifficultyAdjustmentAlgorithmEnabled) {
@@ -271,6 +314,10 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
         _areTransactionsLessThanOneHundredBytesDisallowed = areTransactionsLessThanOneHundredBytesDisallowed;
     }
 
+    public void setTransactionsLessThanSixtyFiveBytesDisallowed(final Boolean areTransactionsLessThanSixtyFiveBytesDisallowed) {
+        _areTransactionsLessThanSixtyFiveBytesDisallowed = areTransactionsLessThanSixtyFiveBytesDisallowed;
+    }
+
     public void setUnusedValuesAfterSegwitScriptExecutionAllowed(final Boolean areUnusedValuesAfterSegwitScriptExecutionAllowed) {
         _areUnusedValuesAfterSegwitScriptExecutionAllowed = areUnusedValuesAfterSegwitScriptExecutionAllowed;
     }
@@ -301,5 +348,9 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
 
     public void setMultiplyOperationEnabled(final Boolean multiplyOperationEnabled) {
         _isMultiplyOperationEnabled = multiplyOperationEnabled;
+    }
+
+    public void setAreTransactionVersionsRestricted(final Boolean areTransactionVersionsRestricted) {
+        _areTransactionVersionsRestricted = areTransactionVersionsRestricted;
     }
 }
