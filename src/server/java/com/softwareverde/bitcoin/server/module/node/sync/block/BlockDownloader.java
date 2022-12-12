@@ -189,7 +189,7 @@ public class BlockDownloader extends PausableSleepyService {
         while (! _shouldAbort()) {
             final PendingBlockInventory pendingBlockInventory = _downloadBlockQueue.pollFirst();
             if (pendingBlockInventory == null) {
-                Logger.debug("BlockDownloader - Nothing to do.");
+                Logger.trace("BlockDownloader - Nothing to do.");
                 return false;
             }
 
