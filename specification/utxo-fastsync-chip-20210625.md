@@ -97,11 +97,11 @@ The serialized UTXO set is the set of byte sequences constructed by serializing 
 | 1-5 | outputIndex | The index of the output within the transaction (as a compact variable length integer**). | Little |
 | 1-5 | height, isCoinbase | This is serialized as a compact variable length integer**. The least significant bit is set if the UTXO is a coinbase output.  The remaining high-order 31 bits** represent the block height. | Little |
 | 1-9 | value | The amount, in satoshis (as a compact variable length integer**). | Little |
-| 1-4 | lockingScriptByteCount | The number of bytes in the locking script (as a compact variable length integer**). | Little |
-| ? | lockingScript | The locking script ("scriptPubKey", "pk_script"). | N/A |
+| 1-5 | lockingScriptByteCount | The number of bytes in the locking script (as a compact variable length integer**). | Little |
+| ? | lockingScript | The locking script ("scriptPubKey", "pk_script"). For token outputs, should include the preamble TOKEN_PREFIX + token data (`0xef`, etc..) | N/A |
 
 ** The Van der Wansem proposal was ambiguous in regard to its definition of the locking script byte count and UTXO height, and it used fixed-width 8-byte integers for the UTXO value.
-This proposal uses a 1-5-byte variable compact-length integer for the UTXO height/isCoinbase flag, and a 1 byte (up to 4) variable compact-length integer for its locking-script byte-count prefix, and a 1-9 byte variable compact-length integer for the utxo value.
+This proposal uses a 1-5-byte variable compact-length integer for the UTXO height/isCoinbase flag, and a 1 byte (up to 5) variable compact-length integer for its locking-script byte-count prefix, and a 1-9 byte variable compact-length integer for the utxo value.
 Considering there are over 55 million UTXOs in the current set, opting to encode all integers as "compact size" ints (little endian) may save hundreds of MB of space. This reduction is not unremarkable and poses little complexity to the format.
 
 DISCUSSION: the above reasoning regarding choosing a compact variable length integer format vs 4-byte integer format for the lockingScriptByteCount could apply to outputIndex.
