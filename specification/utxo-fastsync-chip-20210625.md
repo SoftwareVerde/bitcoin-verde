@@ -95,7 +95,7 @@ The serialized UTXO set is the set of byte sequences constructed by serializing 
 | --- | --- | --- | --- |
 | 32 | transactionHash | The hash ("txid") of the transaction. | Little |
 | 1-5 | outputIndex | The index of the output within the transaction (as a compact variable length integer**). | Little |
-| 1-5 | height, isCoinbase | This is serialized as a compact variable length integer**. The least significant bit is set if the UTXO is a coinbase output.  The remaining high-order 31 bits** represent the block height. | Little |
+| 1-5 | height, isCoinbase | This is serialized as a compact variable length integer**. The least significant bit is set if the UTXO is a coinbase output.  The remaining high-order 31 bits represent the block height. | Little |
 | 1-9 | value | The amount, in satoshis (as a compact variable length integer**). | Little |
 | 1-5 | lockingScriptByteCount | The number of bytes in the locking script (as a compact variable length integer**). | Little |
 | ? | lockingScript | The locking script ("scriptPubKey", "pk_script"). For token outputs, should include the preamble TOKEN_PREFIX + token data (`0xef`, etc..) | N/A |
