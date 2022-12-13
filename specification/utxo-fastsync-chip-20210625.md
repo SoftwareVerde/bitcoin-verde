@@ -104,10 +104,6 @@ The serialized UTXO set is the set of byte sequences constructed by serializing 
 This proposal uses a 1-5-byte variable compact-length integer for the UTXO height/isCoinbase flag, and a 1 byte (up to 5) variable compact-length integer for its locking-script byte-count prefix, and a 1-9 byte variable compact-length integer for the utxo value.
 Considering there are over 55 million UTXOs in the current set, opting to encode all integers as "compact size" ints (little endian) may save hundreds of MB of space. This reduction is not unremarkable and poses little complexity to the format.
 
-DISCUSSION: the above reasoning regarding choosing a compact variable length integer format vs 4-byte integer format for the lockingScriptByteCount could apply to outputIndex.
-However, there is a well-established convention for outputIndex as being defined as a 4-byte integer.
-The community should discuss if going against current convention and redefining the outputIndex for UTXO commitments is worth the 160+ MB gain in space-efficiency.
-
 ### EC Multiset: Public Key vs Hash
 
 A UTXO commitment/snapshot is identified by its EC Multiset's public key; this is distinct from Van der Wansem's proposal.
