@@ -95,14 +95,16 @@ The serialized UTXO set is the set of byte sequences constructed by serializing 
 | --- | --- | --- | --- |
 | 32 | transactionHash | The hash ("txid") of the transaction. | Little |
 | 1-5 | outputIndex | The index of the output within the transaction (as a compact variable length integer**). | Little |
-| 1-5 | height, isCoinbase | This is serialized as a compact variable length integer**. The least significant bit is set if the UTXO is a coinbase output.  The remaining high-order 31 bits represent the block height. | Little |
+| 4 | height, isCoinbase | This is serialized as an unsigned 32-bit integer. The least significant bit is set if the UTXO is a coinbase output.  The remaining high-order 31 bits represent the block height (shifted over by 1 bit). | Little |
 | 1-9 | value | The amount, in satoshis, negative values are disallowed, so the useful range is 0 - 2^63-1. Serialized as a compact variable length integer**. | Little |
 | 1-5 | lockingScriptByteCount | The number of bytes in the locking script (as a compact variable length integer**). | Little |
 | ? | lockingScript | The locking script ("scriptPubKey", "pk_script"). For token outputs, should include the preamble TOKEN_PREFIX + token data (`0xef`, etc..) | N/A |
 
 ** The Van der Wansem proposal was ambiguous in regard to its definition of the locking script byte count and UTXO height, and it used fixed-width 8-byte integers for the UTXO value.
-This proposal uses variable compact-length integers in many places to save space within he UTXO format, as well as other places in this specification.
-Considering there are over 55 million UTXOs in the current set, opting to encode all integers as "compact size" ints (little endian) may save hundreds of MB of space. This reduction is not unremarkable and poses little complexity to the format.
+This proposal uses variable [compact variable-length integers](https://documentation.cash/protocol/formats/variable-length-integer) also known as `CompactSzie` in many places to save space within he UTXO format, as well as other places in this specification.
+Considering there are over 55 million UTXOs in the current set, opting to encode all integers as `CompactSize` ints (little endian) may save hundreds of MB of space. This reduction is not unremarkable and poses little complexity to the format.
+
+**Note:** *All* `CompactSize` integers appearing in this specification **must** be "minimally encoded". If they are not, software **must** reject any messages or data featuring non-minimally-encoded compact sizes.
 
 ### EC Multiset: Public Key vs Hash
 
