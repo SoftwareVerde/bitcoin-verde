@@ -101,7 +101,7 @@ The serialized UTXO set is the set of byte sequences constructed by serializing 
 | ? | lockingScript | The locking script ("scriptPubKey", "pk_script"). For token outputs, should include the preamble TOKEN_PREFIX + token data (`0xef`, etc..) | N/A |
 
 ** The Van der Wansem proposal was ambiguous in regard to its definition of the locking script byte count and UTXO height, and it used fixed-width 8-byte integers for the UTXO value.
-This proposal uses a 1-5-byte variable compact-length integer for the UTXO height/isCoinbase flag, and a 1 byte (up to 5) variable compact-length integer for its locking-script byte-count prefix, and a 1-9 byte variable compact-length integer for the utxo value.
+This proposal uses variable compact-length integers in many places to save space within he UTXO format, as well as other places in this specification.
 Considering there are over 55 million UTXOs in the current set, opting to encode all integers as "compact size" ints (little endian) may save hundreds of MB of space. This reduction is not unremarkable and poses little complexity to the format.
 
 ### EC Multiset: Public Key vs Hash
@@ -208,7 +208,7 @@ Peers with incompatible bucket definitions ignore the commitment breakdown after
 The current convention recommends 128 buckets; using a different convention could render snapshots incompatible between implementations.
 
 Each UTXO is placed in its canonical bucket by taking the first 7 bits of the first byte of a single Sha256 hash of the following preimage, and interpreting the resulting bits as an integer index:
-1. the commitment's prvcious block hash**, as little endian
+1. the commitment's previous block hash**, as little endian
 2. the UTXO's transaction hash, as little endian
 3. the UTXO's output index, as a 4-byte integer, little endian
 
