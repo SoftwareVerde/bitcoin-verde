@@ -45,11 +45,8 @@ public interface CommittedUnspentTransactionOutput extends UnspentTransactionOut
         return index0.compareTo(index1);
     }
 
-    // The original specification for the UTXO set was contradictory/broken, and instructs that the LSB bit is
-    //  set when flagging the UTXO's isCoinbase flag: https://github.com/tomasvdw/bips/blob/master/ecmh-utxo-commitment-0.mediawiki#specification
-    //  This is contradictory to allowing 31 bits for the blockHeight.  Unfortunately, other implementations followed
-    //  the specification (which only allows for 24 bits for the blockHeight).
-    Integer IS_COINBASE_FLAG_BIT_INDEX = 0; // (7 is "incorrect" but is what BCHD uses)
+    Integer BLOCK_HEIGHT_BIT_SHIFT_COUNT = 1;
+    Integer IS_COINBASE_FLAG_BIT_INDEX = 7;
 
     Sha256Hash getTransactionHash();
     Integer getByteCount();

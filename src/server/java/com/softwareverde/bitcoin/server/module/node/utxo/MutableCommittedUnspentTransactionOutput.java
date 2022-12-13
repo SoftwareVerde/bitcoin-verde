@@ -45,18 +45,22 @@ public class MutableCommittedUnspentTransactionOutput extends MutableUnspentTran
     public ByteArray getBytes() {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
 
-        final MutableByteArray blockHeightAndIsCoinbaseBytes = MutableByteArray.wrap(ByteUtil.integerToBytes(_blockHeight));
-        if (_isCoinbase) {
-            blockHeightAndIsCoinbaseBytes.setBit(CommittedUnspentTransactionOutput.IS_COINBASE_FLAG_BIT_INDEX, true);
+        final MutableByteArray blockHeightAndIsCoinbaseBytes;
+        {
+            final long shiftedBlockHeight = _blockHeight << CommittedUnspentTransactionOutput.BLOCK_HEIGHT_BIT_SHIFT_COUNT;
+            blockHeightAndIsCoinbaseBytes = MutableByteArray.wrap(ByteUtil.integerToBytes(shiftedBlockHeight));
+            if (_isCoinbase) {
+                blockHeightAndIsCoinbaseBytes.setBit(CommittedUnspentTransactionOutput.IS_COINBASE_FLAG_BIT_INDEX, true);
+            }
         }
 
         byteArrayBuilder.appendBytes(_transactionHash, Endian.LITTLE); // 32 bytes
-        byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(_index), Endian.LITTLE); // 4 bytes
+        byteArrayBuilder.appendBytes(CompactVariableLengthInteger.variableLengthIntegerToBytes(_index)); // 1-4 bytes
         byteArrayBuilder.appendBytes(blockHeightAndIsCoinbaseBytes, Endian.LITTLE); // 4 bytes
-        byteArrayBuilder.appendBytes(ByteUtil.longToBytes(_amount), Endian.LITTLE); // 8 bytes
+        byteArrayBuilder.appendBytes(CompactVariableLengthInteger.variableLengthIntegerToBytes(_amount)); // 1-8 bytes
 
         // NOTE: Due to ambiguity in the original specification, BCHD defined the LockingScript byte count as a 4-byte integer instead of a variable-length integer.
-        //  Verde's implementation uses the compact variable-length integer format, which is incompatible with BCHD's previous format (but is compatible with BCHD's new format).
+        //  Verde's implementation uses the compact variable-length integer format, which is incompatible with BCHD's previous format.
         byteArrayBuilder.appendBytes(CompactVariableLengthInteger.variableLengthIntegerToBytes(_lockingScript.getByteCount())); // 1-4 bytes
 
         final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();

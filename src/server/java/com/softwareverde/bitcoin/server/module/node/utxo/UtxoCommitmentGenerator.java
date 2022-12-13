@@ -605,7 +605,7 @@ public class UtxoCommitmentGenerator extends PausableSleepyService {
                 }
             });
 
-            identifierBatchRunner.run(sortedSpentIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
+            identifierBatchRunner.run(sortedSpentIdentifiers, new BatchRunner.Batch<>() {
                 @Override
                 public void run(final List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers) throws Exception {
                     databaseConnection.executeSql(

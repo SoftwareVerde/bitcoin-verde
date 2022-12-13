@@ -17,13 +17,19 @@ public class CommittedUnspentTransactionOutputInflater {
 
     protected CommittedUnspentTransactionOutput _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
         final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
+
         final Sha256Hash transactionHash = Sha256Hash.wrap(byteArrayReader.readBytes(Sha256Hash.BYTE_COUNT, Endian.LITTLE));
-        final ByteArray outputIndexBytes = ByteArray.wrap(byteArrayReader.readBytes(4, Endian.LITTLE));
+
+        final CompactVariableLengthInteger outputIndexBytes = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
+        if (! outputIndexBytes.isCanonical()) { return null; }
+
         final MutableByteArray blockHeightAndIsCoinbaseBytes = MutableByteArray.wrap(byteArrayReader.readBytes(4, Endian.LITTLE));
-        final ByteArray amountBytes = ByteArray.wrap(byteArrayReader.readBytes(8, Endian.LITTLE));
+
+        final CompactVariableLengthInteger amountBytes = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
+        if (! amountBytes.isCanonical()) { return null; }
+
         final CompactVariableLengthInteger lockingScriptByteCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
         if (! lockingScriptByteCount.isCanonical()) { return null; }
-
         if (lockingScriptByteCount.value > LockingScript.MAX_SPENDABLE_SCRIPT_BYTE_COUNT) { return null; }
         if (lockingScriptByteCount.value < 0L) { return null; }
 
@@ -33,11 +39,10 @@ public class CommittedUnspentTransactionOutputInflater {
         if (byteArrayReader.didOverflow()) { return null; }
 
         final Boolean isCoinbase = blockHeightAndIsCoinbaseBytes.getBit(CommittedUnspentTransactionOutput.IS_COINBASE_FLAG_BIT_INDEX);
-        blockHeightAndIsCoinbaseBytes.setBit(CommittedUnspentTransactionOutput.IS_COINBASE_FLAG_BIT_INDEX, false);
 
-        final Long blockHeight = ByteUtil.bytesToLong(blockHeightAndIsCoinbaseBytes);
-        final Long amount = ByteUtil.bytesToLong(amountBytes);
-        final Integer outputIndex = ByteUtil.bytesToInteger(outputIndexBytes);
+        final Long blockHeight = ByteUtil.bytesToLong(blockHeightAndIsCoinbaseBytes) >> CommittedUnspentTransactionOutput.BLOCK_HEIGHT_BIT_SHIFT_COUNT; // NOTE: The bit shift discards the isCoinbase flag.
+        final Long amount = amountBytes.value;
+        final Integer outputIndex = (int) outputIndexBytes.value;
 
         final MutableCommittedUnspentTransactionOutput unspentTransactionOutput = new MutableCommittedUnspentTransactionOutput();
         unspentTransactionOutput.setTransactionHash(transactionHash);
