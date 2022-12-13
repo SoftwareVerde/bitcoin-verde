@@ -1,11 +1,11 @@
 ```
 Title: UTXO Fastsync
 Created: 2021-07-01
-Last Edited: 2021-07-07
+Last Edited: 2022-12-12
 Type: Technical
 Layer: Peer Services
 Status: Draft  
-Version: 0.1.1
+Version: 0.1.2
 Owner: Josh Green
 ```
 
@@ -94,16 +94,15 @@ The serialized UTXO set is the set of byte sequences constructed by serializing 
 | Byte Count | Name | Description | Endian |
 | --- | --- | --- | --- |
 | 32 | transactionHash | The hash ("txid") of the transaction. | Little |
-| 4 | outputIndex | The index of the output within the transaction. | Little |
-| 4 | height, isCoinbase | The most significant bit is set if the UTXO is a coinbase output.  The remaining 31 bits** represent the block height. | Little |
-| 8 | value | The amount, in satoshis. | Little |
-| 1-4 | lockingScriptByteCount | The number of bytes in the locking script (as a compact variable length integer**). | Big |
-| ? | lockingScript | The locking script ("scriptPubKey", "pk_script"). | Big |
+| 1-5 | outputIndex | The index of the output within the transaction (as a compact variable length integer**). | Little |
+| 1-5 | height, isCoinbase | This is serialized as a compact variable length integer**. The least significant bit is set if the UTXO is a coinbase output.  The remaining high-order 31 bits** represent the block height. | Little |
+| 1-9 | value | The amount, in satoshis (as a compact variable length integer**). | Little |
+| 1-4 | lockingScriptByteCount | The number of bytes in the locking script (as a compact variable length integer**). | Little |
+| ? | lockingScript | The locking script ("scriptPubKey", "pk_script"). | N/A |
 
-** The Van der Wansem proposal was ambiguous in regard to its definition of the locking script byte count and UTXO height.
-This proposal uses a 4-byte LE integer for the UTXO height/isCoinbase flag, and a 1 byte (up to 4) variable compact-length integer for its locking-script byte-count prefix.
-Considering there are over 55 million UTXOs in the current set, many of which could use 1 byte instead of 4 bytes to encode the lockingScript byte count, converting this field to a compact variable length integer reduces the current UTXO snapshot size by ~160 MB.
-This reduction is not unremarkable and poses little complexity to the format.
+** The Van der Wansem proposal was ambiguous in regard to its definition of the locking script byte count and UTXO height, and it used fixed-width 8-byte integers for the UTXO value.
+This proposal uses a 1-5-byte variable compact-length integer for the UTXO height/isCoinbase flag, and a 1 byte (up to 4) variable compact-length integer for its locking-script byte-count prefix, and a 1-9 byte variable compact-length integer for the utxo value.
+Considering there are over 55 million UTXOs in the current set, opting to encode all integers as "compact size" ints (little endian) may save hundreds of MB of space. This reduction is not unremarkable and poses little complexity to the format.
 
 DISCUSSION: the above reasoning regarding choosing a compact variable length integer format vs 4-byte integer format for the lockingScriptByteCount could apply to outputIndex.
 However, there is a well-established convention for outputIndex as being defined as a 4-byte integer.
@@ -213,11 +212,11 @@ Peers with incompatible bucket definitions ignore the commitment breakdown after
 The current convention recommends 128 buckets; using a different convention could render snapshots incompatible between implementations.
 
 Each UTXO is placed in its canonical bucket by taking the first 7 bits of the first byte of a single Sha256 hash of the following preimage, and interpreting the resulting bits as an integer index:
-1. the commitment's block hash**, as little endian
+1. the commitment's prvcious block hash**, as little endian
 2. the UTXO's transaction hash, as little endian
 3. the UTXO's output index, as a 4-byte integer, little endian
 
-** The commitment's block hash is included in the bucket-index calculation in order to mitigate malicious crafting of outputs that could render buckets disproportionately sized.
+** The commitment's previous block hash is included in the bucket-index calculation in order to mitigate malicious crafting of outputs that could render buckets disproportionately sized.  The choice to use previous block hash here over block hash is so that a node may opt to update the utxo commitment buckets in real-time before the block it commits to has arrived, when all the node has is the "previous block hash".
 
 Pseudocode implementation, where `|` indicates concatenation and `Sha256` returns a single SHA-256 hash as big-endian:
 ```
@@ -287,8 +286,8 @@ Provides a variable sized collection of UTXO snapshot metadata that the node has
 
 | Field Name | Byte Count | Format | Description |
 | --- | --- | --- | --- |
-| version | 1-4 | compact variable length integer | The message version format (current format version is `1`). |
-| snapshot count | 1-4 | compact variable length integer | The number of snapshots metadata contained within this message. |
+| version | 1-5 | compact variable length integer, unsigned, up to 32-bit width | The message version format (current format version is `1`). |
+| snapshot count | 1-5 | compact variable length integer, unsigned, up to 32-bit width | The number of snapshots metadata contained within this message. |
 | snapshots | ? | <ins>Snapshot Metadata</ins> | A variable number of snapshot metadata. |
 
 <ins>Message Format - Snapshot Metadata</ins>
@@ -296,9 +295,9 @@ Provides a variable sized collection of UTXO snapshot metadata that the node has
 | Field Name | Byte Count | Format | Description |
 | --- | --- | --- | --- |
 | block hash | 32 | sha256 hash, little endian | The block hash associated with this UTXO snapshot. |
-| block height | 4 | integer, little endian | The block height associated with this UTXO snapshot. |
+| block height | 1-5 | integer, little endian, compact variable-length | The block height associated with this UTXO snapshot. |
 | public key | 33 | public key, big endian | The secp256k1 point of the EC multiset for this UTXO snapshot. |
-| byte count | 8 | integer, little endian | The total number of bytes within the utxo snapshot. |
+| byte count | 1-9 | integer, little endian, compact variable-length | The total number of bytes within the utxo snapshot. |
 | utxo bucket (x128) | ? | <ins>Snapshot Bucket Metadata</ins> | The bucket breakdown for this snapshot.  There are always 128 buckets per snapshot. |
 
 <ins>Message Format - Snapshot Bucket Metadata</ins>
@@ -306,8 +305,8 @@ Provides a variable sized collection of UTXO snapshot metadata that the node has
 | Field Name | Byte Count | Format | Description |
 | --- | --- | --- | --- |
 | public key | 33 | public key, big endian | The secp256k1 point of the EC multiset for this UTXO snapshot bucket. |
-| byte count | 8 | integer, little endian | The number of bytes within this UTXO snapshot bucket.  The sum of these must equal the byte count of the snapshot. |
-| sub-bucket count | 1-4 | compact variable length integer | The number of sub-buckets this UTXO snapshot bucket has been broken up into.  Nodes may define their own policy for maximum bucket size; the recommended value is 32 MiB. |
+| byte count | 1-9 | integer, little endian, compact variable-length | The number of bytes within this UTXO snapshot bucket.  The sum of these must equal the byte count of the snapshot. |
+| sub-bucket count | 1-5 | compact variable length integer, up to 32-bits wide | The number of sub-buckets this UTXO snapshot bucket has been broken up into.  Nodes may define their own policy for maximum bucket size; the recommended value is 32 MiB. |
 | sub-buckets | ? | <ins>Snapshot SubBucket Metadata</ins> | The sub-bucket breakdown for this snapshot bucket. |
 
 <ins>Message Format - Snapshot SubBucket Metadata</ins>
@@ -315,7 +314,7 @@ Provides a variable sized collection of UTXO snapshot metadata that the node has
 | Field Name | Byte Count | Format | Description |
 | --- | --- | --- | --- |
 | public key | 33 | public key, big endian | The secp256k1 point of the EC multiset for this UTXO snapshot sub-bucket. |
-| byte count | 8 | integer, little endian | The number of bytes within this UTXO snapshot sub-bucket.  The sum of these must equal the byte count of the snapshot bucket. |
+| byte count | 1-9 | integer, little endian, compact variable-length | The number of bytes within this UTXO snapshot sub-bucket.  The sum of these must equal the byte count of the snapshot bucket. |
 
 #### Get UTXO Snapshot Data ("getdata")
 
@@ -332,7 +331,7 @@ Inventory item type `0x434D5403` ("CMT"-03) is a "getdata" request for a snapsho
 | Field Name | Byte Count | Format | Description |
 | --- | --- | --- | --- |
 | public key | 33 | public key, big endian | The secp256k1 point of the EC multiset for this UTXO snapshot bucket/sub-bucket. |
-| byte count | 8 | integer, little endian | The number of bytes within this UTXO snapshot bucket/sub-bucket.  The byte count must match the advertised byte count within the UTXO Commitments ("utxocmts") message. |
+| byte count | 1-9 | integer, little endian, compact variable-length | The number of bytes within this UTXO snapshot bucket/sub-bucket.  The byte count must match the advertised byte count within the UTXO Commitments ("utxocmts") message. |
 | data | ? | bytes | The data for the bucket/sub-bucket.  The EC multiset public key must match this contents. |
 
 The data field is 1 or more serialized UTXOs.
