@@ -293,7 +293,7 @@ Provides a variable sized collection of UTXO snapshot metadata that the node has
 | Field Name | Byte Count | Format | Description |
 | --- | --- | --- | --- |
 | block hash | 32 | sha256 hash, little endian | The block hash associated with this UTXO snapshot. |
-| block height | 1-5 | integer, little endian, compact variable-length | The block height associated with this UTXO snapshot. |
+| block height | 4 | integer, little endian, unsigned | The block height associated with this UTXO snapshot. |
 | public key | 33 | public key, big endian | The secp256k1 point of the EC multiset for this UTXO snapshot. |
 | byte count | 1-9 | integer, little endian, compact variable-length | The total number of bytes within the utxo snapshot. |
 | utxo bucket (x128) | ? | <ins>Snapshot Bucket Metadata</ins> | The bucket breakdown for this snapshot.  There are always 128 buckets per snapshot. |
