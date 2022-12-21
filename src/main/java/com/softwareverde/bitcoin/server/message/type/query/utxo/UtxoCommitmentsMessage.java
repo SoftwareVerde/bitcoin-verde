@@ -56,9 +56,9 @@ public class UtxoCommitmentsMessage extends BitcoinProtocolMessage {
             final PublicKey compressedPublicKey = utxoCommitmentMetadata.publicKey.compress();
 
             byteArrayBuilder.appendBytes(utxoCommitmentMetadata.blockHash, Endian.LITTLE);
-            byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(utxoCommitmentMetadata.blockHeight), Endian.LITTLE);
+            byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(utxoCommitmentMetadata.blockHeight), Endian.LITTLE); // 4 bytes.
             byteArrayBuilder.appendBytes(compressedPublicKey);
-            byteArrayBuilder.appendBytes(ByteUtil.longToBytes(utxoCommitmentMetadata.byteCount), Endian.LITTLE);
+            byteArrayBuilder.appendBytes(CompactVariableLengthInteger.variableLengthIntegerToBytes(utxoCommitmentMetadata.byteCount));
 
             final int utxoCommitmentBucketCount = utxoCommitmentBuckets.getCount();
             if (utxoCommitmentBucketCount != UtxoCommitment.BUCKET_COUNT) { return null; }
@@ -68,7 +68,7 @@ public class UtxoCommitmentsMessage extends BitcoinProtocolMessage {
                 final Long byteCount = utxoCommitmentBucket.getByteCount();
 
                 byteArrayBuilder.appendBytes(utxoCommitmentBucketPublicKey);
-                byteArrayBuilder.appendBytes(ByteUtil.longToBytes(byteCount), Endian.LITTLE);
+                byteArrayBuilder.appendBytes(CompactVariableLengthInteger.variableLengthIntegerToBytes(byteCount));
 
                 final List<UtxoCommitmentSubBucket> subBuckets = utxoCommitmentBucket.getSubBuckets();
                 final int subBucketCount = subBuckets.getCount();
@@ -78,7 +78,7 @@ public class UtxoCommitmentsMessage extends BitcoinProtocolMessage {
                     final Long subBucketByteCount = subBucket.getByteCount();
 
                     byteArrayBuilder.appendBytes(subBucketPublicKey);
-                    byteArrayBuilder.appendBytes(ByteUtil.longToBytes(subBucketByteCount), Endian.LITTLE);
+                    byteArrayBuilder.appendBytes(CompactVariableLengthInteger.variableLengthIntegerToBytes(subBucketByteCount));
                 }
             }
         }

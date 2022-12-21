@@ -37,7 +37,8 @@ public class UtxoCommitmentsMessageInflater extends BitcoinProtocolMessageInflat
             final Sha256Hash blockHash = Sha256Hash.wrap(byteArrayReader.readBytes(Sha256Hash.BYTE_COUNT, Endian.LITTLE));
             final Long blockHeight = byteArrayReader.readLong(4, Endian.LITTLE);
             final PublicKey commitmentPublicKey = PublicKey.fromBytes(byteArrayReader.readBytes(PublicKey.COMPRESSED_BYTE_COUNT));
-            final Long totalByteCount = byteArrayReader.readLong(8, Endian.LITTLE);
+            final CompactVariableLengthInteger totalByteCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
+            if (! totalByteCount.isCanonical()) { return null; }
             final int bucketCount = UtxoCommitment.BUCKET_COUNT;
             if (! commitmentPublicKey.isValid()) { return null; }
 
@@ -45,7 +46,8 @@ public class UtxoCommitmentsMessageInflater extends BitcoinProtocolMessageInflat
             for (int j = 0; j < bucketCount; ++j) {
                 final ByteArray bucketPublicKeyBytes = ByteArray.wrap(byteArrayReader.readBytes(PublicKey.COMPRESSED_BYTE_COUNT));
                 final PublicKey bucketPublicKey = PublicKey.fromBytes(bucketPublicKeyBytes);
-                final Long bucketByteCount = byteArrayReader.readLong(8, Endian.LITTLE);
+                final CompactVariableLengthInteger bucketByteCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
+                if (! bucketByteCount.isCanonical()) { return null; }
                 final CompactVariableLengthInteger subBucketCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
                 if (! subBucketCount.isCanonical()) { return null; }
 
@@ -53,20 +55,21 @@ public class UtxoCommitmentsMessageInflater extends BitcoinProtocolMessageInflat
                 for (int k = 0; k < subBucketCount.value; ++k) {
                     final ByteArray subBucketPublicKeyBytes = ByteArray.wrap(byteArrayReader.readBytes(PublicKey.COMPRESSED_BYTE_COUNT));
                     final PublicKey subBucketPublicKey = PublicKey.fromBytes(subBucketPublicKeyBytes);
-                    final Long subBucketByteCount = byteArrayReader.readLong(8, Endian.LITTLE);
+                    final CompactVariableLengthInteger subBucketByteCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
+                    if (! subBucketByteCount.isCanonical()) { return null; }
                     if (bucketCount > UtxoCommitmentsMessage.MAX_SUB_BUCKET_COUNT) { return null; }
 
-                    final UtxoCommitmentSubBucket subBucket = new UtxoCommitmentSubBucket(subBucketPublicKey, subBucketByteCount);
+                    final UtxoCommitmentSubBucket subBucket = new UtxoCommitmentSubBucket(subBucketPublicKey, subBucketByteCount.value);
                     subBuckets.add(subBucket);
                 }
 
-                final UtxoCommitmentBucket utxoCommitmentBucket = new UtxoCommitmentBucket(bucketPublicKey, bucketByteCount, subBuckets);
+                final UtxoCommitmentBucket utxoCommitmentBucket = new UtxoCommitmentBucket(bucketPublicKey, bucketByteCount.value, subBuckets);
                 utxoCommitmentBuckets.add(utxoCommitmentBucket);
 
                 if (byteArrayReader.didOverflow()) { return null; }
             }
 
-            final UtxoCommitmentMetadata utxoCommitmentMetadata = new UtxoCommitmentMetadata(blockHash, blockHeight, commitmentPublicKey, totalByteCount);
+            final UtxoCommitmentMetadata utxoCommitmentMetadata = new UtxoCommitmentMetadata(blockHash, blockHeight, commitmentPublicKey, totalByteCount.value);
             utxoCommitmentsMessage.addUtxoCommitment(utxoCommitmentMetadata, utxoCommitmentBuckets);
         }
 

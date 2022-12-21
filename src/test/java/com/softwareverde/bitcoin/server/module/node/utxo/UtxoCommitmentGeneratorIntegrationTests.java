@@ -120,6 +120,7 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
 
         final BlockId blockId;
         final Sha256Hash blockHash;
+        final Sha256Hash previousBlockHash;
         final BlockInflater blockInflater = new BlockInflater();
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
             try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
@@ -129,6 +130,9 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
                 final Block block = blockInflater.fromBytes(ByteArray.fromHexString(BlockData.MainChain.BLOCK_1));
                 blockId = blockHeaderDatabaseManager.storeBlockHeader(block);
                 blockHash = block.getHash();
+
+                final BlockId previousBlockId = blockHeaderDatabaseManager.getAncestorBlockId(blockId, 1);
+                previousBlockHash = blockHeaderDatabaseManager.getBlockHash(previousBlockId);
             }
         }
 
@@ -145,7 +149,7 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
         final MutableList<String> fileNames = new MutableList<>();
         final UtxoCommitment utxoCommitment;
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            utxoCommitment = utxoCommitmentGenerator._publishUtxoCommitment(blockId, blockHash, 1L, databaseManager);
+            utxoCommitment = utxoCommitmentGenerator._publishUtxoCommitment(blockId, previousBlockHash, 1L, databaseManager);
 
             Assert.assertTrue(utxoCommitment.getFiles().getCount() > 1);
 
@@ -211,6 +215,7 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
 
         final BlockId blockId;
         final Sha256Hash blockHash;
+        final Sha256Hash previousBlockHash;
         final BlockInflater blockInflater = new BlockInflater();
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
             try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
@@ -220,6 +225,9 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
                 final Block block = blockInflater.fromBytes(ByteArray.fromHexString(BlockData.MainChain.BLOCK_1));
                 blockId = blockHeaderDatabaseManager.storeBlockHeader(block);
                 blockHash = block.getHash();
+
+                final BlockId previousBlockId = blockHeaderDatabaseManager.getAncestorBlockId(blockId, 1);
+                previousBlockHash = blockHeaderDatabaseManager.getBlockHash(previousBlockId);
             }
         }
 
@@ -236,7 +244,7 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
         final MutableList<String> fileNames = new MutableList<>();
         final UtxoCommitment utxoCommitment;
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            utxoCommitment = utxoCommitmentGenerator._publishUtxoCommitment(blockId, blockHash, 1L, databaseManager);
+            utxoCommitment = utxoCommitmentGenerator._publishUtxoCommitment(blockId, previousBlockHash, 1L, databaseManager);
 
             Assert.assertTrue(utxoCommitment.getFiles().getCount() > 1);
 

@@ -161,7 +161,7 @@ public class UtxoCommitmentGenerator extends PausableSleepyService {
         return (utxoHash.getByte(0) & 0x7F);
     }
 
-    protected UtxoCommitment _publishUtxoCommitment(final BlockId blockId, final Sha256Hash blockHash, final Long commitBlockHeight, final FullNodeDatabaseManager databaseManager) throws Exception {
+    protected UtxoCommitment _publishUtxoCommitment(final BlockId blockId, final Sha256Hash previousBlockHash, final Long commitBlockHeight, final FullNodeDatabaseManager databaseManager) throws Exception {
         final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
         final UtxoCommitmentDatabaseManager utxoCommitmentDatabaseManager = databaseManager.getUtxoCommitmentDatabaseManager();
         { // Check if a UTXO commitment already exists for this blockId...
@@ -171,7 +171,7 @@ public class UtxoCommitmentGenerator extends PausableSleepyService {
             if (utxoCommitmentId != null) {
                 final Sha256Hash utxoCommitmentHash = utxoCommitmentDatabaseManager.getUtxoCommitmentHash(utxoCommitmentId);
                 if (utxoCommitmentHash != null) {
-                    Logger.debug("UTXO commitment already exists for block " + blockHash + ".");
+                    Logger.debug("UTXO commitment already exists for Block " + commitBlockHeight + ".");
                     return null;
                 }
 
@@ -338,7 +338,7 @@ public class UtxoCommitmentGenerator extends PausableSleepyService {
                     committedUnspentTransactionOutput.setCashToken(lockingScriptTuple.second);
                     bucketQueueTimer.mark("committedUnspentTransactionOutput inflation");
 
-                    final int bucketIndex = _calculateBucketIndex(blockHash, transactionOutputIdentifier);
+                    final int bucketIndex = _calculateBucketIndex(previousBlockHash, transactionOutputIdentifier);
                     bucketQueueTimer.mark("calculateBucketIndex");
                     final BucketFile bucket = bucketQueues.get(bucketIndex);
                     bucketQueueTimer.mark("get bucket");
@@ -520,8 +520,9 @@ public class UtxoCommitmentGenerator extends PausableSleepyService {
             if (shouldCreateCommit && isCloseToHeadBlockHeight) {
                 // NOTE: a Utxo Commitment for Block N is the Utxo set required to process Block N; i.e. UTXO Commitment N excludes Block N's coinbase.
                 final BlockId blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, stagedUtxoBlockHeight);
-                final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
-                final UtxoCommitment utxoCommitment = _publishUtxoCommitment(stagedUtxoBlockId, blockHash, stagedUtxoBlockHeight, databaseManager);
+                final BlockId previousBlockId = blockHeaderDatabaseManager.getAncestorBlockId(blockId, 1);
+                final Sha256Hash previousBlockHash = blockHeaderDatabaseManager.getBlockHash(previousBlockId);
+                final UtxoCommitment utxoCommitment = _publishUtxoCommitment(stagedUtxoBlockId, previousBlockHash, stagedUtxoBlockHeight, databaseManager);
                 if (utxoCommitment != null) {
                     Logger.debug("Created UTXO Commitment: " + utxoCommitment.getPublicKey() + " @ " + utxoCommitment.getBlockHeight());
                 }
