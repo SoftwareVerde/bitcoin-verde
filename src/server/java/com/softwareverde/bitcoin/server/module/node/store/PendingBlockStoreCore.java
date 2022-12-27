@@ -42,8 +42,8 @@ public class PendingBlockStoreCore extends BlockStoreCore implements PendingBloc
         file.delete();
     }
 
-    public PendingBlockStoreCore(final String dataDirectory, final BlockHeaderInflaters blockHeaderInflaters, final BlockInflaters blockInflaters) {
-        super(dataDirectory, blockHeaderInflaters, blockInflaters);
+    public PendingBlockStoreCore(final String dataDirectory, final BlockHeaderInflaters blockHeaderInflaters, final BlockInflaters blockInflaters, final Boolean useCompression) {
+        super(dataDirectory, blockHeaderInflaters, blockInflaters, useCompression);
         _pendingBlockDataDirectory = (dataDirectory != null ? (dataDirectory + "/" + BitcoinProperties.DATA_DIRECTORY_NAME + "/pending-blocks") : null);
     }
 

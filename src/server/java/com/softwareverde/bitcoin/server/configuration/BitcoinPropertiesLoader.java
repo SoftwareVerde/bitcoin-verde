@@ -77,6 +77,7 @@ public class BitcoinPropertiesLoader {
         bitcoinProperties._banFilterIsEnabled = Util.parseBool(properties.getProperty("bitcoin.enableBanFilter", "1"));
         bitcoinProperties._pruningModeIsEnabled = Util.parseBool(properties.getProperty("bitcoin.enableBlockPruning", "0"));
         bitcoinProperties._blockchainCacheIsEnabled = Util.parseBool(properties.getProperty("bitcoin.enableBlockchainCache", "1"));
+        bitcoinProperties._blockCompressionIsEnabled = Util.parseBool(properties.getProperty("bitcoin.enableBlockCompression", "1"));
         bitcoinProperties._minPeerCount = Util.parseInt(properties.getProperty("bitcoin.minPeerCount", "8"));
         bitcoinProperties._maxPeerCount = Util.parseInt(properties.getProperty("bitcoin.maxPeerCount", "24"));
         bitcoinProperties._maxThreadCount = Util.parseInt(properties.getProperty("bitcoin.maxThreadCount", "4"));

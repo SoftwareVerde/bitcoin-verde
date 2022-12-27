@@ -46,6 +46,7 @@ public class BitcoinProperties {
     protected LogLevel _logLevel;
     protected Integer _testNet;
     protected Integer _blockMaxByteCount;
+    protected Boolean _blockCompressionIsEnabled;
 
     protected Boolean _isTestNet() {
         return (Util.coalesce(_testNet) > 0);
@@ -126,7 +127,11 @@ public class BitcoinProperties {
 
     public Integer getBlockMaxByteCount() { return _blockMaxByteCount; }
 
-    public boolean isBlockchainCacheEnabled() {
+    public Boolean isBlockchainCacheEnabled() {
         return _blockchainCacheIsEnabled;
+    }
+
+    public Boolean isBlockCompressionEnabled() {
+        return _blockCompressionIsEnabled;
     }
 }

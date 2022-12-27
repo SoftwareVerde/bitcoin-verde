@@ -384,7 +384,8 @@ public class NodeModule {
             final String dataDirectory = bitcoinProperties.getDataDirectory();
             final BlockHeaderInflaters blockHeaderInflaters = _masterInflater;
             final BlockInflaters blockInflaters = _masterInflater;
-            _blockStore = new PendingBlockStoreCore(dataDirectory, blockHeaderInflaters, blockInflaters) {
+            final Boolean useCompression = bitcoinProperties.isBlockCompressionEnabled();
+            _blockStore = new PendingBlockStoreCore(dataDirectory, blockHeaderInflaters, blockInflaters, useCompression) {
                 @Override
                 protected void _deletePendingBlockData(final String blockPath) {
                     if (bitcoinProperties.isDeletePendingBlocksEnabled()) {

@@ -9,22 +9,33 @@ import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.inflater.BlockHeaderInflaters;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
+import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bitcoin.util.IoUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.ByteBuffer;
-import com.softwareverde.util.IoUtil;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.RandomAccessFile;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
+import java.util.zip.ZipException;
 
 public class BlockStoreCore implements BlockStore {
+    protected static final int PAGE_SIZE = (int) (16L * ByteUtil.Unit.Binary.MEBIBYTES);
+
     protected final BlockHeaderInflaters _blockHeaderInflaters;
     protected final BlockInflaters _blockInflaters;
     protected final String _dataDirectory;
     protected final String _blockDataDirectory;
     protected final Integer _blocksPerDirectoryCount = 2016; // About 2 weeks...
+    protected final Boolean _blockCompressionIsEnabled;
 
     protected final ByteBuffer _byteBuffer = new ByteBuffer();
 
@@ -43,6 +54,84 @@ public class BlockStoreCore implements BlockStore {
         return (blockHeightDirectory + "/" + blockHash);
     }
 
+    protected ByteArray _readCompressedInternal(final String blockPath, final Long diskOffset, final Integer byteCount) throws ZipException {
+        final MutableByteArray byteArray = new MutableByteArray(byteCount);
+        final File inputFile = new File(blockPath);
+        try (
+            final InputStream inputStream = new FileInputStream(inputFile);
+            final GZIPInputStream gzipInputStream = new GZIPInputStream(inputStream, PAGE_SIZE)
+        ) {
+            gzipInputStream.skip(diskOffset);
+
+            final byte[] buffer;
+            synchronized (_byteBuffer) {
+                buffer = _byteBuffer.getRecycledBuffer();
+            }
+
+            int totalBytesRead = 0;
+            while (totalBytesRead < byteCount) {
+                final int byteCountRead = gzipInputStream.read(buffer);
+                if (byteCountRead < 0) { break; }
+
+                byteArray.setBytes(totalBytesRead, buffer);
+                totalBytesRead += byteCountRead;
+            }
+
+            synchronized (_byteBuffer) {
+                _byteBuffer.recycleBuffer(buffer);
+            }
+
+            if (totalBytesRead < byteCount) { return null; }
+        }
+        catch (final Exception exception) {
+            if (exception instanceof ZipException) {
+                throw (ZipException) exception; // File is not a GZIP'ed file...
+            }
+
+            Logger.warn(exception);
+            return null;
+        }
+
+        return byteArray;
+    }
+
+    protected void _compressInternal(final String blockPath) throws Exception {
+        final int pageSize = (int) (16L * ByteUtil.Unit.Binary.MEBIBYTES);
+
+
+        final File outputFile = new File(blockPath + ".gz");
+        final File inputFile = new File(blockPath);
+        final File swapFile = new File(blockPath + ".swp");
+        try (
+            final InputStream inputStream = new FileInputStream(inputFile);
+            final OutputStream outputStream = new FileOutputStream(outputFile);
+            final GZIPInputStream gzipInputStream = new GZIPInputStream(inputStream, pageSize);
+            final GZIPOutputStream gzipOutputStream = new GZIPOutputStream(outputStream, pageSize)
+        ) {
+            final byte[] buffer;
+            synchronized (_byteBuffer) {
+                buffer = _byteBuffer.getRecycledBuffer();
+            }
+
+            while (true) {
+                final int byteCountRead = gzipInputStream.read(buffer);
+                if (byteCountRead < 0) { break; }
+
+                gzipOutputStream.write(buffer, 0, buffer.length);
+            }
+
+            synchronized (_byteBuffer) {
+                _byteBuffer.recycleBuffer(buffer);
+            }
+        }
+
+        //                                                      "input" "output"  "swap"
+                                                            //   BLOCK       GZ    NULL
+        inputFile.renameTo(swapFile.getAbsoluteFile());     //    NULL       GZ   BLOCK
+        outputFile.renameTo(inputFile.getAbsoluteFile());   //      GZ     NULL   BLOCK
+        swapFile.delete();                                  //      GZ     NULL    NULL
+    }
+
     protected ByteArray _readFromBlock(final Sha256Hash blockHash, final Long blockHeight, final Long diskOffset, final Integer byteCount) {
         if (_blockDataDirectory == null) { return null; }
 
@@ -52,6 +141,18 @@ public class BlockStoreCore implements BlockStore {
         if (! IoUtil.fileExists(blockPath)) { return null; }
 
         try {
+            if (_blockCompressionIsEnabled) {
+                try {
+                    return _readCompressedInternal(blockPath, diskOffset, byteCount);
+                }
+                catch (final ZipException zipException) {
+                    Logger.debug(blockHash + " was not a compressed block file; compressing.");
+                    _compressInternal(blockPath);
+
+                    return _readCompressedInternal(blockPath, diskOffset, byteCount);
+                }
+            }
+
             final MutableByteArray byteArray = new MutableByteArray(byteCount);
 
             try (final RandomAccessFile file = new RandomAccessFile(new File(blockPath), "r")) {
@@ -86,11 +187,12 @@ public class BlockStoreCore implements BlockStore {
         }
     }
 
-    public BlockStoreCore(final String dataDirectory, final BlockHeaderInflaters blockHeaderInflaters, final BlockInflaters blockInflaters) {
+    public BlockStoreCore(final String dataDirectory, final BlockHeaderInflaters blockHeaderInflaters, final BlockInflaters blockInflaters, final Boolean useCompression) {
         _dataDirectory = dataDirectory;
         _blockDataDirectory = (dataDirectory != null ? (dataDirectory + "/" + BitcoinProperties.DATA_DIRECTORY_NAME + "/blocks") : null);
         _blockInflaters = blockInflaters;
         _blockHeaderInflaters = blockHeaderInflaters;
+        _blockCompressionIsEnabled = useCompression;
     }
 
     @Override
@@ -124,6 +226,12 @@ public class BlockStoreCore implements BlockStore {
             if (IoUtil.fileExists(blockPath)) {
                 Logger.trace("Overwriting existing block: " + blockHash, new Exception());
             }
+        }
+
+        if (_blockCompressionIsEnabled) {
+            final File file = new File(blockPath);
+            final boolean result = IoUtil.putCompressedFileContents(file, byteArray);
+            if (result) { return true; }
         }
 
         return IoUtil.putFileContents(blockPath, byteArray);

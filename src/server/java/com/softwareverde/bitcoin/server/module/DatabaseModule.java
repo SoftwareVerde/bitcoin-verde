@@ -24,11 +24,12 @@ public class DatabaseModule {
         final CoreInflater inflater = new CoreInflater();
         final Database database = _environment.getDatabase();
         final DatabaseConnectionFactory databaseConnectionFactory = _environment.getDatabaseConnectionFactory();
+        final Boolean useCompression = true;
         final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(
             databaseConnectionFactory,
             database.getMaxQueryBatchSize(),
             new DatabasePropertiesStore(databaseConnectionFactory),
-            new PendingBlockStoreCore(dataDirectory, inflater, inflater),
+            new PendingBlockStoreCore(dataDirectory, inflater, inflater, useCompression),
             new UtxoCommitmentStoreCore(dataDirectory),
             inflater,
             new TestNetCheckpointConfiguration(),
