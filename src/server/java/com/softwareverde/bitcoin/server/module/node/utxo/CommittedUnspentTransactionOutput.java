@@ -46,7 +46,7 @@ public interface CommittedUnspentTransactionOutput extends UnspentTransactionOut
     }
 
     Integer BLOCK_HEIGHT_BIT_SHIFT_COUNT = 1;
-    Integer IS_COINBASE_FLAG_BIT_INDEX = 7;
+    Integer IS_COINBASE_FLAG_BIT_INDEX = 31;
 
     Sha256Hash getTransactionHash();
     Integer getByteCount();
