@@ -131,13 +131,26 @@ public class TransactionProcessor extends SleepyService {
                         final Transaction transaction = pendingTransactionDatabaseManager.getPendingTransaction(pendingTransactionId);
                         if (transaction == null) { continue; }
 
-                        final Boolean transactionCanBeStored = transactionDatabaseManager.previousOutputsExist(transaction);
-                        if (! transactionCanBeStored) {
+                        final boolean isOrphanedTransaction;
+                        {
+                            boolean allPreviousOutputsExist = true; // NOTE: Does not need to check spent-state...
+                            for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+                                final Sha256Hash previousTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+                                final TransactionId previousTransactionId = transactionDatabaseManager.getTransactionId(previousTransactionHash);
+                                if (previousTransactionId == null) {
+                                    allPreviousOutputsExist = false;
+                                    break;
+                                }
+                            }
+                            isOrphanedTransaction = (! allPreviousOutputsExist);
+                        }
+                        if (isOrphanedTransaction) {
                             pendingTransactionDatabaseManager.updateTransactionDependencies(transaction);
                             continue;
                         }
 
-                        pendingTransactionIdMap.put(transaction.getHash(), pendingTransactionId);
+                        final Sha256Hash transactionHash = transaction.getHash();
+                        pendingTransactionIdMap.put(transactionHash, pendingTransactionId);
                         listBuilder.add(transaction);
                     }
                     transactionsToStore = listBuilder.build();

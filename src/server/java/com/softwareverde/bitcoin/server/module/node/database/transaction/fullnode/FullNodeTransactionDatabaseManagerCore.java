@@ -605,34 +605,6 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     }
 
     @Override
-    public Boolean previousOutputsExist(final Transaction transaction) throws DatabaseException {
-        for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-            final Sha256Hash previousTransactionHash = transactionInput.getPreviousOutputTransactionHash();
-            final Integer previousOutputIndex = transactionInput.getPreviousOutputIndex();
-
-            final TransactionId previousTransactionId = _getTransactionId(previousTransactionHash);
-            if (previousTransactionId == null) { return false; }
-
-            final Transaction previousTransaction;
-            {
-                final Transaction onDiskTransaction = _getTransaction(previousTransactionId);
-                if (onDiskTransaction != null) {
-                    previousTransaction = onDiskTransaction;
-                }
-                else {
-                    previousTransaction = _getUnconfirmedTransaction(previousTransactionId);
-                }
-            }
-            if (previousTransaction == null) { return false; }
-
-            final List<TransactionOutput> previousTransactionOutputs = previousTransaction.getTransactionOutputs();
-            if (previousOutputIndex >= previousTransactionOutputs.getCount()) { return false; }
-        }
-
-        return true;
-    }
-
-    @Override
     public TransactionId storeUnconfirmedTransaction(final Transaction transaction) throws DatabaseException {
         final TransactionId transactionId = _storeTransactionHash(transaction);
 

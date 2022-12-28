@@ -19,7 +19,6 @@ public interface FullNodeTransactionDatabaseManager extends TransactionDatabaseM
     List<TransactionId> storeTransactionHashes(List<Sha256Hash> transactionHashes, List<Integer> transactionByteCounts) throws DatabaseException;
     List<TransactionId> storeTransactionHashes(List<Transaction> transactions) throws DatabaseException;
     List<TransactionId> storeTransactionHashes(List<Transaction> transactions, DatabaseConnectionFactory databaseConnectionFactory, Integer maxConnectionCount) throws DatabaseException;
-    Boolean previousOutputsExist(Transaction transaction) throws DatabaseException;
 
     TransactionId storeUnconfirmedTransaction(Transaction transaction) throws DatabaseException;
     List<TransactionId> storeUnconfirmedTransactions(List<Transaction> transactions) throws DatabaseException;
