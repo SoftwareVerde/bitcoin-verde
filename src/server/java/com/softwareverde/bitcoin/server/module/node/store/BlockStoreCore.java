@@ -98,14 +98,12 @@ public class BlockStoreCore implements BlockStore {
     protected void _compressInternal(final String blockPath) throws Exception {
         final int pageSize = (int) (16L * ByteUtil.Unit.Binary.MEBIBYTES);
 
-
         final File outputFile = new File(blockPath + ".gz");
         final File inputFile = new File(blockPath);
         final File swapFile = new File(blockPath + ".swp");
         try (
             final InputStream inputStream = new FileInputStream(inputFile);
             final OutputStream outputStream = new FileOutputStream(outputFile);
-            final GZIPInputStream gzipInputStream = new GZIPInputStream(inputStream, pageSize);
             final GZIPOutputStream gzipOutputStream = new GZIPOutputStream(outputStream, pageSize)
         ) {
             final byte[] buffer;
@@ -114,7 +112,7 @@ public class BlockStoreCore implements BlockStore {
             }
 
             while (true) {
-                final int byteCountRead = gzipInputStream.read(buffer);
+                final int byteCountRead = inputStream.read(buffer);
                 if (byteCountRead < 0) { break; }
 
                 gzipOutputStream.write(buffer, 0, buffer.length);
