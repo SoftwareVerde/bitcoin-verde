@@ -18,6 +18,7 @@ import com.softwareverde.bitcoin.server.module.node.database.indexer.BlockchainI
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input.UnconfirmedTransactionInputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.UnconfirmedTransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
@@ -30,6 +31,7 @@ import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.UnconfirmedTransactionOutputId;
+import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -926,42 +928,20 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
     @Override
     public Long calculateTransactionFee(final Transaction transaction) throws DatabaseException {
+        final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
+        final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
+
+        final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
         long totalInputAmount = 0L;
         {
             final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-            final int transactionInputCount = transactionInputs.getCount();
-            final HashMap<Sha256Hash, Transaction> cachedTransactions = new HashMap<>(transactionInputCount / 2);
             for (final TransactionInput transactionInput : transactionInputs) {
-                final Sha256Hash previousTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+                final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
 
-                final Transaction previousTransaction;
-                {
-                    final Transaction cachedTransaction = cachedTransactions.get(previousTransactionHash);
-                    if (cachedTransaction != null) {
-                        previousTransaction = cachedTransaction;
-                    }
-                    else {
-                        final TransactionId previousTransactionId = _getTransactionId(previousTransactionHash);
-                        if (previousTransactionId == null) { return null; }
+                final UnspentTransactionOutput unspentTransactionOutput = unspentTransactionOutputDatabaseManager.findOutputData(transactionOutputIdentifier, blockchainSegmentId);
+                if (unspentTransactionOutput == null) { return null; }
 
-                        final Transaction onDiskTransaction = _getTransaction(previousTransactionId);
-                        if (onDiskTransaction != null) {
-                            previousTransaction = onDiskTransaction;
-                        }
-                        else {
-                            previousTransaction = _getUnconfirmedTransaction(previousTransactionId);
-                        }
-                        if (previousTransaction == null) { return null; }
-                        cachedTransactions.put(previousTransactionHash, previousTransaction);
-                    }
-                }
-
-                final List<TransactionOutput> previousTransactionOutputs = previousTransaction.getTransactionOutputs();
-                final Integer previousTransactionOutputIndex = transactionInput.getPreviousOutputIndex();
-                if (previousTransactionOutputIndex >= previousTransactionOutputs.getCount()) { return null; }
-
-                final TransactionOutput previousTransactionOutput = previousTransactionOutputs.get(previousTransactionOutputIndex);
-                totalInputAmount += previousTransactionOutput.getAmount();
+                totalInputAmount += unspentTransactionOutput.getAmount();
             }
         }
 
