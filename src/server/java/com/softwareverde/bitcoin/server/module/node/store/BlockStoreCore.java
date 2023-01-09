@@ -66,13 +66,11 @@ public class BlockStoreCore implements BlockStore {
         ) {
             final byte[] buffer = byteArray.getRecycledBuffer();
 
-            int totalBytesRead = 0;
             while (true) {
                 final int byteCountRead = gzipInputStream.read(buffer);
                 if (byteCountRead < 0) { break; }
 
-                byteArray.appendBytes(buffer, totalBytesRead);
-                totalBytesRead += byteCountRead;
+                byteArray.appendBytes(buffer, byteCountRead);
             }
         }
         catch (final Exception exception) {
@@ -190,13 +188,11 @@ public class BlockStoreCore implements BlockStore {
             try (final FileInputStream inputStream = new FileInputStream(blockPath)) {
                 final byte[] buffer = byteArray.getRecycledBuffer();
 
-                int totalBytesRead = 0;
                 while (true) {
                     final int byteCountRead = inputStream.read(buffer);
                     if (byteCountRead < 0) { break; }
 
-                    byteArray.appendBytes(buffer, totalBytesRead);
-                    totalBytesRead += byteCountRead;
+                    byteArray.appendBytes(buffer, byteCountRead);
                 }
             }
 
@@ -347,11 +343,6 @@ public class BlockStoreCore implements BlockStore {
     @Override
     public MutableBlock getBlock(final Sha256Hash blockHash, final Long blockHeight) {
         if (_blockDataDirectory == null) { return null; }
-
-        final String blockPath = _getBlockDataPath(blockHash, blockHeight);
-        if (blockPath == null) { return null; }
-
-        if (! IoUtil.fileExists(blockPath)) { return null; }
 
         final ByteArray blockBytes = _readBlock(blockHash, blockHeight);
         if (blockBytes == null) { return null; }
