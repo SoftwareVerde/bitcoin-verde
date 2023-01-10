@@ -312,7 +312,12 @@ public class BlockchainBuilder extends GracefulSleepyService {
                 final Block block = blockInflater.fromBytes(pendingBlockData);
                 if (block == null) {
                     Logger.info("Unable to inflate block: " + nextBlockHash);
+
+                    databaseManager.startTransaction();
                     blockHeaderDatabaseManager.markBlockAsInvalid(nextBlockHash, 1);
+                    _blockStore.removePendingBlock(nextBlockHash);
+                    databaseManager.commitTransaction();
+
                     return false;
                 }
 
@@ -351,9 +356,10 @@ public class BlockchainBuilder extends GracefulSleepyService {
                 final Boolean processBlockWasSuccessful = _processPendingBlock(block, databaseManager, unspentTransactionOutputContext);
 
                 if (! processBlockWasSuccessful) {
+                    Logger.debug("Pending block failed during processing: " + nextBlockHash);
+
                     databaseManager.startTransaction();
                     blockHeaderDatabaseManager.markBlockAsInvalid(nextBlockHash, 1);
-                    Logger.debug("Pending block failed during processing: " + nextBlockHash);
 
                     final Boolean blockIsOfficiallyInvalid = blockHeaderDatabaseManager.isBlockInvalid(nextBlockHash, BlockHeaderDatabaseManager.INVALID_PROCESS_THRESHOLD);
                     if (blockIsOfficiallyInvalid) {
