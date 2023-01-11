@@ -29,7 +29,8 @@ import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipException;
 
 public class BlockStoreCore implements BlockStore {
-    protected static final int PAGE_SIZE = (int) (16L * ByteUtil.Unit.Binary.MEBIBYTES);
+    protected static final int GZIP_BUFFER_SIZE = (int) (ByteUtil.Unit.Binary.MEBIBYTES / 2);
+    protected static final int READ_BUFFER_SIZE = (int) (16L * ByteUtil.Unit.Binary.KIBIBYTES);
 
     protected final BlockHeaderInflaters _blockHeaderInflaters;
     protected final BlockInflaters _blockInflaters;
@@ -37,8 +38,6 @@ public class BlockStoreCore implements BlockStore {
     protected final String _blockDataDirectory;
     protected final Integer _blocksPerDirectoryCount = 2016; // About 2 weeks...
     protected final Boolean _blockCompressionIsEnabled;
-
-    protected final ByteBuffer _byteBuffer;
 
     protected String _getBlockDataDirectory(final Long blockHeight) {
         final String blockDataDirectory = _blockDataDirectory;
@@ -56,21 +55,20 @@ public class BlockStoreCore implements BlockStore {
     }
 
     protected ByteArray _readCompressedInternal(final String blockPath) throws ZipException {
-        final ByteBuffer byteArray = new ByteBuffer();
-        byteArray.setPageByteCount(PAGE_SIZE);
+        final ByteBuffer byteBuffer = new ByteBuffer();
 
         final File inputFile = new File(blockPath);
         try (
             final InputStream inputStream = new FileInputStream(inputFile);
-            final GZIPInputStream gzipInputStream = new GZIPInputStream(inputStream, PAGE_SIZE)
+            final GZIPInputStream gzipInputStream = new GZIPInputStream(inputStream, GZIP_BUFFER_SIZE)
         ) {
-            final byte[] buffer = byteArray.getRecycledBuffer();
+            final byte[] buffer = new byte[READ_BUFFER_SIZE];
 
             while (true) {
                 final int byteCountRead = gzipInputStream.read(buffer);
                 if (byteCountRead < 0) { break; }
 
-                byteArray.appendBytes(buffer, byteCountRead);
+                byteBuffer.appendBytes(buffer, byteCountRead);
             }
         }
         catch (final Exception exception) {
@@ -82,34 +80,26 @@ public class BlockStoreCore implements BlockStore {
             return null;
         }
 
-        return byteArray;
+        return byteBuffer;
     }
 
-    protected ByteArray _readCompressedInternal(final String blockPath, final Long diskOffset, final Integer byteCount) throws ZipException {
+    protected ByteArray _readCompressedChunkInternal(final String blockPath, final Long diskOffset, final Integer byteCount) throws ZipException {
         final MutableByteArray byteArray = new MutableByteArray(byteCount);
         final File inputFile = new File(blockPath);
         try (
             final InputStream inputStream = new FileInputStream(inputFile);
-            final GZIPInputStream gzipInputStream = new GZIPInputStream(inputStream, PAGE_SIZE)
+            final GZIPInputStream gzipInputStream = new GZIPInputStream(inputStream, GZIP_BUFFER_SIZE)
         ) {
             gzipInputStream.skip(diskOffset);
 
-            final byte[] buffer;
-            synchronized (_byteBuffer) {
-                buffer = _byteBuffer.getRecycledBuffer();
-            }
-
             int totalBytesRead = 0;
             while (totalBytesRead < byteCount) {
-                final int byteCountRead = gzipInputStream.read(buffer);
+                final int byteArrayOffset = totalBytesRead;
+                final int maxBytesRead = (byteCount - totalBytesRead);
+                final int byteCountRead = gzipInputStream.read(byteArray.unwrap(), byteArrayOffset, maxBytesRead);
                 if (byteCountRead < 0) { break; }
 
-                byteArray.setBytes(totalBytesRead, buffer);
                 totalBytesRead += byteCountRead;
-            }
-
-            synchronized (_byteBuffer) {
-                _byteBuffer.recycleBuffer(buffer);
             }
 
             if (totalBytesRead < byteCount) { return null; }
@@ -127,34 +117,25 @@ public class BlockStoreCore implements BlockStore {
     }
 
     protected void _compressInternal(final String blockPath) throws Exception {
-        final int pageSize = (int) (16L * ByteUtil.Unit.Binary.MEBIBYTES);
-
         final File outputFile = new File(blockPath + ".gz");
         final File inputFile = new File(blockPath);
         final File swapFile = new File(blockPath + ".swp");
         try (
             final InputStream inputStream = new FileInputStream(inputFile);
             final OutputStream outputStream = new FileOutputStream(outputFile);
-            final GZIPOutputStream gzipOutputStream = new GZIPOutputStream(outputStream, pageSize)
+            final GZIPOutputStream gzipOutputStream = new GZIPOutputStream(outputStream, GZIP_BUFFER_SIZE)
         ) {
-            final byte[] buffer;
-            synchronized (_byteBuffer) {
-                buffer = _byteBuffer.getRecycledBuffer();
-            }
+            final byte[] buffer = new byte[READ_BUFFER_SIZE];
 
             while (true) {
                 final int byteCountRead = inputStream.read(buffer);
                 if (byteCountRead < 0) { break; }
 
-                gzipOutputStream.write(buffer, 0, buffer.length);
-            }
-
-            synchronized (_byteBuffer) {
-                _byteBuffer.recycleBuffer(buffer);
+                gzipOutputStream.write(buffer, 0, byteCountRead);
             }
         }
 
-        //                                                      "input" "output"  "swap"
+                                                            //  "input" "output"  "swap"
                                                             //   BLOCK       GZ    NULL
         inputFile.renameTo(swapFile.getAbsoluteFile());     //    NULL       GZ   BLOCK
         outputFile.renameTo(inputFile.getAbsoluteFile());   //      GZ     NULL   BLOCK
@@ -182,21 +163,9 @@ public class BlockStoreCore implements BlockStore {
                 }
             }
 
-            final ByteBuffer byteArray = new ByteBuffer();
-            byteArray.setPageByteCount(PAGE_SIZE);
-
-            try (final FileInputStream inputStream = new FileInputStream(blockPath)) {
-                final byte[] buffer = byteArray.getRecycledBuffer();
-
-                while (true) {
-                    final int byteCountRead = inputStream.read(buffer);
-                    if (byteCountRead < 0) { break; }
-
-                    byteArray.appendBytes(buffer, byteCountRead);
-                }
-            }
-
-            return byteArray;
+            final File blockFile = new File(blockPath);
+            final byte[] bytes = IoUtil.getFileContents(blockFile);
+            return MutableByteArray.wrap(bytes);
         }
         catch (final Exception exception) {
             Logger.warn(exception);
@@ -215,13 +184,13 @@ public class BlockStoreCore implements BlockStore {
         try {
             if (_blockCompressionIsEnabled) {
                 try {
-                    return _readCompressedInternal(blockPath, diskOffset, byteCount);
+                    return _readCompressedChunkInternal(blockPath, diskOffset, byteCount);
                 }
                 catch (final ZipException zipException) {
                     Logger.debug(blockHash + " was not a compressed block file; compressing.");
                     _compressInternal(blockPath);
 
-                    return _readCompressedInternal(blockPath, diskOffset, byteCount);
+                    return _readCompressedChunkInternal(blockPath, diskOffset, byteCount);
                 }
             }
 
@@ -229,26 +198,7 @@ public class BlockStoreCore implements BlockStore {
 
             try (final RandomAccessFile file = new RandomAccessFile(new File(blockPath), "r")) {
                 file.seek(diskOffset);
-
-                final byte[] buffer;
-                synchronized (_byteBuffer) {
-                    buffer = _byteBuffer.getRecycledBuffer();
-                }
-
-                int totalBytesRead = 0;
-                while (totalBytesRead < byteCount) {
-                    final int byteCountRead = file.read(buffer);
-                    if (byteCountRead < 0) { break; }
-
-                    byteArray.setBytes(totalBytesRead, buffer);
-                    totalBytesRead += byteCountRead;
-                }
-
-                synchronized (_byteBuffer) {
-                    _byteBuffer.recycleBuffer(buffer);
-                }
-
-                if (totalBytesRead < byteCount) { return null; }
+                file.readFully(byteArray.unwrap()); // Can throw EOF, but is caught later and returns null.
             }
 
             return byteArray;
@@ -265,9 +215,6 @@ public class BlockStoreCore implements BlockStore {
         _blockInflaters = blockInflaters;
         _blockHeaderInflaters = blockHeaderInflaters;
         _blockCompressionIsEnabled = useCompression;
-
-        _byteBuffer = new ByteBuffer();
-        _byteBuffer.setPageByteCount(PAGE_SIZE);
     }
 
     @Override

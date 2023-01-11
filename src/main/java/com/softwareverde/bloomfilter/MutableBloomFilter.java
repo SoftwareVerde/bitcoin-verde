@@ -136,8 +136,8 @@ public class MutableBloomFilter implements BloomFilter {
 
             final int byteIndex = _getByteIndex(index);
             final int lockIndex = (byteIndex % _indexLockSegmentCount);
+            _indexLock.lock(lockIndex);
             try {
-                _indexLock.lock(lockIndex);
                 _bytes.setBit(index, true);
             }
             finally {
@@ -165,8 +165,8 @@ public class MutableBloomFilter implements BloomFilter {
         for (int i = 0; i < byteCount; ++i) {
             final int lockIndex = (i % _indexLockSegmentCount);
 
+            _indexLock.lock(lockIndex);
             try {
-                _indexLock.lock(lockIndex);
                 _bytes.setByte(i, (byte) 0x00);
             }
             finally {
