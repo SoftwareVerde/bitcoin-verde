@@ -3,11 +3,12 @@ package com.softwareverde.bitcoin.test.fake.database;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.server.module.node.database.Visitor;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.set.Set;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.util.map.Visitor;
 
 import java.util.Map;
 
@@ -37,7 +38,7 @@ interface FakeBlockchainDatabaseManager extends BlockchainDatabaseManager {
     default Boolean areBlockchainSegmentsConnected(BlockchainSegmentId blockchainSegmentId0, BlockchainSegmentId blockchainSegmentId1, BlockRelationship blockRelationship) throws DatabaseException { throw new UnsupportedOperationException(); }
 
     @Override
-    default Map<BlockchainSegmentId, Boolean> areBlockchainSegmentsConnected(BlockchainSegmentId blockchainSegmentId, List<BlockchainSegmentId> blockchainSegmentIds, BlockRelationship blockRelationship) throws DatabaseException { throw new UnsupportedOperationException(); }
+    default Map<BlockchainSegmentId, Boolean> areBlockchainSegmentsConnected(BlockchainSegmentId blockchainSegmentId, Set<BlockchainSegmentId> blockchainSegmentIds, BlockRelationship blockRelationship) throws DatabaseException { throw new UnsupportedOperationException(); }
 
     @Override
     default List<BlockchainSegmentId> getLeafBlockchainSegmentIds() throws DatabaseException { throw new UnsupportedOperationException(); }

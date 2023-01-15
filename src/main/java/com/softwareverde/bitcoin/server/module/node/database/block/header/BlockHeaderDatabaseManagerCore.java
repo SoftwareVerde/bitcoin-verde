@@ -20,6 +20,7 @@ import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.module.node.database.BlockchainCacheReference;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.Visitor;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockMetadata;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockchainCache;
@@ -29,13 +30,13 @@ import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.set.Set;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
-import com.softwareverde.util.map.Visitor;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -793,7 +794,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
     }
 
     @Override
-    public Map<BlockId, Long> getBlockHeights(final List<BlockId> blockIds) throws DatabaseException {
+    public Map<BlockId, Long> getBlockHeights(final Set<BlockId> blockIds) throws DatabaseException {
         final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         if (blockchainCache != null) {
             final HashMap<BlockId, Long> blockHeights = new HashMap<>(blockIds.getCount());
@@ -809,7 +810,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
         final HashMap<BlockId, Long> blockHeights = new HashMap<>(blockIds.getCount());
         final Integer batchSize = Math.min(1024, _databaseManager.getMaxQueryBatchSize());
         final BatchRunner<BlockId> batchRunner = new BatchRunner<>(batchSize, false);
-        batchRunner.run(blockIds, new BatchRunner.Batch<BlockId>() {
+        batchRunner.run(blockIds, new BatchRunner.Batch<>() {
             @Override
             public void run(final List<BlockId> blockIds) throws Exception {
                 final java.util.List<Row> rows = databaseConnection.query(
@@ -1109,7 +1110,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
                 lastBlockId = BlockId.wrap(row.getLong("id"));
 
                 try {
-                    visitor.visit(lastBlockId);
+                    visitor.run(lastBlockId);
                 }
                 catch (final Exception exception) {
                     throw new DatabaseException(exception);

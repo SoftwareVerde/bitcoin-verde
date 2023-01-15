@@ -35,12 +35,12 @@ import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.list.JavaListWrapper;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.ListUtil;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.set.mutable.MutableHashSet;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.query.parameter.InClauseParameter;
@@ -1100,7 +1100,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             final BlockchainSegmentId rowBlockchainSegmentId = BlockchainSegmentId.wrap(row.getLong("blockchain_segment_id"));
             blockchainSegmentIds.add(rowBlockchainSegmentId);
         }
-        final Map<BlockchainSegmentId, Boolean> connectedBlockchainSegments = blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, JavaListWrapper.wrap(blockchainSegmentIds), BlockRelationship.ANY);
+        final Map<BlockchainSegmentId, Boolean> connectedBlockchainSegments = blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, MutableHashSet.wrap(blockchainSegmentIds), BlockRelationship.ANY);
 
         final HashMap<Sha256Hash, BlockId> transactionBlockIds = new HashMap<>();
         for (final Row row : rows) {

@@ -3,10 +3,11 @@ package com.softwareverde.bitcoin.server.module.node.database.blockchain;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.server.module.node.database.Visitor;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.set.Set;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.util.map.Visitor;
 
 import java.util.Map;
 
@@ -19,7 +20,7 @@ public interface BlockchainDatabaseManager {
     BlockchainSegmentId getHeadBlockchainSegmentIdOfBlockchainSegment(BlockchainSegmentId blockchainSegmentId) throws DatabaseException;
     BlockchainSegmentId getPreviousBlockchainSegmentId(BlockchainSegmentId blockchainSegmentId) throws DatabaseException;
     Boolean areBlockchainSegmentsConnected(BlockchainSegmentId blockchainSegmentId0, BlockchainSegmentId blockchainSegmentId1, BlockRelationship blockRelationship) throws DatabaseException;
-    Map<BlockchainSegmentId, Boolean> areBlockchainSegmentsConnected(BlockchainSegmentId blockchainSegmentId, List<BlockchainSegmentId> blockchainSegmentIds, BlockRelationship blockRelationship) throws DatabaseException;
+    Map<BlockchainSegmentId, Boolean> areBlockchainSegmentsConnected(BlockchainSegmentId blockchainSegmentId, Set<BlockchainSegmentId> blockchainSegmentIds, BlockRelationship blockRelationship) throws DatabaseException;
     List<BlockchainSegmentId> getLeafBlockchainSegmentIds() throws DatabaseException;
-    void visitBlockchainSegments(final Visitor<BlockchainSegmentId> visitor) throws DatabaseException;
+    void visitBlockchainSegments(Visitor<BlockchainSegmentId> visitor) throws DatabaseException;
 }

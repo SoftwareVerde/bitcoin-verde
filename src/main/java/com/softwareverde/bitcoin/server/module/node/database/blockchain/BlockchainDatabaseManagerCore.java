@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.module.node.database.BlockchainCacheReference;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.Visitor;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockchainCache;
 import com.softwareverde.bitcoin.server.module.node.database.block.MutableBlockchainCache;
@@ -17,11 +18,11 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.ListUtil;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.set.Set;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.util.Util;
-import com.softwareverde.util.map.Visitor;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -248,7 +249,7 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
         return connectedStatus.get(blockchainSegmentId1);
     }
 
-    protected Map<BlockchainSegmentId, Boolean> _areBlockchainSegmentsConnected(final BlockchainSegmentId blockchainSegmentId, final List<BlockchainSegmentId> blockchainSegmentIds, final BlockRelationship blockRelationship, final BlockchainCache blockchainCache) throws DatabaseException {
+    protected Map<BlockchainSegmentId, Boolean> _areBlockchainSegmentsConnected(final BlockchainSegmentId blockchainSegmentId, final Set<BlockchainSegmentId> blockchainSegmentIds, final BlockRelationship blockRelationship, final BlockchainCache blockchainCache) throws DatabaseException {
         if (blockchainCache != null) {
             final HashMap<BlockchainSegmentId, Boolean> connectedBlockchainSegments = new HashMap<>(blockchainSegmentIds.getCount());
             for (final BlockchainSegmentId blockchainSegmentId1 : blockchainSegmentIds) {
@@ -459,7 +460,7 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
     }
 
     @Override
-    public Map<BlockchainSegmentId, Boolean> areBlockchainSegmentsConnected(final BlockchainSegmentId blockchainSegmentId0, final List<BlockchainSegmentId> blockchainSegmentIds, final BlockRelationship blockRelationship) throws DatabaseException {
+    public Map<BlockchainSegmentId, Boolean> areBlockchainSegmentsConnected(final BlockchainSegmentId blockchainSegmentId0, final Set<BlockchainSegmentId> blockchainSegmentIds, final BlockRelationship blockRelationship) throws DatabaseException {
         final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         return _areBlockchainSegmentsConnected(blockchainSegmentId0, blockchainSegmentIds, blockRelationship, blockchainCache);
     }
@@ -505,7 +506,7 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
                 lastBlockchainSegmentId = BlockchainSegmentId.wrap(row.getLong("id"));
 
                 try {
-                    visitor.visit(lastBlockchainSegmentId);
+                    visitor.run(lastBlockchainSegmentId);
                 }
                 catch (final Exception exception) {
                     throw new DatabaseException(exception);

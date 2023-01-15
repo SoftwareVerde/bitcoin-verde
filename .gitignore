@@ -3,6 +3,7 @@
 .DS_Store
 /build
 /release
+/libs
 bin
 out
 keys

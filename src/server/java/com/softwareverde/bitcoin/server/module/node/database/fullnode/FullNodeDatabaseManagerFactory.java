@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.server.configuration.CheckpointConfiguration;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.Visitor;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockMetadata;
 import com.softwareverde.bitcoin.server.module.node.database.block.MutableBlockchainCache;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -17,7 +18,6 @@ import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.store.UtxoCommitmentStore;
 import com.softwareverde.bitcoin.server.properties.PropertiesStore;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.util.map.Visitor;
 
 import java.util.Map;
 
@@ -59,7 +59,7 @@ public class FullNodeDatabaseManagerFactory implements DatabaseManagerFactory {
 
             blockchainDatabaseManager.visitBlockchainSegments(new Visitor<>() {
                 @Override
-                public void visit(final BlockchainSegmentId blockchainSegmentId) throws Exception {
+                public void run(final BlockchainSegmentId blockchainSegmentId) throws Exception {
                     final BlockchainSegment blockchainSegment = blockchainDatabaseManager.getBlockchainSegment(blockchainSegmentId);
                     blockchainCache.addBlockchainSegment(blockchainSegmentId, blockchainSegment.parentBlockchainSegmentId, blockchainSegment.nestedSetLeft, blockchainSegment.nestedSetRight);
                 }
@@ -67,7 +67,7 @@ public class FullNodeDatabaseManagerFactory implements DatabaseManagerFactory {
 
             blockHeaderDatabaseManager.visitBlockHeaders(new Visitor<>() {
                 @Override
-                public void visit(final BlockId blockId) throws Exception {
+                public void run(final BlockId blockId) throws Exception {
                     final BlockMetadata blockMetadata = blockHeaderDatabaseManager.getBlockMetadata(blockId);
 
                     blockchainCache.addBlock(blockId, blockMetadata.blockHeader, blockMetadata.blockHeight, blockMetadata.chainWork, blockMetadata.medianBlockTime, blockMetadata.hasTransactions);

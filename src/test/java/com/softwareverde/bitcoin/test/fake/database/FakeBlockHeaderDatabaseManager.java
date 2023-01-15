@@ -13,6 +13,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManagerCore;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.MedianBlockTimeDatabaseManagerUtil;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.set.Set;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 
@@ -148,12 +149,12 @@ public interface FakeBlockHeaderDatabaseManager extends BlockHeaderDatabaseManag
     }
 
     @Override
-    default Map<BlockId, Long> getBlockHeights(List<BlockId> blockIds) throws DatabaseException {
+    default Map<BlockId, Long> getBlockHeights(final Set<BlockId> blockIds) throws DatabaseException {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    default BlockMetadata getBlockMetadata(BlockId blockId) throws DatabaseException {
+    default BlockMetadata getBlockMetadata(final BlockId blockId) throws DatabaseException {
         throw new UnsupportedOperationException();
     }
 

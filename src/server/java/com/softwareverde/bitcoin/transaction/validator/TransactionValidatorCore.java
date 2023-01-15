@@ -182,8 +182,7 @@ public class TransactionValidatorCore implements TransactionValidator {
         if (_blockOutputs != null) {
             final TransactionOutput transactionOutput = _blockOutputs.getTransactionOutput(transactionOutputIdentifier);
             if (transactionOutput != null) {
-                final MedianBlockTime transactionOutputMedianBlockTime = _context.getMedianBlockTime(blockHeight - 1L);
-                return transactionOutputMedianBlockTime;
+                return _context.getMedianBlockTime(blockHeight - 1L);
             }
         }
 

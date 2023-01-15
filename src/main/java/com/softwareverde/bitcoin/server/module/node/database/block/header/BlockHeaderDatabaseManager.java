@@ -6,12 +6,13 @@ import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
+import com.softwareverde.bitcoin.server.module.node.database.Visitor;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockMetadata;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.set.Set;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.util.map.Visitor;
 
 import java.util.Map;
 
@@ -34,7 +35,7 @@ public interface BlockHeaderDatabaseManager {
     void setBlockchainSegmentId(BlockId blockId, BlockchainSegmentId blockchainSegmentId) throws DatabaseException;
     BlockchainSegmentId getBlockchainSegmentId(BlockId blockId) throws DatabaseException;
     Long getBlockHeight(BlockId blockId) throws DatabaseException;
-    Map<BlockId, Long> getBlockHeights(List<BlockId> blockIds) throws DatabaseException;
+    Map<BlockId, Long> getBlockHeights(Set<BlockId> blockIds) throws DatabaseException;
     Long getBlockTimestamp(BlockId blockId) throws DatabaseException;
     BlockId getChildBlockId(BlockchainSegmentId blockchainSegmentId, BlockId previousBlockId) throws DatabaseException;
     Boolean hasChildBlock(BlockId blockId) throws DatabaseException;

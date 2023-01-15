@@ -1,7 +1,7 @@
 package com.softwareverde.util.map;
 
-import com.softwareverde.constable.list.JavaListWrapper;
-import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.set.Set;
+import com.softwareverde.constable.set.mutable.MutableHashSet;
 import com.softwareverde.util.Tuple;
 
 import java.util.HashMap;
@@ -172,6 +172,18 @@ public class MutableVersionedHashMap<Key, Value> implements VersionedMap<Key, Va
     }
 
     @Override
+    public Integer getCount() {
+        int itemCount = _committedValues.size();
+
+        for (int i = _version; i > 0; i -= 1) {
+            final HashMap<Key, Value> versionMap = _stagedValues.get(i);
+            itemCount += versionMap.size();
+        }
+
+        return itemCount;
+    }
+
+    @Override
     public Value get(final Key key) {
         return _get(key, _version);
     }
@@ -182,11 +194,23 @@ public class MutableVersionedHashMap<Key, Value> implements VersionedMap<Key, Va
     }
 
     @Override
-    public List<Key> getKeys() {
-        return JavaListWrapper.wrap(_committedValues.keySet());
+    public Set<Key> getKeys() {
+        final MutableHashSet<Key> keySet = new MutableHashSet<>();
+
+        for (int i = _version; i > 0; i -= 1) {
+            final HashMap<Key, Value> versionMap = _stagedValues.get(i);
+            for (final Key key : versionMap.keySet()) {
+                keySet.add(key);
+            }
+        }
+
+        for (final Key key : _committedValues.keySet()) {
+            keySet.add(key);
+        }
+
+        return keySet;
     }
 
-    @Override
     public void visit(final Visitor<Key, Value> visitor) {
         _visit(visitor, _version);
     }
