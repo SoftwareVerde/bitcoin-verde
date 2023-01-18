@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.Slp
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
@@ -30,7 +31,7 @@ public class RequestSlpTransactionsHandler implements BitcoinNode.RequestSlpTran
     @Override
     public void run(final BitcoinNode bitcoinNode, final List<Sha256Hash> transactionHashes) {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final MutableList<Sha256Hash> validatedTransactionHashes = new MutableList<>(transactionHashes.getCount());
+            final MutableList<Sha256Hash> validatedTransactionHashes = new MutableArrayList<>(transactionHashes.getCount());
             for (final Sha256Hash transactionHash : transactionHashes) {
                 final Boolean isValid = _getSlpStatus(databaseManager, transactionHash);
                 if (isValid != null) {

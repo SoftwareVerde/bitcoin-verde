@@ -1,14 +1,15 @@
-package com.softwareverde.bitcoin.server.stratum.message.server;
+package com.softwareverde.bitcoin.stratum.message.server;
 
 import com.softwareverde.bitcoin.server.stratum.message.RequestMessage;
 import com.softwareverde.bitcoin.server.stratum.message.ResponseMessage;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.json.Json;
 
 public class MinerSubscribeResponseMessage extends ResponseMessage {
     protected ByteArray _subscriptionId;
-    protected final MutableList<RequestMessage.ServerCommand> _subscriptions = new MutableList<>();
+    protected final MutableList<RequestMessage.ServerCommand> _subscriptions = new MutableArrayList<>();
     protected ByteArray _extraNonce;
     protected Integer _extraNonce2ByteCount;
 

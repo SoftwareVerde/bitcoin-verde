@@ -17,6 +17,7 @@ import com.softwareverde.bitcoin.transaction.script.slp.send.MutableSlpSendScrip
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
 import com.softwareverde.cryptography.util.HashUtil;
@@ -41,7 +42,7 @@ public class WalletTests extends UnitTest {
     }
 
     protected MutableList<Tuple<String, BigInteger>> _setupTuples() {
-        final MutableList<Tuple<String, BigInteger>> sortedTuples = new MutableList<>();
+        final MutableList<Tuple<String, BigInteger>> sortedTuples = new MutableArrayList<>();
         sortedTuples.add(new Tuple<>("One", BigInteger.valueOf(1L)));
         sortedTuples.add(new Tuple<>("Two", BigInteger.valueOf(2L)));
         sortedTuples.add(new Tuple<>("Three", BigInteger.valueOf(3L)));

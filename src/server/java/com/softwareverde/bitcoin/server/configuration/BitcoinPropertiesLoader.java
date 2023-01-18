@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.configuration;
 
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.json.Json;
 import com.softwareverde.logging.LogLevel;
@@ -24,7 +25,7 @@ public class BitcoinPropertiesLoader {
             final String defaultSeedsString = "[\"seed.flowee.cash\", \"seed-bch.bitcoinforks.org\", \"btccash-seeder.bitcoinunlimited.info\", \"seed.bchd.cash\"]";
             final Json seedNodesJson = Json.parse(properties.getProperty("bitcoin.dnsSeeds", defaultSeedsString));
 
-            final MutableList<String> dnsSeeds = new MutableList<>(seedNodesJson.length());
+            final MutableList<String> dnsSeeds = new MutableArrayList<>(seedNodesJson.length());
             for (int i = 0; i < seedNodesJson.length(); ++i) {
                 final String seedHost = seedNodesJson.getString(i);
                 if (seedHost != null) {
@@ -44,7 +45,7 @@ public class BitcoinPropertiesLoader {
             final String defaultSeedsString = "[\"testnet-seed-bch.bitcoinforks.org\", \"testnet-seed.bchd.cash\"]";
             final Json seedNodesJson = Json.parse(properties.getProperty("bitcoin.testNetDnsSeeds", defaultSeedsString));
 
-            final MutableList<String> dnsSeeds = new MutableList<>(seedNodesJson.length());
+            final MutableList<String> dnsSeeds = new MutableArrayList<>(seedNodesJson.length());
             for (int i = 0; i < seedNodesJson.length(); ++i) {
                 final String seedHost = seedNodesJson.getString(i);
                 if (seedHost != null) {
@@ -60,7 +61,7 @@ public class BitcoinPropertiesLoader {
             final Json blacklistJson = Json.parse(properties.getProperty("bitcoin.userAgentBlacklist", defaultBlacklist));
 
             final int itemCount = blacklistJson.length();
-            final MutableList<String> patterns = new MutableList<>(itemCount);
+            final MutableList<String> patterns = new MutableArrayList<>(itemCount);
             for (int i = 0; i < itemCount; ++i) {
                 final String pattern = blacklistJson.getString(i);
                 patterns.add(pattern);

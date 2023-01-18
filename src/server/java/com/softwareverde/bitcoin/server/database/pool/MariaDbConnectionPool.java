@@ -17,7 +17,6 @@ import java.lang.management.ManagementFactory;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -129,7 +128,7 @@ public class MariaDbConnectionPool implements DatabaseConnectionPool {
         final MBeanServer server = ManagementFactory.getPlatformMBeanServer();
         try {
             final ObjectName filter = new ObjectName("org.mariadb.jdbc.pool:type=" + POOL_NAME + "*");
-            final Set<ObjectName> objectNames = server.queryNames(filter, null);
+            final java.util.Set<ObjectName> objectNames = server.queryNames(filter, null);
             final ObjectName name = objectNames.iterator().next();
 
             return Util.parseInt("" + server.getAttribute(name, "ActiveConnections"));
@@ -144,7 +143,7 @@ public class MariaDbConnectionPool implements DatabaseConnectionPool {
         final MBeanServer server = ManagementFactory.getPlatformMBeanServer();
         try {
             final ObjectName filter = new ObjectName("org.mariadb.jdbc.pool:type=" + POOL_NAME + "*");
-            final Set<ObjectName> objectNames = server.queryNames(filter, null);
+            final java.util.Set<ObjectName> objectNames = server.queryNames(filter, null);
             final ObjectName name = objectNames.iterator().next();
 
             return Util.parseInt("" + server.getAttribute(name, "IdleConnections"));
@@ -159,7 +158,7 @@ public class MariaDbConnectionPool implements DatabaseConnectionPool {
         final MBeanServer server = ManagementFactory.getPlatformMBeanServer();
         try {
             final ObjectName filter = new ObjectName("org.mariadb.jdbc.pool:type=" + POOL_NAME + "*");
-            final Set<ObjectName> objectNames = server.queryNames(filter, null);
+            final java.util.Set<ObjectName> objectNames = server.queryNames(filter, null);
             final ObjectName name = objectNames.iterator().next();
 
             final Integer activeConnections = Util.parseInt("" + server.getAttribute(name, "ActiveConnections"));

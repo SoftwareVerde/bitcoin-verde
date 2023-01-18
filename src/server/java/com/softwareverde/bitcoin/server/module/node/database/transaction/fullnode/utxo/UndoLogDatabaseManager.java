@@ -13,14 +13,15 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Tuple;
 import com.softwareverde.util.timer.MilliTimer;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class UndoLogDatabaseManager {
@@ -41,10 +42,10 @@ public class UndoLogDatabaseManager {
         final List<Transaction> transactions = block.getTransactions();
         final int transactionCount = transactions.getCount();
 
-        final HashMap<TransactionOutputIdentifier, TransactionOutput> transactionOutputs = new HashMap<>();
-        final MutableList<TransactionOutputIdentifier> missingPreviousOutputs = new MutableList<>();
-        final HashMap<Sha256Hash, Transaction> blockTransactions = new HashMap<>(transactionCount);
-        final HashMap<TransactionOutputIdentifier, Long> utxoBlockHeights = new HashMap<>();
+        final MutableHashMap<TransactionOutputIdentifier, TransactionOutput> transactionOutputs = new MutableHashMap<>();
+        final MutableList<TransactionOutputIdentifier> missingPreviousOutputs = new MutableArrayList<>();
+        final MutableHashMap<Sha256Hash, Transaction> blockTransactions = new MutableHashMap<>(transactionCount);
+        final MutableHashMap<TransactionOutputIdentifier, Long> utxoBlockHeights = new MutableHashMap<>();
 
         boolean isCoinbase = true;
         for (final Transaction transaction : transactions) {
@@ -96,9 +97,9 @@ public class UndoLogDatabaseManager {
 
         // TODO: Confirm "GREATEST(VALUES(value), value)" is not affected by MariaDB bug as of v10.5.9-p1.
         final BatchedInsertQuery query = new BatchedInsertQuery("INSERT INTO pruned_previous_transaction_outputs (transaction_hash, `index`, block_height, amount, locking_script, expires_after_block_height) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE block_height = VALUES(block_height), expires_after_block_height = GREATEST(VALUES(expires_after_block_height), expires_after_block_height)");
-        for (Map.Entry<TransactionOutputIdentifier, TransactionOutput> transactionOutputEntry : transactionOutputs.entrySet()) {
-            final TransactionOutputIdentifier transactionOutputIdentifier = transactionOutputEntry.getKey();
-            final TransactionOutput transactionOutput = transactionOutputEntry.getValue();
+        for (final Tuple<TransactionOutputIdentifier, TransactionOutput> transactionOutputEntry : transactionOutputs) {
+            final TransactionOutputIdentifier transactionOutputIdentifier = transactionOutputEntry.first;
+            final TransactionOutput transactionOutput = transactionOutputEntry.second;
             final Long utxoBlockHeight = utxoBlockHeights.get(transactionOutputIdentifier);
 
             final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();

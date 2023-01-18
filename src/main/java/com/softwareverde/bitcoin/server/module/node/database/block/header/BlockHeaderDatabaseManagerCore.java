@@ -29,7 +29,10 @@ import com.softwareverde.bitcoin.server.module.node.database.blockchain.Blockcha
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.Map;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.constable.set.Set;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
@@ -37,9 +40,6 @@ import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
-
-import java.util.HashMap;
-import java.util.Map;
 
 public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManager {
     protected final BlockchainCacheReference _blockchainCacheReference;
@@ -313,7 +313,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         if (blockHeaders.isEmpty()) {
-            return new MutableList<>(0);
+            return new MutableArrayList<>(0);
         }
 
         if (blockHeaders.getCount() == 1) {
@@ -322,7 +322,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
             return new ImmutableList<>(blockId);
         }
 
-        final MutableList<BlockId> blockIds = new MutableList<>(blockHeaders.getCount());
+        final MutableList<BlockId> blockIds = new MutableArrayList<>(blockHeaders.getCount());
 
         final Container<Long> previousBlockHeight = new Container<>();
         final Container<ChainWork> previousChainWork = new Container<>();
@@ -439,7 +439,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
         while (batchStartIndex < blockIds.getCount()) {
             final int batchSize = Math.min(blockIds.getCount() - batchStartIndex, maxBatchSize);
 
-            final MutableList<BlockId> blockIdBatch = new MutableList<>(batchSize);
+            final MutableList<BlockId> blockIdBatch = new MutableArrayList<>(batchSize);
             for (int i = batchStartIndex; i < (batchStartIndex + batchSize); i++) {
                 blockIdBatch.add(blockIds.get(i));
             }
@@ -698,7 +698,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
     @Override
     public List<BlockId> insertBlockHeaders(final List<BlockHeader> blockHeaders) throws DatabaseException {
         if (! Thread.holdsLock(MUTEX)) { throw new RuntimeException("Attempting to storeBlockHeader without obtaining lock."); }
-        if (blockHeaders.isEmpty()) { return new MutableList<>(0); }
+        if (blockHeaders.isEmpty()) { return new MutableArrayList<>(0); }
 
         final MutableBlockchainCache mutableBlockchainCache = _blockchainCacheReference.getMutableBlockchainCache();
         return _insertBlockHeadersAndUpdateBlockchainSegments(blockHeaders, mutableBlockchainCache);
@@ -797,7 +797,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
     public Map<BlockId, Long> getBlockHeights(final Set<BlockId> blockIds) throws DatabaseException {
         final BlockchainCache blockchainCache = _blockchainCacheReference.getBlockchainCache();
         if (blockchainCache != null) {
-            final HashMap<BlockId, Long> blockHeights = new HashMap<>(blockIds.getCount());
+            final MutableHashMap<BlockId, Long> blockHeights = new MutableHashMap<>(blockIds.getCount());
             for (final BlockId blockId : blockIds) {
                 final Long blockHeight = blockchainCache.getBlockHeight(blockId);
                 blockHeights.put(blockId, blockHeight);
@@ -807,7 +807,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final HashMap<BlockId, Long> blockHeights = new HashMap<>(blockIds.getCount());
+        final MutableHashMap<BlockId, Long> blockHeights = new MutableHashMap<>(blockIds.getCount());
         final Integer batchSize = Math.min(1024, _databaseManager.getMaxQueryBatchSize());
         final BatchRunner<BlockId> batchRunner = new BatchRunner<>(batchSize, false);
         batchRunner.run(blockIds, new BatchRunner.Batch<>() {
@@ -900,7 +900,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
                 .setInClauseParameters(blockIds, ValueExtractor.IDENTIFIER)
         );
 
-        final HashMap<BlockId, Sha256Hash> hashesMap = new HashMap<>(rows.size());
+        final MutableHashMap<BlockId, Sha256Hash> hashesMap = new MutableHashMap<>(rows.size());
         for (final Row row : rows) {
             final BlockId blockId = BlockId.wrap(row.getLong("id"));
             final Sha256Hash blockHash = Sha256Hash.wrap(row.getBytes("hash"));
@@ -908,7 +908,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
             hashesMap.put(blockId, blockHash);
         }
 
-        final MutableList<Sha256Hash> blockHashes = new MutableList<>(blockIds.getCount());
+        final MutableList<Sha256Hash> blockHashes = new MutableArrayList<>(blockIds.getCount());
         for (final BlockId blockId : blockIds) {
             blockHashes.add(hashesMap.get(blockId));
         }
@@ -1166,7 +1166,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
             new Query("SELECT * FROM invalid_blocks")
         );
 
-        final HashMap<BlockId, Integer> processCounts = new HashMap<>(rows.size());
+        final MutableHashMap<BlockId, Integer> processCounts = new MutableHashMap<>(rows.size());
         for (final Row row : rows) {
             final Sha256Hash blockHash = Sha256Hash.wrap(row.getBytes("hash"));
             final Integer processCount = row.getInteger("process_count");

@@ -3,17 +3,17 @@ package com.softwareverde.bitcoin.server.module;
 import com.softwareverde.bitcoin.server.configuration.Configuration;
 import com.softwareverde.bitcoin.server.configuration.ConfigurationPropertiesExporter;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.logging.Logger;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
-import java.util.HashMap;
-import java.util.Map;
+
 
 public class ConfigurationModule {
     final String _configurationFilename;
-    final Map<String, String> _userInputMap = new HashMap<>();
+    final MutableHashMap<String, String> _userInputMap = new MutableHashMap<>();
     final BufferedReader _bufferedReader = new BufferedReader(new InputStreamReader(System.in));
 
     public ConfigurationModule(final String configurationFilename) {

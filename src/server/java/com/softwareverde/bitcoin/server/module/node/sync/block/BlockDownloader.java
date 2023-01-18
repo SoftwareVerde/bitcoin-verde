@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.server.node.RequestPriority;
 import com.softwareverde.concurrent.service.PausableSleepyService;
 import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
@@ -59,7 +60,7 @@ public class BlockDownloader extends PausableSleepyService {
     }
 
     protected List<BitcoinNode> _filterBitcoinNodesByActiveDownloadCount(final List<BitcoinNode> bitcoinNodes) {
-        MutableList<Tuple<BitcoinNode, Integer>> bitcoinNodeDownloadCounts = new MutableList<>();
+        MutableList<Tuple<BitcoinNode, Integer>> bitcoinNodeDownloadCounts = new MutableArrayList<>();
         for (final BitcoinNode bitcoinNode : bitcoinNodes) {
             final AtomicInteger activeDownloadCount;
             synchronized (_activeDownloadCounts) {
@@ -80,7 +81,7 @@ public class BlockDownloader extends PausableSleepyService {
             }
         });
 
-        final MutableList<BitcoinNode> filteredBitcoinNodes = new MutableList<>();
+        final MutableList<BitcoinNode> filteredBitcoinNodes = new MutableArrayList<>();
         for (final Tuple<BitcoinNode, ?> tuple : bitcoinNodeDownloadCounts) {
             final BitcoinNode bitcoinNode = tuple.first;
             filteredBitcoinNodes.add(bitcoinNode);
@@ -89,7 +90,7 @@ public class BlockDownloader extends PausableSleepyService {
     }
 
     protected List<BitcoinNode> _filterBitcoinNodesByBlockHeight(final List<BitcoinNode> bitcoinNodes, final Long blockHeight) {
-        MutableList<Tuple<BitcoinNode, Long>> bitcoinNodeBlockHeightDifferences = new MutableList<>();
+        MutableList<Tuple<BitcoinNode, Long>> bitcoinNodeBlockHeightDifferences = new MutableArrayList<>();
         for (final BitcoinNode bitcoinNode : bitcoinNodes) {
             final Long bitcoinNodeBlockHeight = bitcoinNode.getBlockHeight();
             if (bitcoinNodeBlockHeight == null) { continue; }
@@ -112,7 +113,7 @@ public class BlockDownloader extends PausableSleepyService {
             }
         });
 
-        final MutableList<BitcoinNode> filteredBitcoinNodes = new MutableList<>();
+        final MutableList<BitcoinNode> filteredBitcoinNodes = new MutableArrayList<>();
         for (final Tuple<BitcoinNode, ?> tuple : bitcoinNodeBlockHeightDifferences) {
             final BitcoinNode bitcoinNode = tuple.first;
             filteredBitcoinNodes.add(bitcoinNode);

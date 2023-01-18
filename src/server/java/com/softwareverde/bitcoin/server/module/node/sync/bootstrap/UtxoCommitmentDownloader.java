@@ -28,10 +28,17 @@ import com.softwareverde.bitcoin.server.module.node.utxo.UtxoDatabaseSubBucket;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.RequestId;
 import com.softwareverde.concurrent.Pin;
+import com.softwareverde.constable.Factory;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.Map;
+import com.softwareverde.constable.map.mutable.ConcurrentMutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.set.mutable.MutableHashSet;
+import com.softwareverde.constable.set.mutable.MutableTreeSet;
 import com.softwareverde.cryptography.secp256k1.EcMultiset;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.logging.Logger;
@@ -51,11 +58,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.TreeSet;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -136,7 +138,7 @@ public class UtxoCommitmentDownloader {
 
     protected static void sortUtxoCommitmentFile(final File file) throws IOException {
         final CommittedUnspentTransactionOutputInflater utxoInflater = new CommittedUnspentTransactionOutputInflater();
-        final TreeSet<CommittedUnspentTransactionOutput> sortedSet = new TreeSet<>(new Comparator<CommittedUnspentTransactionOutput>() {
+        final MutableTreeSet<CommittedUnspentTransactionOutput> sortedSet = new MutableTreeSet<>(new Comparator<>() {
             @Override
             public int compare(final CommittedUnspentTransactionOutput committedUnspentTransactionOutput0, final CommittedUnspentTransactionOutput committedUnspentTransactionOutput1) {
                 return CommittedUnspentTransactionOutput.compare(committedUnspentTransactionOutput0, committedUnspentTransactionOutput1);
@@ -189,8 +191,8 @@ public class UtxoCommitmentDownloader {
     }
 
     protected DownloadableUtxoCommitment _calculateUtxoCommitmentToDownload() {
-        final ConcurrentHashMap<RequestId, Tuple<BitcoinNode, Pin>> requestPins = new ConcurrentHashMap<>();
-        final ConcurrentHashMap<RequestId, List<NodeSpecificUtxoCommitmentBreakdown>> getUtxoCommitmentsResponses = new ConcurrentHashMap<>();
+        final ConcurrentMutableHashMap<RequestId, Tuple<BitcoinNode, Pin>> requestPins = new ConcurrentMutableHashMap<>();
+        final ConcurrentMutableHashMap<RequestId, List<NodeSpecificUtxoCommitmentBreakdown>> getUtxoCommitmentsResponses = new ConcurrentMutableHashMap<>();
         {
             final List<BitcoinNode> connectedNodes = _getBitcoinNodesWithUtxoCommitments();
             if (connectedNodes.isEmpty()) {
@@ -209,7 +211,7 @@ public class UtxoCommitmentDownloader {
                     }
 
                     boolean allBreakdownsAreUnique = true;
-                    final HashSet<NodeSpecificUtxoCommitmentBreakdown> uniqueUtxoCommitmentBreakdowns = new HashSet<>();
+                    final MutableHashSet<NodeSpecificUtxoCommitmentBreakdown> uniqueUtxoCommitmentBreakdowns = new MutableHashSet<>();
 
                     boolean allBreakdownsAreValid = true;
                     for (final NodeSpecificUtxoCommitmentBreakdown utxoCommitmentBreakdown : utxoCommitmentBreakdowns) {
@@ -240,7 +242,7 @@ public class UtxoCommitmentDownloader {
             allRequestsIssuedPin.release();
 
             long timeoutRemainingMs = maxTimeoutMs;
-            for (final Tuple<BitcoinNode, Pin> tuple : requestPins.values()) {
+            for (final Tuple<BitcoinNode, Pin> tuple : requestPins.getValues()) {
                 final Pin pin = tuple.second;
 
                 final NanoTimer nanoTimer = new NanoTimer();
@@ -254,13 +256,13 @@ public class UtxoCommitmentDownloader {
             }
         }
 
-        final HashMap<UtxoCommitmentMetadata, UtxoCommitmentBreakdown> availableBreakdowns = new HashMap<>();
-        final HashMap<UtxoCommitmentMetadata, HashMap<BitcoinNode, NodeSpecificUtxoCommitmentBreakdown>> availableUtxoCommitmentBreakdownsByUtxoCommitment = new HashMap<>();
-        for (final Map.Entry<RequestId, List<NodeSpecificUtxoCommitmentBreakdown>> entry : getUtxoCommitmentsResponses.entrySet()) {
-            final List<NodeSpecificUtxoCommitmentBreakdown> bitcoinNodeUtxoCommitmentBreakdowns = entry.getValue();
+        final MutableHashMap<UtxoCommitmentMetadata, UtxoCommitmentBreakdown> availableBreakdowns = new MutableHashMap<>();
+        final MutableHashMap<UtxoCommitmentMetadata, MutableHashMap<BitcoinNode, NodeSpecificUtxoCommitmentBreakdown>> availableUtxoCommitmentBreakdownsByUtxoCommitment = new MutableHashMap<>();
+        for (final Tuple<RequestId, List<NodeSpecificUtxoCommitmentBreakdown>> entry : getUtxoCommitmentsResponses) {
+            final List<NodeSpecificUtxoCommitmentBreakdown> bitcoinNodeUtxoCommitmentBreakdowns = entry.second;
             if (bitcoinNodeUtxoCommitmentBreakdowns == null) { continue; }
 
-            final RequestId requestId = entry.getKey();
+            final RequestId requestId = entry.first;
             final Tuple<BitcoinNode, Pin> tuple = requestPins.get(requestId);
             final BitcoinNode bitcoinNode = tuple.first;
 
@@ -271,20 +273,24 @@ public class UtxoCommitmentDownloader {
                 }
 
                 // NOTE: UtxoCommitmentBreakdowns' buckets ignore their subBuckets when determining equality...
-                final HashMap<BitcoinNode, NodeSpecificUtxoCommitmentBreakdown> bitcoinNodeBreakdownsForUtxoCommit = availableUtxoCommitmentBreakdownsByUtxoCommitment.getOrDefault(utxoCommitmentMetadata, new HashMap<>());
-                bitcoinNodeBreakdownsForUtxoCommit.put(bitcoinNode, utxoCommitmentBreakdown);
+                final MutableHashMap<BitcoinNode, NodeSpecificUtxoCommitmentBreakdown> bitcoinNodeBreakdownsForUtxoCommit = availableUtxoCommitmentBreakdownsByUtxoCommitment.getOrPut(utxoCommitmentMetadata, new Factory<MutableHashMap<BitcoinNode, NodeSpecificUtxoCommitmentBreakdown>>() {
+                    @Override
+                    public MutableHashMap<BitcoinNode, NodeSpecificUtxoCommitmentBreakdown> newInstance() {
+                        return new MutableHashMap<>();
+                    }
+                });
 
                 availableUtxoCommitmentBreakdownsByUtxoCommitment.put(utxoCommitmentMetadata, bitcoinNodeBreakdownsForUtxoCommit);
             }
         }
 
         // Sort the available UtxoCommitments by most availability...
-        final MutableList<Tuple<UtxoCommitmentMetadata, Integer>> utxoCommitmentAvailabilityCounts = new MutableList<>(0);
-        for (final UtxoCommitmentMetadata utxoCommitmentMetadata : availableUtxoCommitmentBreakdownsByUtxoCommitment.keySet()) {
+        final MutableList<Tuple<UtxoCommitmentMetadata, Integer>> utxoCommitmentAvailabilityCounts = new MutableArrayList<>(0);
+        for (final UtxoCommitmentMetadata utxoCommitmentMetadata : availableUtxoCommitmentBreakdownsByUtxoCommitment.getKeys()) {
             if (! _trustedUtxoCommitments.contains(utxoCommitmentMetadata)) { continue; }
 
-            final HashMap<?, NodeSpecificUtxoCommitmentBreakdown> availableUtxoCommitmentsBreakdowns = availableUtxoCommitmentBreakdownsByUtxoCommitment.get(utxoCommitmentMetadata);
-            final int availabilityCount = UtxoCommitmentDownloader.countValidNodeSpecificBreakdowns(availableUtxoCommitmentsBreakdowns.values());
+            final MutableHashMap<?, NodeSpecificUtxoCommitmentBreakdown> availableUtxoCommitmentsBreakdowns = availableUtxoCommitmentBreakdownsByUtxoCommitment.get(utxoCommitmentMetadata);
+            final int availabilityCount = UtxoCommitmentDownloader.countValidNodeSpecificBreakdowns(availableUtxoCommitmentsBreakdowns.getValues());
 
             final Tuple<UtxoCommitmentMetadata, Integer> availabilityCountTuple = new Tuple<>(utxoCommitmentMetadata, availabilityCount);
             utxoCommitmentAvailabilityCounts.add(availabilityCountTuple);
@@ -317,7 +323,7 @@ public class UtxoCommitmentDownloader {
         }
 
         final UtxoCommitmentMetadata selectedUtxoCommitmentMetadata = selectedUtxoCommitmentBreakdown.getMetadata();
-        final HashMap<BitcoinNode, NodeSpecificUtxoCommitmentBreakdown> availableUtxoCommitmentsBreakdownsForUtxoCommitment = availableUtxoCommitmentBreakdownsByUtxoCommitment.get(selectedUtxoCommitmentMetadata);
+        final MutableHashMap<BitcoinNode, NodeSpecificUtxoCommitmentBreakdown> availableUtxoCommitmentsBreakdownsForUtxoCommitment = availableUtxoCommitmentBreakdownsByUtxoCommitment.get(selectedUtxoCommitmentMetadata);
         return new DownloadableUtxoCommitment(selectedUtxoCommitmentMetadata, selectedUtxoCommitmentBreakdown, availableUtxoCommitmentsBreakdownsForUtxoCommitment);
     }
 
@@ -473,10 +479,10 @@ public class UtxoCommitmentDownloader {
      * Requests each connected node for available commitments and arbitrarily picks one node that is capable ot serving the requested UtxoCommitment.
      */
     protected Tuple<BitcoinNode, NodeSpecificUtxoCommitmentBreakdown> _findBitcoinNodeForUtxoCommitment(final UtxoCommitmentMetadata utxoCommitmentMetadata) {
-        final MutableList<Tuple<BitcoinNode, NodeSpecificUtxoCommitmentBreakdown>> candidateBitcoinNodes = new MutableList<>();
+        final MutableList<Tuple<BitcoinNode, NodeSpecificUtxoCommitmentBreakdown>> candidateBitcoinNodes = new MutableArrayList<>();
         final PublicKey publicKey = utxoCommitmentMetadata.publicKey;
         final List<BitcoinNode> bitcoinNodes = _getBitcoinNodesWithUtxoCommitments();
-        final MutableList<Pin> requestPins = new MutableList<>();
+        final MutableList<Pin> requestPins = new MutableArrayList<>();
         for (final BitcoinNode bitcoinNode : bitcoinNodes) {
             final Pin pin = new Pin();
             requestPins.add(pin);
@@ -548,7 +554,7 @@ public class UtxoCommitmentDownloader {
         final BitcoinNode selectedBitcoinNode;
         final List<UtxoCommitmentBucket> utxoCommitmentBreakdownBuckets;
         {
-            final List<BitcoinNode> bitcoinNodes = new ImmutableList<>(downloadableUtxoCommitment.nodeBreakdowns.keySet());
+            final List<BitcoinNode> bitcoinNodes = new ImmutableList<>(downloadableUtxoCommitment.nodeBreakdowns.getKeys());
             final int bitcoinNodeCount = bitcoinNodes.getCount();
 
             BitcoinNode bitcoinNode = null;
@@ -583,9 +589,9 @@ public class UtxoCommitmentDownloader {
         final UtxoCommitmentBucket bitcoinNodeBucket = utxoCommitmentBreakdownBuckets.get(bucketIndex);
 
         boolean wasDownloaded = false;
-        final MutableList<File> unsortedSubBucketFiles = new MutableList<>();
-        final MutableList<File> subBucketFiles = new MutableList<>();
-        final MutableList<UtxoDatabaseSubBucket> databaseSubBuckets = new MutableList<>();
+        final MutableList<File> unsortedSubBucketFiles = new MutableArrayList<>();
+        final MutableList<File> subBucketFiles = new MutableArrayList<>();
+        final MutableList<UtxoDatabaseSubBucket> databaseSubBuckets = new MutableArrayList<>();
         if (bitcoinNodeBucket.hasSubBuckets()) {
             int subBucketIndex = 0;
             for (final MultisetBucket subBucket : bitcoinNodeBucket.getSubBuckets()) {
@@ -642,7 +648,7 @@ public class UtxoCommitmentDownloader {
     }
 
     protected Boolean _downloadUtxoCommitment(final DownloadableUtxoCommitment downloadableUtxoCommitment, final MilliTimer executionTimer, final UnspentTransactionOutputVisitor unspentTransactionOutputVisitor) {
-        Logger.info("Downloading " + downloadableUtxoCommitment.metadata.blockHash + " - " + downloadableUtxoCommitment.metadata.publicKey + " from " + downloadableUtxoCommitment.nodeBreakdowns.size() + " nodes.");
+        Logger.info("Downloading " + downloadableUtxoCommitment.metadata.blockHash + " - " + downloadableUtxoCommitment.metadata.publicKey + " from " + downloadableUtxoCommitment.nodeBreakdowns.getCount() + " nodes.");
 
         final UtxoCommitmentBreakdown utxoCommitmentBreakdown = downloadableUtxoCommitment.breakdown;
         final List<MultisetBucket> utxoCommitmentBuckets = utxoCommitmentBreakdown.getBuckets();
@@ -652,9 +658,9 @@ public class UtxoCommitmentDownloader {
             bucketDownloads[i] = new BucketDownload();
         }
 
-        final MutableList<File> unsortedCommitmentFiles = new MutableList<>();
-        final MutableList<File> utxoCommitmentFiles = new MutableList<>();
-        final MutableList<UtxoDatabaseSubBucket> localUtxoCommitmentFiles = new MutableList<>(); // Used to store the Utxo Commitment metadata in the database for serving to new peers.
+        final MutableList<File> unsortedCommitmentFiles = new MutableArrayList<>();
+        final MutableList<File> utxoCommitmentFiles = new MutableArrayList<>();
+        final MutableList<UtxoDatabaseSubBucket> localUtxoCommitmentFiles = new MutableArrayList<>(); // Used to store the Utxo Commitment metadata in the database for serving to new peers.
 
         final Container<Integer> completeCount = new Container<>(0);
         while (executionTimer.getMillisecondsElapsed() <= _fastSyncTimeoutMs) {

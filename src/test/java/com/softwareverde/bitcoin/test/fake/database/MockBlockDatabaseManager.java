@@ -10,18 +10,18 @@ import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.Full
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 
-import java.util.HashMap;
-
 public class MockBlockDatabaseManager extends FullNodeBlockDatabaseManager {
-    protected final HashMap<BlockId, MutableBlock> _blocks = new HashMap<>();
-    protected final HashMap<BlockchainSegmentId, BlockId> _blockchainSegmentsHeadBlockIds = new HashMap<>();
+    protected final MutableMap<BlockId, MutableBlock> _blocks = new MutableHashMap<>();
+    protected final MutableMap<BlockchainSegmentId, BlockId> _blockchainSegmentsHeadBlockIds = new MutableHashMap<>();
 
-    protected final HashMap<Sha256Hash, BlockId> _blockIds = new HashMap<>();
-    protected final HashMap<BlockId, List<TransactionId>> _blockTransactionIds = new HashMap<>();
+    protected final MutableMap<Sha256Hash, BlockId> _blockIds = new MutableHashMap<>();
+    protected final MutableMap<BlockId, List<TransactionId>> _blockTransactionIds = new MutableHashMap<>();
 
     protected MutableMedianBlockTime _medianBlockTime;
     protected BlockId _headBlockId;

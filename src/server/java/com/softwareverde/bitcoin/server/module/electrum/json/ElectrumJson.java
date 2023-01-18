@@ -1,12 +1,14 @@
 package com.softwareverde.bitcoin.server.module.electrum.json;
 
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.map.Map;
 import com.softwareverde.json.Json;
+import com.softwareverde.util.Tuple;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.Collection;
-import java.util.Map;
+
 
 public class ElectrumJson extends Json {
     public ElectrumJson(final JSONObject jsonObject) {
@@ -27,8 +29,16 @@ public class ElectrumJson extends Json {
         super(c);
     }
 
-    public <T> ElectrumJson(final Map<String, T> keyValueMap) {
+    public <T> ElectrumJson(final java.util.Map<String, T> keyValueMap) {
         super(keyValueMap);
+    }
+
+    public <T> ElectrumJson(final Map<String, T> keyValueMap) {
+        super(new java.util.HashMap<String, T>() {{
+            for (final Tuple<String, T> entry : keyValueMap) {
+                this.put(entry.first, entry.second);
+            }
+        }});
     }
 
     @Override

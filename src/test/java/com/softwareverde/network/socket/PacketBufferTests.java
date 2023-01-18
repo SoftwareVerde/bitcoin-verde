@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
@@ -199,7 +200,7 @@ public class PacketBufferTests {
         packetBuffer.appendBytes(zVersionMessageBytes.getBytes(), zVersionMessageBytes.getByteCount());
         packetBuffer.appendBytes(inventoryMessageBytes.getBytes(), inventoryMessageBytes.getByteCount());
 
-        final MutableList<BitcoinProtocolMessage> protocolMessages = new MutableList<>();
+        final MutableList<BitcoinProtocolMessage> protocolMessages = new MutableArrayList<>();
 
         // Action
         packetBuffer.evictCorruptedPackets();
@@ -230,7 +231,7 @@ public class PacketBufferTests {
         packetBuffer.appendBytes(inventoryMessageBytes.getBytes(), inventoryMessageBytes.getByteCount()); // Message becomes mangled by the off-by-one in zVersion.
         packetBuffer.appendBytes(inventoryMessageBytes.getBytes(), inventoryMessageBytes.getByteCount());
 
-        final MutableList<BitcoinProtocolMessage> protocolMessages = new MutableList<>();
+        final MutableList<BitcoinProtocolMessage> protocolMessages = new MutableArrayList<>();
 
         // Action
         packetBuffer.evictCorruptedPackets();

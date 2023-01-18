@@ -26,6 +26,7 @@ import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
@@ -63,7 +64,7 @@ public class TestBlockDataStratumMiner {
 
         final Transaction coinbaseTransaction = transactionInflater.createCoinbaseTransactionWithExtraNonce(blockHeight, coinbaseMessage, StratumMiner.totalExtraNonceByteCount, address, BlockHeader.calculateBlockReward(blockHeight));
 
-        final MutableList<Transaction> transactions = new MutableList<>();
+        final MutableList<Transaction> transactions = new MutableArrayList<>();
 
 //        {
 //            final PrivateKey prevoutPrivateKey = ???;

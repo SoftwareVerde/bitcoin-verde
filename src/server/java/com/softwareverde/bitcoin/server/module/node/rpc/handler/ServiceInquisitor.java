@@ -2,9 +2,10 @@ package com.softwareverde.bitcoin.server.module.node.rpc.handler;
 
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.concurrent.service.SleepyService;
+import com.softwareverde.constable.map.Map;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ServiceInquisitor implements NodeRpcHandler.ServiceInquisitor {
@@ -16,7 +17,7 @@ public class ServiceInquisitor implements NodeRpcHandler.ServiceInquisitor {
 
     @Override
     public Map<String, String> getServiceStatuses() {
-        final HashMap<String, String> serviceStatuses = new HashMap<>(_services.size());
+        final MutableMap<String, String> serviceStatuses = new MutableHashMap<>(_services.size());
         for (final String serviceName : _services.keySet()) {
             final SleepyService.StatusMonitor statusMonitor = _services.get(serviceName);
             serviceStatuses.put(serviceName, statusMonitor.getStatus().toString());

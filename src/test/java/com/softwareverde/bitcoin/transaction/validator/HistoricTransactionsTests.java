@@ -34,7 +34,9 @@ import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.Map;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
 import com.softwareverde.logging.Logger;
@@ -45,7 +47,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.util.Map;
+
 
 public class HistoricTransactionsTests extends UnitTest {
     public static class TestConfig {
@@ -1282,7 +1284,7 @@ public class HistoricTransactionsTests extends UnitTest {
         testConfig.unlockingScriptBytes = "473044022005E476612E0BED4C43173F657B0ABF9EB00013C1D1A7CA5DE649648E97972BCA02203C4A89B52B2ED966EDA6B10B8D5E17A1A6CC956B79317C3761F0A98C0EB556176121022EEBF1895D911E62C184A47C775CE8FE11FB42E38FD9C8D5F055A60620A25738";
 
         final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
-        final MutableList<TransactionOutput> previousOutputs = new MutableList<>();
+        final MutableList<TransactionOutput> previousOutputs = new MutableArrayList<>();
         previousOutputs.add(transactionOutputInflater.fromBytes(1, ByteArray.fromHexString("A07CB32F000000001976A914FD68D2C87F0DC1799E51657D32EFB9AA367D161E88AC")));
         previousOutputs.add(transactionOutputInflater.fromBytes(0, ByteArray.fromHexString("401F0000000000004FEFBC54B7422A5DFE5188E4AC2D80661452C5BC59F7F0B8DBEA98C0BEEECB49F961720E48656C6C6F20776F726C64212021FE8ED73E0D76A9140A373CAF0AB3C2B46CD05625B8D545C295B93D7A88AC")));
 
@@ -1309,7 +1311,7 @@ public class HistoricTransactionsTests extends UnitTest {
         testConfig.unlockingScriptBytes = "1E5102E80351B2757C00A26900CD02A914C1A97E01877E88C0C67C9400CCA1";
 
         final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
-        final MutableList<TransactionOutput> previousOutputs = new MutableList<>();
+        final MutableList<TransactionOutput> previousOutputs = new MutableArrayList<>();
         previousOutputs.add(transactionOutputInflater.fromBytes(1, ByteArray.fromHexString("102700000000000017A9143D416D6B3B4F59826661D868BA4FD6F62FDE537787")));
 
         // Median Block Time:   1654902233

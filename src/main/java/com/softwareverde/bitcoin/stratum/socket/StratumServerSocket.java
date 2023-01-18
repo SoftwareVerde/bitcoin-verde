@@ -1,13 +1,13 @@
 package com.softwareverde.bitcoin.stratum.socket;
 
 import com.softwareverde.concurrent.threadpool.ThreadPool;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.socket.JsonSocket;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.List;
 
 public class StratumServerSocket {
     public interface SocketEventCallback {
@@ -18,7 +18,7 @@ public class StratumServerSocket {
     protected final Integer _port;
     protected java.net.ServerSocket _socket;
 
-    protected final List<JsonSocket> _connections = new ArrayList<>();
+    protected final MutableList<JsonSocket> _connections = new MutableArrayList<>();
 
     protected Long _nextConnectionId = 0L;
     protected volatile Boolean _shouldContinue = true;
@@ -31,13 +31,13 @@ public class StratumServerSocket {
     protected static final Long _purgeEveryCount = 20L;
     protected void _purgeDisconnectedConnections() {
         synchronized (_connections) {
-            final Iterator<JsonSocket> iterator = _connections.iterator();
-            while (iterator.hasNext()) {
-                final JsonSocket connection = iterator.next();
+            final Iterator<JsonSocket> mutableIterator = _connections.mutableIterator();
+            while (mutableIterator.hasNext()) {
+                final JsonSocket connection = mutableIterator.next();
                 if (connection == null) { continue; }
 
                 if (! connection.isConnected()) {
-                    iterator.remove();
+                    mutableIterator.remove();
                     Logger.debug("Purging disconnected stratum socket: " + connection.getIp() + ":" + connection.getPort());
 
                     _onDisconnect(connection);

@@ -19,6 +19,7 @@ import com.softwareverde.bitcoin.server.module.node.database.blockchain.Blockcha
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
@@ -68,7 +69,7 @@ public class SpvBlockDatabaseManager implements BlockDatabaseManager {
                 .setParameter(Util.coalesce(minBlockHeight))
         );
 
-        final MutableList<BlockId> blockIds = new MutableList<>(rows.size());
+        final MutableList<BlockId> blockIds = new MutableArrayList<>(rows.size());
         for (final Row row : rows) {
             final BlockId blockId = BlockId.wrap(row.getLong("id"));
             blockIds.add(blockId);
@@ -192,7 +193,7 @@ public class SpvBlockDatabaseManager implements BlockDatabaseManager {
                 .setParameter(blockId)
         );
 
-        final MutableList<TransactionId> transactionIds = new MutableList<>(rows.size());
+        final MutableList<TransactionId> transactionIds = new MutableArrayList<>(rows.size());
         for (final Row row : rows) {
             final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
             transactionIds.add(transactionId);
@@ -226,7 +227,7 @@ public class SpvBlockDatabaseManager implements BlockDatabaseManager {
 
         final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
-        final MutableList<BlockId> blockIds = new MutableList<>(rows.size());
+        final MutableList<BlockId> blockIds = new MutableArrayList<>(rows.size());
         for (final Row row : rows) {
             final BlockId blockId = BlockId.wrap(row.getLong("id"));
             final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(row.getLong("blockchain_segment_id"));

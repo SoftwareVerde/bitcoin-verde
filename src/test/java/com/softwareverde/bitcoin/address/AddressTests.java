@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.IoUtil;
@@ -279,7 +280,7 @@ public class AddressTests extends UnitTest {
         final Json testVectors = Json.parse(IoUtil.getResource("/cash-tokens/cashaddr.json"));
         Assert.assertTrue(testVectors.length() > 0);
 
-        final MutableList<String> failedTests = new MutableList<>();
+        final MutableList<String> failedTests = new MutableArrayList<>();
 
         for (int i = 0 ; i < testVectors.length(); ++i) {
             final Json testVector = testVectors.get(i);

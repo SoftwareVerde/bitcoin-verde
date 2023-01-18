@@ -19,12 +19,14 @@ import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlocking
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.Map;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 
-import java.util.Map;
+
 
 public class UnconfirmedTransactionInputDatabaseManager {
     protected final FullNodeDatabaseManager _databaseManager;
@@ -97,7 +99,7 @@ public class UnconfirmedTransactionInputDatabaseManager {
         final Long firstTransactionInputId = databaseConnection.executeSql(batchedInsertQuery);
         final Integer insertCount = databaseConnection.getRowsAffectedCount();
 
-        final MutableList<UnconfirmedTransactionInputId> transactionInputIds = new MutableList<>(insertCount);
+        final MutableList<UnconfirmedTransactionInputId> transactionInputIds = new MutableArrayList<>(insertCount);
         for (int i = 0; i < insertCount; ++i) {
             final UnconfirmedTransactionInputId transactionInputId = UnconfirmedTransactionInputId.wrap(firstTransactionInputId + i);
             transactionInputIds.add(transactionInputId);
@@ -154,7 +156,7 @@ public class UnconfirmedTransactionInputDatabaseManager {
                 .setParameter(transactionId)
         );
 
-        final MutableList<UnconfirmedTransactionInputId> transactionInputIds = new MutableList<>(rows.size());
+        final MutableList<UnconfirmedTransactionInputId> transactionInputIds = new MutableArrayList<>(rows.size());
         for (final Row row : rows) {
             final UnconfirmedTransactionInputId transactionInputId = UnconfirmedTransactionInputId.wrap(row.getLong("id"));
             transactionInputIds.add(transactionInputId);

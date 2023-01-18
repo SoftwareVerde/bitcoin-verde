@@ -41,15 +41,15 @@ import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.VolatileNetworkTime;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
-
-import java.util.HashMap;
 
 public class TransactionProcessor extends SleepyService {
     public interface Context extends TransactionInflaters, MultiConnectionFullDatabaseContext, TransactionValidatorFactory, NetworkTimeContext, SystemTimeContext, UpgradeScheduleContext, ThreadPoolContext { }
@@ -121,7 +121,7 @@ public class TransactionProcessor extends SleepyService {
                 final List<PendingTransactionId> pendingTransactionIds = pendingTransactionDatabaseManager.selectCandidatePendingTransactionIds();
                 if (pendingTransactionIds.isEmpty()) { return false; }
 
-                final HashMap<Sha256Hash, PendingTransactionId> pendingTransactionIdMap = new HashMap<>(pendingTransactionIds.getCount());
+                final MutableHashMap<Sha256Hash, PendingTransactionId> pendingTransactionIdMap = new MutableHashMap<>(pendingTransactionIds.getCount());
                 final List<Transaction> transactionsToStore;
                 {
                     final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<>(pendingTransactionIds.getCount());
@@ -161,8 +161,8 @@ public class TransactionProcessor extends SleepyService {
                 final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
                 final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
 
-                final MutableList<Transaction> validTransactions = new MutableList<>(transactionsToStore.getCount());
-                final MutableList<TransactionId> validTransactionIds = new MutableList<>(transactionsToStore.getCount());
+                final MutableList<Transaction> validTransactions = new MutableArrayList<>(transactionsToStore.getCount());
+                final MutableList<TransactionId> validTransactionIds = new MutableArrayList<>(transactionsToStore.getCount());
 
                 int invalidTransactionCount = 0;
                 final MilliTimer storeTransactionsTimer = new MilliTimer();

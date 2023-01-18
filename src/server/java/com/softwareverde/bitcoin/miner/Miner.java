@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlockingScript;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
@@ -45,8 +46,8 @@ public class Miner {
     }
 
     public Block mineBlock(final Block prototypeBlock) throws Exception {
-        final MutableList<Thread> threads = new MutableList<>();
-        final MutableList<AtomicLong> hashCounts = new MutableList<>();
+        final MutableList<Thread> threads = new MutableArrayList<>();
+        final MutableList<AtomicLong> hashCounts = new MutableArrayList<>();
 
         final Container<Block> blockContainer = new Container<>();
 

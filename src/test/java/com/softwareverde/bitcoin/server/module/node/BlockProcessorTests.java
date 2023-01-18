@@ -66,7 +66,11 @@ import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.Map;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
@@ -82,8 +86,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class BlockProcessorTests extends IntegrationTest {
@@ -711,8 +713,8 @@ public class BlockProcessorTests extends IntegrationTest {
         final FakeBlockInflaters blockInflaters = new FakeBlockInflaters();
 
         final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(_databaseConnectionFactory, _database.getMaxQueryBatchSize(), _propertiesStore, _blockStore, _utxoCommitmentStore, _masterInflater, _checkpointConfiguration) {
-            protected final HashMap<Sha256Hash, TransactionId> _transactionIds = new HashMap<>();
-            protected final HashMap<TransactionId, Transaction> _transactions = new HashMap<>();
+            protected final MutableMap<Sha256Hash, TransactionId> _transactionIds = new MutableHashMap<>();
+            protected final MutableMap<TransactionId, Transaction> _transactions = new MutableHashMap<>();
 
             { // Init Anonymous Class...
                 final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
@@ -720,7 +722,7 @@ public class BlockProcessorTests extends IntegrationTest {
                 try (final DatabaseConnection databaseConnection = _database.newConnection()) {
                     for (final String transactionData : resourceData.split("\n")) {
                         final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString(transactionData));
-                        final TransactionId transactionId = TransactionId.wrap(_transactionIds.size() + 1L);
+                        final TransactionId transactionId = TransactionId.wrap(_transactionIds.getCount() + 1L);
                         final Sha256Hash transactionHash = transaction.getHash();
                         final Integer transactionByteCount = transaction.getByteCount();
 
@@ -765,7 +767,7 @@ public class BlockProcessorTests extends IntegrationTest {
 
                         @Override
                         public Map<Sha256Hash, TransactionId> getTransactionIds(final List<Sha256Hash> transactionHashes) throws DatabaseException {
-                            final HashMap<Sha256Hash, TransactionId> transactionIds = new HashMap<>();
+                            final MutableMap<Sha256Hash, TransactionId> transactionIds = new MutableHashMap<>();
                             for (final Sha256Hash transactionHash : transactionHashes) {
                                 final TransactionId transactionId = this.getTransactionId(transactionHash);
                                 transactionIds.put(transactionHash, transactionId);
@@ -786,7 +788,7 @@ public class BlockProcessorTests extends IntegrationTest {
 
                         @Override
                         public Map<Sha256Hash, Transaction> getTransactions(final List<Sha256Hash> transactionHashes) throws DatabaseException {
-                            final HashMap<Sha256Hash, Transaction> transactions = new HashMap<>();
+                            final MutableMap<Sha256Hash, Transaction> transactions = new MutableHashMap<>();
                             for (final Sha256Hash transactionHash : transactionHashes) {
                                 final TransactionId transactionId = this.getTransactionId(transactionHash);
                                 final Transaction transaction = this.getTransaction(transactionId);
@@ -929,8 +931,8 @@ public class BlockProcessorTests extends IntegrationTest {
 
                 { // Populate the required UTXOs for validation...
                     final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
-                    final MutableList<TransactionOutputIdentifier> requiredTransactionOutputIdentifiers = new MutableList<>();
-                    final MutableList<TransactionOutput> requiredTransactionOutputs = new MutableList<>();
+                    final MutableList<TransactionOutputIdentifier> requiredTransactionOutputIdentifiers = new MutableArrayList<>();
+                    final MutableList<TransactionOutput> requiredTransactionOutputs = new MutableArrayList<>();
 
                     // UTXOs that are required are processed in reverse-order so that UTXOs generated by the respective blocks are only made available once that block has been processed.
                     _addRequiredUtxos(block663752_B, requiredTransactionOutputIdentifiers, requiredTransactionOutputs, false);

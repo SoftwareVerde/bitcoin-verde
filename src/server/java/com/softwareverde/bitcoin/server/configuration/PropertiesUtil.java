@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.configuration;
 
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.json.Json;
 import com.softwareverde.logging.Logger;
@@ -21,14 +22,14 @@ public class PropertiesUtil {
 
         if (! Json.isJson(jsonString)) {
             Logger.warn("Invalid property value for " + propertyName + ": " + jsonString);
-            return new MutableList<>(0);
+            return new MutableArrayList<>(0);
         }
 
         final Json stringArrayJson = Json.parse(jsonString);
-        if (! stringArrayJson.isArray()) { return new MutableList<>(0); }
+        if (! stringArrayJson.isArray()) { return new MutableArrayList<>(0); }
 
         final int itemCount = stringArrayJson.length();
-        final MutableList<String> strings = new MutableList<>(itemCount);
+        final MutableList<String> strings = new MutableArrayList<>(itemCount);
         for (int i = 0; i < itemCount; ++i) {
             final String string = stringArrayJson.getString(i);
             strings.add(string);
@@ -42,7 +43,7 @@ public class PropertiesUtil {
         if (propertyStringValue == null) { return null; }
 
         final Json seedNodesJson = Json.parse(propertyStringValue);
-        final MutableList<NodeProperties> nodePropertiesList = new MutableList<>(seedNodesJson.length());
+        final MutableList<NodeProperties> nodePropertiesList = new MutableArrayList<>(seedNodesJson.length());
         for (int i = 0; i < seedNodesJson.length(); ++i) {
             final String propertiesString = seedNodesJson.getString(i);
 

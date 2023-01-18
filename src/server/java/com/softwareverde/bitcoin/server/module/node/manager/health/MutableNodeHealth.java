@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.manager.health;
 
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.RotatingQueue;
@@ -86,7 +87,7 @@ public class MutableNodeHealth implements NodeHealth {
     protected Long _pingInMilliseconds = 0L;
 
     protected MutableList<Request> _getRecentRequests() {
-        final MutableList<Request> recentRequests = new MutableList<>(_requests.size());
+        final MutableList<Request> recentRequests = new MutableArrayList<>(_requests.size());
 
         final Long now = _systemTime.getCurrentTimeInMilliSeconds();
         final Long millisecondsRequiredToHealToFullHealth = _maxHealth;

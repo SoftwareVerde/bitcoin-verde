@@ -13,17 +13,16 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.set.mutable.MutableHashSet;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 
-import java.util.HashMap;
-import java.util.HashSet;
-
 public class UtxoUndoLog {
     protected final FullNodeDatabaseManager _databaseManager;
-    protected final HashMap<TransactionOutputIdentifier, UnspentTransactionOutput> _availableOutputs = new HashMap<>();
-    protected final HashSet<TransactionOutputIdentifier> _unavailableOutputs = new HashSet<>();
+    protected final MutableHashMap<TransactionOutputIdentifier, UnspentTransactionOutput> _availableOutputs = new MutableHashMap<>();
+    protected final MutableHashSet<TransactionOutputIdentifier> _unavailableOutputs = new MutableHashSet<>();
 
     public UtxoUndoLog(final FullNodeDatabaseManager databaseManager) {
         _databaseManager = databaseManager;

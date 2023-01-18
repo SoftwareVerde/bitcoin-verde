@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 
@@ -24,7 +25,7 @@ public class BlockInflater {
         if (! transactionCount.isCanonical()) { return null; }
         if (transactionCount.intValue() > BitcoinConstants.getMaxTransactionCountPerBlock()) { return null; }
 
-        final MutableList<Transaction> transactions = new MutableList<>(transactionCount.intValue());
+        final MutableList<Transaction> transactions = new MutableArrayList<>(transactionCount.intValue());
 
         for (int i = 0; i < transactionCount.intValue(); ++i) {
             final Transaction transaction = transactionInflater.fromBytes(byteArrayReader);

@@ -5,7 +5,9 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.constable.Visitor;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.constable.map.Map;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -30,12 +32,12 @@ public class MutableBlockchainCache extends BlockchainCacheCore {
 
         @Override
         public <Value> List<Value> newList() {
-            return new MutableList<>(0);
+            return new MutableArrayList<>(0);
         }
 
         @Override
         public <Value> List<Value> newList(final Value... values) {
-            final MutableList<Value> list = new MutableList<>(values.length);
+            final MutableList<Value> list = new MutableArrayList<>(values.length);
             for (final Value value : values) {
                 list.add(value);
             }
@@ -76,7 +78,7 @@ public class MutableBlockchainCache extends BlockchainCacheCore {
     public void updateBlockchainSegmentBlocks(final BlockchainSegmentId newBlockchainSegmentId, final BlockchainSegmentId blockchainSegmentId, final Long minBlockHeight) {
         _writeLock.lock();
         try {
-            _blockchainSegmentIds.visit(new Map.Visitor<BlockId, BlockchainSegmentId>() {
+            _blockchainSegmentIds.visit(new Visitor<>() {
                 @Override
                 public boolean run(final Tuple<BlockId, BlockchainSegmentId> entry) {
                     if (Util.areEqual(blockchainSegmentId, entry.second)) {
@@ -98,7 +100,7 @@ public class MutableBlockchainCache extends BlockchainCacheCore {
     public void replaceBlockchainSegmentsParent(final BlockchainSegmentId parentBlockchainSegmentId, final BlockchainSegmentId newParentBlockchainSegmentId) {
         _writeLock.lock();
         try {
-            _blockchainSegmentParents.visit(new Map.Visitor<BlockchainSegmentId, BlockchainSegmentId>() {
+            _blockchainSegmentParents.visit(new Visitor<>() {
                 @Override
                 public boolean run(final Tuple<BlockchainSegmentId, BlockchainSegmentId> entry) {
                     final BlockchainSegmentId blockchainSegmentId = entry.first;
@@ -183,7 +185,7 @@ public class MutableBlockchainCache extends BlockchainCacheCore {
 
             MutableList<BlockId> blockIds = _blocksByHeight.get(blockHeight);
             if (blockIds == null) {
-                blockIds = new MutableList<>(1);
+                blockIds = new MutableArrayList<>(1);
                 _castMap(_blocksByHeight).put(blockHeight, blockIds);
             }
             blockIds.add(blockId);
@@ -254,7 +256,7 @@ public class MutableBlockchainCache extends BlockchainCacheCore {
     public void setHasTransactionsForBlocksUpToHeight(final Long blockHeight) {
         _writeLock.lock();
         try {
-            _blocksByHeight.visit(new Map.Visitor<Long, MutableList<BlockId>>() {
+            _blocksByHeight.visit(new Visitor<>() {
                 @Override
                 public boolean run(final Tuple<Long, MutableList<BlockId>> entry) {
                     if (entry.first <= blockHeight) {
@@ -411,43 +413,43 @@ public class MutableBlockchainCache extends BlockchainCacheCore {
     public synchronized MutableBlockchainCache newCopyOnWriteCache() {
         _readLock.lock();
         try {
-            final MutableVersionedHashMap<BlockId, BlockHeader> blockHeaders = MutableVersionedHashMap.wrap(_castMap(_blockHeaders));
+            final MutableVersionedHashMap<BlockId, BlockHeader> blockHeaders = _castMap(_blockHeaders);
             blockHeaders.pushVersion();
 
-            final MutableVersionedHashMap<BlockId, Long> blockHeights = MutableVersionedHashMap.wrap(_castMap(_blockHeights));
+            final MutableVersionedHashMap<BlockId, Long> blockHeights = _castMap(_blockHeights);
             blockHeights.pushVersion();
 
-            final MutableVersionedHashMap<Sha256Hash, BlockId> blockIds = MutableVersionedHashMap.wrap(_castMap(_blockIds));
+            final MutableVersionedHashMap<Sha256Hash, BlockId> blockIds = _castMap(_blockIds);
             blockIds.pushVersion();
 
-            final MutableVersionedHashMap<Long, MutableList<BlockId>> blocksByHeight = MutableVersionedHashMap.wrap(_castMap(_blocksByHeight));
+            final MutableVersionedHashMap<Long, MutableList<BlockId>> blocksByHeight = _castMap(_blocksByHeight);
             blocksByHeight.pushVersion();
 
-            final MutableVersionedHashMap<BlockId, ChainWork> chainWorks = MutableVersionedHashMap.wrap(_castMap(_chainWorks));
+            final MutableVersionedHashMap<BlockId, ChainWork> chainWorks = _castMap(_chainWorks);
             chainWorks.pushVersion();
 
-            final MutableVersionedHashMap<BlockId, MedianBlockTime> medianBlockTimes = MutableVersionedHashMap.wrap(_castMap(_medianBlockTimes));
+            final MutableVersionedHashMap<BlockId, MedianBlockTime> medianBlockTimes = _castMap(_medianBlockTimes);
             medianBlockTimes.pushVersion();
 
-            final MutableVersionedHashMap<BlockId, Boolean> blockTransactionMap = MutableVersionedHashMap.wrap(_castMap(_blockTransactionMap));
+            final MutableVersionedHashMap<BlockId, Boolean> blockTransactionMap = _castMap(_blockTransactionMap);
             blockTransactionMap.pushVersion();
 
-            final MutableVersionedHashMap<BlockId, Integer> blockProcessCount = MutableVersionedHashMap.wrap(_castMap(_blockProcessCount));
+            final MutableVersionedHashMap<BlockId, Integer> blockProcessCount = _castMap(_blockProcessCount);
             blockProcessCount.pushVersion();
 
-            final MutableVersionedHashMap<BlockId, BlockchainSegmentId> blockchainSegmentIds = MutableVersionedHashMap.wrap(_castMap(_blockchainSegmentIds));
+            final MutableVersionedHashMap<BlockId, BlockchainSegmentId> blockchainSegmentIds = _castMap(_blockchainSegmentIds);
             blockchainSegmentIds.pushVersion();
 
-            final MutableVersionedHashMap<BlockchainSegmentId, BlockchainSegmentId> blockchainSegmentParents = MutableVersionedHashMap.wrap(_castMap(_blockchainSegmentParents));
+            final MutableVersionedHashMap<BlockchainSegmentId, BlockchainSegmentId> blockchainSegmentParents = _castMap(_blockchainSegmentParents);
             blockchainSegmentParents.pushVersion();
 
-            final MutableVersionedHashMap<BlockchainSegmentId, Long> blockchainSegmentNestedSetLeft = MutableVersionedHashMap.wrap(_castMap(_blockchainSegmentNestedSetLeft));
+            final MutableVersionedHashMap<BlockchainSegmentId, Long> blockchainSegmentNestedSetLeft = _castMap(_blockchainSegmentNestedSetLeft);
             blockchainSegmentNestedSetLeft.pushVersion();
 
-            final MutableVersionedHashMap<BlockchainSegmentId, Long> blockchainSegmentNestedSetRight = MutableVersionedHashMap.wrap(_castMap(_blockchainSegmentNestedSetRight));
+            final MutableVersionedHashMap<BlockchainSegmentId, Long> blockchainSegmentNestedSetRight = _castMap(_blockchainSegmentNestedSetRight);
             blockchainSegmentNestedSetRight.pushVersion();
 
-            final MutableVersionedHashMap<BlockchainSegmentId, Long> blockchainSegmentMaxBlockHeight = MutableVersionedHashMap.wrap(_castMap(_blockchainSegmentMaxBlockHeight));
+            final MutableVersionedHashMap<BlockchainSegmentId, Long> blockchainSegmentMaxBlockHeight = _castMap(_blockchainSegmentMaxBlockHeight);
             blockchainSegmentMaxBlockHeight.pushVersion();
 
             return new MutableBlockchainCache(_readLock, _writeLock, blockHeaders, blockHeights, blockIds, blocksByHeight, chainWorks, medianBlockTimes, blockTransactionMap, blockProcessCount, blockchainSegmentIds, _getListValue(_headBlockId), _getListValue(_headBlockHeaderId), blockchainSegmentParents, blockchainSegmentNestedSetLeft, blockchainSegmentNestedSetRight, blockchainSegmentMaxBlockHeight);

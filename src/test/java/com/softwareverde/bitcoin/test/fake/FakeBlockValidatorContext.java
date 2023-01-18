@@ -16,19 +16,19 @@ import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.network.time.VolatileNetworkTime;
 
-import java.util.HashMap;
-
 public class FakeBlockValidatorContext extends FakeUnspentTransactionOutputContext implements BlockValidator.Context {
     protected final TransactionInflaters _transactionInflaters;
     protected final VolatileNetworkTime _networkTime;
-    protected final HashMap<Long, BlockHeader> _blocks = new HashMap<>();
-    protected final HashMap<Long, MedianBlockTime> _medianBlockTimes = new HashMap<>();
-    protected final HashMap<Long, ChainWork> _chainWorks = new HashMap<>();
+    protected final MutableMap<Long, BlockHeader> _blocks = new MutableHashMap<>();
+    protected final MutableMap<Long, MedianBlockTime> _medianBlockTimes = new MutableHashMap<>();
+    protected final MutableMap<Long, ChainWork> _chainWorks = new MutableHashMap<>();
 
     protected final AsertReferenceBlock _asertReferenceBlock;
     private final UpgradeSchedule _upgradeSchedule;

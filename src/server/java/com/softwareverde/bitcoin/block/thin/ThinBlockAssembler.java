@@ -6,10 +6,10 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.server.module.node.MemoryPoolEnquirer;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
-import java.util.HashMap;
-import java.util.Map;
 
 public class ThinBlockAssembler {
     protected final MemoryPoolEnquirer _memoryPoolEnquirer;
@@ -19,7 +19,7 @@ public class ThinBlockAssembler {
     }
 
     public AssembleThinBlockResult assembleThinBlock(final BlockHeader blockHeader, final List<Sha256Hash> transactionHashes, final List<Transaction> extraTransactions) {
-        final HashMap<Sha256Hash, Transaction> mappedTransactions = new HashMap<>();
+        final MutableMap<Sha256Hash, Transaction> mappedTransactions = new MutableHashMap<>();
         for (final Transaction transaction : extraTransactions) {
             final Sha256Hash transactionHash = transaction.getHash();
             mappedTransactions.put(transactionHash, transaction);
@@ -52,7 +52,9 @@ public class ThinBlockAssembler {
 
         final BlockHeader blockHeader = assembleThinBlockResult.getBlockHeader();
         final List<Sha256Hash> transactionHashes = assembleThinBlockResult.getTransactionHashes();
-        final Map<Sha256Hash, Transaction> mappedTransactions = assembleThinBlockResult.getMappedTransactions();
+        final MutableMap<Sha256Hash, Transaction> mappedTransactions = new MutableHashMap<>(
+            assembleThinBlockResult.getMappedTransactions()
+        );
 
         for (final Transaction transaction : missingTransactions) {
             final Sha256Hash transactionHash = transaction.getHash();

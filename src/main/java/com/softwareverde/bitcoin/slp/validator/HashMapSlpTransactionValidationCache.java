@@ -1,11 +1,10 @@
 package com.softwareverde.bitcoin.slp.validator;
 
+import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
-import java.util.HashMap;
-
 public class HashMapSlpTransactionValidationCache implements SlpTransactionValidationCache {
-    protected final HashMap<Sha256Hash, Boolean> _validatedTransactions = new HashMap<>();
+    protected final MutableHashMap<Sha256Hash, Boolean> _validatedTransactions = new MutableHashMap<>();
 
     @Override
     public Boolean isValid(final Sha256Hash transactionHash) {

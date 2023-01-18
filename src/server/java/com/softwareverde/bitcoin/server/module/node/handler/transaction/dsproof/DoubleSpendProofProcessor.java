@@ -21,11 +21,10 @@ import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.input.UnconfirmedTransactionInputId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
-
-import java.util.HashMap;
 
 public class DoubleSpendProofProcessor {
     public interface Context extends MultiConnectionFullDatabaseContext, MedianBlockTimeContext, UpgradeScheduleContext { }
@@ -75,7 +74,7 @@ public class DoubleSpendProofProcessor {
             }
         }
 
-        final HashMap<TransactionOutputIdentifier, TransactionOutput> previousTransactionOutputs = new HashMap<>();
+        final MutableHashMap<TransactionOutputIdentifier, TransactionOutput> previousTransactionOutputs = new MutableHashMap<>();
         for (final TransactionInput transactionInput : firstSeenTransaction.getTransactionInputs()) {
             final TransactionOutputIdentifier previousOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
             final TransactionOutput previousTransactionOutput = unconfirmedTransactionUtxoSet.getTransactionOutput(previousOutputIdentifier);

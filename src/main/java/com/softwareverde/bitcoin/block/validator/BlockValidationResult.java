@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
@@ -14,7 +15,7 @@ public class BlockValidationResult extends ValidationResult {
     }
 
     public static BlockValidationResult invalid(final String errorMessage) {
-        return new BlockValidationResult(false, errorMessage, new MutableList<>());
+        return new BlockValidationResult(false, errorMessage, new MutableArrayList<>());
     }
 
     public static BlockValidationResult invalid(final String errorMessage, final Transaction invalidTransaction) {

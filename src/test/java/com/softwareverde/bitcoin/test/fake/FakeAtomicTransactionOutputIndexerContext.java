@@ -10,20 +10,22 @@ import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.Map;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
-import java.util.HashMap;
-import java.util.Map;
 
 public class FakeAtomicTransactionOutputIndexerContext implements com.softwareverde.bitcoin.context.AtomicTransactionOutputIndexerContext {
-    protected final HashMap<Sha256Hash, TransactionId> _transactionIds = new HashMap<>(0);
-    protected final HashMap<TransactionId, Transaction> _transactions = new HashMap<>(0);
+    protected final MutableMap<Sha256Hash, TransactionId> _transactionIds = new MutableHashMap<>(0);
+    protected final MutableMap<TransactionId, Transaction> _transactions = new MutableHashMap<>(0);
 
-    protected final MutableList<Address> _storedAddresses = new MutableList<>(0);
-    protected final MutableList<TransactionId> _unprocessedTransactions = new MutableList<>(0);
-    protected final MutableList<IndexedOutput> _indexedOutputs = new MutableList<>(0);
-    protected final MutableList<IndexedInput> _indexedInputs = new MutableList<>(0);
+    protected final MutableList<Address> _storedAddresses = new MutableArrayList<>(0);
+    protected final MutableList<TransactionId> _unprocessedTransactions = new MutableArrayList<>(0);
+    protected final MutableList<IndexedOutput> _indexedOutputs = new MutableArrayList<>(0);
+    protected final MutableList<IndexedInput> _indexedInputs = new MutableArrayList<>(0);
     protected TransactionId _lastTransactionId = null;
 
     protected Boolean _wasCommitted = null;
@@ -34,7 +36,7 @@ public class FakeAtomicTransactionOutputIndexerContext implements com.softwareve
         final Sha256Hash transactionHash = transaction.getHash();
         if (_transactionIds.containsKey(transactionHash)) { return; }
 
-        final TransactionId transactionId = TransactionId.wrap(_transactions.size() + 1L);
+        final TransactionId transactionId = TransactionId.wrap(_transactions.getCount() + 1L);
         _transactionIds.put(transactionHash, transactionId);
         _transactions.put(transactionId, transaction);
     }
@@ -47,7 +49,7 @@ public class FakeAtomicTransactionOutputIndexerContext implements com.softwareve
                 transactionId = _transactionIds.get(transactionHash);
             }
             else {
-                transactionId = TransactionId.wrap(_transactions.size() + 1L);
+                transactionId = TransactionId.wrap(_transactions.getCount() + 1L);
                 _transactionIds.put(transactionHash, transactionId);
                 _transactions.put(transactionId, transaction);
             }
@@ -64,7 +66,7 @@ public class FakeAtomicTransactionOutputIndexerContext implements com.softwareve
     }
 
     public List<TransactionId> getTransactionIds() {
-        return new ImmutableList<>(_transactionIds.values());
+        return new ImmutableList<>(_transactionIds.getValues());
     }
 
     public Boolean wasCommitted() {
@@ -94,7 +96,7 @@ public class FakeAtomicTransactionOutputIndexerContext implements com.softwareve
 
     @Override
     public List<TransactionId> getUnprocessedTransactions(final Integer batchSize) {
-        final MutableList<TransactionId> transactionIds = new MutableList<>();
+        final MutableList<TransactionId> transactionIds = new MutableArrayList<>();
         for (int i = 0; i < batchSize; ++i) {
             if (i >= _unprocessedTransactions.getCount()) { break; }
 
@@ -133,7 +135,7 @@ public class FakeAtomicTransactionOutputIndexerContext implements com.softwareve
 
     @Override
     public Map<Sha256Hash, TransactionId> getTransactionIds(final List<Sha256Hash> transactionHashes) throws ContextException {
-        final HashMap<Sha256Hash, TransactionId> transactionIdMap = new HashMap<>();
+        final MutableMap<Sha256Hash, TransactionId> transactionIdMap = new MutableHashMap<>();
         for (final Sha256Hash transactionHash : transactionHashes) {
             final TransactionId transactionId = _transactionIds.get(transactionHash);
             transactionIdMap.put(transactionHash, transactionId);

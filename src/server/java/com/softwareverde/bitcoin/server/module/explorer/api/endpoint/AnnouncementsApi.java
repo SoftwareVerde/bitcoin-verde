@@ -21,7 +21,10 @@ import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.http.HttpMethod;
 import com.softwareverde.http.server.servlet.WebSocketServlet;
 import com.softwareverde.http.server.servlet.request.WebSocketRequest;
@@ -33,7 +36,6 @@ import com.softwareverde.logging.Logger;
 import com.softwareverde.util.RotatingQueue;
 import com.softwareverde.util.Util;
 
-import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -54,7 +56,7 @@ public class AnnouncementsApi implements WebSocketServlet {
             return webSocketApiResult;
         }
 
-        protected final HashMap<String, String> _payload = new HashMap<>();
+        protected final MutableMap<String, String> _payload = new MutableHashMap<>();
 
         public void addData(final String key, final String value) {
             _payload.put(key, value);
@@ -73,7 +75,7 @@ public class AnnouncementsApi implements WebSocketServlet {
         public Json toJson() {
             final Json json = super.toJson();
 
-            for (final String key : _payload.keySet()) {
+            for (final String key : _payload.getKeys()) {
                 final String value = _payload.get(key);
 
                 json.put(key, value);
@@ -92,12 +94,12 @@ public class AnnouncementsApi implements WebSocketServlet {
     protected final AddressInflater _addressInflater = new AddressInflater();
 
     protected static final Object MUTEX = new Object();
-    protected static final HashMap<Long, AnnouncementWebSocketConfiguration> WEB_SOCKETS = new HashMap<>();
+    protected static final MutableMap<Long, AnnouncementWebSocketConfiguration> WEB_SOCKETS = new MutableHashMap<>();
 
     protected static List<AnnouncementWebSocketConfiguration> getWebSockets() {
         synchronized (MUTEX) {
-            final MutableList<AnnouncementWebSocketConfiguration> webSockets = new MutableList<>();
-            for (final AnnouncementWebSocketConfiguration webSocketConfiguration : WEB_SOCKETS.values()) {
+            final MutableList<AnnouncementWebSocketConfiguration> webSockets = new MutableArrayList<>();
+            for (final AnnouncementWebSocketConfiguration webSocketConfiguration : WEB_SOCKETS.getValues()) {
                 webSockets.add(webSocketConfiguration);
             }
             return webSockets;
@@ -131,17 +133,17 @@ public class AnnouncementsApi implements WebSocketServlet {
     protected static CachedObjects getCachedObjects() {
         QUEUE_READ_LOCK.lock();
         try {
-            final MutableList<Json> blockHeaders = new MutableList<>();
+            final MutableList<Json> blockHeaders = new MutableArrayList<>();
             for (final Json json : BLOCK_HEADERS) {
                 blockHeaders.add(json);
             }
 
-            final MutableList<Json> transactions = new MutableList<>();
+            final MutableList<Json> transactions = new MutableArrayList<>();
             for (final Json json : TRANSACTIONS) {
                 transactions.add(json);
             }
 
-            final MutableList<Json> doubleSpendProofs = new MutableList<>();
+            final MutableList<Json> doubleSpendProofs = new MutableArrayList<>();
             for (final Json json : DOUBLE_SPEND_PROOFS) {
                 doubleSpendProofs.add(json);
             }
@@ -273,7 +275,7 @@ public class AnnouncementsApi implements WebSocketServlet {
     }
 
     protected List<Address> _transactionJsonToAddresses(final Json transactionJson) {
-        final MutableList<String> addressStrings = new MutableList<>();
+        final MutableList<String> addressStrings = new MutableArrayList<>();
 
         final Json transactionInputsJson = transactionJson.get("inputs");
         for (int i = 0; i < transactionInputsJson.length(); ++i) {
@@ -306,7 +308,7 @@ public class AnnouncementsApi implements WebSocketServlet {
         }
 
         final AddressInflater addressInflater = new AddressInflater();
-        final MutableList<Address> addresses = new MutableList<>(addressStrings.getCount());
+        final MutableList<Address> addresses = new MutableArrayList<>(addressStrings.getCount());
         for (final String addressString : addressStrings) {
             final ParsedAddress address = Util.coalesce(addressInflater.fromBase32Check(addressString), addressInflater.fromBase58Check(addressString));
             if (address == null) { continue; }
@@ -504,7 +506,7 @@ public class AnnouncementsApi implements WebSocketServlet {
 
         final List<Address> transactionAddresses;
         {
-            final MutableList<Address> addresses = new MutableList<>();
+            final MutableList<Address> addresses = new MutableArrayList<>();
             final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
             for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
                 final LockingScript lockingScript = transactionOutput.getLockingScript();
@@ -690,7 +692,7 @@ public class AnnouncementsApi implements WebSocketServlet {
 
             case "SET_ADDRESSES": {
                 final AddressInflater addressInflater = new AddressInflater();
-                final MutableList<Address> addresses = new MutableList<>();
+                final MutableList<Address> addresses = new MutableArrayList<>();
                 for (int i = 0; i < parameters.length(); ++i) {
                     final String addressString = parameters.getString(i);
                     final ParsedAddress address = Util.coalesce(addressInflater.fromBase32Check(addressString), addressInflater.fromBase58Check(addressString));
@@ -790,7 +792,7 @@ public class AnnouncementsApi implements WebSocketServlet {
             @Override
             public void onClose(final int code, final String message) {
                 synchronized (MUTEX) {
-                    Logger.debug("WebSocket Closed: " + webSocketId + " (count=" + (WEB_SOCKETS.size() - 1) + ")");
+                    Logger.debug("WebSocket Closed: " + webSocketId + " (count=" + (WEB_SOCKETS.getCount() - 1) + ")");
                     WEB_SOCKETS.remove(webSocketId);
                 }
             }
@@ -799,7 +801,7 @@ public class AnnouncementsApi implements WebSocketServlet {
         webSocket.startListening();
 
         synchronized (MUTEX) {
-            Logger.debug("Adding WebSocket: " + webSocketId + " (count=" + (WEB_SOCKETS.size() + 1) + ")");
+            Logger.debug("Adding WebSocket: " + webSocketId + " (count=" + (WEB_SOCKETS.getCount() + 1) + ")");
             WEB_SOCKETS.put(webSocketId, webSocketConfiguration);
         }
 
@@ -896,7 +898,7 @@ public class AnnouncementsApi implements WebSocketServlet {
         }
 
         synchronized (MUTEX) {
-            for (final AnnouncementWebSocketConfiguration webSocketConfiguration : WEB_SOCKETS.values()) {
+            for (final AnnouncementWebSocketConfiguration webSocketConfiguration : WEB_SOCKETS.getValues()) {
                 final WebSocket webSocket = webSocketConfiguration.webSocket;
                 webSocket.close();
             }

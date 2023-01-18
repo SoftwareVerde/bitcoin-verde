@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.concurrent.threadpool.ThreadPoolFactory;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.time.MutableNetworkTime;
@@ -85,7 +86,7 @@ public class BitcoinNodeManagerTests extends IntegrationTest {
         final String host = "127.0.0.1";
         final Ip ip = Ip.fromString(host);
 
-        final MutableList<BitcoinNode> bitcoinNodes = new MutableList<>();
+        final MutableList<BitcoinNode> bitcoinNodes = new MutableArrayList<>();
 
         // Action
         // Spam the NodeManager with 10 connections that never handshake.

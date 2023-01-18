@@ -8,10 +8,10 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.map.Map;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 
-import java.util.Map;
 
 public interface BlockchainIndexerDatabaseManager {
     List<TransactionId> getTransactionIds(BlockchainSegmentId blockchainSegmentId, TypedAddress address, Boolean includeUnconfirmedTransactions) throws DatabaseException;

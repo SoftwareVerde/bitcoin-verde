@@ -1,12 +1,11 @@
 package com.softwareverde.bitcoin.server.configuration;
 
+import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 
-import java.util.HashMap;
-
 public class CheckpointConfiguration {
-    protected final HashMap<Long, Sha256Hash> _checkpoints = new HashMap<>();
+    protected final MutableHashMap<Long, Sha256Hash> _checkpoints = new MutableHashMap<>();
 
     public CheckpointConfiguration() {
         _checkpoints.put(11111L,  Sha256Hash.fromHexString("0000000069E244F73D78E8FD29BA2FD2ED618BD6FA2EE92559F542FDB26E7C1D"));

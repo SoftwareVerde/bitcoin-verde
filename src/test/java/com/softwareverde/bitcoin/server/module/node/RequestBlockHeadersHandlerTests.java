@@ -17,6 +17,7 @@ import com.softwareverde.bitcoin.test.fake.FakeBinarySocket;
 import com.softwareverde.bitcoin.test.fake.FakeBitcoinNode;
 import com.softwareverde.bitcoin.test.fake.FakeSocket;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -162,7 +163,7 @@ public class RequestBlockHeadersHandlerTests extends IntegrationTest {
 
         final Integer blockOffset = 0; // The block header/offset that is provided as the last known header...
 
-        final List<Sha256Hash> blockHashes = new MutableList<>();
+        final List<Sha256Hash> blockHashes = new MutableArrayList<>();
 
         // Action
         queryBlocksHandler.run(bitcoinNode, blockHashes, new ImmutableSha256Hash());
@@ -200,7 +201,7 @@ public class RequestBlockHeadersHandlerTests extends IntegrationTest {
 
         final int blockOffset = 0; // The block header/offset that is provided as the last known header...
 
-        final MutableList<Sha256Hash> blockHashes = new MutableList<>();
+        final MutableList<Sha256Hash> blockHashes = new MutableArrayList<>();
         blockHashes.add(allBlocks[blockOffset].getHash());
 
         // Action
@@ -239,7 +240,7 @@ public class RequestBlockHeadersHandlerTests extends IntegrationTest {
 
         final int blockOffset = 1; // The block header/offset that is provided as the last known header...
 
-        final MutableList<Sha256Hash> blockHashes = new MutableList<>();
+        final MutableList<Sha256Hash> blockHashes = new MutableArrayList<>();
         blockHashes.add(allBlocks[blockOffset].getHash());
 
         // Action
@@ -278,7 +279,7 @@ public class RequestBlockHeadersHandlerTests extends IntegrationTest {
 
         final int blockOffset = 2; // The block header/offset that is provided as the last known header...
 
-        final MutableList<Sha256Hash> blockHashes = new MutableList<>();
+        final MutableList<Sha256Hash> blockHashes = new MutableArrayList<>();
         blockHashes.add(allBlocks[blockOffset].getHash());
 
         // Action
@@ -330,7 +331,7 @@ public class RequestBlockHeadersHandlerTests extends IntegrationTest {
 
         final FakeBitcoinNode bitcoinNode = new FakeBitcoinNode(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool, _localNodeFeatures);
 
-        final MutableList<Sha256Hash> blockHashes = new MutableList<>();
+        final MutableList<Sha256Hash> blockHashes = new MutableArrayList<>();
         blockHashes.add(allBlocks[allBlocks.length - 1].getHash()); // Request the forked block (E')...
 
         // Action

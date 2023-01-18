@@ -60,6 +60,7 @@ import com.softwareverde.concurrent.threadpool.ThreadPoolThrottle;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
@@ -520,7 +521,7 @@ public class SpvModule {
                         public void onResult(final BitcoinNode bitcoinNode, final List<Sha256Hash> transactions) {
                             Logger.debug("Received " + transactions.getCount() + " transaction inventories.");
 
-                            final MutableList<Sha256Hash> unseenTransactions = new MutableList<>(transactions.getCount());
+                            final MutableList<Sha256Hash> unseenTransactions = new MutableArrayList<>(transactions.getCount());
                             try (final SpvDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
                                 final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
@@ -614,7 +615,7 @@ public class SpvModule {
 
                 @Override
                 public void onNewHeaders(final BitcoinNode bitcoinNode, final List<BlockHeader> blockHeaders) {
-                    final MutableList<Sha256Hash> blockHashes = new MutableList<>(blockHeaders.getCount());
+                    final MutableList<Sha256Hash> blockHashes = new MutableArrayList<>(blockHeaders.getCount());
                     for (final BlockHeader blockHeader : blockHeaders) {
                         final Sha256Hash blockHash = blockHeader.getHash();
                         blockHashes.add(blockHash);
@@ -811,7 +812,7 @@ public class SpvModule {
     public void broadcastTransaction(final Transaction transaction) {
         _spvRequestDataHandler.addSpvTransaction(transaction);
 
-        final MutableList<Sha256Hash> transactionHashes = new MutableList<>(1);
+        final MutableList<Sha256Hash> transactionHashes = new MutableArrayList<>(1);
         transactionHashes.add(transaction.getHash());
 
         for (final BitcoinNode bitcoinNode : _bitcoinNodeManager.getNodes()) {

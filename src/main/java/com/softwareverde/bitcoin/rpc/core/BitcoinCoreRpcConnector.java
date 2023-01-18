@@ -17,6 +17,8 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.constable.map.Map;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.http.HttpMethod;
 import com.softwareverde.http.HttpRequest;
@@ -30,14 +32,11 @@ import com.softwareverde.util.Container;
 import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class BitcoinCoreRpcConnector implements BitcoinMiningRpcConnector {
     public static Map<RpcNotificationType, String> getZmqEndpoints(final String host, final Map<RpcNotificationType, Integer> zmqPorts) {
-        final HashMap<RpcNotificationType, String> zmqEndpoints = new HashMap<>();
+        final MutableHashMap<RpcNotificationType, String> zmqEndpoints = new MutableHashMap<>();
         if (zmqPorts == null) { return zmqEndpoints; }
 
         final String baseEndpointUri = ("tcp://" + host + ":");
@@ -83,14 +82,14 @@ public class BitcoinCoreRpcConnector implements BitcoinMiningRpcConnector {
     protected final BitcoinNodeRpcAddress _bitcoinNodeRpcAddress;
     protected final RpcCredentials _rpcCredentials;
 
-    protected final Map<RpcNotificationType, ZmqNotificationThread> _zmqNotificationThreads = new HashMap<>();
-    protected Map<RpcNotificationType, String> _zmqEndpoints = null;
+    protected final MutableHashMap<RpcNotificationType, ZmqNotificationThread> _zmqNotificationThreads = new MutableHashMap<>();
+    protected MutableHashMap<RpcNotificationType, String> _zmqEndpoints = null;
 
     protected String _toString() {
         return (this.getHost() + ":" + this.getPort());
     }
 
-    protected Map<RpcNotificationType, String> _getZmqEndpoints() {
+    protected MutableHashMap<RpcNotificationType, String> _getZmqEndpoints() {
         final String host = _bitcoinNodeRpcAddress.getHost();
         final String baseEndpointUri = ("tcp://" + host + ":");
 
@@ -114,7 +113,7 @@ public class BitcoinCoreRpcConnector implements BitcoinMiningRpcConnector {
         request.setMethod(HttpMethod.POST);
         request.setRawPostData(requestPayload);
 
-        final HashMap<RpcNotificationType, String> zmqEndpoints = new HashMap<>();
+        final MutableHashMap<RpcNotificationType, String> zmqEndpoints = new MutableHashMap<>();
         final Json resultJson;
         {
             final Response response = this.handleRequest(request);
@@ -169,7 +168,7 @@ public class BitcoinCoreRpcConnector implements BitcoinMiningRpcConnector {
 
     public void setZmqEndpoint(final RpcNotificationType rpcNotificationType, final String endpointUri) {
         if (_zmqEndpoints == null) {
-            _zmqEndpoints = new HashMap<>();
+            _zmqEndpoints = new MutableHashMap<>();
         }
 
         _zmqEndpoints.put(rpcNotificationType, endpointUri);
@@ -212,7 +211,7 @@ public class BitcoinCoreRpcConnector implements BitcoinMiningRpcConnector {
             { // Set request headers...
                 final Headers headers = request.getHeaders();
                 for (final String key : headers.getHeaderNames()) {
-                    final Collection<String> values = headers.getHeader(key);
+                    final java.util.List<String> values = headers.getHeader(key);
                     for (final String value : values) {
                         webRequest.setHeader(key, value);
                     }
@@ -442,14 +441,14 @@ public class BitcoinCoreRpcConnector implements BitcoinMiningRpcConnector {
 
     @Override
     public void subscribeToNotifications(final RpcNotificationCallback notificationCallback) {
-        Map<RpcNotificationType, String> zmqEndpoints = _zmqEndpoints;
+        MutableHashMap<RpcNotificationType, String> zmqEndpoints = _zmqEndpoints;
         if (zmqEndpoints == null) {
             zmqEndpoints = _getZmqEndpoints();
             _zmqEndpoints = zmqEndpoints;
         }
         if (zmqEndpoints == null) { return; }
 
-        for (final RpcNotificationType rpcNotificationType : zmqEndpoints.keySet()) {
+        for (final RpcNotificationType rpcNotificationType : zmqEndpoints.getKeys()) {
             final String endpointUri = zmqEndpoints.get(rpcNotificationType);
             final ZmqNotificationThread zmqNotificationThread = new ZmqNotificationThread(rpcNotificationType, endpointUri, notificationCallback);
             _zmqNotificationThreads.put(rpcNotificationType, zmqNotificationThread);
@@ -459,7 +458,7 @@ public class BitcoinCoreRpcConnector implements BitcoinMiningRpcConnector {
 
     @Override
     public void unsubscribeToNotifications() {
-        for (final ZmqNotificationThread zmqNotificationThread : _zmqNotificationThreads.values()) {
+        for (final ZmqNotificationThread zmqNotificationThread : _zmqNotificationThreads.getValues()) {
             zmqNotificationThread.interrupt();
             try { zmqNotificationThread.join(); } catch (final Exception exception) { }
         }

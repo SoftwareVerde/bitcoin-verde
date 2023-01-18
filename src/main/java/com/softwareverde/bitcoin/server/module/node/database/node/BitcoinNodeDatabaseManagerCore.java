@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
@@ -189,7 +190,7 @@ public class BitcoinNodeDatabaseManagerCore implements BitcoinNodeDatabaseManage
             final NodeId nodeId = _getNodeId(ip, port);
             if (nodeId == null) { return; }
 
-            final MutableList<NodeFeatures.Feature> disabledFeatures = new MutableList<>();
+            final MutableList<NodeFeatures.Feature> disabledFeatures = new MutableArrayList<>();
             for (final NodeFeatures.Feature feature : NodeFeatures.Feature.values()) {
                 if (nodeFeatures.isFeatureEnabled(feature)) {
                     databaseConnection.executeSql(
@@ -255,7 +256,7 @@ public class BitcoinNodeDatabaseManagerCore implements BitcoinNodeDatabaseManage
                 .setParameter(requiredFeatures.getCount())
         );
 
-        final MutableList<BitcoinNodeIpAddress> nodeIpAddresses = new MutableList<>(rows.size());
+        final MutableList<BitcoinNodeIpAddress> nodeIpAddresses = new MutableArrayList<>(rows.size());
 
         for (final Row row : rows) {
             final Long nodeId = row.getLong("id");
@@ -290,7 +291,7 @@ public class BitcoinNodeDatabaseManagerCore implements BitcoinNodeDatabaseManage
                 .setParameter(secondsSinceLastConnectionAttempt)
         );
 
-        final MutableList<BitcoinNodeIpAddress> nodeIpAddresses = new MutableList<>(rows.size());
+        final MutableList<BitcoinNodeIpAddress> nodeIpAddresses = new MutableArrayList<>(rows.size());
 
         for (final Row row : rows) {
             final Long nodeId = row.getLong("id");

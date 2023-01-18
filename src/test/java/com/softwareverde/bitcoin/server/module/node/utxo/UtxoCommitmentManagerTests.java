@@ -16,6 +16,7 @@ import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.UtxoCommitmen
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
@@ -44,7 +45,7 @@ public class UtxoCommitmentManagerTests extends IntegrationTest {
         final BlockHeader block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
         final BlockHeader block2 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
 
-        final MutableList<NodeSpecificUtxoCommitmentBreakdown> utxoCommitmentBreakdowns = new MutableList<>();
+        final MutableList<NodeSpecificUtxoCommitmentBreakdown> utxoCommitmentBreakdowns = new MutableArrayList<>();
         { // (Fake) UTXO Commit 1...
             final UtxoCommitmentMetadata utxoCommitmentMetadata = new UtxoCommitmentMetadata(
                 block1.getHash(),

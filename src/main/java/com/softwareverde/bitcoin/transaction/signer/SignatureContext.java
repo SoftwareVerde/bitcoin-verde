@@ -11,6 +11,7 @@ import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.Util;
 
@@ -21,13 +22,13 @@ public class SignatureContext {
     protected final MedianBlockTime _medianBlockTime;
 
     protected final UpgradeSchedule _upgradeSchedule;
-    protected final MutableList<Boolean> _inputScriptsToSign = new MutableList<>(); // Determines if the script is left intact or replaced with an empty script...
-    protected final MutableList<TransactionOutput> _previousTransactionOutputsBeingSpent = new MutableList<>();
-    protected final MutableList<Integer> _codeSeparatorIndexes = new MutableList<>();
+    protected final MutableList<Boolean> _inputScriptsToSign = new MutableArrayList<>(); // Determines if the script is left intact or replaced with an empty script...
+    protected final MutableList<TransactionOutput> _previousTransactionOutputsBeingSpent = new MutableArrayList<>();
+    protected final MutableList<Integer> _codeSeparatorIndexes = new MutableArrayList<>();
 
     protected Integer _inputIndexBeingSigned = null;
     protected Script _currentScript;
-    protected List<ByteArray> _bytesToExcludeFromScript = new MutableList<>();
+    protected List<ByteArray> _bytesToExcludeFromScript = new MutableArrayList<>();
 
     public SignatureContext(final Transaction transaction, final HashType hashType, final List<TransactionOutput> previousTransactionOutputsBeingSpent, final UpgradeSchedule upgradeSchedule) {
         this(transaction, hashType, Long.MAX_VALUE, MedianBlockTime.MAX_VALUE, previousTransactionOutputsBeingSpent, upgradeSchedule);

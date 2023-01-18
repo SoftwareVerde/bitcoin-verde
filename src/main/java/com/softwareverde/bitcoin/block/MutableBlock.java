@@ -14,6 +14,7 @@ import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
@@ -27,7 +28,7 @@ public class MutableBlock extends AbstractBlockHeader implements Block {
     protected final AddressInflater _addressInflater;
 
     protected final MerkleTreeNode<Transaction> _merkleTree = new MerkleTreeNode<>();
-    protected final MutableList<Transaction> _transactions = new MutableList<>();
+    protected final MutableList<Transaction> _transactions = new MutableArrayList<>();
 
     protected Integer _cachedHashCode = null;
     protected Sha256Hash _cachedHash = null;
@@ -246,7 +247,7 @@ public class MutableBlock extends AbstractBlockHeader implements Block {
 
     @Override
     public List<Sha256Hash> getPartialMerkleTree(final Integer transactionIndex) {
-        if (_merkleTree.isEmpty()) { return new MutableList<>(); }
+        if (_merkleTree.isEmpty()) { return new MutableArrayList<>(); }
         return _merkleTree.getPartialTree(transactionIndex);
     }
 

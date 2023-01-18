@@ -1,12 +1,12 @@
 package com.softwareverde.bitcoin.server.module.stratum.api.endpoint;
 
 import com.softwareverde.bitcoin.server.module.api.ApiResult;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.json.Json;
 
-import java.util.HashMap;
-
 public class StratumApiResult extends ApiResult {
-    protected final HashMap<String, Object> _values = new HashMap<>();
+    protected final MutableMap<String, Object> _values = new MutableHashMap<>();
 
     public void put(final String key, final Object object) {
         _values.put(key, object);
@@ -21,7 +21,7 @@ public class StratumApiResult extends ApiResult {
     @Override
     public Json toJson() {
         final Json json = super.toJson();
-        for (final String key : _values.keySet()) {
+        for (final String key : _values.getKeys()) {
             final Object value = _values.get(key);
             json.put(key, value);
         }

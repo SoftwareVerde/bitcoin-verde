@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
@@ -52,7 +53,7 @@ public class PartialMerkleTree implements Const {
             _cachedMerkleRoot = MutableMerkleRoot.wrap(rootHash.getBytes());
         }
 
-        final MutableList<Sha256Hash> leafNodes = new MutableList<>();
+        final MutableList<Sha256Hash> leafNodes = new MutableArrayList<>();
         partialMerkleTreeRoot.visit(new PartialMerkleTreeNode.Visitor<Transaction>() {
             @Override
             public void visit(final PartialMerkleTreeNode<Transaction> partialMerkleTreeNode) {

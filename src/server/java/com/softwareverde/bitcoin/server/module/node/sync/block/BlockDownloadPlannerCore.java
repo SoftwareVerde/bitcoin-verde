@@ -13,6 +13,7 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
@@ -77,7 +78,7 @@ public class BlockDownloadPlannerCore implements BlockDownloader.BlockDownloadPl
     protected List<PendingBlockInventory> _getPendingBlockInventoryBatchForBlockchainSegment(final BlockId nullableStartingBlockId, final BlockchainSegmentId headBlockchainSegmentId, final FullNodeDatabaseManager databaseManager, final Integer batchSize) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
-        final MutableList<PendingBlockInventory> pendingBlockInventoryBatch = new MutableList<>();
+        final MutableList<PendingBlockInventory> pendingBlockInventoryBatch = new MutableArrayList<>();
 
         final BlockId startingBlockId;
         {
@@ -145,7 +146,7 @@ public class BlockDownloadPlannerCore implements BlockDownloader.BlockDownloadPl
         final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
-        final MutableList<PendingBlockInventory> nextInventoryBatch = new MutableList<>();
+        final MutableList<PendingBlockInventory> nextInventoryBatch = new MutableArrayList<>();
 
         final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
@@ -181,7 +182,7 @@ public class BlockDownloadPlannerCore implements BlockDownloader.BlockDownloadPl
         final NanoTimer nanoTimer = new NanoTimer();
         nanoTimer.start();
 
-        final MutableList<PendingBlockInventory> inventoryBatch = new MutableList<>(_requestedInventory);
+        final MutableList<PendingBlockInventory> inventoryBatch = new MutableArrayList<>(_requestedInventory);
         _requestedInventory.clear();
 
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {

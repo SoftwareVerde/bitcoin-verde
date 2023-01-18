@@ -8,17 +8,19 @@ import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
+import com.softwareverde.constable.set.mutable.MutableHashSet;
+import com.softwareverde.constable.set.mutable.MutableSet;
 import org.junit.Assert;
 
-import java.util.HashMap;
-import java.util.HashSet;
-
 public class FakeDifficultyCalculatorContext implements DifficultyCalculatorContext {
-    protected final HashMap<Long, BlockHeader> _blockHeaders = new HashMap<>();
-    protected final HashMap<Long, ChainWork> _chainWorks = new HashMap<>();
-    protected final HashMap<Long, MedianBlockTime> _medianBlockTimes = new HashMap<>();
-    protected final HashSet<BlockHeader> _requestedBlocks = new HashSet<>();
+    protected final MutableMap<Long, BlockHeader> _blockHeaders = new MutableHashMap<>();
+    protected final MutableMap<Long, ChainWork> _chainWorks = new MutableHashMap<>();
+    protected final MutableMap<Long, MedianBlockTime> _medianBlockTimes = new MutableHashMap<>();
+    protected final MutableSet<BlockHeader> _requestedBlocks = new MutableHashSet<>();
 
     protected final AsertReferenceBlock _asertReferenceBlock;
     protected final UpgradeSchedule _upgradeSchedule;
@@ -71,21 +73,21 @@ public class FakeDifficultyCalculatorContext implements DifficultyCalculatorCont
     }
 
 
-    public HashMap<Long, BlockHeader> getBlockHeaders() {
+    public MutableMap<Long, BlockHeader> getBlockHeaders() {
         return _blockHeaders;
     }
 
-    public HashMap<Long, ChainWork> getChainWorks() {
+    public MutableMap<Long, ChainWork> getChainWorks() {
         return _chainWorks;
     }
 
-    public HashMap<Long, MedianBlockTime> getMedianBlockTimes() {
+    public MutableMap<Long, MedianBlockTime> getMedianBlockTimes() {
         return _medianBlockTimes;
     }
 
     public List<BlockHeader> getUnusedBlocks() {
-        final MutableList<BlockHeader> unusedBlocks = new MutableList<>();
-        for (final BlockHeader blockHeader : _blockHeaders.values()) {
+        final MutableList<BlockHeader> unusedBlocks = new MutableArrayList<>();
+        for (final BlockHeader blockHeader : _blockHeaders.getValues()) {
             if (! _requestedBlocks.contains(blockHeader)) {
                 unusedBlocks.add(blockHeader);
             }

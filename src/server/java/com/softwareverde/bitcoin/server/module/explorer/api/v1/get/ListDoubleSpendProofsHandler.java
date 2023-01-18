@@ -12,6 +12,7 @@ import com.softwareverde.json.Json;
 
 import java.util.Map;
 
+
 public class ListDoubleSpendProofsHandler implements RequestHandler<Environment> {
 
     /**

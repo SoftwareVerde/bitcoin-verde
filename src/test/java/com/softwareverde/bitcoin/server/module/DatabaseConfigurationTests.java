@@ -4,14 +4,14 @@ import com.softwareverde.bitcoin.server.configuration.BitcoinVerdeDatabaseProper
 import com.softwareverde.bitcoin.server.main.DatabaseConfiguration;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.database.mysql.embedded.properties.EmbeddedDatabaseProperties;
 import com.softwareverde.util.Util;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-
-import java.util.HashMap;
 
 public class DatabaseConfigurationTests extends UnitTest {
     @Before
@@ -49,7 +49,7 @@ public class DatabaseConfigurationTests extends UnitTest {
         // Action
         final EmbeddedDatabaseProperties databaseConfiguration = DatabaseConfiguration.getDatabaseConfiguration(maxDatabaseThreadCount, databaseProperties);
 
-        final HashMap<String, String> arguments = new HashMap<>();
+        final MutableMap<String, String> arguments = new MutableHashMap<>();
         for (final String string : databaseConfiguration.getCommandlineArguments()) {
             final String[] splitArgument = string.split("=");
             if (splitArgument.length != 2) { continue; } // Ignore flags...
@@ -88,7 +88,7 @@ public class DatabaseConfigurationTests extends UnitTest {
         // Action
         final EmbeddedDatabaseProperties databaseConfiguration = DatabaseConfiguration.getDatabaseConfiguration(maxDatabaseThreadCount, databaseProperties);
 
-        final HashMap<String, String> arguments = new HashMap<>();
+        final MutableMap<String, String> arguments = new MutableHashMap<>();
         for (final String string : databaseConfiguration.getCommandlineArguments()) {
             final String[] splitArgument = string.split("=");
             if (splitArgument.length != 2) { continue; } // Ignore flags...
@@ -126,7 +126,7 @@ public class DatabaseConfigurationTests extends UnitTest {
         // Action
         final EmbeddedDatabaseProperties databaseConfiguration = DatabaseConfiguration.getDatabaseConfiguration(maxDatabaseThreadCount, databaseProperties);
 
-        final HashMap<String, String> arguments = new HashMap<>();
+        final MutableMap<String, String> arguments = new MutableHashMap<>();
         for (final String string : databaseConfiguration.getCommandlineArguments()) {
             final String[] splitArgument = string.split("=");
             if (splitArgument.length != 2) { continue; } // Ignore flags...

@@ -11,21 +11,21 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.properties.InMemoryPropertiesStore;
 import com.softwareverde.bitcoin.server.properties.PropertiesStore;
 import com.softwareverde.bitcoin.test.fake.database.FakeBlockHeaderDatabaseManager;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
-import java.util.HashMap;
-
 public class FakeDatabaseManager implements com.softwareverde.bitcoin.test.fake.database.FakeDatabaseManager {
     protected static final BlockchainSegmentId BLOCKCHAIN_SEGMENT_ID = BlockchainSegmentId.wrap(1L);
     protected Long _nextBlockId = 1L;
-    protected final HashMap<Sha256Hash, BlockId> _blockIds = new HashMap<>();
-    protected final HashMap<BlockId, BlockHeader> _blockHeaders = new HashMap<>();
-    protected final HashMap<BlockId, Long> _blockHeights = new HashMap<>();
-    protected final HashMap<Long, BlockId> _blocksByBlockHeight = new HashMap<>();
-    protected final HashMap<BlockId, ChainWork> _chainWork = new HashMap<>();
+    protected final MutableMap<Sha256Hash, BlockId> _blockIds = new MutableHashMap<>();
+    protected final MutableMap<BlockId, BlockHeader> _blockHeaders = new MutableHashMap<>();
+    protected final MutableMap<BlockId, Long> _blockHeights = new MutableHashMap<>();
+    protected final MutableMap<Long, BlockId> _blocksByBlockHeight = new MutableHashMap<>();
+    protected final MutableMap<BlockId, ChainWork> _chainWork = new MutableHashMap<>();
     protected final PropertiesStore _propertiesStore = new InMemoryPropertiesStore();
 
     @Override

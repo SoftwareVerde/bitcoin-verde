@@ -134,6 +134,8 @@ import com.softwareverde.concurrent.threadpool.ThreadPoolThrottle;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
@@ -151,7 +153,6 @@ import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.io.File;
-import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
@@ -902,7 +903,7 @@ public class NodeModule {
                             }
 
                             { // Broadcast new Block...
-                                final HashMap<NodeId, BitcoinNode> bitcoinNodeMap = new HashMap<>();
+                                final MutableMap<NodeId, BitcoinNode> bitcoinNodeMap = new MutableHashMap<>();
                                 final List<NodeId> connectedNodeIds;
                                 {
                                     final List<BitcoinNode> connectedNodes = _bitcoinNodeManager.getNodes();
@@ -924,7 +925,7 @@ public class NodeModule {
                                         bitcoinNode.transmitBlockHeader(block);
                                     }
                                     else {
-                                        bitcoinNode.transmitBlockHashes(new ImmutableList<>(blockHash));
+                                        bitcoinNode.transmitBlockHashes(new ImmutableList<Sha256Hash>(blockHash));
                                     }
                                 }
                             }

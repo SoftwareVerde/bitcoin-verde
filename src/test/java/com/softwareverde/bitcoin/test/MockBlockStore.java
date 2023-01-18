@@ -8,15 +8,15 @@ import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
-
-import java.util.HashMap;
 
 public class MockBlockStore implements PendingBlockStore {
     protected final BlockInflaters _blockInflaters = new CoreInflater();
 
-    protected final HashMap<Sha256Hash, Block> _pendingBlocks = new HashMap<>();
-    protected final HashMap<Sha256Hash, Block> _blocks = new HashMap<>();
+    protected final MutableMap<Sha256Hash, Block> _pendingBlocks = new MutableHashMap<>();
+    protected final MutableMap<Sha256Hash, Block> _blocks = new MutableHashMap<>();
 
     public MockBlockStore() { }
 

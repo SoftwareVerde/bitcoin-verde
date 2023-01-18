@@ -1,12 +1,16 @@
 package com.softwareverde.bitcoin.server.configuration;
 
 import com.softwareverde.bitcoin.rpc.RpcCredentials;
+import com.softwareverde.constable.map.Map;
+import com.softwareverde.constable.map.mutable.MutableLinkedHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.util.IoUtil;
+import com.softwareverde.util.Tuple;
+import com.softwareverde.util.Util;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
-import java.util.LinkedHashMap;
-import java.util.Map;
+
 
 public class ConfigurationPropertiesExporter {
     // MutableDatabaseProperties
@@ -107,11 +111,11 @@ public class ConfigurationPropertiesExporter {
     }
 
     protected static void appendPropertiesMapToStringBuilder(final StringBuilder stringBuilder, final Map<String, String> propertiesMap, final Map<String, String> userInputMap) {
-        for (final Map.Entry<String, String> entry : propertiesMap.entrySet()) {
-            final String key = entry.getKey();
-            final String value = entry.getValue();
+        for (final Tuple<String, String> entry : propertiesMap) {
+            final String key = entry.first;
+            final String value = entry.second;
 
-            final String exportedValue = userInputMap.getOrDefault(key, value);
+            final String exportedValue = Util.coalesce(userInputMap.get(key), value);
             if (exportedValue.isEmpty()) {
                 ConfigurationPropertiesExporter.appendPropertyToStringBuilder(stringBuilder, key, value);
                 return;
@@ -127,53 +131,53 @@ public class ConfigurationPropertiesExporter {
     }
 
     protected static Map<String, String> bitcoinVerdeDatabasePropertiesToConfigurationMap(final String prefix, final BitcoinVerdeDatabaseProperties bitcoinVerdeDatabaseProperties) {
-        return new LinkedHashMap<String, String>() {{
-           this.put(prefix + ROOT_PASSWORD, bitcoinVerdeDatabaseProperties.getRootPassword());
-           this.put(prefix + HOST_NAME, bitcoinVerdeDatabaseProperties.getHostname());
-           this.put(prefix + USERNAME, bitcoinVerdeDatabaseProperties.getUsername());
-           this.put(prefix + PASSWORD, bitcoinVerdeDatabaseProperties.getPassword());
-           this.put(prefix + SCHEMA, bitcoinVerdeDatabaseProperties.getSchema());
-           this.put(prefix + PORT, ConfigurationPropertiesExporter.coalesce(bitcoinVerdeDatabaseProperties.getPort()));
+        final MutableMap<String, String> map = new MutableLinkedHashMap<>();
+        map.put(prefix + ROOT_PASSWORD, bitcoinVerdeDatabaseProperties.getRootPassword());
+        map.put(prefix + HOST_NAME, bitcoinVerdeDatabaseProperties.getHostname());
+        map.put(prefix + USERNAME, bitcoinVerdeDatabaseProperties.getUsername());
+        map.put(prefix + PASSWORD, bitcoinVerdeDatabaseProperties.getPassword());
+        map.put(prefix + SCHEMA, bitcoinVerdeDatabaseProperties.getSchema());
+        map.put(prefix + PORT, ConfigurationPropertiesExporter.coalesce(bitcoinVerdeDatabaseProperties.getPort()));
 
-           this.put(prefix + SHOULD_USE_EMBEDDED_DATABASE, ConfigurationPropertiesExporter.coalesce(bitcoinVerdeDatabaseProperties._shouldUseEmbeddedDatabase));
-           this.put(prefix + MAX_MEMORY_BYTE_COUNT, ConfigurationPropertiesExporter.coalesce(bitcoinVerdeDatabaseProperties._maxMemoryByteCount));
-           this.put(prefix + LOG_FILE_BYTE_COUNT, ConfigurationPropertiesExporter.coalesce(bitcoinVerdeDatabaseProperties._logFileByteCount));
-           this.put(prefix + DATABASE_PROPERTIES_DATA_DIRECTORY, bitcoinVerdeDatabaseProperties._dataDirectory.getPath());
-           this.put(prefix + INSTALLATION_DIRECTORY, bitcoinVerdeDatabaseProperties._installationDirectory.getPath());
-        }};
+        map.put(prefix + SHOULD_USE_EMBEDDED_DATABASE, ConfigurationPropertiesExporter.coalesce(bitcoinVerdeDatabaseProperties._shouldUseEmbeddedDatabase));
+        map.put(prefix + MAX_MEMORY_BYTE_COUNT, ConfigurationPropertiesExporter.coalesce(bitcoinVerdeDatabaseProperties._maxMemoryByteCount));
+        map.put(prefix + LOG_FILE_BYTE_COUNT, ConfigurationPropertiesExporter.coalesce(bitcoinVerdeDatabaseProperties._logFileByteCount));
+        map.put(prefix + DATABASE_PROPERTIES_DATA_DIRECTORY, bitcoinVerdeDatabaseProperties._dataDirectory.getPath());
+        map.put(prefix + INSTALLATION_DIRECTORY, bitcoinVerdeDatabaseProperties._installationDirectory.getPath());
+        return map;
     }
 
     protected static Map<String, String> bitcoinPropertiesToConfigurationMap(final BitcoinProperties bitcoinProperties) {
-        return new LinkedHashMap<String, String>() {{
-            this.put(BITCOIN_PORT, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._bitcoinPort));
-            this.put(TEST_NETWORK_BITCOIN_PORT, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._testNetworkBitcoinPort));
-            this.put(BITCOIN_RPC_PORT, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._bitcoinRpcPort));
-            this.put(TEST_NETWORK_RPC_PORT, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._testNetworkRpcPort));
-            this.put(DNS_SEEDS, PropertiesUtil.stringListToConfigurationFileProperty(bitcoinProperties._dnsSeeds));
-            this.put(TEST_NET_DNS_SEEDS, PropertiesUtil.stringListToConfigurationFileProperty(bitcoinProperties._testNetDnsSeeds));
-            this.put(USER_AGENT_BLACKLIST, PropertiesUtil.stringListToConfigurationFileProperty(bitcoinProperties._userAgentBlacklist));
-            this.put(NODE_WHITE_LIST, PropertiesUtil.nodePropertiesToConfigurationFileProperty(bitcoinProperties._nodeWhitelist));
-            this.put(BAN_FILTER_IS_ENABLED, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._banFilterIsEnabled));
-            this.put(MIN_PEER_COUNT, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._minPeerCount));
-            this.put(MAX_PEER_COUNT, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._maxPeerCount));
-            this.put(MAX_THREAD_COUNT, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._maxThreadCount));
-            this.put(TRUSTED_BLOCK_HEIGHT, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._trustedBlockHeight));
-            this.put(SHOULD_SKIP_NETWORKING, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._shouldSkipNetworking));
-            this.put(MAX_UTXO_CACHE_BYTE_COUNT, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._maxUtxoCacheByteCount));
-            this.put(UTXO_COMMIT_FREQUENCY, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._utxoCommitFrequency));
-            this.put(UTXO_PURGE_PERCENT, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._utxoPurgePercent));
-            this.put(BOOTSTRAP_IS_ENABLED, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._bootstrapIsEnabled));
-            this.put(FAST_SYNC_IS_ENABLED, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._fastSyncIsEnabled));
-            this.put(FAST_SYNC_TIMEOUT, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._fastSyncTimeoutInSeconds));
-            this.put(INDEXING_MODE_IS_ENABLED, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._indexingModeIsEnabled));
-            this.put(MAX_MESSAGES_PER_SECOND, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._maxMessagesPerSecond));
-            this.put(BITCOIN_PROPERTIES_DATA_DIRECTORY, bitcoinProperties._dataDirectory);
-            this.put(SHOULD_RELAY_INVALID_SLP_TRANSACTIONS, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._shouldRelayInvalidSlpTransactions));
-            this.put(DELETE_PENDING_BLOCKS_IS_ENABLED, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._deletePendingBlocksIsEnabled));
-            this.put(LOG_DIRECTORY, bitcoinProperties._logDirectory);
-            this.put(LOG_LEVEL, bitcoinProperties._logLevel.name());
-            this.put(TEST_NET, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._testNet));
-        }};
+        final MutableMap<String, String> map = new MutableLinkedHashMap<>();
+        map.put(BITCOIN_PORT, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._bitcoinPort));
+        map.put(TEST_NETWORK_BITCOIN_PORT, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._testNetworkBitcoinPort));
+        map.put(BITCOIN_RPC_PORT, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._bitcoinRpcPort));
+        map.put(TEST_NETWORK_RPC_PORT, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._testNetworkRpcPort));
+        map.put(DNS_SEEDS, PropertiesUtil.stringListToConfigurationFileProperty(bitcoinProperties._dnsSeeds));
+        map.put(TEST_NET_DNS_SEEDS, PropertiesUtil.stringListToConfigurationFileProperty(bitcoinProperties._testNetDnsSeeds));
+        map.put(USER_AGENT_BLACKLIST, PropertiesUtil.stringListToConfigurationFileProperty(bitcoinProperties._userAgentBlacklist));
+        map.put(NODE_WHITE_LIST, PropertiesUtil.nodePropertiesToConfigurationFileProperty(bitcoinProperties._nodeWhitelist));
+        map.put(BAN_FILTER_IS_ENABLED, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._banFilterIsEnabled));
+        map.put(MIN_PEER_COUNT, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._minPeerCount));
+        map.put(MAX_PEER_COUNT, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._maxPeerCount));
+        map.put(MAX_THREAD_COUNT, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._maxThreadCount));
+        map.put(TRUSTED_BLOCK_HEIGHT, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._trustedBlockHeight));
+        map.put(SHOULD_SKIP_NETWORKING, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._shouldSkipNetworking));
+        map.put(MAX_UTXO_CACHE_BYTE_COUNT, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._maxUtxoCacheByteCount));
+        map.put(UTXO_COMMIT_FREQUENCY, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._utxoCommitFrequency));
+        map.put(UTXO_PURGE_PERCENT, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._utxoPurgePercent));
+        map.put(BOOTSTRAP_IS_ENABLED, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._bootstrapIsEnabled));
+        map.put(FAST_SYNC_IS_ENABLED, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._fastSyncIsEnabled));
+        map.put(FAST_SYNC_TIMEOUT, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._fastSyncTimeoutInSeconds));
+        map.put(INDEXING_MODE_IS_ENABLED, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._indexingModeIsEnabled));
+        map.put(MAX_MESSAGES_PER_SECOND, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._maxMessagesPerSecond));
+        map.put(BITCOIN_PROPERTIES_DATA_DIRECTORY, bitcoinProperties._dataDirectory);
+        map.put(SHOULD_RELAY_INVALID_SLP_TRANSACTIONS, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._shouldRelayInvalidSlpTransactions));
+        map.put(DELETE_PENDING_BLOCKS_IS_ENABLED, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._deletePendingBlocksIsEnabled));
+        map.put(LOG_DIRECTORY, bitcoinProperties._logDirectory);
+        map.put(LOG_LEVEL, bitcoinProperties._logLevel.name());
+        map.put(TEST_NET, ConfigurationPropertiesExporter.coalesce(bitcoinProperties._testNet));
+        return map;
     }
 
     protected static Map<String, String> stratumPropertiesToConfigurationMap(final StratumProperties stratumProperties) {
@@ -189,55 +193,55 @@ public class ConfigurationPropertiesExporter {
             rpcPassword = null;
         }
 
-        return new LinkedHashMap<String, String>() {{
-            put(STRATUM_PORT, ConfigurationPropertiesExporter.coalesce(stratumProperties._port));
-            put(STRATUM_RPC_PORT, ConfigurationPropertiesExporter.coalesce(stratumProperties._rpcPort));
-            put(STRATUM_BITCOIN_RPC_URL, ConfigurationPropertiesExporter.coalesce(stratumProperties._bitcoinRpcUrl));
-            put(STRATUM_BITCOIN_RPC_USERNAME, ConfigurationPropertiesExporter.coalesce(rpcUsername));
-            put(STRATUM_BITCOIN_RPC_PASSWORD, ConfigurationPropertiesExporter.coalesce(rpcPassword));
-            put(STRATUM_BITCOIN_RPC_PORT, ConfigurationPropertiesExporter.coalesce(stratumProperties._bitcoinRpcPort));
-            put(STRATUM_HTTP_PORT, ConfigurationPropertiesExporter.coalesce(stratumProperties._httpPort));
-            put(STRATUM_TLS_PORT, ConfigurationPropertiesExporter.coalesce(stratumProperties._tlsPort));
-            put(STRATUM_ROOT_DIRECTORY, ConfigurationPropertiesExporter.coalesce(stratumProperties._rootDirectory));
-            put(STRATUM_TLS_KEY_FILE, ConfigurationPropertiesExporter.coalesce(stratumProperties._tlsKeyFile));
-            put(STRATUM_TLS_CERTIFICATE_FILE, ConfigurationPropertiesExporter.coalesce(stratumProperties._tlsCertificateFile));
-            put(STRATUM_COOKIES_DIRECTORY, ConfigurationPropertiesExporter.coalesce(stratumProperties._cookiesDirectory));
-            put(STRATUM_SECURE_COOKIES, ConfigurationPropertiesExporter.coalesce(stratumProperties._useSecureCookies));
-        }};
+        final MutableMap<String, String> map = new MutableLinkedHashMap<>();
+        map.put(STRATUM_PORT, ConfigurationPropertiesExporter.coalesce(stratumProperties._port));
+        map.put(STRATUM_RPC_PORT, ConfigurationPropertiesExporter.coalesce(stratumProperties._rpcPort));
+        map.put(STRATUM_BITCOIN_RPC_URL, ConfigurationPropertiesExporter.coalesce(stratumProperties._bitcoinRpcUrl));
+        map.put(STRATUM_BITCOIN_RPC_USERNAME, ConfigurationPropertiesExporter.coalesce(rpcUsername));
+        map.put(STRATUM_BITCOIN_RPC_PASSWORD, ConfigurationPropertiesExporter.coalesce(rpcPassword));
+        map.put(STRATUM_BITCOIN_RPC_PORT, ConfigurationPropertiesExporter.coalesce(stratumProperties._bitcoinRpcPort));
+        map.put(STRATUM_HTTP_PORT, ConfigurationPropertiesExporter.coalesce(stratumProperties._httpPort));
+        map.put(STRATUM_TLS_PORT, ConfigurationPropertiesExporter.coalesce(stratumProperties._tlsPort));
+        map.put(STRATUM_ROOT_DIRECTORY, ConfigurationPropertiesExporter.coalesce(stratumProperties._rootDirectory));
+        map.put(STRATUM_TLS_KEY_FILE, ConfigurationPropertiesExporter.coalesce(stratumProperties._tlsKeyFile));
+        map.put(STRATUM_TLS_CERTIFICATE_FILE, ConfigurationPropertiesExporter.coalesce(stratumProperties._tlsCertificateFile));
+        map.put(STRATUM_COOKIES_DIRECTORY, ConfigurationPropertiesExporter.coalesce(stratumProperties._cookiesDirectory));
+        map.put(STRATUM_SECURE_COOKIES, ConfigurationPropertiesExporter.coalesce(stratumProperties._useSecureCookies));
+        return map;
     }
 
     protected static Map<String, String> explorerPropertiesToConfigurationMap(final ExplorerProperties explorerProperties) {
-        return new LinkedHashMap<String, String>() {{
-            put(EXPLORER_PORT, ConfigurationPropertiesExporter.coalesce(explorerProperties._port));
-            put(EXPLORER_ROOT_DIRECTORY, ConfigurationPropertiesExporter.coalesce(explorerProperties._rootDirectory));
-            put(EXPLORER_BITCOIN_RPC_URL, ConfigurationPropertiesExporter.coalesce(explorerProperties._bitcoinRpcUrl));
-            put(EXPLORER_BITCOIN_RPC_PORT, ConfigurationPropertiesExporter.coalesce(explorerProperties._bitcoinRpcPort));
-            put(EXPLORER_STRATUM_RPC_URL, ConfigurationPropertiesExporter.coalesce(explorerProperties._stratumRpcUrl));
-            put(EXPLORER_STRATUM_RPC_PORT, ConfigurationPropertiesExporter.coalesce(explorerProperties._stratumRpcPort));
-            put(EXPLORER_TLS_PORT, ConfigurationPropertiesExporter.coalesce(explorerProperties._tlsPort));
-            put(EXPLORER_TLS_KEY_FILE, ConfigurationPropertiesExporter.coalesce(explorerProperties._tlsKeyFile));
-            put(EXPLORER_TLS_CERTIFICATE_FILE, ConfigurationPropertiesExporter.coalesce(explorerProperties._tlsCertificateFile));
-        }};
+        final MutableMap<String, String> map = new MutableLinkedHashMap<>();
+        map.put(EXPLORER_PORT, ConfigurationPropertiesExporter.coalesce(explorerProperties._port));
+        map.put(EXPLORER_ROOT_DIRECTORY, ConfigurationPropertiesExporter.coalesce(explorerProperties._rootDirectory));
+        map.put(EXPLORER_BITCOIN_RPC_URL, ConfigurationPropertiesExporter.coalesce(explorerProperties._bitcoinRpcUrl));
+        map.put(EXPLORER_BITCOIN_RPC_PORT, ConfigurationPropertiesExporter.coalesce(explorerProperties._bitcoinRpcPort));
+        map.put(EXPLORER_STRATUM_RPC_URL, ConfigurationPropertiesExporter.coalesce(explorerProperties._stratumRpcUrl));
+        map.put(EXPLORER_STRATUM_RPC_PORT, ConfigurationPropertiesExporter.coalesce(explorerProperties._stratumRpcPort));
+        map.put(EXPLORER_TLS_PORT, ConfigurationPropertiesExporter.coalesce(explorerProperties._tlsPort));
+        map.put(EXPLORER_TLS_KEY_FILE, ConfigurationPropertiesExporter.coalesce(explorerProperties._tlsKeyFile));
+        map.put(EXPLORER_TLS_CERTIFICATE_FILE, ConfigurationPropertiesExporter.coalesce(explorerProperties._tlsCertificateFile));
+        return map;
     }
 
     protected static Map<String, String> walletPropertiesToConfigurationMap(final WalletProperties walletProperties) {
-        return new LinkedHashMap<String, String>() {{
-            put(WALLET_PORT, ConfigurationPropertiesExporter.coalesce(walletProperties._port));
-            put(WALLET_ROOT_DIRECTORY, ConfigurationPropertiesExporter.coalesce(walletProperties._rootDirectory));
-            put(WALLET_TLS_PORT, ConfigurationPropertiesExporter.coalesce(walletProperties._tlsPort));
-            put(WALLET_TLS_KEY_FILE, ConfigurationPropertiesExporter.coalesce(walletProperties._tlsKeyFile));
-            put(WALLET_TLS_CERTIFICATE_FILE, ConfigurationPropertiesExporter.coalesce(walletProperties._tlsCertificateFile));
-        }};
+        final MutableMap<String, String> map = new MutableLinkedHashMap<>();
+        map.put(WALLET_PORT, ConfigurationPropertiesExporter.coalesce(walletProperties._port));
+        map.put(WALLET_ROOT_DIRECTORY, ConfigurationPropertiesExporter.coalesce(walletProperties._rootDirectory));
+        map.put(WALLET_TLS_PORT, ConfigurationPropertiesExporter.coalesce(walletProperties._tlsPort));
+        map.put(WALLET_TLS_KEY_FILE, ConfigurationPropertiesExporter.coalesce(walletProperties._tlsKeyFile));
+        map.put(WALLET_TLS_CERTIFICATE_FILE, ConfigurationPropertiesExporter.coalesce(walletProperties._tlsCertificateFile));
+        return map;
     }
 
     protected static Map<String, String> proxyPropertiesToConfigurationMap(final ProxyProperties proxyProperties) {
-        return new LinkedHashMap<String, String>() {{
-            put(PROXY_HTTP_PORT, ConfigurationPropertiesExporter.coalesce(proxyProperties._httpPort));
-            put(PROXY_TLS_PORT, ConfigurationPropertiesExporter.coalesce(proxyProperties._tlsPort));
-            put(PROXY_EXTERNAL_TLS_PORT, ConfigurationPropertiesExporter.coalesce(proxyProperties._externalTlsPort));
-            put(PROXY_EXTERNAL_TLS_KEY_FILES, PropertiesUtil.stringListToConfigurationFileProperty(proxyProperties._tlsKeyFiles));
-            put(PROXY_EXTERNAL_TLS_CERTIFICATE_FILES, PropertiesUtil.stringListToConfigurationFileProperty(proxyProperties._tlsCertificateFiles));
-        }};
+        final MutableMap<String, String> map = new MutableLinkedHashMap<>();
+        map.put(PROXY_HTTP_PORT, ConfigurationPropertiesExporter.coalesce(proxyProperties._httpPort));
+        map.put(PROXY_TLS_PORT, ConfigurationPropertiesExporter.coalesce(proxyProperties._tlsPort));
+        map.put(PROXY_EXTERNAL_TLS_PORT, ConfigurationPropertiesExporter.coalesce(proxyProperties._externalTlsPort));
+        map.put(PROXY_EXTERNAL_TLS_KEY_FILES, PropertiesUtil.stringListToConfigurationFileProperty(proxyProperties._tlsKeyFiles));
+        map.put(PROXY_EXTERNAL_TLS_CERTIFICATE_FILES, PropertiesUtil.stringListToConfigurationFileProperty(proxyProperties._tlsCertificateFiles));
+        return map;
     }
 
     public static void exportConfiguration(final Configuration configuration, final String configurationFilename, final Map<String, String> userInputMap) {

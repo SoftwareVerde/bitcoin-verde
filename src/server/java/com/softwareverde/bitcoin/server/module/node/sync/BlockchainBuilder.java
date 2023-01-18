@@ -35,6 +35,7 @@ import com.softwareverde.concurrent.service.GracefulSleepyService;
 import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
@@ -153,7 +154,7 @@ public class BlockchainBuilder extends GracefulSleepyService {
             new Query("SELECT blockchain_segments.id FROM blockchain_segments INNER JOIN (SELECT blockchain_segment_id, MAX(chain_work) AS chain_work FROM blocks GROUP BY blockchain_segment_id) AS segment_head_block WHERE nested_set_right = nested_set_left + 1 AND segment_head_block.blockchain_segment_id = blockchain_segments.id ORDER BY segment_head_block.chain_work DESC")
         );
 
-        final MutableList<BlockchainSegmentId> orderedSegments = new MutableList<>();
+        final MutableList<BlockchainSegmentId> orderedSegments = new MutableArrayList<>();
         for (final Row row : rows) {
             final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(row.getLong("id"));
             orderedSegments.add(blockchainSegmentId);

@@ -19,11 +19,11 @@ import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.Map;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
-
-import java.util.Map;
 
 public class DoubleSpendProofPreimageValidator {
     protected final Long _blockHeight;
@@ -121,7 +121,7 @@ public class DoubleSpendProofPreimageValidator {
         final TransactionSigner transactionSigner = new DoubleSpendProofPreimageTransactionSigner(doubleSpendProofPreimage);
         final MutableTransactionContext transactionContext = new MutableTransactionContext(_upgradeSchedule, transactionSigner);
         {
-            final MutableList<TransactionOutput> previousTransactionOutputsList = new MutableList<>();
+            final MutableList<TransactionOutput> previousTransactionOutputsList = new MutableArrayList<>();
             for (final TransactionInput transactionInput : firstSeenSpendingTransaction.getTransactionInputs()) {
                 final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
                 final TransactionOutput transactionOutput = previousTransactionOutputs.get(transactionOutputIdentifier);

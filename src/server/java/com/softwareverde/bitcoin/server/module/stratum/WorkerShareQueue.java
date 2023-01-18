@@ -5,22 +5,25 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.module.stratum.database.WorkerDatabaseManager;
 import com.softwareverde.bitcoin.server.module.stratum.database.WorkerShare;
-import com.softwareverde.concurrent.ConcurrentHashSet;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.mutable.ConcurrentMutableHashMap;
+import com.softwareverde.constable.set.mutable.ConcurrentMutableHashSet;
+import com.softwareverde.constable.set.mutable.MutableSet;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Container;
+import com.softwareverde.util.Tuple;
 import com.softwareverde.util.timer.NanoTimer;
 
 import java.util.Iterator;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class WorkerShareQueue {
     protected final Integer MAX_WORKER_ID_CACHE_SIZE = 1048576; // Arbitrary upper bound to prevent OOM/DOS.
-    protected final ConcurrentHashMap<String, WorkerId> _workerIdCache = new ConcurrentHashMap<>();
+    protected final ConcurrentMutableHashMap<String, WorkerId> _workerIdCache = new ConcurrentMutableHashMap<>();
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
-    protected final ConcurrentHashSet<WorkerShare> _workerShares = new ConcurrentHashSet<>();
+    protected final ConcurrentMutableHashSet<WorkerShare> _workerShares = new ConcurrentMutableHashSet<>();
     protected final Thread _flushThread;
     protected final Thread _cacheThread;
     protected volatile Boolean _isStarted = false;
@@ -37,7 +40,7 @@ public class WorkerShareQueue {
             final Boolean workerHasBeenDeleted = workerDatabaseManager.hasWorkedBeenDeleted(workerId);
             if (workerHasBeenDeleted) { return null; }
 
-            if (_workerIdCache.size() >= MAX_WORKER_ID_CACHE_SIZE) {
+            if (_workerIdCache.getCount() >= MAX_WORKER_ID_CACHE_SIZE) {
                 _workerIdCache.clear();
             }
             _workerIdCache.put(workerUsername, workerId);
@@ -55,16 +58,20 @@ public class WorkerShareQueue {
 
             final int maxBatchSize = 1024;
             while (true) {
-                final MutableList<WorkerShare> workerShares = new MutableList<>(1024);
+                final MutableList<WorkerShare> workerShares = new MutableArrayList<>(1024);
 
-                final Iterator<WorkerShare> iterator = _workerShares.iterator();
-                while (iterator.hasNext()) {
-                    final WorkerShare workerShare = iterator.next();
-                    iterator.remove();
+                _workerShares.mutableVisit(new MutableSet.MutableVisitor<>() {
+                    @Override
+                    public boolean run(final Container<WorkerShare> itemContainer) {
+                        final WorkerShare workerShare = itemContainer.value;
+                        itemContainer.value = null; // Remove item.
 
-                    workerShares.add(workerShare);
-                    if (workerShares.getCount() >= maxBatchSize) { break; }
-                }
+                        workerShares.add(workerShare);
+                        if (workerShares.getCount() >= maxBatchSize) { return false; }
+
+                        return true;
+                    }
+                });
                 if (workerShares.isEmpty()) { break; }
 
                 workerDatabaseManager.addWorkerShares(workerShares);
@@ -123,13 +130,13 @@ public class WorkerShareQueue {
                         try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
                             final WorkerDatabaseManager workerDatabaseManager = new WorkerDatabaseManager(databaseConnection);
 
-                            final Iterator<Map.Entry<String, WorkerId>> iterator = _workerIdCache.entrySet().iterator();
-                            while (iterator.hasNext() && (! thread.isInterrupted())) {
-                                final Map.Entry<String, WorkerId> entry = iterator.next();
-                                final WorkerId workerId = entry.getValue();
+                            final Iterator<Tuple<String, WorkerId>> mutableIterator = _workerIdCache.mutableIterator();
+                            while (mutableIterator.hasNext() && (! thread.isInterrupted())) {
+                                final Tuple<String, WorkerId> entry = mutableIterator.next();
+                                final WorkerId workerId = entry.second;
                                 final Boolean workerHasBeenDeleted = workerDatabaseManager.hasWorkedBeenDeleted(workerId);
                                 if (workerHasBeenDeleted) {
-                                    iterator.remove();
+                                    mutableIterator.remove();
                                 }
                             }
                         }

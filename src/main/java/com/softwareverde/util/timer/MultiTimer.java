@@ -1,12 +1,11 @@
 package com.softwareverde.util.timer;
 
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 
-import java.util.HashMap;
-import java.util.Map;
-
 public class MultiTimer {
-    protected final HashMap<String, Double> _laps = new HashMap<>();
+    protected final MutableHashMap<String, Double> _laps = new MutableHashMap<>();
     protected NanoTimer _currentTimer = null;
 
     public void start() {
@@ -40,9 +39,9 @@ public class MultiTimer {
         final StringBuilder stringBuilder = new StringBuilder();
 
         String delimiter = "";
-        for (final Map.Entry<String, Double> tuple : _laps.entrySet()) {
-            final String label = tuple.getKey();
-            final Double msElapsed = tuple.getValue();
+        for (final Tuple<String, Double> tuple : _laps) {
+            final String label = tuple.first;
+            final Double msElapsed = tuple.second;
 
             stringBuilder.append(delimiter);
             stringBuilder.append(label);

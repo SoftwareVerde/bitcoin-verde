@@ -11,6 +11,7 @@ import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import org.junit.After;
@@ -115,7 +116,7 @@ public class BlockchainIndexerTests extends UnitTest {
 
     protected static List<TransactionOutputIdentifier> createOutputIdentifiers(final String transactionHashString, final int[] outputIndices) {
         final Sha256Hash transactionHash = Sha256Hash.fromHexString(transactionHashString);
-        final MutableList<TransactionOutputIdentifier> transactionOutputIdentifiers = new MutableList<>(outputIndices.length);
+        final MutableList<TransactionOutputIdentifier> transactionOutputIdentifiers = new MutableArrayList<>(outputIndices.length);
         for (final int outputIndex : outputIndices) {
             final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
             transactionOutputIdentifiers.add(transactionOutputIdentifier);
@@ -211,8 +212,8 @@ public class BlockchainIndexerTests extends UnitTest {
                 expectedNonSlpTransactionOutputIdentifiers = transactionOutputIdentifiers.build();
             }
 
-            final MutableList<TransactionOutputIdentifier> remainingSlpTransactionOutputIdentifiers = new MutableList<>(expectedSlpTransactionOutputIdentifiers);
-            final MutableList<TransactionOutputIdentifier> remainingNonSlpTransactionOutputIdentifiers = new MutableList<>(expectedNonSlpTransactionOutputIdentifiers);
+            final MutableList<TransactionOutputIdentifier> remainingSlpTransactionOutputIdentifiers = new MutableArrayList<>(expectedSlpTransactionOutputIdentifiers);
+            final MutableList<TransactionOutputIdentifier> remainingNonSlpTransactionOutputIdentifiers = new MutableArrayList<>(expectedNonSlpTransactionOutputIdentifiers);
             int slpOutputCount = 0;
             final List<IndexedOutput> indexedOutputs = atomicTransactionOutputIndexerContext.getIndexedOutputs();
             for (final IndexedOutput indexedOutput : indexedOutputs) {

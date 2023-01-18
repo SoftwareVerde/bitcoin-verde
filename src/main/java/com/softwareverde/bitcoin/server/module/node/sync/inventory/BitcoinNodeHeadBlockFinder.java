@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.server.node.RequestId;
 import com.softwareverde.concurrent.Pin;
 import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
@@ -36,7 +37,7 @@ public class BitcoinNodeHeadBlockFinder {
     }
 
     public void determineHeadBlock(final BitcoinNode bitcoinNode, final Callback callback) {
-        final MutableList<Sha256Hash> blockHashes = new MutableList<>();
+        final MutableList<Sha256Hash> blockHashes = new MutableArrayList<>();
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BlockFinderHashesBuilder blockFinderHashesBuilder = new BlockFinderHashesBuilder(databaseManager);
             blockHashes.addAll(blockFinderHashesBuilder.createBlockHeaderFinderBlockHashes(1));

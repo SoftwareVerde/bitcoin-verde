@@ -62,7 +62,9 @@ import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.mutable.ConcurrentMutableHashMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
 import com.softwareverde.database.DatabaseException;
@@ -74,9 +76,6 @@ import com.softwareverde.util.timer.NanoTimer;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.Iterator;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     protected final Integer _extraNonceByteCount = 4;
@@ -96,7 +95,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     protected final BlockchainBuilder _blockchainBuilder;
     protected final DoubleSpendProofStore _doubleSpendProofStore;
 
-    protected final ConcurrentHashMap<Sha256Hash, TransactionId> _cachedTransactionIds = new ConcurrentHashMap<>();
+    protected final ConcurrentMutableHashMap<Sha256Hash, TransactionId> _cachedTransactionIds = new ConcurrentMutableHashMap<>();
     protected TransactionId _getTransactionId(final Sha256Hash transactionHash, final DatabaseManager databaseManager) throws DatabaseException {
         final TransactionId cachedTransactionId = _cachedTransactionIds.get(transactionHash);
         if (cachedTransactionId != null) { return cachedTransactionId; }
@@ -106,16 +105,15 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
         if (transactionId == null) { return null; }
 
         _cachedTransactionIds.put(transactionHash, transactionId);
-        if (_cachedTransactionIds.size() > (1024 * 32)) {
+        if (_cachedTransactionIds.getCount() > (1024 * 32)) {
             // NOTE: From testing, removing items via the EntrySet Iterator appears to remove the items in FIFO order...
-            final Set<Map.Entry<Sha256Hash, TransactionId>> entrySet = _cachedTransactionIds.entrySet();
-            final Iterator<Map.Entry<Sha256Hash, TransactionId>> iterator = entrySet.iterator();
+            final Iterator<Tuple<Sha256Hash, TransactionId>> mutableIterator = _cachedTransactionIds.mutableIterator();
 
             for (int i = 0; i < 128; ++i) {
-                if (! iterator.hasNext()) { break; }
+                if (! mutableIterator.hasNext()) { break; }
 
-                iterator.next();
-                iterator.remove();
+                mutableIterator.next();
+                mutableIterator.remove();
             }
         }
 
@@ -138,7 +136,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
 
         final List<Transaction> transactions = block.getTransactions();
 
-        final MutableList<Transaction> returnedTransactions = new MutableList<>(pageSize);
+        final MutableList<Transaction> returnedTransactions = new MutableArrayList<>(pageSize);
         final int startIndex = (pageNumber * pageSize);
         for (int i = 0; i < pageSize; ++i) {
             final int readIndex = (startIndex + i);
@@ -635,7 +633,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                 blockHeader.setTimestamp(timestamp);
                 blockHeader.setNonce(0L);
 
-                final MutableList<Transaction> blockTransactions = new MutableList<>(unconfirmedTransactions.getCount() + 1);
+                final MutableList<Transaction> blockTransactions = new MutableArrayList<>(unconfirmedTransactions.getCount() + 1);
                 blockTransactions.add(coinbaseTransaction);
                 for (final TransactionWithFee transactionWithFee : unconfirmedTransactions) {
                     blockTransactions.add(transactionWithFee.transaction);

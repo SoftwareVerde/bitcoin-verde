@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
@@ -46,7 +47,7 @@ public class MedianBlockTimeDatabaseManagerUtil {
         final MutableMedianBlockTime medianBlockTime = new MutableMedianBlockTime();
         if (firstBlockIdInclusive == null) { return medianBlockTime; } // Special case for the Genesis Block...
 
-        final MutableList<BlockHeader> blockHeadersInDescendingOrder = new MutableList<>(MedianBlockTime.BLOCK_COUNT);
+        final MutableList<BlockHeader> blockHeadersInDescendingOrder = new MutableArrayList<>(MedianBlockTime.BLOCK_COUNT);
 
         Sha256Hash blockHash = firstBlockHashInclusive;
         for (int i = 0; i < MedianBlockTime.BLOCK_COUNT; ++i) {

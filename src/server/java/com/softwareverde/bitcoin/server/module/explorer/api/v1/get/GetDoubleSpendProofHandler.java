@@ -15,6 +15,7 @@ import com.softwareverde.util.Util;
 
 import java.util.Map;
 
+
 public class GetDoubleSpendProofHandler implements RequestHandler<Environment> {
 
     /**

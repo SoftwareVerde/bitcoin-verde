@@ -18,11 +18,11 @@ import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.stratum.message.RequestMessage;
 import com.softwareverde.bitcoin.server.stratum.message.ResponseMessage;
 import com.softwareverde.bitcoin.server.stratum.message.server.MinerSubmitBlockResponseMessage;
-import com.softwareverde.bitcoin.server.stratum.message.server.MinerSubscribeResponseMessage;
 import com.softwareverde.bitcoin.server.stratum.message.server.SetDifficultyMessage;
 import com.softwareverde.bitcoin.stratum.callback.BlockFoundCallback;
 import com.softwareverde.bitcoin.stratum.callback.WorkerShareCallback;
 import com.softwareverde.bitcoin.stratum.message.server.MinerNotifyMessage;
+import com.softwareverde.bitcoin.stratum.message.server.MinerSubscribeResponseMessage;
 import com.softwareverde.bitcoin.stratum.socket.StratumServerSocket;
 import com.softwareverde.bitcoin.stratum.task.MutableStratumMineBlockTaskBuilder;
 import com.softwareverde.bitcoin.stratum.task.StratumMineBlockTask;
@@ -208,7 +208,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
         final MutableStratumMineBlockTaskBuilder stratumMineBlockTaskBuilder = new StratumMineBlockTaskBuilderCore(_totalExtraNonceByteCount, transactionDeflater, _systemTime);
 
         final String coinbaseMessage = BitcoinConstants.getCoinbaseMessage();
-        final List<ByteArray> extraBytes = new ImmutableList<>(
+        final List<ByteArray> extraBytes = new ImmutableList<ByteArray>(
             _createRandomBytes(8) // Creates a unique job for each task, preventing duplicate shares from being created under high workload.
         );
 

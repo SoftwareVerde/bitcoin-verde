@@ -4,6 +4,7 @@ import com.softwareverde.concurrent.Pin;
 import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.constable.set.Set;
 import com.softwareverde.database.DatabaseException;
@@ -115,7 +116,7 @@ public class BatchRunner<T> {
             batchFeed = (List<T>) totalCollection;
         }
         else {
-            final MutableList<T> list = new MutableList<>(totalItemCount);
+            final MutableList<T> list = new MutableArrayList<>(totalItemCount);
             for (final T item : totalCollection) {
                 list.add(item);
             }
@@ -129,7 +130,7 @@ public class BatchRunner<T> {
             final Runnable runnable = new Runnable() {
                 @Override
                 public void run() {
-                    final MutableList<T> bathedItems = new MutableList<>(itemCountPerBatch);
+                    final MutableList<T> bathedItems = new MutableArrayList<>(itemCountPerBatch);
                     for (int j = 0; j < itemCountPerBatch; ++j) {
                         final int index = ((batchId * itemCountPerBatch) + j);
                         if (index >= totalItemCount) { break; }

@@ -10,28 +10,30 @@ import com.softwareverde.bitcoin.server.module.node.database.Visitor;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockMetadata;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.Map;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.constable.set.Set;
+import com.softwareverde.constable.set.mutable.MutableHashSet;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-
 public class MockBlockHeaderDatabaseManager implements FakeBlockHeaderDatabaseManager {
-    protected final HashMap<Sha256Hash, BlockId> _blockIds = new HashMap<>();
-    protected final HashMap<BlockId, BlockHeader> _blockHeaders = new HashMap<>();
-    protected final HashMap<BlockId, MutableMedianBlockTime> _medianBlockTimes = new HashMap<>();
-    protected final HashMap<BlockId, MutableMedianBlockTime> _medianTimesPast = new HashMap<>();
-    protected final HashMap<Sha256Hash, Integer> _invalidBlockCounts = new HashMap<>();
-    protected final HashMap<BlockId, BlockchainSegmentId> _blockchainSegmentIds = new HashMap<>();
-    protected final HashMap<BlockId, Long> _blockHeights = new HashMap<>();
-    protected final HashMap<BlockId, Long> _blockTimestamps = new HashMap<>();
-    protected final HashMap<BlockchainSegmentId, HashSet<BlockchainSegmentId>> _connectedBlockchainSegmentIds = new HashMap<>();
-    protected final HashMap<BlockId, ChainWork> _chainWorks = new HashMap<>();
+    protected final MutableMap<Sha256Hash, BlockId> _blockIds = new MutableHashMap<>();
+    protected final MutableMap<BlockId, BlockHeader> _blockHeaders = new MutableHashMap<>();
+    protected final MutableMap<BlockId, MutableMedianBlockTime> _medianBlockTimes = new MutableHashMap<>();
+    protected final MutableMap<BlockId, MutableMedianBlockTime> _medianTimesPast = new MutableHashMap<>();
+    protected final MutableMap<Sha256Hash, Integer> _invalidBlockCounts = new MutableHashMap<>();
+    protected final MutableMap<BlockId, BlockchainSegmentId> _blockchainSegmentIds = new MutableHashMap<>();
+    protected final MutableMap<BlockId, Long> _blockHeights = new MutableHashMap<>();
+    protected final MutableMap<BlockId, Long> _blockTimestamps = new MutableHashMap<>();
+    protected final MutableMap<BlockchainSegmentId, MutableHashSet<BlockchainSegmentId>> _connectedBlockchainSegmentIds = new MutableHashMap<>();
+    protected final MutableMap<BlockId, ChainWork> _chainWorks = new MutableHashMap<>();
 
     protected BlockId _headBlockId;
     protected MutableMedianBlockTime _medianBlockTime;
@@ -58,14 +60,12 @@ public class MockBlockHeaderDatabaseManager implements FakeBlockHeaderDatabaseMa
 
     public void linkBlockchainSegments(final BlockchainSegmentId blockchainSegmentId0, final BlockchainSegmentId blockchainSegmentId1) {
         {
-            _connectedBlockchainSegmentIds.putIfAbsent(blockchainSegmentId0, new HashSet<>());
-            final HashSet<BlockchainSegmentId> connectedBlockchainSegmentIds = _connectedBlockchainSegmentIds.get(blockchainSegmentId0);
+            final MutableHashSet<BlockchainSegmentId> connectedBlockchainSegmentIds = _connectedBlockchainSegmentIds.getOrPut(blockchainSegmentId0, MutableHashSet::new);
             connectedBlockchainSegmentIds.add(blockchainSegmentId1);
         }
 
         {
-            _connectedBlockchainSegmentIds.putIfAbsent(blockchainSegmentId1, new HashSet<>());
-            final HashSet<BlockchainSegmentId> connectedBlockchainSegmentIds = _connectedBlockchainSegmentIds.get(blockchainSegmentId1);
+            final MutableHashSet<BlockchainSegmentId> connectedBlockchainSegmentIds = _connectedBlockchainSegmentIds.getOrPut(blockchainSegmentId1, MutableHashSet::new);
             connectedBlockchainSegmentIds.add(blockchainSegmentId0);
         }
     }
@@ -84,9 +84,9 @@ public class MockBlockHeaderDatabaseManager implements FakeBlockHeaderDatabaseMa
 
     @Override
     public Sha256Hash getHeadBlockHeaderHash() throws DatabaseException {
-        for (final Map.Entry<Sha256Hash, BlockId> entry : _blockIds.entrySet()) {
-            if (Util.areEqual(_headBlockId, entry.getValue())) {
-                return entry.getKey();
+        for (final Tuple<Sha256Hash, BlockId> entry : _blockIds) {
+            if (Util.areEqual(_headBlockId, entry.second)) {
+                return entry.first;
             }
         }
         return null;
@@ -143,14 +143,14 @@ public class MockBlockHeaderDatabaseManager implements FakeBlockHeaderDatabaseMa
     public BlockId getChildBlockId(final BlockchainSegmentId blockchainSegmentId, final BlockId previousBlockId) throws DatabaseException {
         final Long blockHeight = _blockHeights.get(previousBlockId);
 
-        for (final Map.Entry<BlockId, Long> entry : _blockHeights.entrySet()) {
-            final BlockId entryBlockId = entry.getKey();
-            final Long entryBlockHeight = entry.getValue();
+        for (final Tuple<BlockId, Long> entry : _blockHeights) {
+            final BlockId entryBlockId = entry.first;
+            final Long entryBlockHeight = entry.second;
             if (Util.areEqual(entryBlockHeight, (blockHeight + 1L))) {
                 final BlockchainSegmentId entryBlockchainSegmentId = _blockchainSegmentIds.get(entryBlockId);
                 if (Util.areEqual(entryBlockchainSegmentId, blockchainSegmentId)) { return entryBlockId; }
 
-                final HashSet<BlockchainSegmentId> connectedBlockchainSegmentIds = _connectedBlockchainSegmentIds.get(entryBlockchainSegmentId);
+                final MutableHashSet<BlockchainSegmentId> connectedBlockchainSegmentIds = _connectedBlockchainSegmentIds.get(entryBlockchainSegmentId);
                 if ( (connectedBlockchainSegmentIds != null) && connectedBlockchainSegmentIds.contains(blockchainSegmentId) ) { return entryBlockId; }
             }
         }
@@ -172,9 +172,9 @@ public class MockBlockHeaderDatabaseManager implements FakeBlockHeaderDatabaseMa
 
     @Override
     public Sha256Hash getBlockHash(final BlockId blockId) throws DatabaseException {
-        for (final Map.Entry<Sha256Hash, BlockId> entry : _blockIds.entrySet()) {
-            if (Util.areEqual(blockId, entry.getValue())) {
-                return entry.getKey();
+        for (final Tuple<Sha256Hash, BlockId> entry : _blockIds) {
+            if (Util.areEqual(blockId, entry.second)) {
+                return entry.first;
             }
         }
         return null;
@@ -182,7 +182,7 @@ public class MockBlockHeaderDatabaseManager implements FakeBlockHeaderDatabaseMa
 
     @Override
     public List<Sha256Hash> getBlockHashes(final List<BlockId> blockIds) throws DatabaseException {
-        final MutableList<Sha256Hash> blockHashes = new MutableList<>();
+        final MutableList<Sha256Hash> blockHashes = new MutableArrayList<>();
         for (final BlockId blockId : blockIds) {
             blockHashes.add(this.getBlockHash(blockId));
         }
@@ -211,10 +211,10 @@ public class MockBlockHeaderDatabaseManager implements FakeBlockHeaderDatabaseMa
 
     @Override
     public BlockId getBlockIdAtHeight(final BlockchainSegmentId blockchainSegmentId, final Long blockHeight) throws DatabaseException {
-        final MutableList<BlockId> blockIds = new MutableList<>();
-        for (final Map.Entry<BlockId, Long> entry : _blockHeights.entrySet()) {
-            if (Util.areEqual(blockHeight, entry.getValue())) {
-                blockIds.add(entry.getKey());
+        final MutableList<BlockId> blockIds = new MutableArrayList<>();
+        for (final Tuple<BlockId, Long> entry : _blockHeights) {
+            if (Util.areEqual(blockHeight, entry.second)) {
+                blockIds.add(entry.first);
             }
         }
 
@@ -224,7 +224,7 @@ public class MockBlockHeaderDatabaseManager implements FakeBlockHeaderDatabaseMa
                 return blockId;
             }
 
-            final HashSet<BlockchainSegmentId> connectedBlockchainSegments = _connectedBlockchainSegmentIds.get(blockBlockchainSegmentId);
+            final MutableHashSet<BlockchainSegmentId> connectedBlockchainSegments = _connectedBlockchainSegmentIds.get(blockBlockchainSegmentId);
             if ( (connectedBlockchainSegments != null) && connectedBlockchainSegments.contains(blockBlockchainSegmentId) ) {
                 return blockId;
             }

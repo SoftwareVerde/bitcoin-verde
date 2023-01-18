@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.database.transaction;
 
 import com.softwareverde.bitcoin.server.database.BatchRunner;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Container;
@@ -36,7 +37,7 @@ public class BlockingQueueBatchRunner<T> extends Thread {
 
                 while ( threadContinueContainer.value || (! itemQueue.isEmpty()) ) {
                     int batchItemCount = 0;
-                    final MutableList<T> batchedItems = new MutableList<>(batchSize);
+                    final MutableList<T> batchedItems = new MutableArrayList<>(batchSize);
                     while (batchItemCount < batchSize) {
                         if (itemQueue.isEmpty()) {
                             try {

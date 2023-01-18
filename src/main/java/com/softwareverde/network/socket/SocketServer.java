@@ -1,6 +1,7 @@
 package com.softwareverde.network.socket;
 
 import com.softwareverde.concurrent.threadpool.ThreadPool;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 
 import java.io.IOException;
@@ -53,7 +54,7 @@ public class SocketServer<T extends Socket> {
     protected final SocketFactory<T> _socketFactory;
     protected java.net.ServerSocket _socket;
 
-    protected final MutableList<T> _connections = new MutableList<>();
+    protected final MutableList<T> _connections = new MutableArrayList<>();
 
     protected Long _nextConnectionId = 0L;
     protected volatile Boolean _shouldContinue = true;
@@ -66,7 +67,7 @@ public class SocketServer<T extends Socket> {
 
     protected void _purgeDisconnectedConnections() {
         final int socketCount = _connections.getCount();
-        final MutableList<T> disconnectedSockets = new MutableList<>(socketCount);
+        final MutableList<T> disconnectedSockets = new MutableArrayList<>(socketCount);
 
         synchronized (_connections) {
             int socketIndex = 0;

@@ -26,6 +26,7 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
@@ -99,7 +100,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         long diskOffset = BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT;
         diskOffset += CompactVariableLengthInteger.variableLengthIntegerToBytes(transactions.getCount()).getByteCount();
 
-        final MutableList<Long> diskOffsets = new MutableList<>(transactions.getCount());
+        final MutableList<Long> diskOffsets = new MutableArrayList<>(transactions.getCount());
         for (final Transaction transaction : transactions) {
             diskOffsets.add(diskOffset);
             diskOffset += transaction.getByteCount();

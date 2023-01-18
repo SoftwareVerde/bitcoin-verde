@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.ripemd160.Ripemd160Hash;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -28,7 +29,7 @@ public class MutableScript implements Script {
     }
 
     public MutableScript() {
-        _operations = new MutableList<>();
+        _operations = new MutableArrayList<>();
     }
 
     public MutableScript(final ByteArray bytes) {
@@ -37,7 +38,7 @@ public class MutableScript implements Script {
     }
 
     public MutableScript(final Script script) {
-        _operations = new MutableList<>(script.getOperations());
+        _operations = new MutableArrayList<>(script.getOperations());
     }
 
     public void addOperation(final Operation operation) {

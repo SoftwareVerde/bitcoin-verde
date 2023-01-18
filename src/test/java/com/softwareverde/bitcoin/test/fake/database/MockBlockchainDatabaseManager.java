@@ -4,18 +4,19 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.module.node.database.Visitor;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 
-import java.util.HashMap;
-
 public class MockBlockchainDatabaseManager implements FakeBlockchainDatabaseManager {
     protected BlockchainSegmentId _headBlockchainSegmentId = null;
-    protected final MutableList<BlockchainSegmentId> _leafBlockchainSegmentIds = new MutableList<>();
-    protected final HashMap<BlockchainSegmentId, BlockId> _startingBlockIds = new HashMap<>();
-    protected final HashMap<BlockchainSegmentId, BlockId> _headBlockIds = new HashMap<>();
-    protected final HashMap<BlockchainSegmentId, BlockchainSegmentId> _parentBlockchainSegmentIds = new HashMap<>();
+    protected final MutableList<BlockchainSegmentId> _leafBlockchainSegmentIds = new MutableArrayList<>();
+    protected final MutableMap<BlockchainSegmentId, BlockId> _startingBlockIds = new MutableHashMap<>();
+    protected final MutableMap<BlockchainSegmentId, BlockId> _headBlockIds = new MutableHashMap<>();
+    protected final MutableMap<BlockchainSegmentId, BlockchainSegmentId> _parentBlockchainSegmentIds = new MutableHashMap<>();
 
     public void setHeadBlockchainSegmentId(final BlockchainSegmentId blockchainSegmentId) {
         _headBlockchainSegmentId = blockchainSegmentId;
@@ -55,7 +56,7 @@ public class MockBlockchainDatabaseManager implements FakeBlockchainDatabaseMana
 
     @Override
     public void visitBlockchainSegments(final Visitor<BlockchainSegmentId> visitor) throws DatabaseException {
-        for (final BlockchainSegmentId blockchainSegmentId : _parentBlockchainSegmentIds.keySet()) {
+        for (final BlockchainSegmentId blockchainSegmentId : _parentBlockchainSegmentIds.getKeys()) {
             try {
                 visitor.run(blockchainSegmentId);
             }

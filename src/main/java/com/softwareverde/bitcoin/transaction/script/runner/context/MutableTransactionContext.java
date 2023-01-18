@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.Util;
@@ -43,7 +44,7 @@ public class MutableTransactionContext implements TransactionContext {
 
     protected Integer _transactionInputIndex;
     protected TransactionInput _transactionInput;
-    protected final MutableList<TransactionOutput> _previousTransactionOutputs = new MutableList<>(0);
+    protected final MutableList<TransactionOutput> _previousTransactionOutputs = new MutableArrayList<>(0);
 
     protected Script _currentScript = null;
     protected Integer _currentScriptIndex = 0;

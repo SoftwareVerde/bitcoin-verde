@@ -4,27 +4,26 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
-import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.Map;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.json.Json;
 import com.softwareverde.json.Jsonable;
 
-import java.util.HashMap;
-import java.util.Map;
 
 class AddressTransactions implements Jsonable {
     public final BlockchainSegmentId blockchainSegmentId;
     public final List<TransactionId> transactionIds;
-    public final Map<TransactionId, MutableList<Integer>> spentOutputs;
-    public final Map<TransactionId, MutableList<Integer>> previousOutputs;
+    public final Map<TransactionId, ? extends List<Integer>> spentOutputs;
+    public final Map<TransactionId, ? extends List<Integer>> previousOutputs;
 
     public AddressTransactions(final BlockchainSegmentId blockchainSegmentId) {
         this.blockchainSegmentId = blockchainSegmentId;
         this.transactionIds = new ImmutableList<>();
-        this.spentOutputs = new HashMap<>(0);
-        this.previousOutputs = new HashMap<>(0);
+        this.spentOutputs = new MutableHashMap<>(0);
+        this.previousOutputs = new MutableHashMap<>(0);
     }
 
-    public AddressTransactions(final BlockchainSegmentId blockchainSegmentId, final List<TransactionId> transactionIds, final HashMap<TransactionId, MutableList<Integer>> previousOutputs, final HashMap<TransactionId, MutableList<Integer>> spentOutputs) {
+    public AddressTransactions(final BlockchainSegmentId blockchainSegmentId, final List<TransactionId> transactionIds, final Map<TransactionId, ? extends List<Integer>> previousOutputs, final Map<TransactionId, ? extends List<Integer>> spentOutputs) {
         this.blockchainSegmentId = blockchainSegmentId;
         this.transactionIds = transactionIds;
         this.previousOutputs = previousOutputs;
@@ -47,7 +46,7 @@ class AddressTransactions implements Jsonable {
 
         { // outputIndexes
             final Json outputIndexesJson = new Json(false);
-            for (final TransactionId transactionId : this.spentOutputs.keySet()) {
+            for (final TransactionId transactionId : this.spentOutputs.getKeys()) {
                 final List<Integer> indexList = this.spentOutputs.get(transactionId);
                 final Json indexesJson = new Json(true);
                 for (final Integer index : indexList) {
@@ -60,7 +59,7 @@ class AddressTransactions implements Jsonable {
 
         { // previousOutputs
             final Json outputIndexesJson = new Json(false);
-            for (final TransactionId transactionId : this.previousOutputs.keySet()) {
+            for (final TransactionId transactionId : this.previousOutputs.getKeys()) {
                 final List<Integer> indexList = this.previousOutputs.get(transactionId);
                 final Json indexesJson = new Json(true);
                 for (final Integer index : indexList) {

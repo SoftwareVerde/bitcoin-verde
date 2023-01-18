@@ -5,12 +5,13 @@ import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatu
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.socket.BinarySocket;
 
 public class FakeBitcoinNode extends BitcoinNode {
-    protected final MutableList<ProtocolMessage> _outboundMessageQueue = new MutableList<>();
+    protected final MutableList<ProtocolMessage> _outboundMessageQueue = new MutableArrayList<>();
 
     @Override
     protected void _initConnection() {

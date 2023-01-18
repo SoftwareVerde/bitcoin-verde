@@ -15,28 +15,30 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.Map;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.TreeMap;
 
 public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransactionOutputIndexerContext {
     protected static class QueuedOutputs {
-        public final MutableList<TransactionId> transactionIds = new MutableList<>();
-        public final MutableList<Integer> outputIndexes = new MutableList<>();
-        public final MutableList<Long> amounts = new MutableList<>();
-        public final MutableList<ScriptType> scriptTypes = new MutableList<>();
-        public final MutableList<Address> addresses = new MutableList<>();
-        public final MutableList<Sha256Hash> scriptHashes = new MutableList<>();
-        public final MutableList<TransactionId> slpTransactionIds = new MutableList<>();
-        public final MutableList<ByteArray> memoActionTypes = new MutableList<>();
-        public final MutableList<ByteArray> memoActionIdentifiers = new MutableList<>();
+        public final MutableList<TransactionId> transactionIds = new MutableArrayList<>();
+        public final MutableList<Integer> outputIndexes = new MutableArrayList<>();
+        public final MutableList<Long> amounts = new MutableArrayList<>();
+        public final MutableList<ScriptType> scriptTypes = new MutableArrayList<>();
+        public final MutableList<Address> addresses = new MutableArrayList<>();
+        public final MutableList<Sha256Hash> scriptHashes = new MutableArrayList<>();
+        public final MutableList<TransactionId> slpTransactionIds = new MutableArrayList<>();
+        public final MutableList<ByteArray> memoActionTypes = new MutableArrayList<>();
+        public final MutableList<ByteArray> memoActionIdentifiers = new MutableArrayList<>();
 
         public void clear() {
             this.transactionIds.clear();
@@ -52,9 +54,9 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
     }
 
     protected static class QueuedInputs {
-        public final MutableList<TransactionId> transactionIds = new MutableList<>();
-        public final MutableList<Integer> inputIndexes = new MutableList<>();
-        public final MutableList<TransactionOutputId> transactionOutputIds = new MutableList<>();
+        public final MutableList<TransactionId> transactionIds = new MutableArrayList<>();
+        public final MutableList<Integer> inputIndexes = new MutableArrayList<>();
+        public final MutableList<TransactionOutputId> transactionOutputIds = new MutableArrayList<>();
 
         public void clear() {
             this.transactionIds.clear();
@@ -272,8 +274,8 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
 
     @Override
     public Map<Sha256Hash, TransactionId> getTransactionIds(final List<Sha256Hash> transactionHashes) throws ContextException {
-        final HashMap<Sha256Hash, TransactionId> transactionIds = new HashMap<>();
-        final MutableList<Sha256Hash> unknownTransactionHashes = new MutableList<>(transactionHashes.getCount());
+        final MutableHashMap<Sha256Hash, TransactionId> transactionIds = new MutableHashMap<>();
+        final MutableList<Sha256Hash> unknownTransactionHashes = new MutableArrayList<>(transactionHashes.getCount());
         for (final Sha256Hash transactionHash : transactionHashes) {
             final TransactionId cachedTransactionId = _indexerCache.getTransactionId(transactionHash);
             if (cachedTransactionId == null) {
@@ -292,9 +294,9 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
                 nanoTimer.start();
 
                 final Map<Sha256Hash, TransactionId> foundTransactionIds = transactionDatabaseManager.getTransactionIds(unknownTransactionHashes);
-                for (final Map.Entry<Sha256Hash, TransactionId> entry : foundTransactionIds.entrySet()) {
-                    transactionIds.put(entry.getKey(), entry.getValue());
-                    _indexerCache.cacheTransactionId(_cacheIdentifier, entry.getKey(), entry.getValue());
+                for (final Tuple<Sha256Hash, TransactionId> entry : foundTransactionIds) {
+                    transactionIds.put(entry.first, entry.second);
+                    _indexerCache.cacheTransactionId(_cacheIdentifier, entry.first, entry.second);
                 }
 
                 nanoTimer.stop();

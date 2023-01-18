@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
@@ -20,7 +21,7 @@ public class UtxoCommitmentsMessage extends BitcoinProtocolMessage {
     public static final Integer MAX_COMMITMENT_COUNT = 32;
     public static final Integer MAX_SUB_BUCKET_COUNT = 128;
 
-    protected final MutableList<NodeSpecificUtxoCommitmentBreakdown> _commitments = new MutableList<>();
+    protected final MutableList<NodeSpecificUtxoCommitmentBreakdown> _commitments = new MutableArrayList<>();
     protected ByteArray _cachedBytes = null;
 
     public UtxoCommitmentsMessage() {

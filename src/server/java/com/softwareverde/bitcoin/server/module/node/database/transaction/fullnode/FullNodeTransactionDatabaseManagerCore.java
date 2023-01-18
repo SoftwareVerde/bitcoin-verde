@@ -37,9 +37,13 @@ import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.ListUtil;
-import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.Map;
+import com.softwareverde.constable.map.mutable.ConcurrentMutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.constable.set.mutable.MutableHashSet;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
@@ -47,17 +51,12 @@ import com.softwareverde.database.query.parameter.InClauseParameter;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Container;
+import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 import com.softwareverde.util.type.time.SystemTime;
 
-import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransactionDatabaseManager {
@@ -101,7 +100,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                 .setParameter(transactionId)
         );
 
-        final MutableList<BlockId> blockIds = new MutableList<>(rows.size());
+        final MutableList<BlockId> blockIds = new MutableArrayList<>(rows.size());
         for (final Row row : rows) {
             final Long blockId = row.getLong("block_id");
             blockIds.add(BlockId.wrap(blockId));
@@ -280,7 +279,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     }
 
     protected List<TransactionHashAndByteCount> _convertToHashAndByteCounts(final List<Transaction> transactions) {
-        final MutableList<TransactionHashAndByteCount> transactionHashAndByteCounts = new MutableList<>(transactions.getCount());
+        final MutableList<TransactionHashAndByteCount> transactionHashAndByteCounts = new MutableArrayList<>(transactions.getCount());
         for (final Transaction transaction : transactions) {
             final Sha256Hash transactionHash = transaction.getHash();
             final Integer transactionByteCount = transaction.getByteCount();
@@ -296,7 +295,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
         final List<TransactionHashAndByteCount> sortedTransactions;
         { // TODO: Require that the outside callee provides the transactions list in already-sorted order (as an optimization with CTOR)...
-            final MutableList<TransactionHashAndByteCount> mutableList = new MutableList<>(transactions);
+            final MutableList<TransactionHashAndByteCount> mutableList = new MutableArrayList<>(transactions);
             mutableList.sort(new Comparator<TransactionHashAndByteCount>() {
                 @Override
                 public int compare(final TransactionHashAndByteCount transactionHashAndByteCount0, final TransactionHashAndByteCount transactionHashAndByteCount1) {
@@ -320,7 +319,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             }
         }
 
-        final ConcurrentHashMap<Sha256Hash, TransactionId> transactionHashMap = new ConcurrentHashMap<>(transactions.getCount());
+        final ConcurrentMutableHashMap<Sha256Hash, TransactionId> transactionHashMap = new ConcurrentMutableHashMap<>(transactions.getCount());
         {
             batchRunner.run(sortedTransactions, new BatchRunner.Batch<TransactionHashAndByteCount>() {
                 @Override
@@ -441,7 +440,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final int transactionCount = transactionHashes.getCount();
-        final HashMap<Sha256Hash, Transaction> transactions = new HashMap<>(transactionCount);
+        final MutableHashMap<Sha256Hash, Transaction> transactions = new MutableHashMap<>(transactionCount);
 
         final Runtime runtime = Runtime.getRuntime();
         final int processorCount = runtime.availableProcessors();
@@ -452,8 +451,8 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             final Container<Boolean> errorContainer = new Container<>(false);
             final int batchSize = Math.min(1024, _databaseManager.getMaxQueryBatchSize());
 
-            final HashMap<TransactionId, Sha256Hash> transactionHashIds = new HashMap<>(transactionCount);
-            final HashMap<TransactionId, Integer> transactionByteCounts = new HashMap<>(transactionCount);
+            final MutableHashMap<TransactionId, Sha256Hash> transactionHashIds = new MutableHashMap<>(transactionCount);
+            final MutableHashMap<TransactionId, Integer> transactionByteCounts = new MutableHashMap<>(transactionCount);
             { // Collect the Transaction Ids and sizes for the required Transactions.
                 final NanoTimer nanoTimer = new NanoTimer();
                 nanoTimer.start();
@@ -486,7 +485,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
             {
                 final BatchRunner<TransactionId> batchRunner = new BatchRunner<>(batchSize);
-                batchRunner.run(new ImmutableList<>(transactionByteCounts.keySet()), new BatchRunner.Batch<TransactionId>() {
+                batchRunner.run(transactionByteCounts.getKeys(), new BatchRunner.Batch<>() {
                     @Override
                     public void run(final List<TransactionId> transactionIds) throws Exception {
                         if (errorContainer.value) { return; }
@@ -624,7 +623,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     public List<TransactionId> storeUnconfirmedTransactions(final List<Transaction> transactions) throws DatabaseException {
 
         TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_WRITE_LOCK.lock();
-        final MutableList<TransactionId> transactionIds = new MutableList<>(transactions.getCount());
+        final MutableList<TransactionId> transactionIds = new MutableArrayList<>(transactions.getCount());
         try {
             for (final Transaction transaction : transactions) {
                 final TransactionId transactionId = _storeTransactionHash(transaction);
@@ -665,7 +664,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
     @Override
     public void addToUnconfirmedTransactions(final List<TransactionId> transactionIds) throws DatabaseException {
-        final MutableList<Transaction> transactions = new MutableList<>(transactionIds.getCount());
+        final MutableList<Transaction> transactions = new MutableArrayList<>(transactionIds.getCount());
 
         for (final TransactionId transactionId : transactionIds) {
             final Transaction transaction;
@@ -742,39 +741,43 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             final java.util.List<Row> rows = databaseConnection.query(
                 new Query("SELECT transactions.hash AS transaction_hash, unconfirmed_transaction_inputs.previous_transaction_hash FROM unconfirmed_transactions INNER JOIN transactions ON transactions.id = unconfirmed_transactions.transaction_id INNER JOIN unconfirmed_transaction_inputs ON unconfirmed_transaction_inputs.transaction_id = unconfirmed_transactions.transaction_id")
             );
-            final HashMap<Sha256Hash, MutableList<Sha256Hash>> dependencies = new HashMap<>(rows.size());
+            final MutableHashMap<Sha256Hash, MutableList<Sha256Hash>> dependencies = new MutableHashMap<>(rows.size());
             for (final Row row : rows) {
                 final Sha256Hash transactionHash = Sha256Hash.wrap(row.getBytes("transaction_hash"));
                 final Sha256Hash previousTransactionHash = Sha256Hash.wrap(row.getBytes("previous_transaction_hash"));
 
                 MutableList<Sha256Hash> dependencyList = dependencies.get(transactionHash);
                 if (dependencyList == null) {
-                    dependencyList = new MutableList<>();
+                    dependencyList = new MutableArrayList<>();
                     dependencies.put(transactionHash, dependencyList);
                 }
                 dependencyList.add(previousTransactionHash);
             }
 
-            final MutableList<Sha256Hash> hierarchicalTransactionIds = new MutableList<>(dependencies.size());
+            final MutableList<Sha256Hash> hierarchicalTransactionIds = new MutableArrayList<>(dependencies.getCount());
             while (! dependencies.isEmpty()) {
-                final Iterator<Sha256Hash> iterator = dependencies.keySet().iterator();
-                while (iterator.hasNext()) {
-                    final Sha256Hash transactionHash = iterator.next();
-                    final List<Sha256Hash> dependencyList = dependencies.get(transactionHash);
-                    boolean hasDependencies = false;
-                    for (final Sha256Hash dependentTransactionHash : dependencyList) {
-                        final boolean hasUnconfirmedDependency = dependencies.containsKey(dependentTransactionHash);
-                        if (hasUnconfirmedDependency) {
-                            hasDependencies = true;
-                            break;
+                dependencies.mutableVisit(new MutableMap.MutableVisitor<>() {
+                    @Override
+                    public boolean run(final Tuple<Sha256Hash, MutableList<Sha256Hash>> dependenciesMapEntry) {
+                        final Sha256Hash transactionHash = dependenciesMapEntry.first;
+                        final List<Sha256Hash> dependencyList = dependencies.get(transactionHash);
+                        boolean hasDependencies = false;
+                        for (final Sha256Hash dependentTransactionHash : dependencyList) {
+                            final boolean hasUnconfirmedDependency = dependencies.containsKey(dependentTransactionHash);
+                            if (hasUnconfirmedDependency) {
+                                hasDependencies = true;
+                                break;
+                            }
                         }
-                    }
 
-                    if (! hasDependencies) {
-                        iterator.remove();
-                        hierarchicalTransactionIds.add(transactionHash);
+                        if (! hasDependencies) {
+                            dependenciesMapEntry.first = null; // Remove item.
+                            hierarchicalTransactionIds.add(transactionHash);
+                        }
+
+                        return true;
                     }
-                }
+                });
             }
 
             // Reverse the order of the transactionIds such that the 0th index represents the highest hierarchy (least dependent) transactions...
@@ -782,7 +785,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
             return hierarchicalTransactionIds;
 
-//        final MutableList<TransactionId> transactionIds = new MutableList<>();
+//        final MutableList<TransactionId> transactionIds = new MutableArrayList<>();
 //            while (true) {
 //                final java.util.List<Row> rows = databaseConnection.query(
 //                    new Query("SELECT unconfirmed_transactions.transaction_id FROM unconfirmed_transactions INNER JOIN transactions ON transactions.id = unconfirmed_transactions.transaction_id WHERE NOT EXISTS (SELECT * FROM unconfirmed_transaction_inputs WHERE unconfirmed_transaction_inputs.previous_transaction_hash = transactions.hash AND transactions.id NOT IN (?)) AND transactions.id NOT IN (?)")
@@ -838,11 +841,11 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
     @Override
     public List<TransactionId> getUnconfirmedTransactionsDependingOnSpentInputsOf(final List<Transaction> transactions) throws DatabaseException {
-        if (transactions.isEmpty()) { return new MutableList<>(0); }
+        if (transactions.isEmpty()) { return new MutableArrayList<>(0); }
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final HashSet<TransactionOutputIdentifier> transactionOutputIdentifiers = new HashSet<>();
+        final MutableHashSet<TransactionOutputIdentifier> transactionOutputIdentifiers = new MutableHashSet<>();
         for (final Transaction transaction : transactions) {
             for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
                 transactionOutputIdentifiers.add(TransactionOutputIdentifier.fromTransactionInput(transactionInput));
@@ -850,11 +853,11 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         }
 
         TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_READ_LOCK.lock();
-        java.util.List<Row> rows = new ArrayList<>(0);
+        java.util.List<Row> rows = new java.util.ArrayList<>(0);
         try {
             final int batchSize = Math.min(1024, _databaseManager.getMaxQueryBatchSize());
             final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<>(batchSize, false);
-            batchRunner.run(new MutableList<>(transactionOutputIdentifiers), new BatchRunner.Batch<TransactionOutputIdentifier>() {
+            batchRunner.run(transactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
                 @Override
                 public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
                     rows.addAll(databaseConnection.query(
@@ -868,7 +871,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_READ_LOCK.unlock();
         }
 
-        final MutableList<TransactionId> transactionIds = new MutableList<>(rows.size());
+        final MutableList<TransactionId> transactionIds = new MutableArrayList<>(rows.size());
         for (final Row row : rows) {
             final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
             transactionIds.add(transactionId);
@@ -987,7 +990,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             if (transactionHashCount != transactionByteCountCount) { throw new RuntimeException("TransactionHash/ByteCount mismatch. (" + transactionHashCount + " != " + transactionByteCountCount + ")"); }
         }
 
-        final MutableList<TransactionHashAndByteCount> transactionHashAndByteCounts = new MutableList<>(transactionHashCount);
+        final MutableList<TransactionHashAndByteCount> transactionHashAndByteCounts = new MutableArrayList<>(transactionHashCount);
         for (int i = 0; i < transactionHashCount; ++i) {
             final Sha256Hash transactionHash = transactionHashes.get(i);
             final Integer transactionByteCount = transactionByteCounts.get(i);
@@ -1030,7 +1033,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
     @Override
     public Map<Sha256Hash, TransactionId> getTransactionIds(final List<Sha256Hash> transactionHashes) throws DatabaseException {
-        if (transactionHashes.isEmpty()) { return new HashMap<>(0); }
+        if (transactionHashes.isEmpty()) { return new MutableHashMap<>(0); }
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final java.util.List<Row> rows = databaseConnection.query(
@@ -1038,7 +1041,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                 .setInClauseParameters(transactionHashes, ValueExtractor.SHA256_HASH)
         );
 
-        final HashMap<Sha256Hash, TransactionId> transactionIds = new HashMap<>(rows.size());
+        final MutableHashMap<Sha256Hash, TransactionId> transactionIds = new MutableHashMap<>(rows.size());
         for (final Row row : rows) {
             final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
             final Sha256Hash transactionHash = Sha256Hash.wrap(row.getBytes("hash"));
@@ -1081,8 +1084,8 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final java.util.List<Row> rows = new ArrayList<>();
-        final HashSet<BlockchainSegmentId> blockchainSegmentIds = new HashSet<>();
+        final java.util.List<Row> rows = new java.util.ArrayList<>();
+        final MutableHashSet<BlockchainSegmentId> blockchainSegmentIds = new MutableHashSet<>();
 
         final Integer batchSize = Math.min(1024, _databaseManager.getMaxQueryBatchSize());
         final BatchRunner<Sha256Hash> batchRunner = new BatchRunner<>(batchSize, false);
@@ -1100,9 +1103,9 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             final BlockchainSegmentId rowBlockchainSegmentId = BlockchainSegmentId.wrap(row.getLong("blockchain_segment_id"));
             blockchainSegmentIds.add(rowBlockchainSegmentId);
         }
-        final Map<BlockchainSegmentId, Boolean> connectedBlockchainSegments = blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, MutableHashSet.wrap(blockchainSegmentIds), BlockRelationship.ANY);
+        final Map<BlockchainSegmentId, Boolean> connectedBlockchainSegments = blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, blockchainSegmentIds, BlockRelationship.ANY);
 
-        final HashMap<Sha256Hash, BlockId> transactionBlockIds = new HashMap<>();
+        final MutableHashMap<Sha256Hash, BlockId> transactionBlockIds = new MutableHashMap<>();
         for (final Row row : rows) {
             final Sha256Hash transactionHash = Sha256Hash.wrap(row.getBytes("transaction_hash"));
             final BlockId blockId = BlockId.wrap(row.getLong("block_id"));
@@ -1123,7 +1126,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     @Override
     public List<BlockId> getBlockIds(final Sha256Hash transactionHash) throws DatabaseException {
         final TransactionId transactionId = _getTransactionId(transactionHash);
-        if (transactionId == null) { return new MutableList<>(); }
+        if (transactionId == null) { return new MutableArrayList<>(); }
 
         return _getBlockIds(transactionId);
     }

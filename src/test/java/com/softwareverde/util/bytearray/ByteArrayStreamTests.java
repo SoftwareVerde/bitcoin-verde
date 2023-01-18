@@ -3,6 +3,7 @@ package com.softwareverde.util.bytearray;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.ByteBuffer;
 import com.softwareverde.util.ByteUtil;
@@ -42,7 +43,7 @@ public class ByteArrayStreamTests extends UnitTest {
     }
 
     protected MutableList<File> _makeFiles(final String expectedValue, final Integer splitEveryRandomNthWord, final SecureRandom secureRandom) throws Exception {
-        final MutableList<File> files = new MutableList<>();
+        final MutableList<File> files = new MutableArrayList<>();
 
         String separator = "";
         StringBuilder stringBuilder = new StringBuilder();

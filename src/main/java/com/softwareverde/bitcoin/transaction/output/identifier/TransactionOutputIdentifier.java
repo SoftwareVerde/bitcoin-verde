@@ -7,6 +7,7 @@ import com.softwareverde.constable.Const;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.ByteUtil;
@@ -37,7 +38,7 @@ public class TransactionOutputIdentifier implements Const, Comparable<Transactio
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
         final int outputCount = transactionOutputs.getCount();
 
-        final MutableList<TransactionOutputIdentifier> transactionOutputIdentifiers = new MutableList<>(outputCount);
+        final MutableList<TransactionOutputIdentifier> transactionOutputIdentifiers = new MutableArrayList<>(outputCount);
 
         for (int outputIndex = 0; outputIndex < outputCount; ++outputIndex) {
             final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(constTransactionHash, outputIndex);

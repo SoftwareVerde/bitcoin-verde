@@ -10,7 +10,7 @@ import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
@@ -18,8 +18,8 @@ import com.softwareverde.util.bytearray.Endian;
 public class ThinBlockMessage extends BitcoinProtocolMessage {
 
     protected BlockHeader _blockHeader;
-    protected List<Sha256Hash> _transactionHashes = new MutableList<>(0);
-    protected List<Transaction> _missingTransactions = new MutableList<>(0);
+    protected List<Sha256Hash> _transactionHashes = new MutableArrayList<>(0);
+    protected List<Transaction> _missingTransactions = new MutableArrayList<>(0);
 
     public ThinBlockMessage() {
         super(MessageType.THIN_BLOCK);

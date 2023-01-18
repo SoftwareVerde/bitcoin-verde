@@ -17,15 +17,16 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.Map;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.type.time.SystemTime;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class SpvTransactionDatabaseManager implements TransactionDatabaseManager {
@@ -75,7 +76,7 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
                 .setParameter(transactionId)
         );
 
-        final MutableList<BlockId> blockIds = new MutableList<>(rows.size());
+        final MutableList<BlockId> blockIds = new MutableArrayList<>(rows.size());
         for (final Row row : rows) {
             final Long blockId = row.getLong("block_id");
             blockIds.add(BlockId.wrap(blockId));
@@ -123,7 +124,7 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
      * Returns a map of newly inserted Transactions and their Ids.  If a transaction already existed, its Hash/Id pair are not returned within the map.
      */
     protected Map<Sha256Hash, TransactionId> _storeTransactions(final List<Transaction> transactions) throws DatabaseException {
-        final HashMap<Sha256Hash, TransactionId> transactionHashMap = new HashMap<>(transactions.getCount());
+        final MutableHashMap<Sha256Hash, TransactionId> transactionHashMap = new MutableHashMap<>(transactions.getCount());
 
         for (final Transaction transaction : transactions) {
             final Sha256Hash transactionHash = transaction.getHash();
@@ -223,7 +224,7 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
     public List<TransactionId> storeTransactions(final List<Transaction> transactions) throws DatabaseException {
         WRITE_LOCK.lock();
         try {
-            final MutableList<TransactionId> transactionIds = new MutableList<>(transactions.getCount());
+            final MutableList<TransactionId> transactionIds = new MutableArrayList<>(transactions.getCount());
             for (final Transaction transaction : transactions) {
                 transactionIds.add(_storeTransaction(transaction));
             }
@@ -286,7 +287,7 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
         final int transactionCount = transactionHashes.getCount();
         if (rows.size() != transactionCount) { return null; }
 
-        final HashMap<Sha256Hash, TransactionId> transactionHashesMap = new HashMap<>(transactionCount);
+        final MutableHashMap<Sha256Hash, TransactionId> transactionHashesMap = new MutableHashMap<>(transactionCount);
         for (final Row row : rows) {
             final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
             final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
@@ -311,7 +312,7 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
     public Map<Sha256Hash, Transaction> getTransactions(final List<Sha256Hash> transactionHashes) throws DatabaseException {
         READ_LOCK.lock();
         try {
-            final HashMap<Sha256Hash, Transaction> transactions = new HashMap<>();
+            final MutableHashMap<Sha256Hash, Transaction> transactions = new MutableHashMap<>();
             for (final Sha256Hash transactionHash : transactionHashes) {
                 final TransactionId transactionId = _getTransactionId(transactionHash);
                 final Transaction transaction = _getTransaction(transactionId);
@@ -339,7 +340,7 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
     public Map<Sha256Hash, BlockId> getBlockIds(final BlockchainSegmentId blockchainSegmentId, final List<Sha256Hash> transactionHashes) throws DatabaseException {
         READ_LOCK.lock();
         try {
-            final HashMap<Sha256Hash, BlockId> blockIds = new HashMap<>(transactionHashes.getCount());
+            final MutableHashMap<Sha256Hash, BlockId> blockIds = new MutableHashMap<>(transactionHashes.getCount());
             for (final Sha256Hash transactionHash : transactionHashes) {
                 final TransactionId transactionId = _getTransactionId(transactionHash);
                 final BlockId blockId = _getBlockId(blockchainSegmentId, transactionId);
@@ -368,7 +369,7 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
         READ_LOCK.lock();
         try {
             final TransactionId transactionId = _getTransactionId(transactionHash);
-            if (transactionId == null) { return new MutableList<>(); }
+            if (transactionId == null) { return new MutableArrayList<>(); }
 
             return _getBlockIds(transactionId);
         }
@@ -462,7 +463,7 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
             final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
             final java.util.List<Row> rows = databaseConnection.query(query);
 
-            final MutableList<Sha256Hash> hashes = new MutableList<>(rows.size());
+            final MutableList<Sha256Hash> hashes = new MutableArrayList<>(rows.size());
             for (final Row row : rows) {
                 final Sha256Hash hash = Sha256Hash.copyOf(row.getBytes("hash"));
                 hashes.add(hash);

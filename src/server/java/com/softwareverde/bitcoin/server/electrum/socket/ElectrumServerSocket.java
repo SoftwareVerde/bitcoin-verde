@@ -1,6 +1,8 @@
 package com.softwareverde.bitcoin.server.electrum.socket;
 
 import com.softwareverde.concurrent.threadpool.ThreadPool;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.http.tls.TlsCertificate;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.socket.JsonSocket;
@@ -8,9 +10,7 @@ import com.softwareverde.network.socket.JsonSocket;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocketFactory;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.List;
 
 public class ElectrumServerSocket {
     public interface SocketEventCallback {
@@ -54,7 +54,7 @@ public class ElectrumServerSocket {
     protected java.net.ServerSocket _socket;
     protected java.net.ServerSocket _tlsSocket;
 
-    protected final List<JsonSocket> _connections = new ArrayList<>();
+    protected final MutableList<JsonSocket> _connections = new MutableArrayList<>();
 
     protected Long _nextConnectionId = 0L;
     protected Thread _serverThread = null;
@@ -67,13 +67,13 @@ public class ElectrumServerSocket {
     protected static final Long _purgeEveryCount = 20L;
     protected void _purgeDisconnectedConnections() {
         synchronized (_connections) {
-            final Iterator<JsonSocket> iterator = _connections.iterator();
-            while (iterator.hasNext()) {
-                final JsonSocket connection = iterator.next();
+            final Iterator<JsonSocket> mutableIterator = _connections.mutableIterator();
+            while (mutableIterator.hasNext()) {
+                final JsonSocket connection = mutableIterator.next();
                 if (connection == null) { continue; }
 
                 if (! connection.isConnected()) {
-                    iterator.remove();
+                    mutableIterator.remove();
                     Logger.debug("Purging disconnected stratum socket: " + connection.getIp() + ":" + connection.getPort());
 
                     _onDisconnect(connection);

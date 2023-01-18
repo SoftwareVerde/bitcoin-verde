@@ -8,6 +8,7 @@ import com.softwareverde.http.server.servlet.routed.json.JsonApplicationServlet;
 
 import java.util.Map;
 
+
 public abstract class ExplorerApiEndpoint extends JsonApplicationServlet<Environment> {
     public ExplorerApiEndpoint(final Environment environment) {
         super(environment);

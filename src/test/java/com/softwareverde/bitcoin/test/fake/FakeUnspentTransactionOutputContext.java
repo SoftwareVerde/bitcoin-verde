@@ -5,18 +5,18 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
 
-import java.util.HashMap;
-
 public class FakeUnspentTransactionOutputContext implements UnspentTransactionOutputContext {
     protected final Boolean _logNonExistentOutputs;
-    protected final HashMap<TransactionOutputIdentifier, TransactionOutput> _transactionOutputs = new HashMap<>();
-    protected final HashMap<TransactionOutputIdentifier, Boolean> _transactionCoinbaseStatuses = new HashMap<>();
-    protected final HashMap<TransactionOutputIdentifier, Sha256Hash> _transactionBlockHashes = new HashMap<>();
-    protected final HashMap<TransactionOutputIdentifier, Long> _transactionBlockHeights = new HashMap<>();
-    protected final HashMap<TransactionOutputIdentifier, Boolean> _patfoStatuses = new HashMap<>();
+    protected final MutableMap<TransactionOutputIdentifier, TransactionOutput> _transactionOutputs = new MutableHashMap<>();
+    protected final MutableMap<TransactionOutputIdentifier, Boolean> _transactionCoinbaseStatuses = new MutableHashMap<>();
+    protected final MutableMap<TransactionOutputIdentifier, Sha256Hash> _transactionBlockHashes = new MutableHashMap<>();
+    protected final MutableMap<TransactionOutputIdentifier, Long> _transactionBlockHeights = new MutableHashMap<>();
+    protected final MutableMap<TransactionOutputIdentifier, Boolean> _patfoStatuses = new MutableHashMap<>();
 
     public FakeUnspentTransactionOutputContext() {
         _logNonExistentOutputs = true;

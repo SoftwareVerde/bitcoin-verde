@@ -11,14 +11,16 @@ import com.softwareverde.bitcoin.transaction.script.slp.genesis.SlpGenesisScript
 import com.softwareverde.bitcoin.transaction.script.slp.mint.SlpMintScript;
 import com.softwareverde.bitcoin.transaction.script.slp.send.SlpSendScript;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.Map;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 
 import java.math.BigInteger;
 import java.util.HashSet;
-import java.util.Map;
+
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -140,7 +142,7 @@ public class SpvTransactionValidator {
             final Sha256Hash previousTransactionHash = transactionInput.getPreviousOutputTransactionHash();
             uniqueTransactionHashes.add(previousTransactionHash);
         }
-        return new MutableList<>(uniqueTransactionHashes);
+        return new MutableArrayList<>(uniqueTransactionHashes);
     }
 
     protected static BigInteger _calculateTotalSlpAmountSpent(final Transaction transaction) {

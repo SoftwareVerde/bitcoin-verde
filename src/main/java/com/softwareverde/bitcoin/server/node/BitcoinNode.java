@@ -68,7 +68,13 @@ import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.mutable.ConcurrentMutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
+import com.softwareverde.constable.set.Set;
+import com.softwareverde.constable.set.mutable.MutableSet;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.logging.Logger;
@@ -88,11 +94,6 @@ import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -258,18 +259,18 @@ public class BitcoinNode extends Node {
     protected final MessageRouter _messageRouter = new MessageRouter();
 
     // Requests Maps
-    protected final ConcurrentHashMap<RequestId, FailableRequest> _failableRequests = new ConcurrentHashMap<>();
-    protected final Map<Sha256Hash, Set<PendingRequest<DownloadBlockCallback>>> _downloadBlockRequests = new HashMap<>();
-    protected final Map<PublicKey, Set<PendingRequest<DownloadUtxoCommitmentCallback>>> _downloadUtxoCommitmentRequests = new HashMap<>();
-    protected final Map<Sha256Hash, Set<PendingRequest<DownloadMerkleBlockCallback>>> _downloadMerkleBlockRequests = new HashMap<>();
-    protected final Map<Sha256Hash, Set<PendingRequest<DownloadBlockHeadersCallback>>> _downloadBlockHeadersRequests = new HashMap<>();
-    protected final Map<Sha256Hash, Set<PendingRequest<DownloadTransactionCallback>>> _downloadTransactionRequests = new HashMap<>();
-    protected final Map<Sha256Hash, Set<PendingRequest<DownloadThinBlockCallback>>> _downloadThinBlockRequests = new HashMap<>();
-    protected final Map<Sha256Hash, Set<PendingRequest<DownloadExtraThinBlockCallback>>> _downloadExtraThinBlockRequests = new HashMap<>();
-    protected final Map<Sha256Hash, Set<PendingRequest<DownloadThinTransactionsCallback>>> _downloadThinTransactionsRequests = new HashMap<>();
-    protected final Map<Sha256Hash, Set<PendingRequest<DownloadDoubleSpendProofCallback>>> _downloadDoubleSpendProofRequests = new HashMap<>();
-    protected final Map<RequestId, BlockInventoryAnnouncementHandler> _downloadAddressBlocksRequests = new HashMap<>();
-    protected final Map<RequestId, UtxoCommitmentsCallback> _utxoCommitmentsCallbacks = new HashMap<>();
+    protected final ConcurrentMutableHashMap<RequestId, FailableRequest> _failableRequests = new ConcurrentMutableHashMap<>();
+    protected final MutableMap<Sha256Hash, MutableSet<PendingRequest<DownloadBlockCallback>>> _downloadBlockRequests = new MutableHashMap<>();
+    protected final MutableMap<PublicKey, MutableSet<PendingRequest<DownloadUtxoCommitmentCallback>>> _downloadUtxoCommitmentRequests = new MutableHashMap<>();
+    protected final MutableMap<Sha256Hash, MutableSet<PendingRequest<DownloadMerkleBlockCallback>>> _downloadMerkleBlockRequests = new MutableHashMap<>();
+    protected final MutableMap<Sha256Hash, MutableSet<PendingRequest<DownloadBlockHeadersCallback>>> _downloadBlockHeadersRequests = new MutableHashMap<>();
+    protected final MutableMap<Sha256Hash, MutableSet<PendingRequest<DownloadTransactionCallback>>> _downloadTransactionRequests = new MutableHashMap<>();
+    protected final MutableMap<Sha256Hash, MutableSet<PendingRequest<DownloadThinBlockCallback>>> _downloadThinBlockRequests = new MutableHashMap<>();
+    protected final MutableMap<Sha256Hash, MutableSet<PendingRequest<DownloadExtraThinBlockCallback>>> _downloadExtraThinBlockRequests = new MutableHashMap<>();
+    protected final MutableMap<Sha256Hash, MutableSet<PendingRequest<DownloadThinTransactionsCallback>>> _downloadThinTransactionsRequests = new MutableHashMap<>();
+    protected final MutableMap<Sha256Hash, MutableSet<PendingRequest<DownloadDoubleSpendProofCallback>>> _downloadDoubleSpendProofRequests = new MutableHashMap<>();
+    protected final MutableMap<RequestId, BlockInventoryAnnouncementHandler> _downloadAddressBlocksRequests = new MutableHashMap<>();
+    protected final MutableMap<RequestId, UtxoCommitmentsCallback> _utxoCommitmentsCallbacks = new MutableHashMap<>();
 
     protected final BitcoinProtocolMessageFactory _protocolMessageFactory;
     protected final LocalNodeFeatures _localNodeFeatures;
@@ -340,14 +341,14 @@ public class BitcoinNode extends Node {
     /**
      * Returns a list of active (and unfilled) UnfulfilledRequest from the provided request map.
      */
-    protected <CallbackType extends BitcoinNodeCallback> List<UnfulfilledSha256HashRequest> _getPendingSha256HashRequests(final Map<Sha256Hash, Set<PendingRequest<CallbackType>>> requestMap) {
+    protected <CallbackType extends BitcoinNodeCallback> List<UnfulfilledSha256HashRequest> _getPendingSha256HashRequests(final MutableMap<Sha256Hash, MutableSet<PendingRequest<CallbackType>>> requestMap) {
         final MutableList<UnfulfilledSha256HashRequest> unfulfilledRequests;
 
         synchronized (requestMap) {
-            unfulfilledRequests = new MutableList<>(requestMap.size());
-            for (final Map.Entry<Sha256Hash, Set<PendingRequest<CallbackType>>> entry : requestMap.entrySet()) {
-                final Sha256Hash itemHash = entry.getKey();
-                for (final PendingRequest<?> pendingRequest : entry.getValue()) {
+            unfulfilledRequests = new MutableArrayList<>(requestMap.getCount());
+            for (final Tuple<Sha256Hash, MutableSet<PendingRequest<CallbackType>>> entry : requestMap) {
+                final Sha256Hash itemHash = entry.first;
+                for (final PendingRequest<?> pendingRequest : entry.second) {
                     unfulfilledRequests.add(new UnfulfilledSha256HashRequest(BitcoinNode.this, pendingRequest.requestId, pendingRequest.requestPriority, itemHash));
                 }
             }
@@ -359,14 +360,14 @@ public class BitcoinNode extends Node {
     /**
      * Returns a list of active (and unfilled) UnfulfilledRequest from the provided request map.
      */
-    protected <CallbackType extends BitcoinNodeCallback> List<UnfulfilledPublicKeyRequest> _getPendingPublicKeyRequests(final Map<PublicKey, Set<PendingRequest<CallbackType>>> requestMap) {
+    protected <CallbackType extends BitcoinNodeCallback> List<UnfulfilledPublicKeyRequest> _getPendingPublicKeyRequests(final MutableMap<PublicKey, MutableSet<PendingRequest<CallbackType>>> requestMap) {
         final MutableList<UnfulfilledPublicKeyRequest> unfulfilledRequests;
 
         synchronized (requestMap) {
-            unfulfilledRequests = new MutableList<>(requestMap.size());
-            for (final Map.Entry<PublicKey, Set<PendingRequest<CallbackType>>> entry : requestMap.entrySet()) {
-                final PublicKey publicKey = entry.getKey();
-                for (final PendingRequest<?> pendingRequest : entry.getValue()) {
+            unfulfilledRequests = new MutableArrayList<>(requestMap.getCount());
+            for (final Tuple<PublicKey, MutableSet<PendingRequest<CallbackType>>> entry : requestMap) {
+                final PublicKey publicKey = entry.first;
+                for (final PendingRequest<?> pendingRequest : entry.second) {
                     unfulfilledRequests.add(new UnfulfilledPublicKeyRequest(BitcoinNode.this, pendingRequest.requestId, pendingRequest.requestPriority, publicKey));
                 }
             }
@@ -542,46 +543,49 @@ public class BitcoinNode extends Node {
     protected void _checkForFailedRequests() {
         final Long nowMs = _systemTime.getCurrentTimeInMilliSeconds();
 
-        final Iterator<Map.Entry<RequestId, FailableRequest>> iterator = _failableRequests.entrySet().iterator();
-        while (iterator.hasNext()) {
-            final Map.Entry<RequestId, FailableRequest> entry = iterator.next();
-            final RequestId requestId = entry.getKey();
-            final FailableRequest failableRequest = entry.getValue();
+        _failableRequests.mutableVisit(new MutableMap.MutableVisitor<>() {
+            @Override
+            public boolean run(final Tuple<RequestId, FailableRequest> mapEntry) {
+                final RequestId requestId = mapEntry.first;
+                final FailableRequest failableRequest = mapEntry.second;
 
-            final Long maxRequestAgeMs = _getMaximumTimeoutMs(failableRequest.callback);
-            final long requestAgeMs = (nowMs - failableRequest.requestStartTimeMs);
+                final Long maxRequestAgeMs = _getMaximumTimeoutMs(failableRequest.callback);
+                final long requestAgeMs = (nowMs - failableRequest.requestStartTimeMs);
 
-            if (requestAgeMs > maxRequestAgeMs) {
-                iterator.remove();
+                if (requestAgeMs > maxRequestAgeMs) {
+                    mapEntry.first = null; // Remove item...
 
-                _removeCallback(requestId);
-                _threadPool.execute(failableRequest.onFailure);
-            }
-            else {
-                final Long ping = Util.coalesce(_calculateAveragePingMs(), 1000L);
-                if (requestAgeMs >= ((ping * 2L) + REQUEST_TIME_BUFFER)) {
-                    final Long startingByteCountReceived = failableRequest.startingByteCountReceived;
-                    final Long newByteCountReceived = _connection.getTotalBytesReceivedCount();
-                    final long bytesReceivedSinceRequested = (newByteCountReceived - startingByteCountReceived);
-                    final long bytesPerMs = (bytesReceivedSinceRequested / requestAgeMs);
-                    final double bytesPerSecond = (bytesPerMs * 1000L);
-                    final double megabytesPerSecond = (bytesPerSecond / ByteUtil.Unit.Binary.MEBIBYTES);
+                    _removeCallback(requestId);
+                    _threadPool.execute(failableRequest.onFailure);
+                }
+                else {
+                    final Long ping = Util.coalesce(_calculateAveragePingMs(), 1000L);
+                    if (requestAgeMs >= ((ping * 2L) + REQUEST_TIME_BUFFER)) {
+                        final Long startingByteCountReceived = failableRequest.startingByteCountReceived;
+                        final Long newByteCountReceived = _connection.getTotalBytesReceivedCount();
+                        final long bytesReceivedSinceRequested = (newByteCountReceived - startingByteCountReceived);
+                        final long bytesPerMs = (bytesReceivedSinceRequested / requestAgeMs);
+                        final double bytesPerSecond = (bytesPerMs * 1000L);
+                        final double megabytesPerSecond = (bytesPerSecond / ByteUtil.Unit.Binary.MEBIBYTES);
 
-                    if (Logger.isTraceEnabled()) {
-                        Logger.trace("Download progress: bytesReceivedSinceRequested=" + bytesReceivedSinceRequested + ", requestAgeMs=" + requestAgeMs + ", bytesPerMs=" + bytesPerMs + ", megabytesPerSecond=" + megabytesPerSecond + ", minMbps=" + (BitcoinNode.MIN_BYTES_PER_SECOND / ByteUtil.Unit.Binary.MEBIBYTES.doubleValue()) + " - " + this.getConnectionString() + " - " + failableRequest.requestDescription);
-                    }
+                        if (Logger.isTraceEnabled()) {
+                            Logger.trace("Download progress: bytesReceivedSinceRequested=" + bytesReceivedSinceRequested + ", requestAgeMs=" + requestAgeMs + ", bytesPerMs=" + bytesPerMs + ", megabytesPerSecond=" + megabytesPerSecond + ", minMbps=" + (BitcoinNode.MIN_BYTES_PER_SECOND / ByteUtil.Unit.Binary.MEBIBYTES.doubleValue()) + " - " + BitcoinNode.this.getConnectionString() + " - " + failableRequest.requestDescription);
+                        }
 
-                    if (bytesPerSecond < BitcoinNode.MIN_BYTES_PER_SECOND) {
-                        Logger.info("Detected stalled download from " + this.getConnectionString() + " (" + megabytesPerSecond + " MB/s) - " + failableRequest.requestDescription);
+                        if (bytesPerSecond < BitcoinNode.MIN_BYTES_PER_SECOND) {
+                            Logger.info("Detected stalled download from " + BitcoinNode.this.getConnectionString() + " (" + megabytesPerSecond + " MB/s) - " + failableRequest.requestDescription);
 
-                        iterator.remove();
+                            mapEntry.first = null; // Remove item...
 
-                        _removeCallback(requestId);
-                        _threadPool.execute(failableRequest.onFailure);
+                            _removeCallback(requestId);
+                            _threadPool.execute(failableRequest.onFailure);
+                        }
                     }
                 }
+
+                return true;
             }
-        }
+        });
     }
 
     protected Runnable _createRequestMonitor() {
@@ -754,7 +758,7 @@ public class BitcoinNode extends Node {
     }
 
     protected void _onInventoryMessageReceived(final InventoryMessage inventoryMessage) {
-        final Map<InventoryItemType, MutableList<Sha256Hash>> dataHashesMap = new HashMap<>();
+        final MutableMap<InventoryItemType, MutableList<Sha256Hash>> dataHashesMap = new MutableHashMap<>();
 
         final List<InventoryItem> dataHashes = inventoryMessage.getInventoryItems();
         for (final InventoryItem inventoryItem : dataHashes) {
@@ -762,7 +766,7 @@ public class BitcoinNode extends Node {
             BitcoinNodeUtil.storeInMapList(dataHashesMap, inventoryItemType, inventoryItem.getItemHash());
         }
 
-        for (final InventoryItemType inventoryItemType : dataHashesMap.keySet()) {
+        for (final InventoryItemType inventoryItemType : dataHashesMap.getKeys()) {
             final List<Sha256Hash> objectHashes = dataHashesMap.get(inventoryItemType);
 
             if (objectHashes.isEmpty()) { continue; }
@@ -805,9 +809,9 @@ public class BitcoinNode extends Node {
                         }
                     }
 
-                    final HashMap<RequestId, BlockInventoryAnnouncementHandler> addressBlocksCallbacks;
+                    final MutableMap<RequestId, BlockInventoryAnnouncementHandler> addressBlocksCallbacks;
                     synchronized (_downloadAddressBlocksRequests) {
-                        addressBlocksCallbacks = new HashMap<>(_downloadAddressBlocksRequests);
+                        addressBlocksCallbacks = new MutableHashMap<>(_downloadAddressBlocksRequests);
                         _downloadAddressBlocksRequests.clear();
                     }
 
@@ -816,8 +820,8 @@ public class BitcoinNode extends Node {
                         _threadPool.execute(new Runnable() {
                             @Override
                             public void run() {
-                                for (final Map.Entry<RequestId, BlockInventoryAnnouncementHandler> callbackEntry : addressBlocksCallbacks.entrySet()) {
-                                    final BlockInventoryAnnouncementHandler blockInventoryMessageCallback = callbackEntry.getValue();
+                                for (final Tuple<RequestId, BlockInventoryAnnouncementHandler> callbackEntry : addressBlocksCallbacks) {
+                                    final BlockInventoryAnnouncementHandler blockInventoryMessageCallback = callbackEntry.second;
                                     blockInventoryMessageCallback.onNewInventory(BitcoinNode.this, objectHashes);
                                 }
 
@@ -984,7 +988,7 @@ public class BitcoinNode extends Node {
         if (! wasRequested) {
             final DoubleSpendProofAnnouncementHandler doubleSpendProofAnnouncementHandler = _doubleSpendProofAnnouncementCallback;
             if (doubleSpendProofAnnouncementHandler != null) {
-                doubleSpendProofAnnouncementHandler.onResult(BitcoinNode.this, new ImmutableList<>(doubleSpendProofHash));
+                doubleSpendProofAnnouncementHandler.onResult(BitcoinNode.this, new ImmutableList<Sha256Hash>(doubleSpendProofHash));
             }
         }
     }
@@ -1094,7 +1098,7 @@ public class BitcoinNode extends Node {
         final RequestBlockHashesHandler queryBlocksCallback = _queryBlocksCallback;
 
         if (queryBlocksCallback != null) {
-            final MutableList<Sha256Hash> blockHeaderHashes = new MutableList<>(queryBlocksMessage.getBlockHashes());
+            final MutableList<Sha256Hash> blockHeaderHashes = new MutableArrayList<>(queryBlocksMessage.getBlockHashes());
             final Sha256Hash desiredBlockHeaderHash = queryBlocksMessage.getStopBeforeBlockHash();
             _threadPool.execute(new Runnable() {
                 @Override
@@ -1435,9 +1439,9 @@ public class BitcoinNode extends Node {
         final List<NodeSpecificUtxoCommitmentBreakdown> utxoCommitmentBreakdowns = utxoCommitmentsMessage.getUtxoCommitments();
 
         synchronized (_utxoCommitmentsCallbacks) {
-            for (final Map.Entry<RequestId, UtxoCommitmentsCallback> callbackEntry : _utxoCommitmentsCallbacks.entrySet()) {
-                final RequestId requestId = callbackEntry.getKey();
-                final UtxoCommitmentsCallback utxoCommitmentsCallback = callbackEntry.getValue();
+            for (final Tuple<RequestId, UtxoCommitmentsCallback> callbackEntry : _utxoCommitmentsCallbacks) {
+                final RequestId requestId = callbackEntry.first;
+                final UtxoCommitmentsCallback utxoCommitmentsCallback = callbackEntry.second;
 
                 _threadPool.execute(new Runnable() {
                     @Override
@@ -1476,7 +1480,7 @@ public class BitcoinNode extends Node {
         final RequestDataMessage requestDataMessage = _protocolMessageFactory.newRequestDataMessage();
         requestDataMessage.addInventoryItem(new InventoryItem(InventoryItemType.MERKLE_BLOCK, blockHash));
 
-        final MutableList<BitcoinProtocolMessage> messages = new MutableList<>(2);
+        final MutableList<BitcoinProtocolMessage> messages = new MutableArrayList<>(2);
         messages.add(requestDataMessage);
         messages.add(_protocolMessageFactory.newPingMessage()); // A ping message is sent to ensure the remote node responds with a non-transaction message (Pong) to close out the MerkleBlockMessage transmission.
         _queueMessages(messages);
@@ -1787,11 +1791,11 @@ public class BitcoinNode extends Node {
     }
 
     public RequestId requestBlockHeadersAfter(final Sha256Hash blockHash, final DownloadBlockHeadersCallback downloadBlockHeaderCallback) {
-        return this.requestBlockHeadersAfter(new ImmutableList<>(blockHash), downloadBlockHeaderCallback, RequestPriority.NORMAL);
+        return this.requestBlockHeadersAfter(new ImmutableList<Sha256Hash>(blockHash), downloadBlockHeaderCallback, RequestPriority.NORMAL);
     }
 
     public RequestId requestBlockHeadersAfter(final Sha256Hash blockHash, final DownloadBlockHeadersCallback downloadBlockHeaderCallback, final RequestPriority requestPriority) {
-        return this.requestBlockHeadersAfter(new ImmutableList<>(blockHash), downloadBlockHeaderCallback, requestPriority);
+        return this.requestBlockHeadersAfter(new ImmutableList<Sha256Hash>(blockHash), downloadBlockHeaderCallback, requestPriority);
     }
 
     public RequestId requestBlockHeadersAfter(final List<Sha256Hash> blockFinder, final DownloadBlockHeadersCallback downloadBlockHeaderCallback) {
@@ -2004,7 +2008,7 @@ public class BitcoinNode extends Node {
             //  1. The first message should be the MerkleBlock itself.
             //  2. Immediately following should be the any transactions that match the Node's bloomFilter.
             //  3. Finally, since the receiving node has no way to determine if the transaction stream is complete, a ping message is sent to interrupt the flow.
-            final MutableList<ProtocolMessage> messages = new MutableList<>();
+            final MutableList<ProtocolMessage> messages = new MutableArrayList<>();
 
             final PartialMerkleTree partialMerkleTree;
             try {

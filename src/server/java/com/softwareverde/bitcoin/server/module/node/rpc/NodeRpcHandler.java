@@ -37,7 +37,12 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.Map;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
+import com.softwareverde.constable.set.mutable.MutableHashSet;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
 import com.softwareverde.logging.Logger;
@@ -52,10 +57,8 @@ import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
-import java.util.Map;
+
 
 public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback {
     public static final Integer MAX_ADDRESS_FILTER_SIZE = 256;
@@ -253,7 +256,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     protected final MasterInflater _masterInflater;
     protected final ThreadPool _threadPool;
 
-    protected final HashMap<HookEvent, MutableList<HookListener>> _eventHooks = new HashMap<>();
+    protected final MutableMap<HookEvent, MutableList<HookListener>> _eventHooks = new MutableHashMap<>();
 
     protected StatisticsHandler _statisticsHandler;
     protected SynchronizationStatus _synchronizationStatusHandler;
@@ -999,7 +1002,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             final ServiceInquisitor serviceInquisitor = _serviceInquisitor;
             if (serviceInquisitor != null) {
                 final Map<String, String> serviceStatuses = serviceInquisitor.getServiceStatuses();
-                for (final String serviceName : serviceStatuses.keySet()) {
+                for (final String serviceName : serviceStatuses.getKeys()) {
                     final String serviceStatus = serviceStatuses.get(serviceName);
                     servicesStatusJson.put(serviceName, serviceStatus);
                 }
@@ -1417,7 +1420,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             return false;
         }
 
-        final HashSet<HookEvent> hookEvents = new HashSet<>();
+        final MutableHashSet<HookEvent> hookEvents = new MutableHashSet<>();
         final Json events = parameters.get("events");
         for (int i = 0; i < events.length(); ++i) {
             final String event = events.getString(i);
@@ -1458,7 +1461,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         synchronized (_eventHooks) {
             for (final HookEvent hookEvent : hookEvents) {
                 if (! _eventHooks.containsKey(hookEvent)) {
-                    _eventHooks.put(hookEvent, new MutableList<>());
+                    _eventHooks.put(hookEvent, new MutableArrayList<>());
                 }
 
                 final MutableList<HookListener> hookListeners = _eventHooks.get(hookEvent);
@@ -1476,7 +1479,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     protected Boolean _updateHook(final Json parameters, final Json response, final JsonSocket connection) {
         synchronized (_eventHooks) {
             // Uninstall the original HookListener...
-            for (final MutableList<HookListener> hookListeners : _eventHooks.values()) {
+            for (final MutableList<HookListener> hookListeners : _eventHooks.getValues()) {
                 final Iterator<HookListener> mutableIterator = hookListeners.mutableIterator();
                 while (mutableIterator.hasNext()) {
                     final HookListener hookListener = mutableIterator.next();
@@ -1903,16 +1906,16 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                     final MutableList<HookListener> sockets = _eventHooks.get(HookEvent.NEW_BLOCK);
                     if (sockets == null) { return; }
 
-                    final Iterator<HookListener> iterator = sockets.mutableIterator();
-                    while (iterator.hasNext()) {
-                        final HookListener hookListener = iterator.next();
+                    final Iterator<HookListener> mutableIterator = sockets.mutableIterator();
+                    while (mutableIterator.hasNext()) {
+                        final HookListener hookListener = mutableIterator.next();
                         final JsonSocket jsonSocket = hookListener.socket;
 
                         final ProtocolMessage protocolMessage = (hookListener.rawFormat ? lazyRawDataProtocolMessage.getProtocolMessage() : lazyMetadataProtocolMessage.getProtocolMessage());
                         jsonSocket.write(protocolMessage);
 
                         if (! jsonSocket.isConnected()) {
-                            iterator.remove();
+                            mutableIterator.remove();
                             Logger.debug("Dropping HookEvent: " + HookEvent.NEW_BLOCK + " " + jsonSocket);
                         }
                     }
@@ -2003,9 +2006,9 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                     final MutableList<HookListener> sockets = _eventHooks.get(HookEvent.NEW_TRANSACTION);
                     if (sockets == null) { return; }
 
-                    final Iterator<HookListener> iterator = sockets.mutableIterator();
-                    while (iterator.hasNext()) {
-                        final HookListener hookListener = iterator.next();
+                    final Iterator<HookListener> mutableIterator = sockets.mutableIterator();
+                    while (mutableIterator.hasNext()) {
+                        final HookListener hookListener = mutableIterator.next();
                         final JsonSocket jsonSocket = hookListener.socket;
 
                         final BloomFilter addressFilter = hookListener.addressFilter;
@@ -2025,7 +2028,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                         jsonSocket.write(protocolMessage);
 
                         if (! jsonSocket.isConnected()) {
-                            iterator.remove();
+                            mutableIterator.remove();
                             Logger.debug("Dropping HookEvent: " + HookEvent.NEW_TRANSACTION + " " + jsonSocket);
                         }
                     }
@@ -2077,9 +2080,9 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                     final MutableList<HookListener> sockets = _eventHooks.get(HookEvent.NEW_DOUBLE_SPEND_PROOF);
                     if (sockets == null) { return; }
 
-                    final Iterator<HookListener> iterator = sockets.mutableIterator();
-                    while (iterator.hasNext()) {
-                        final HookListener hookListener = iterator.next();
+                    final Iterator<HookListener> mutableIterator = sockets.mutableIterator();
+                    while (mutableIterator.hasNext()) {
+                        final HookListener hookListener = mutableIterator.next();
                         final JsonSocket jsonSocket = hookListener.socket;
 
                         final ProtocolMessage protocolMessage = (hookListener.rawFormat ? lazyRawDataProtocolMessage.getProtocolMessage() : lazyMetadataProtocolMessage.getProtocolMessage());
@@ -2087,7 +2090,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                         jsonSocket.write(protocolMessage);
 
                         if (! jsonSocket.isConnected()) {
-                            iterator.remove();
+                            mutableIterator.remove();
                             Logger.debug("Dropping HookEvent: " + HookEvent.NEW_DOUBLE_SPEND_PROOF + " " + jsonSocket);
                         }
                     }

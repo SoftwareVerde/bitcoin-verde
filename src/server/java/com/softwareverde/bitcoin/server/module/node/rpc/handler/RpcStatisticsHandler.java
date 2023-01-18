@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.request.UnfulfilledPublicKeyRequest;
 import com.softwareverde.bitcoin.server.node.request.UnfulfilledSha256HashRequest;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 
 public class RpcStatisticsHandler implements NodeRpcHandler.StatisticsHandler {
@@ -41,7 +42,7 @@ public class RpcStatisticsHandler implements NodeRpcHandler.StatisticsHandler {
 
     @Override
     public List<UnfulfilledSha256HashRequest> getActiveBlockDownloads() {
-        final MutableList<UnfulfilledSha256HashRequest> pendingBlockDownloads = new MutableList<>(0);
+        final MutableList<UnfulfilledSha256HashRequest> pendingBlockDownloads = new MutableArrayList<>(0);
 
         final List<BitcoinNode> bitcoinNodes = _bitcoinNodeManager.getNodes();
         for (final BitcoinNode bitcoinNode : bitcoinNodes) {
@@ -54,7 +55,7 @@ public class RpcStatisticsHandler implements NodeRpcHandler.StatisticsHandler {
 
     @Override
     public List<UnfulfilledPublicKeyRequest> getActiveUtxoCommitmentDownloads() {
-        final MutableList<UnfulfilledPublicKeyRequest> pendingUtxoCommitmentDownloads = new MutableList<>(0);
+        final MutableList<UnfulfilledPublicKeyRequest> pendingUtxoCommitmentDownloads = new MutableArrayList<>(0);
 
         final List<BitcoinNode> bitcoinNodes = _bitcoinNodeManager.getNodes();
         for (final BitcoinNode bitcoinNode : bitcoinNodes) {
@@ -67,7 +68,7 @@ public class RpcStatisticsHandler implements NodeRpcHandler.StatisticsHandler {
 
     @Override
     public List<UnfulfilledSha256HashRequest> getActiveTransactionDownloads() {
-        final MutableList<UnfulfilledSha256HashRequest> pendingTransactionDownloads = new MutableList<>(0);
+        final MutableList<UnfulfilledSha256HashRequest> pendingTransactionDownloads = new MutableArrayList<>(0);
 
         final List<BitcoinNode> bitcoinNodes = _bitcoinNodeManager.getNodes();
         for (final BitcoinNode bitcoinNode : bitcoinNodes) {

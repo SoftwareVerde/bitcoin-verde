@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHea
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
@@ -42,7 +43,7 @@ public class UtxoCommitmentsMessageInflater extends BitcoinProtocolMessageInflat
             final int bucketCount = UtxoCommitment.BUCKET_COUNT;
             if (! commitmentPublicKey.isValid()) { return null; }
 
-            final MutableList<UtxoCommitmentBucket> utxoCommitmentBuckets = new MutableList<>(bucketCount);
+            final MutableList<UtxoCommitmentBucket> utxoCommitmentBuckets = new MutableArrayList<>(bucketCount);
             for (int j = 0; j < bucketCount; ++j) {
                 final ByteArray bucketPublicKeyBytes = ByteArray.wrap(byteArrayReader.readBytes(PublicKey.COMPRESSED_BYTE_COUNT));
                 final PublicKey bucketPublicKey = PublicKey.fromBytes(bucketPublicKeyBytes);
@@ -51,7 +52,7 @@ public class UtxoCommitmentsMessageInflater extends BitcoinProtocolMessageInflat
                 final CompactVariableLengthInteger subBucketCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
                 if (! subBucketCount.isCanonical()) { return null; }
 
-                final MutableList<UtxoCommitmentSubBucket> subBuckets = new MutableList<>(subBucketCount.intValue());
+                final MutableList<UtxoCommitmentSubBucket> subBuckets = new MutableArrayList<>(subBucketCount.intValue());
                 for (int k = 0; k < subBucketCount.value; ++k) {
                     final ByteArray subBucketPublicKeyBytes = ByteArray.wrap(byteArrayReader.readBytes(PublicKey.COMPRESSED_BYTE_COUNT));
                     final PublicKey subBucketPublicKey = PublicKey.fromBytes(subBucketPublicKeyBytes);

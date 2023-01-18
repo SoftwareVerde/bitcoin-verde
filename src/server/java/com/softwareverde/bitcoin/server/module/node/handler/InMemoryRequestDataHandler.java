@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.server.message.type.query.response.hash.Invento
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
@@ -18,7 +19,7 @@ public class InMemoryRequestDataHandler implements BitcoinNode.RequestDataHandle
 
     @Override
     public void run(final BitcoinNode bitcoinNode, final List<InventoryItem> dataHashes) {
-        final MutableList<InventoryItem> notFoundDataHashes = new MutableList<>();
+        final MutableList<InventoryItem> notFoundDataHashes = new MutableArrayList<>();
 
         for (final InventoryItem inventoryItem : dataHashes) {
             final Sha256Hash objectHash = inventoryItem.getItemHash();

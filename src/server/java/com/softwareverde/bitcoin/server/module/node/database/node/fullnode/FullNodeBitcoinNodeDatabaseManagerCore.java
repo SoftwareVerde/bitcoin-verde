@@ -15,6 +15,7 @@ import com.softwareverde.bitcoin.server.module.node.manager.FilterType;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
@@ -133,7 +134,7 @@ public class FullNodeBitcoinNodeDatabaseManagerCore extends BitcoinNodeDatabaseM
         final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
         final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
-        if (blockId == null) { return new MutableList<>(0); }
+        if (blockId == null) { return new MutableArrayList<>(0); }
 
         final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
         final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);

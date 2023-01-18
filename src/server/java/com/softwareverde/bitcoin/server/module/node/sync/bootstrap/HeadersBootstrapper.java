@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFact
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
@@ -63,7 +64,7 @@ public class HeadersBootstrapper {
             final MutableByteArray buffer = new MutableByteArray(BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT);
 
             final int batchSize = 4096;
-            final MutableList<BlockHeader> batchedHeaders = new MutableList<>(batchSize);
+            final MutableList<BlockHeader> batchedHeaders = new MutableArrayList<>(batchSize);
 
             final Thread currentThread = Thread.currentThread();
             while ( (! _abortInit) && (! currentThread.isInterrupted()) ) {

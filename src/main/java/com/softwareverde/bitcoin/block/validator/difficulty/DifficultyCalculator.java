@@ -6,14 +6,13 @@ import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.Util;
 
 import java.math.BigInteger;
-import java.util.HashMap;
-import java.util.Map;
 
 public class DifficultyCalculator {
     protected static final Integer BLOCK_COUNT_PER_DIFFICULTY_ADJUSTMENT = 2016;
@@ -116,7 +115,7 @@ public class DifficultyCalculator {
         final BlockHeader[] firstBlockHeaders = new BlockHeader[3]; // The oldest BlockHeaders...
         final BlockHeader[] lastBlockHeaders = new BlockHeader[3]; // The newest BlockHeaders...
 
-        final Map<Sha256Hash, Long> blockHeights = new HashMap<>(6);
+        final MutableHashMap<Sha256Hash, Long> blockHeights = new MutableHashMap<>(6);
 
         // Set the lastBlockHeaders to be the target block's parent, and its grandparent, and great grandparent...
         final long parentBlockHeight = (forBlockHeight - 1L);

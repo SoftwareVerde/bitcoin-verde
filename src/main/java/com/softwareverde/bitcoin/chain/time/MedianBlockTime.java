@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.chain.time;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.constable.Constable;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.Time;
@@ -29,7 +30,7 @@ public interface MedianBlockTime extends Time, Constable<ImmutableMedianBlockTim
      *  BlockStore must provide the BlockHeaders for the Block at blockHeight and its (MedianBlockTime.BLOCK_COUNT - 1) ancestors.
      */
     static MedianBlockTime calculateMedianBlockTime(final Long blockHeight, final BlockStore blockStore) {
-        final MutableList<BlockHeader> blockHeadersInDescendingOrder = new MutableList<>(MedianBlockTime.BLOCK_COUNT);
+        final MutableList<BlockHeader> blockHeadersInDescendingOrder = new MutableArrayList<>(MedianBlockTime.BLOCK_COUNT);
 
         // Load the blocks from the store in descending order, including the block at blockHeight...
         for (int i = 0; i < MedianBlockTime.BLOCK_COUNT; ++i) {

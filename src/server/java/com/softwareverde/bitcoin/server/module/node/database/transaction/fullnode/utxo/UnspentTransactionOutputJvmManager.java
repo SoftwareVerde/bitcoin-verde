@@ -34,7 +34,11 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
+import com.softwareverde.constable.set.mutable.MutableHashSet;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.query.parameter.InClauseParameter;
@@ -53,8 +57,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.TreeMap;
@@ -508,8 +510,8 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         final JvmSpentState transientSpentState = new JvmSpentState(); // Re-initialize the same instance instead of creating many objects.
         final Iterator<Map.Entry<UtxoKey, UtxoValue>> iterator = DOUBLE_BUFFER.entrySet().iterator();
 
-        final MutableList<UtxoKey> nextDeleteBatch = new MutableList<>(maxUtxoPerBatch);
-        final MutableList<Utxo> nextInsertBatch = new MutableList<>(maxUtxoPerBatch);
+        final MutableList<UtxoKey> nextDeleteBatch = new MutableArrayList<>(maxUtxoPerBatch);
+        final MutableList<Utxo> nextInsertBatch = new MutableArrayList<>(maxUtxoPerBatch);
 
         while (iterator.hasNext()) {
             final Map.Entry<UtxoKey, UtxoValue> entry = iterator.next();
@@ -933,7 +935,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                 final int identifierCount = (int) Math.min(maxRemainingCount, (bytesRead / bytesPerIdentifier));
                 if (identifierCount < 1) { continue; }
 
-                final MutableList<TransactionOutputIdentifier> transactionOutputIdentifiers = new MutableList<>(identifierCount);
+                final MutableList<TransactionOutputIdentifier> transactionOutputIdentifiers = new MutableArrayList<>(identifierCount);
                 for (int i = 0; i < identifierCount; ++i) {
                     final int offset = (i * bytesPerIdentifier);
                     final Sha256Hash transactionHash = Sha256Hash.copyOf(buffer.getBytes(offset, Sha256Hash.BYTE_COUNT));
@@ -986,7 +988,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
             final NanoTimer nanoTimer = new NanoTimer();
             nanoTimer.start();
 
-            final MutableList<BlockId> blockIds = new MutableList<>();
+            final MutableList<BlockId> blockIds = new MutableArrayList<>();
             for (int i = 0; i < blockBatchCount; ++i) {
                 blockIds.add(nextBlockId);
 
@@ -1193,16 +1195,16 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
     @Override
     public List<UnspentTransactionOutput> getUnspentTransactionOutputs(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException {
         if (UtxoCacheStaticState.isUtxoCacheDefunct()) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
-        if (transactionOutputIdentifiers.isEmpty()) { return new MutableList<>(0); }
+        if (transactionOutputIdentifiers.isEmpty()) { return new MutableArrayList<>(0); }
 
         final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final int transactionOutputIdentifierCount = transactionOutputIdentifiers.getCount();
 
-        final MutableList<TransactionOutputIdentifier> cacheMissIdentifiers = new MutableList<>(transactionOutputIdentifierCount);
-        final HashSet<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers = new HashSet<>(transactionOutputIdentifierCount);
+        final MutableList<TransactionOutputIdentifier> cacheMissIdentifiers = new MutableArrayList<>(transactionOutputIdentifierCount);
+        final MutableHashSet<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers = new MutableHashSet<>(transactionOutputIdentifierCount);
 
-        final HashMap<TransactionOutputIdentifier, UnspentTransactionOutput> transactionOutputs = new HashMap<>();
+        final MutableMap<TransactionOutputIdentifier, UnspentTransactionOutput> transactionOutputs = new MutableHashMap<>();
 
         UTXO_READ_MUTEX.lock();
         try {
@@ -1335,7 +1337,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                 .setParameter(transactionHash)
         );
 
-        final MutableList<TransactionOutputIdentifier> transactionOutputIdentifiers = new MutableList<>(rows.size());
+        final MutableList<TransactionOutputIdentifier> transactionOutputIdentifiers = new MutableArrayList<>(rows.size());
         for (final Row row : rows) {
             final Integer outputIndex = row.getInteger("index");
             final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);

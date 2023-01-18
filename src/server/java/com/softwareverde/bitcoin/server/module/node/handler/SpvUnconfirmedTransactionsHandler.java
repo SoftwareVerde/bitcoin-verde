@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
@@ -22,7 +23,7 @@ public class SpvUnconfirmedTransactionsHandler {
     public void broadcastUnconfirmedTransactions(final BitcoinNode bitcoinNode) {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-            final MutableList<Sha256Hash> matchedTransactionHashes = new MutableList<>();
+            final MutableList<Sha256Hash> matchedTransactionHashes = new MutableArrayList<>();
 
             final List<TransactionId> transactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
             for (final TransactionId transactionId : transactionIds) {

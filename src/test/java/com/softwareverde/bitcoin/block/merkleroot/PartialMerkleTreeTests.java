@@ -23,6 +23,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Container;
@@ -157,7 +158,7 @@ public class PartialMerkleTreeTests {
         // Setup
         final MerkleRoot expectedMerkleRoot = MutableMerkleRoot.fromHexString("352144A8F453171A9024C0B23979D521B0C98A03DB6D08E4BC5B0B9554FCEAFA");
 
-        final MutableList<Sha256Hash> transactionHashes = new MutableList<>(2);
+        final MutableList<Sha256Hash> transactionHashes = new MutableArrayList<>(2);
         transactionHashes.add(Sha256Hash.fromHexString("1D04683045280CC3046880153EB0CDD9B352A2E110409A3302363218F1628DCA"));
         transactionHashes.add(Sha256Hash.fromHexString("BF80D99DE8E1801C5EC93DCA35E03586151691C461229301EF4C3F278079CBB1"));
 
@@ -237,7 +238,7 @@ public class PartialMerkleTreeTests {
     @Test
     public void should_produce_correct_merkle_proof() {
         // taken from https://electrumx.readthedocs.io/en/latest/protocol-methods.html#cp-height-example
-        final MutableList<String> blockHeaders = new MutableList<>();
+        final MutableList<String> blockHeaders = new MutableArrayList<>();
         blockHeaders.add("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c");
         blockHeaders.add("010000006fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000982051fd1e4ba744bbbe680e1fee14677ba1a3c3540bf7b1cdb606e857233e0e61bc6649ffff001d01e36299");
         blockHeaders.add("010000004860eb18bf1b1620e37e9490fc8a427514416fd75159ab86688e9a8300000000d5fdcc541e25de1c7a5addedf24858b8bb665c9f36ef744ee42c316022c90f9bb0bc6649ffff001d08d2bd61");
@@ -256,7 +257,7 @@ public class PartialMerkleTreeTests {
             blockHeaderMerkleTree.addItem(blockHeader);
         }
 
-        final MutableList<Sha256Hash> expectedBranch = new MutableList<>();
+        final MutableList<Sha256Hash> expectedBranch = new MutableArrayList<>();
         expectedBranch.add(Sha256Hash.fromHexString("000000004ebadb55ee9096c9a2f8880e09da59c0d68b1c228da88e48844a1485"));
         expectedBranch.add(Sha256Hash.fromHexString("96cbbc84783888e4cc971ae8acf86dd3c1a419370336bb3c634c97695a8c5ac9"));
         expectedBranch.add(Sha256Hash.fromHexString("965ac94082cebbcffe458075651e9cc33ce703ab0115c72d9e8b1a9906b2b636"));
@@ -271,7 +272,7 @@ public class PartialMerkleTreeTests {
 
     @Test
     public void should_produce_correct_merkle_proof2() {
-        final MutableList<String> blockHeaders = new MutableList<>();
+        final MutableList<String> blockHeaders = new MutableArrayList<>();
         blockHeaders.add("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c");
         blockHeaders.add("010000006fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000982051fd1e4ba744bbbe680e1fee14677ba1a3c3540bf7b1cdb606e857233e0e61bc6649ffff001d01e36299");
         blockHeaders.add("010000004860eb18bf1b1620e37e9490fc8a427514416fd75159ab86688e9a8300000000d5fdcc541e25de1c7a5addedf24858b8bb665c9f36ef744ee42c316022c90f9bb0bc6649ffff001d08d2bd61");
@@ -291,7 +292,7 @@ public class PartialMerkleTreeTests {
             blockHeaderMerkleTree.addItem(blockHeader);
         }
 
-        final MutableList<Sha256Hash> expectedBranch = new MutableList<>();
+        final MutableList<Sha256Hash> expectedBranch = new MutableArrayList<>();
         expectedBranch.add(Sha256Hash.fromHexString("000000004ebadb55ee9096c9a2f8880e09da59c0d68b1c228da88e48844a1485"));
         expectedBranch.add(Sha256Hash.fromHexString("92b9421770580bea765ce97b78f8cf7feb9825bdb47acb5bee51c788890dc7a1"));
         expectedBranch.add(Sha256Hash.fromHexString("965ac94082cebbcffe458075651e9cc33ce703ab0115c72d9e8b1a9906b2b636"));

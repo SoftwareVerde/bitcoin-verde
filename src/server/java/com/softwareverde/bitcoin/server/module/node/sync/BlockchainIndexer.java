@@ -27,7 +27,11 @@ import com.softwareverde.bitcoin.transaction.script.slp.send.SlpSendScript;
 import com.softwareverde.concurrent.service.PausableSleepyService;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.Map;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.set.mutable.MutableHashSet;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Container;
@@ -37,9 +41,7 @@ import com.softwareverde.util.timer.MultiTimer;
 import com.softwareverde.util.timer.NanoTimer;
 
 import java.math.BigInteger;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
+
 
 public class BlockchainIndexer extends PausableSleepyService {
     public static final Integer BATCH_SIZE = 1024;
@@ -105,13 +107,13 @@ public class BlockchainIndexer extends PausableSleepyService {
     }
 
     protected List<InputIndexData> _indexTransactionInputs(final AtomicTransactionOutputIndexerContext context, final TransactionId transactionId, final Transaction transaction) throws ContextException {
-        final MutableList<InputIndexData> inputIndexDataList = new MutableList<>();
+        final MutableList<InputIndexData> inputIndexDataList = new MutableArrayList<>();
 
         final int transactionInputCount;
         final List<Sha256Hash> previousTransactionHashes;
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         {
-            final HashSet<Sha256Hash> previousTransactionHashSet = new HashSet<>();
+            final MutableHashSet<Sha256Hash> previousTransactionHashSet = new MutableHashSet<>();
             transactionInputCount = transactionInputs.getCount();
             for (int inputIndex = 0; inputIndex < transactionInputCount; ++inputIndex) {
                 final TransactionInput transactionInput = transactionInputs.get(inputIndex);
@@ -127,7 +129,7 @@ public class BlockchainIndexer extends PausableSleepyService {
                 previousTransactionHashSet.add(previousTransactionHash);
             }
 
-            final MutableList<Sha256Hash> transactionHashList = new MutableList<>(previousTransactionHashSet);
+            final MutableList<Sha256Hash> transactionHashList = new MutableArrayList<>(previousTransactionHashSet);
             transactionHashList.sort(Sha256Hash.COMPARATOR);
             previousTransactionHashes = transactionHashList;
         }
@@ -214,7 +216,7 @@ public class BlockchainIndexer extends PausableSleepyService {
     }
 
     protected Map<TransactionOutputIdentifier, OutputIndexData> _indexTransactionOutputs(final TransactionId transactionId, final Sha256Hash transactionHash, final List<TransactionOutput> transactionOutputs) throws ContextException {
-        final HashMap<TransactionOutputIdentifier, OutputIndexData> outputIndexData = new HashMap<>();
+        final MutableHashMap<TransactionOutputIdentifier, OutputIndexData> outputIndexData = new MutableHashMap<>();
 
         final int transactionOutputCount = transactionOutputs.getCount();
 
@@ -362,7 +364,7 @@ public class BlockchainIndexer extends PausableSleepyService {
             outputIndexData = _indexTransactionOutputs(transactionId, transactionHash, transactionOutputs);
         }
         timer.mark("_indexTransactionOutputs");
-        for (final OutputIndexData indexData : outputIndexData.values()) {
+        for (final OutputIndexData indexData : outputIndexData.getValues()) {
             context.indexTransactionOutput(indexData.transactionId, indexData.outputIndex, indexData.amount, indexData.scriptType, indexData.address, indexData.scriptHash, indexData.slpTransactionId, indexData.memoActionType, indexData.memoActionIdentifier);
         }
         timer.mark("indexTransactionOutput");
@@ -389,7 +391,7 @@ public class BlockchainIndexer extends PausableSleepyService {
 
         final boolean shouldExecuteAsynchronously = (_threadCount > 0);
         final int maxBatchCount = (shouldExecuteAsynchronously ? (BATCH_SIZE * _threadCount) : BATCH_SIZE);
-        final MutableList<TransactionId> transactionIdQueue = new MutableList<>(maxBatchCount);
+        final MutableList<TransactionId> transactionIdQueue = new MutableArrayList<>(maxBatchCount);
         try (final AtomicTransactionOutputIndexerContext context = _context.newTransactionOutputIndexerContext()) {
             final List<TransactionId> queuedTransactionIds = context.getUnprocessedTransactions(maxBatchCount);
             transactionIdQueue.addAll(queuedTransactionIds);

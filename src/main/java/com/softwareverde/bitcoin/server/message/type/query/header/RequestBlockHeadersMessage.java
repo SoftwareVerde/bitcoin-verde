@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.MutableSha256Hash;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -17,7 +18,7 @@ public class RequestBlockHeadersMessage extends BitcoinProtocolMessage {
     public static final Integer MAX_BLOCK_HEADER_HASH_COUNT = 2000; // NOTE: This value is a "not-to-exceed"...
 
     protected Integer _version;
-    protected final MutableList<Sha256Hash> _blockHashes = new MutableList<>();
+    protected final MutableList<Sha256Hash> _blockHashes = new MutableArrayList<>();
     protected final MutableSha256Hash _stopBeforeBlockHash = new MutableSha256Hash();
 
     public RequestBlockHeadersMessage() {

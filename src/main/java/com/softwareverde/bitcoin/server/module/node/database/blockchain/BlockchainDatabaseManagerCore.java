@@ -17,15 +17,15 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.ListUtil;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.Map;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.constable.set.Set;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.util.Util;
-
-import java.util.HashMap;
-import java.util.Map;
 
 public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager {
     protected final DatabaseManager _databaseManager;
@@ -251,7 +251,7 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
 
     protected Map<BlockchainSegmentId, Boolean> _areBlockchainSegmentsConnected(final BlockchainSegmentId blockchainSegmentId, final Set<BlockchainSegmentId> blockchainSegmentIds, final BlockRelationship blockRelationship, final BlockchainCache blockchainCache) throws DatabaseException {
         if (blockchainCache != null) {
-            final HashMap<BlockchainSegmentId, Boolean> connectedBlockchainSegments = new HashMap<>(blockchainSegmentIds.getCount());
+            final MutableHashMap<BlockchainSegmentId, Boolean> connectedBlockchainSegments = new MutableHashMap<>(blockchainSegmentIds.getCount());
             for (final BlockchainSegmentId blockchainSegmentId1 : blockchainSegmentIds) {
                 final Boolean areConnected = blockchainCache.areBlockchainSegmentsConnected(blockchainSegmentId, blockchainSegmentId1, blockRelationship);
                 connectedBlockchainSegments.put(blockchainSegmentId1, areConnected);
@@ -283,7 +283,7 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
         }
 
         final java.util.List<Row> rows = databaseConnection.query(query);
-        final HashMap<BlockchainSegmentId, Boolean> connectedBlockchainSegments = new HashMap<>(rows.size());
+        final MutableHashMap<BlockchainSegmentId, Boolean> connectedBlockchainSegments = new MutableHashMap<>(rows.size());
         for (final Row row : rows) {
             final BlockchainSegmentId rowBlockchainSegmentId = BlockchainSegmentId.wrap(row.getLong("blockchain_segment_id"));
             final Boolean isConnected = row.getBoolean("is_connected");
@@ -475,7 +475,7 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
             }
         }
 
-        final MutableList<BlockchainSegmentId> childBlockchainSegmentIds = new MutableList<>();
+        final MutableList<BlockchainSegmentId> childBlockchainSegmentIds = new MutableArrayList<>();
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 

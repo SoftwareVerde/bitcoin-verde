@@ -5,11 +5,10 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.map.Map;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
-
-import java.util.HashMap;
-import java.util.Map;
 
 public class BlockOutputs {
     protected final Sha256Hash _coinbaseTransactionHash;
@@ -17,7 +16,7 @@ public class BlockOutputs {
 
     public static BlockOutputs fromBlock(final Block block) {
         final List<Transaction> transactions = block.getTransactions();
-        final HashMap<TransactionOutputIdentifier, TransactionOutput> transactionOutputMap = new HashMap<>(transactions.getCount());
+        final MutableHashMap<TransactionOutputIdentifier, TransactionOutput> transactionOutputMap = new MutableHashMap<>(transactions.getCount());
 
         final Transaction coinbaseTransaction = block.getCoinbaseTransaction();
         final Sha256Hash coinbaseTransactionHash = coinbaseTransaction.getHash();
@@ -43,7 +42,7 @@ public class BlockOutputs {
 
     public BlockOutputs() {
         _coinbaseTransactionHash = null;
-        _transactionOutputs = new HashMap<>(0);
+        _transactionOutputs = new MutableHashMap<>(0);
     }
 
     public TransactionOutput getTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
@@ -60,6 +59,6 @@ public class BlockOutputs {
     }
 
     public Integer getOutputCount() {
-        return _transactionOutputs.size();
+        return _transactionOutputs.getCount();
     }
 }

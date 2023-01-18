@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.utxo;
 
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.StringUtil;
@@ -27,6 +28,7 @@ public class UtxoCommitmentLoaderTests extends UnitTest {
 
     @Test
     public void should_create_load_file_from_utxos_in_multiple_files() throws Exception {
+        // TODO: Hardcoded values are not set up for new format...
         final UtxoCommitmentLoader utxoCommitmentLoader = new UtxoCommitmentLoader();
 
         final HashSet<String> expectedResults = new HashSet<>();
@@ -38,7 +40,7 @@ public class UtxoCommitmentLoaderTests extends UnitTest {
             expectedResults.add("E1C9467A885A156E56A29D9C854E65674D581AD75611B02290454B4862060000\t1\t189808\t0\t9466355\t76A914D957C2536C205E2483B635CE17B2E02036788D5488AC");
         }
 
-        final MutableList<File> inputFiles = new MutableList<>();
+        final MutableList<File> inputFiles = new MutableArrayList<>();
         final ByteArray[] utxoSets = new ByteArray[] {
             ByteArray.fromHexString("0000013CCE07B8354CA4AFDCCEC2FD865F6C3606DF6148F1CCC75FAABD4D546E010000007D2507001070D900000000001976A914865E218FF25929EEE880E0E3B6F95280B2D0544388AC"),
             ByteArray.fromHexString("0000045855997CB000E935DF1CEBA3B5C870594FFD59FE11D58354B0981EC10D01000000423E080029D22700000000001976A914CA71A5B1BC3CD755EBD12949F0FE99608C61879588AC"),
@@ -67,9 +69,15 @@ public class UtxoCommitmentLoaderTests extends UnitTest {
 
         utxoCommitmentLoader.createLoadFile(inputFiles, file, null);
 
+        System.out.println("OutFile:");
+        System.out.println(StringUtil.bytesToString(IoUtil.getFileContents(file)));
+
         final String fileContents = StringUtil.bytesToString(IoUtil.getFileContents(file));
         for (final String line : fileContents.split("\n")) {
             expectedResults.remove(line);
+        }
+        for (final String failedItem : expectedResults) {
+            System.out.println(failedItem + " was not created correctly.");
         }
         Assert.assertTrue(expectedResults.isEmpty());
     }

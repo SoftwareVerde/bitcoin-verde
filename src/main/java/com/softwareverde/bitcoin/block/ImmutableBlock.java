@@ -15,6 +15,7 @@ import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
@@ -172,7 +173,7 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
             _buildMerkleTree();
         }
 
-        if (_merkleTree.isEmpty()) { return new MutableList<>(); }
+        if (_merkleTree.isEmpty()) { return new MutableArrayList<>(); }
         return _merkleTree.getPartialTree(transactionIndex);
     }
 

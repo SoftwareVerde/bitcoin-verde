@@ -20,6 +20,7 @@ import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.EcMultiset;
@@ -96,7 +97,7 @@ public class BitcoinNodeTests extends UnitTest {
             }
         };
 
-        final MutableList<ExposedBitcoinNode> receivedNodeConnections = new MutableList<>();
+        final MutableList<ExposedBitcoinNode> receivedNodeConnections = new MutableArrayList<>();
         final BinarySocketServer socketServer = new BinarySocketServer(FAKE_PORT, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, mainThreadPool);
         socketServer.setSocketConnectedCallback(new BinarySocketServer.SocketConnectedCallback() {
             @Override
@@ -373,7 +374,7 @@ public class BitcoinNodeTests extends UnitTest {
             }
         };
 
-        final MutableList<ExposedBitcoinNode> receivedNodeConnections = new MutableList<>();
+        final MutableList<ExposedBitcoinNode> receivedNodeConnections = new MutableArrayList<>();
         final BinarySocketServer socketServer = new BinarySocketServer(FAKE_PORT, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, mainThreadPool);
         socketServer.setSocketConnectedCallback(new BinarySocketServer.SocketConnectedCallback() {
             @Override
@@ -506,7 +507,7 @@ public class BitcoinNodeTests extends UnitTest {
             }
         };
 
-        final MutableList<ExposedBitcoinNode> receivedNodeConnections = new MutableList<>();
+        final MutableList<ExposedBitcoinNode> receivedNodeConnections = new MutableArrayList<>();
         final BinarySocketServer socketServer = new BinarySocketServer(FAKE_PORT, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, mainThreadPool);
         socketServer.setSocketConnectedCallback(new BinarySocketServer.SocketConnectedCallback() {
             @Override

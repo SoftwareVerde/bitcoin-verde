@@ -34,6 +34,7 @@ import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
 import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
@@ -105,7 +106,7 @@ public class IntegrationTest extends UnitTest {
         _readUncommittedDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, _database.getMaxQueryBatchSize(), _propertiesStore, _blockStore, _utxoCommitmentStore, _masterInflater, _checkpointConfiguration);
 
         _database.setDatabaseConnectionPool(new DatabaseConnectionPool() {
-            protected final MutableList<DatabaseConnection> _databaseConnections = new MutableList<>();
+            protected final MutableList<DatabaseConnection> _databaseConnections = new MutableArrayList<>();
 
             @Override
             public DatabaseConnection newConnection() throws DatabaseException {

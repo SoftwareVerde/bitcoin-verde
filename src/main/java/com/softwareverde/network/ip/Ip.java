@@ -3,6 +3,7 @@ package com.softwareverde.network.ip;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 
 import java.net.Inet4Address;
@@ -67,7 +68,7 @@ public interface Ip extends Const {
         try {
             final InetAddress[] inetAddresses = InetAddress.getAllByName(hostName);
 
-            final MutableList<Ip> ipAddresses = new MutableList<>(inetAddresses.length);
+            final MutableList<Ip> ipAddresses = new MutableArrayList<>(inetAddresses.length);
             for (final InetAddress inetAddress : inetAddresses) {
                 final Ip ip;
                 if (inetAddress instanceof Inet4Address) {

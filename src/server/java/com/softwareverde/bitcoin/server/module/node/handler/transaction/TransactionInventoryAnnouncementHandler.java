@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
@@ -46,7 +47,7 @@ public class TransactionInventoryAnnouncementHandler implements BitcoinNode.Tran
         }
 
         // Handle global recency caching for TransactionHashes and skip transactions that have already been announced by other peers.
-        final MutableList<Sha256Hash> cacheMissTransactionHashes = new MutableList<>(transactionHashes.getCount());
+        final MutableList<Sha256Hash> cacheMissTransactionHashes = new MutableArrayList<>(transactionHashes.getCount());
         synchronized (_recentlyAnnouncedTransactionHashCache) {
             for (final Sha256Hash transactionHash : transactionHashes) {
                 final boolean hasBeenSeen = _recentlyAnnouncedTransactionHashCache.contains(transactionHash);

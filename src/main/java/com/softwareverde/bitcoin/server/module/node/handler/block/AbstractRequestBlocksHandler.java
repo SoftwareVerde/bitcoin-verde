@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabase
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
@@ -34,7 +35,7 @@ public abstract class AbstractRequestBlocksHandler {
     protected List<BlockId> _findBlockChildrenIds(final BlockId blockId, final Sha256Hash desiredBlockHash, final BlockchainSegmentId blockchainSegmentId, final Integer maxCount, final DatabaseManager databaseManager) throws DatabaseException {
         final BlockHeaderDatabaseManager blockDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
-        final MutableList<BlockId> returnedBlockIds = new MutableList<>();
+        final MutableList<BlockId> returnedBlockIds = new MutableArrayList<>();
 
         BlockId nextBlockId = blockId;
         while (true) {

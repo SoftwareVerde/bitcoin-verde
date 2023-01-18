@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutput
 import com.softwareverde.bitcoin.transaction.script.locking.MutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.ControlOperation;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.util.HashUtil;
@@ -62,8 +63,8 @@ public class UnspentTransactionOutputDatabaseManagerTests extends IntegrationTes
         for (int i = 0; i < MAX_UTXO_COUNT; ) {
             final int utxoCountPerBlock = ((i * 2) + 1);
 
-            final MutableList<TransactionOutputIdentifier> transactionOutputIdentifiers = new MutableList<>(utxoCountPerBlock);
-            final MutableList<TransactionOutput> transactionOutputs = new MutableList<>();
+            final MutableList<TransactionOutputIdentifier> transactionOutputIdentifiers = new MutableArrayList<>(utxoCountPerBlock);
+            final MutableList<TransactionOutput> transactionOutputs = new MutableArrayList<>();
 
             for (int j = 0; j < utxoCountPerBlock; ++j) {
                 if (i >= MAX_UTXO_COUNT) { break; }

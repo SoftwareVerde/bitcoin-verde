@@ -18,13 +18,15 @@ import com.softwareverde.bitcoin.transaction.token.CashToken;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.Map;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.util.Tuple;
 
-import java.util.Map;
+
 
 public class UnconfirmedTransactionOutputDatabaseManager {
     protected final FullNodeDatabaseManager _databaseManager;
@@ -89,7 +91,7 @@ public class UnconfirmedTransactionOutputDatabaseManager {
         }
 
         final Long firstInsertId = databaseConnection.executeSql(batchedInsertQuery);
-        final MutableList<UnconfirmedTransactionOutputId> transactionOutputIds = new MutableList<>(transactions.getCount());
+        final MutableList<UnconfirmedTransactionOutputId> transactionOutputIds = new MutableArrayList<>(transactions.getCount());
         for (int i = 0; i < transactions.getCount(); ++i) {
             final UnconfirmedTransactionOutputId transactionOutputId = UnconfirmedTransactionOutputId.wrap(firstInsertId + i);
             transactionOutputIds.add(transactionOutputId);
@@ -180,7 +182,7 @@ public class UnconfirmedTransactionOutputDatabaseManager {
                 .setParameter(transactionId)
         );
 
-        final MutableList<UnconfirmedTransactionOutputId> transactionOutputIds = new MutableList<>(rows.size());
+        final MutableList<UnconfirmedTransactionOutputId> transactionOutputIds = new MutableArrayList<>(rows.size());
         for (final Row row : rows) {
             final UnconfirmedTransactionOutputId transactionOutputId =  UnconfirmedTransactionOutputId.wrap(row.getLong("id"));
             transactionOutputIds.add(transactionOutputId);

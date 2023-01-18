@@ -11,15 +11,16 @@ import com.softwareverde.bitcoin.test.fake.database.MockBlockDatabaseManager;
 import com.softwareverde.bitcoin.test.fake.database.MockBlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.test.fake.database.MockBlockchainDatabaseManager;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-
-import java.util.HashMap;
 
 public class BlockDownloadPlannerCoreTests extends UnitTest {
 
@@ -227,7 +228,7 @@ public class BlockDownloadPlannerCoreTests extends UnitTest {
             blockStore.setPendingBlockExists(blockHash, true);
         }
 
-        final MutableList<Sha256Hash> expectedInventories = new MutableList<>();
+        final MutableList<Sha256Hash> expectedInventories = new MutableArrayList<>();
         { // Children BlockHeaders of the shared block... (i.e. the expected return set)
             final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(3L);
 
@@ -287,8 +288,8 @@ public class BlockDownloadPlannerCoreTests extends UnitTest {
 }
 
 class MockBlockStore implements FakeBlockStore {
-    protected final HashMap<Sha256Hash, Boolean> _existingBlocks = new HashMap<>();
-    protected final HashMap<Sha256Hash, Boolean> _existingPendingBlocks = new HashMap<>();
+    protected final MutableMap<Sha256Hash, Boolean> _existingBlocks = new MutableHashMap<>();
+    protected final MutableMap<Sha256Hash, Boolean> _existingPendingBlocks = new MutableHashMap<>();
 
     @Override
     public Boolean pendingBlockExists(final Sha256Hash blockHash) {

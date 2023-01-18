@@ -15,14 +15,13 @@ import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.test.fake.FakeDifficultyCalculatorContext;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.IoUtil;
 import org.junit.Assert;
 import org.junit.Test;
-
-import java.util.HashMap;
 
 public class TestNetDifficultyUnitTests extends UnitTest {
 
@@ -45,9 +44,9 @@ public class TestNetDifficultyUnitTests extends UnitTest {
 
     protected BlockHeader _loadBlock(final Long blockHeight, final String blockData, final Long medianBlockTime, final FakeDifficultyCalculatorContext context, final Boolean shouldCalculateChainWork) {
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
-        final HashMap<Long, BlockHeader> blockHeaders = context.getBlockHeaders();
-        final HashMap<Long, ChainWork> chainWorks = context.getChainWorks();
-        final HashMap<Long, MedianBlockTime> medianBlockTimes = context.getMedianBlockTimes();
+        final MutableMap<Long, BlockHeader> blockHeaders = context.getBlockHeaders();
+        final MutableMap<Long, ChainWork> chainWorks = context.getChainWorks();
+        final MutableMap<Long, MedianBlockTime> medianBlockTimes = context.getMedianBlockTimes();
 
         final BlockHeader blockHeader = blockHeaderInflater.fromBytes(ByteArray.fromHexString(blockData));
         blockHeaders.put(blockHeight, blockHeader);
@@ -77,8 +76,8 @@ public class TestNetDifficultyUnitTests extends UnitTest {
 
         { // Simulate the real-scenario of 6 blocks every second in between blocks 4028 and 2016.
             final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
-            final HashMap<Long, BlockHeader> blockHeaders = difficultyCalculatorContext.getBlockHeaders();
-            final HashMap<Long, MedianBlockTime> medianBlockTimes = difficultyCalculatorContext.getMedianBlockTimes();
+            final MutableMap<Long, BlockHeader> blockHeaders = difficultyCalculatorContext.getBlockHeaders();
+            final MutableMap<Long, MedianBlockTime> medianBlockTimes = difficultyCalculatorContext.getMedianBlockTimes();
 
             long timestamp = -1L;
             int timestampHackCount = 3;
@@ -182,8 +181,8 @@ public class TestNetDifficultyUnitTests extends UnitTest {
 
         { // Simulate the real-scenario of perpetual 20-minute reset-blocks.
             final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
-            final HashMap<Long, BlockHeader> blockHeaders = difficultyCalculatorContext.getBlockHeaders();
-            final HashMap<Long, MedianBlockTime> medianBlockTimes = difficultyCalculatorContext.getMedianBlockTimes();
+            final MutableMap<Long, BlockHeader> blockHeaders = difficultyCalculatorContext.getBlockHeaders();
+            final MutableMap<Long, MedianBlockTime> medianBlockTimes = difficultyCalculatorContext.getMedianBlockTimes();
 
             int timestampHackCount = 0;
             for (long blockHeight = 4207L; blockHeight >= 4034L; --blockHeight) {

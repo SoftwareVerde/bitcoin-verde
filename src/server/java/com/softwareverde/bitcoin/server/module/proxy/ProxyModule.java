@@ -5,12 +5,12 @@ import com.softwareverde.bitcoin.server.configuration.ProxyProperties;
 import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.http.server.HttpServer;
 import com.softwareverde.http.server.endpoint.WebSocketEndpoint;
 import com.softwareverde.http.server.servlet.ProxyServlet;
 import com.softwareverde.util.type.time.SystemTime;
-
-import java.util.HashMap;
 
 public class ProxyModule {
     protected void _printError(final String errorMessage) {
@@ -59,11 +59,15 @@ public class ProxyModule {
 
         _apiServer.setPort(proxyProperties.getHttpPort());
 
-        final HashMap<String, ProxyServlet.Url> proxyConfiguration = new HashMap<>();
+        final MutableMap<String, ProxyServlet.Url> proxyConfiguration = new MutableHashMap<>();
         proxyConfiguration.put("^pool\\..*$", new ProxyServlet.Url("http", "localhost", stratumProperties.getHttpPort()));
         proxyConfiguration.put(".*", new ProxyServlet.Url("http", "localhost", explorerProperties.getPort()));
 
-        final WebSocketEndpoint endpoint = new WebSocketEndpoint(new ProxyServlet(proxyConfiguration));
+        final WebSocketEndpoint endpoint = new WebSocketEndpoint(
+            new ProxyServlet(
+                proxyConfiguration.unwrap()
+            )
+        );
         endpoint.setStrictPathEnabled(false);
         endpoint.setPath("/");
         _apiServer.addEndpoint(endpoint);

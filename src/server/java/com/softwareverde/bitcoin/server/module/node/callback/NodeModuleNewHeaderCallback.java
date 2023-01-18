@@ -20,6 +20,7 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
@@ -44,7 +45,7 @@ class NodeModuleNewHeaderCallback implements BlockHeaderDownloader.NewBlockHeade
     @Override
     public synchronized void onNewHeadersReceived(final BitcoinNode bitcoinNode, final List<BlockHeader> blockHeaders) {
         if (bitcoinNode != null) {
-            final MutableList<Sha256Hash> blockHashes = new MutableList<>(blockHeaders.getCount());
+            final MutableList<Sha256Hash> blockHashes = new MutableArrayList<>(blockHeaders.getCount());
             for (final BlockHeader blockHeader : blockHeaders) {
                 final Sha256Hash blockHash = blockHeader.getHash();
                 blockHashes.add(blockHash);
@@ -112,8 +113,8 @@ class NodeModuleNewHeaderCallbackWithFastSync extends NodeModuleNewHeaderCallbac
         Logger.debug("Pausing BlockHeaderDownloader for UTXO import...");
         _blockHeaderDownloader.pause();
         try {
-            final MutableList<TransactionOutputIdentifier> transactionOutputIdentifierIndexBatch = new MutableList<>();
-            final MutableList<TransactionOutput> transactionOutputIndexBatch = new MutableList<>();
+            final MutableList<TransactionOutputIdentifier> transactionOutputIdentifierIndexBatch = new MutableArrayList<>();
+            final MutableList<TransactionOutput> transactionOutputIndexBatch = new MutableArrayList<>();
 
             final UtxoCommitmentIndexer utxoCommitmentIndexer = new UtxoCommitmentIndexer(_blockchainIndexer, _databaseManagerFactory);
             final UnspentTransactionOutputVisitor unspentTransactionOutputVisitor;

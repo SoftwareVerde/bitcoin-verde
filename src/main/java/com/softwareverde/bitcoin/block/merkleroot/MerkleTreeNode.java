@@ -8,6 +8,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.cryptography.hash.sha256.MutableSha256Hash;
@@ -360,7 +361,7 @@ public class MerkleTreeNode<T extends Hashable> implements MutableMerkleTree<T> 
         final int maxDepth = PartialMerkleTreeNode.calculateMaxDepth(_itemCount);
         final PartialMerkleTreeNode<T> rootPartialMerkleTreeNode = _toPartialMerkleTreeNode(0, maxDepth);
 
-        final MutableList<PartialMerkleTreeNode<T>> leafNodes = new MutableList<>(_itemCount);
+        final MutableList<PartialMerkleTreeNode<T>> leafNodes = new MutableArrayList<>(_itemCount);
         rootPartialMerkleTreeNode.visit(new PartialMerkleTreeNode.Visitor<T>() {
             @Override
             public void visit(final PartialMerkleTreeNode<T> partialMerkleTreeNode) {
@@ -390,8 +391,8 @@ public class MerkleTreeNode<T extends Hashable> implements MutableMerkleTree<T> 
             }
         }
 
-        final MutableList<Sha256Hash> hashes = new MutableList<>();
-        final MutableList<Boolean> flagBits = new MutableList<>();
+        final MutableList<Sha256Hash> hashes = new MutableArrayList<>();
+        final MutableList<Boolean> flagBits = new MutableArrayList<>();
         rootPartialMerkleTreeNode.visit(new PartialMerkleTreeNode.Visitor<T>() {
             @Override
             public void visit(final PartialMerkleTreeNode<T> partialMerkleTreeNode) {

@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutput
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.EcMultiset;
@@ -75,7 +76,7 @@ public class UtxoCommitmentLoader {
         final NanoTimer nanoTimer = new NanoTimer();
         nanoTimer.start();
 
-        final MutableList<ReadAheadUtxoInflater> utxoInflaters = new MutableList<>(utxoCommitmentFiles.getCount());
+        final MutableList<ReadAheadUtxoInflater> utxoInflaters = new MutableArrayList<>(utxoCommitmentFiles.getCount());
         long bytesWrittenCount = 0L;
         try (final FileOutputStream fileOutputStream = new FileOutputStream(outputLoadFile)) {
             for (final File inputFile : utxoCommitmentFiles) {
@@ -213,7 +214,7 @@ public class UtxoCommitmentLoader {
             final FileInputStream inputStream = new FileInputStream(file);
             byteArrayStream.appendInputStream(inputStream);
 
-            final MutableList<ByteArray> byteArrays = new MutableList<>();
+            final MutableList<ByteArray> byteArrays = new MutableArrayList<>();
             while (true) {
                 final CommittedUnspentTransactionOutput unspentTransactionOutput = utxoInflater.fromByteArrayReader(byteArrayStream);
                 if (unspentTransactionOutput == null) { break; }

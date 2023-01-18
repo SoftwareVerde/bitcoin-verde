@@ -15,7 +15,11 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.Map;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.set.mutable.MutableHashSet;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
@@ -23,9 +27,6 @@ import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.type.time.SystemTime;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class PendingTransactionDatabaseManager {
@@ -110,7 +111,7 @@ public class PendingTransactionDatabaseManager {
         return pendingTransactionIds.build();
     }
 
-    protected Map<NodeId, ? extends List<PendingTransactionId>> _selectIncompletePendingTransactions(final List<NodeId> connectedNodeIds) throws DatabaseException {
+    protected MutableHashMap<NodeId, ? extends List<PendingTransactionId>> _selectIncompletePendingTransactions(final List<NodeId> connectedNodeIds) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final Long minSecondsBetweenDownloadAttempts = 5L;
@@ -122,12 +123,12 @@ public class PendingTransactionDatabaseManager {
                 .setInClauseParameters(connectedNodeIds, ValueExtractor.IDENTIFIER)
         );
 
-        final HashMap<NodeId, MutableList<PendingTransactionId>> downloadPlan = new HashMap<>();
+        final MutableHashMap<NodeId, MutableList<PendingTransactionId>> downloadPlan = new MutableHashMap<>();
         for (final Row row : rows) {
             final NodeId nodeId = NodeId.wrap(row.getLong("node_id"));
             final PendingTransactionId pendingTransactionId = PendingTransactionId.wrap(row.getLong("pending_transaction_id"));
             if (! downloadPlan.containsKey(nodeId)) {
-                downloadPlan.put(nodeId, new MutableList<>());
+                downloadPlan.put(nodeId, new MutableArrayList<>());
             }
 
             final MutableList<PendingTransactionId> list = downloadPlan.get(nodeId);
@@ -218,7 +219,7 @@ public class PendingTransactionDatabaseManager {
                 .setParameter(maxFailedDownloadCount)
         );
 
-        final MutableList<PendingTransactionId> pendingTransactionIds = new MutableList<>(rows.size());
+        final MutableList<PendingTransactionId> pendingTransactionIds = new MutableArrayList<>(rows.size());
         for (final Row row : rows) {
             final PendingTransactionId pendingTransactionId = PendingTransactionId.wrap(row.getLong("id"));
             Logger.debug("Deleting Failed Pending Transaction: " + pendingTransactionId);
@@ -233,7 +234,7 @@ public class PendingTransactionDatabaseManager {
 
         if (pendingTransactionIds.isEmpty()) { return; }
 
-        final HashSet<Sha256Hash> pendingTransactionHashes = new HashSet<>(pendingTransactionIds.getCount());
+        final MutableHashSet<Sha256Hash> pendingTransactionHashes = new MutableHashSet<>(pendingTransactionIds.getCount());
         for (final PendingTransactionId pendingTransactionId : pendingTransactionIds) {
             final Sha256Hash pendingTransactionHash = _getPendingTransactionHash(pendingTransactionId);
             pendingTransactionHashes.add(pendingTransactionHash);
@@ -257,7 +258,7 @@ public class PendingTransactionDatabaseManager {
             new Query("SELECT pending_transactions.id FROM pending_transactions LEFT OUTER JOIN transactions ON transactions.hash = pending_transactions.hash WHERE (transactions.id IS NOT NULL) OR (pending_transactions.timestamp < ?)")
                 .setParameter(minimumTimestamp)
         );
-        final MutableList<PendingTransactionId> pendingTransactionIds = new MutableList<>(rows.size());
+        final MutableList<PendingTransactionId> pendingTransactionIds = new MutableArrayList<>(rows.size());
         for (final Row row : rows) {
             final PendingTransactionId pendingTransactionId = PendingTransactionId.wrap(row.getLong("id"));
             pendingTransactionIds.add(pendingTransactionId);
@@ -342,7 +343,7 @@ public class PendingTransactionDatabaseManager {
         if (pendingTransactionId == null) { return; }
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-        final HashSet<Sha256Hash> requiredTransactionHashes = new HashSet<>(transactionInputs.getCount());
+        final MutableHashSet<Sha256Hash> requiredTransactionHashes = new MutableHashSet<>(transactionInputs.getCount());
         for (final TransactionInput transactionInput : transactionInputs) {
             final Sha256Hash transactionHash = transactionInput.getPreviousOutputTransactionHash();
             requiredTransactionHashes.add(transactionHash);
@@ -572,7 +573,7 @@ public class PendingTransactionDatabaseManager {
     public void deletePendingTransaction(final PendingTransactionId pendingTransactionId) throws DatabaseException {
         try {
             WRITE_LOCK.lock();
-            final MutableList<PendingTransactionId> pendingTransactionIds = new MutableList<>(1);
+            final MutableList<PendingTransactionId> pendingTransactionIds = new MutableArrayList<>(1);
             pendingTransactionIds.add(pendingTransactionId);
             _deletePendingTransactions(pendingTransactionIds);
         }

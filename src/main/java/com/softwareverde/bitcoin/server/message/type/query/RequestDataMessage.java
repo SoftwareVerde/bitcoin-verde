@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.server.message.type.query.response.hash.Invento
 import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
@@ -36,7 +37,7 @@ public class RequestDataMessage extends BitcoinProtocolMessage {
         return new Tuple<>(inventoryItemType, bucketHash);
     }
 
-    protected final MutableList<InventoryItem> _inventoryItems = new MutableList<>();
+    protected final MutableList<InventoryItem> _inventoryItems = new MutableArrayList<>();
 
     public RequestDataMessage() {
         super(MessageType.REQUEST_DATA);

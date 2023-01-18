@@ -31,6 +31,7 @@ import com.softwareverde.bitcoin.transaction.token.CashToken;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.EcMultiset;
@@ -109,7 +110,7 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
         //  then the commitment file is reinflated and its hash is recalculated to ensure the deflated and inflated hashes match.
 
         // Setup
-        final MutableList<CommittedUnspentTransactionOutput> unspentTransactionOutputs = new MutableList<>();
+        final MutableList<CommittedUnspentTransactionOutput> unspentTransactionOutputs = new MutableArrayList<>();
         final int utxoCount = 500000; // NOTE: Average serialized UTXO is about 75-80 bytes, max file size is 32MB, so 500k UTXOs should create more than one file.
         for (int i = 0; i < utxoCount; ++i) {
             final Sha256Hash transactionHash = Sha256Hash.wrap(HashUtil.sha256(ByteUtil.integerToBytes(i)));
@@ -146,7 +147,7 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
         };
 
         // Action
-        final MutableList<String> fileNames = new MutableList<>();
+        final MutableList<String> fileNames = new MutableArrayList<>();
         final UtxoCommitment utxoCommitment;
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             utxoCommitment = utxoCommitmentGenerator._publishUtxoCommitment(blockId, previousBlockHash, 1L, databaseManager);
@@ -158,7 +159,7 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
             }
         }
 
-        final MutableList<PublicKey> utxoBucketPublicKeys = new MutableList<>();
+        final MutableList<PublicKey> utxoBucketPublicKeys = new MutableArrayList<>();
         final EcMultiset commitmentMultisetHash = new EcMultiset();
         final UtxoCommitmentLoader utxoCommitmentLoader = new UtxoCommitmentLoader();
         for (final File inputFile : utxoCommitment.getFiles()) {
@@ -204,7 +205,7 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
     @Test
     public void should_always_create_128_buckets_even_if_unused() throws Exception {
         // Setup
-        final MutableList<CommittedUnspentTransactionOutput> unspentTransactionOutputs = new MutableList<>();
+        final MutableList<CommittedUnspentTransactionOutput> unspentTransactionOutputs = new MutableArrayList<>();
         final int utxoCount = 32; // Guaranteed to be less than 128 buckets.
         for (int i = 0; i < utxoCount; ++i) {
             final Sha256Hash transactionHash = Sha256Hash.wrap(HashUtil.sha256(ByteUtil.integerToBytes(i)));
@@ -241,7 +242,7 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
         };
 
         // Action
-        final MutableList<String> fileNames = new MutableList<>();
+        final MutableList<String> fileNames = new MutableArrayList<>();
         final UtxoCommitment utxoCommitment;
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             utxoCommitment = utxoCommitmentGenerator._publishUtxoCommitment(blockId, previousBlockHash, 1L, databaseManager);

@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.utxo;
 
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.secp256k1.EcMultiset;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
@@ -42,7 +43,7 @@ class BucketFile implements AutoCloseable {
     protected final File _protoFile;
     protected final Integer _index;
     protected final EcMultiset _bucketMultisetHash = new EcMultiset();
-    protected final MutableList<SubBucketFile> _subBuckets = new MutableList<>();
+    protected final MutableList<SubBucketFile> _subBuckets = new MutableArrayList<>();
     protected final ConcurrentLinkedQueue<CommittedUnspentTransactionOutput> _queue;
 
     protected EcMultiset _multisetHash = new EcMultiset();

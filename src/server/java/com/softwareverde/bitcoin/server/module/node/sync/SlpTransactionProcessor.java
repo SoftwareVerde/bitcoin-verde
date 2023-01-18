@@ -19,14 +19,14 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.map.Map;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.timer.MilliTimer;
 
-import java.util.HashMap;
-import java.util.Map;
 
 public class SlpTransactionProcessor extends SleepyService {
     public static final Integer BATCH_SIZE = 4096;
@@ -38,7 +38,7 @@ public class SlpTransactionProcessor extends SleepyService {
                 @Override
                 public Map<Sha256Hash, Transaction> getTransactions(final List<Sha256Hash> transactionHashes, final Boolean allowUnconfirmedTransactions) {
                     try {
-                        final HashMap<Sha256Hash, Transaction> transactions = new HashMap<>(transactionHashes.getCount());
+                        final MutableHashMap<Sha256Hash, Transaction> transactions = new MutableHashMap<>(transactionHashes.getCount());
                         final MilliTimer milliTimer = new MilliTimer();
                         milliTimer.start();
                         for (final Sha256Hash transactionHash : transactionHashes) {

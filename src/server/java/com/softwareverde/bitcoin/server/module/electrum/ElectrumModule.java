@@ -33,12 +33,18 @@ import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.concurrent.ConcurrentHashSet;
 import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
+import com.softwareverde.constable.list.mutable.MutableLinkedList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.mutable.ConcurrentMutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
+import com.softwareverde.constable.set.mutable.ConcurrentMutableHashSet;
+import com.softwareverde.constable.set.mutable.MutableHashSet;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.http.tls.TlsCertificate;
 import com.softwareverde.http.tls.TlsFactory;
@@ -47,6 +53,7 @@ import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.socket.JsonProtocolMessage;
 import com.softwareverde.network.socket.JsonSocket;
+import com.softwareverde.util.Container;
 import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Tuple;
@@ -60,13 +67,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.MessageDigest;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -104,15 +105,15 @@ public class ElectrumModule {
     protected final Boolean _tlsIsEnabled;
     protected final CachedThreadPool _threadPool;
     protected final ElectrumServerSocket _electrumServerSocket;
-    protected final ConcurrentHashMap<Long, JsonSocket> _connections = new ConcurrentHashMap<>();
-    protected final HashMap<AddressSubscriptionKey, LinkedList<ConnectionAddress>> _connectionAddresses = new HashMap<>();
-    protected final ConcurrentHashMap<Long, ElectrumPeer> _peers = new ConcurrentHashMap<>();
-    protected final ConcurrentHashSet<Ip> _bannedConnections = new ConcurrentHashSet<>();
-    protected final ConcurrentHashMap<Ip, WorkerThread> _workerThreads = new ConcurrentHashMap<>();
+    protected final ConcurrentMutableHashMap<Long, JsonSocket> _connections = new ConcurrentMutableHashMap<>();
+    protected final MutableMap<AddressSubscriptionKey, MutableLinkedList<ConnectionAddress>> _connectionAddresses = new MutableHashMap<>();
+    protected final ConcurrentMutableHashMap<Long, ElectrumPeer> _peers = new ConcurrentMutableHashMap<>();
+    protected final ConcurrentMutableHashSet<Ip> _bannedConnections = new ConcurrentMutableHashSet<>();
+    protected final ConcurrentMutableHashMap<Ip, WorkerThread> _workerThreads = new ConcurrentMutableHashMap<>();
 
     protected final ReentrantReadWriteLock.WriteLock _blockHeaderCacheWriteLock;
     protected final ReentrantReadWriteLock.ReadLock _blockHeaderCacheReadLock;
-    protected final MutableList<BlockHeader> _cachedBlockHeaders = new MutableList<>(0);
+    protected final MutableList<BlockHeader> _cachedBlockHeaders = new MutableArrayList<>(0);
     protected Long _chainHeight = 0L;
 
     protected final Thread _maintenanceThread;
@@ -130,7 +131,7 @@ public class ElectrumModule {
         }
     }
 
-    protected final ConcurrentHashMap<Sha256Hash, Json> _cachedTransactionBlockHeights = new ConcurrentHashMap<>();
+    protected final ConcurrentMutableHashMap<Sha256Hash, Json> _cachedTransactionBlockHeights = new ConcurrentMutableHashMap<>();
     protected Json _getTransactionBlockHeight(final Sha256Hash transactionHash, final NodeJsonRpcConnection nodeConnection) {
         final Json cachedTransactionBlockHeight = _cachedTransactionBlockHeights.get(transactionHash);
         if (cachedTransactionBlockHeight != null) { return cachedTransactionBlockHeight; }
@@ -139,16 +140,15 @@ public class ElectrumModule {
         if (transactionBlockHeightJson == null) { return null; }
 
         _cachedTransactionBlockHeights.put(transactionHash, transactionBlockHeightJson);
-        if (_cachedTransactionBlockHeights.size() > (1024 * 2)) {
+        if (_cachedTransactionBlockHeights.getCount() > (1024 * 2)) {
             // NOTE: From testing, removing items via the EntrySet Iterator appears to remove the items in FIFO order...
-            final Set<Map.Entry<Sha256Hash, Json>> entrySet = _cachedTransactionBlockHeights.entrySet();
-            final Iterator<Map.Entry<Sha256Hash, Json>> iterator = entrySet.iterator();
+            final Iterator<Tuple<Sha256Hash, Json>> mutableIterator = _cachedTransactionBlockHeights.mutableIterator();
 
             for (int i = 0; i < 128; ++i) {
-                if (! iterator.hasNext()) { break; }
+                if (! mutableIterator.hasNext()) { break; }
 
-                iterator.next();
-                iterator.remove();
+                mutableIterator.next();
+                mutableIterator.remove();
             }
         }
 
@@ -246,7 +246,7 @@ public class ElectrumModule {
 
         Logger.debug("New Header: " + blockHash + " " + blockHeight);
 
-        for (final JsonSocket socket : _connections.values()) {
+        for (final JsonSocket socket : _connections.getValues()) {
             _notifyBlockHeader(socket, blockHeader, blockHeight);
         }
 
@@ -271,8 +271,8 @@ public class ElectrumModule {
         }
 
         synchronized (_connectionAddresses) {
-            for (final Map.Entry<AddressSubscriptionKey, LinkedList<ConnectionAddress>> entry : _connectionAddresses.entrySet()) {
-                for (final ConnectionAddress connectionAddress : entry.getValue()) {
+            for (final Tuple<AddressSubscriptionKey, MutableLinkedList<ConnectionAddress>> entry : _connectionAddresses) {
+                for (final ConnectionAddress connectionAddress : entry.second) {
                     final JsonSocket jsonSocket = connectionAddress.connection.get();
                     final boolean isConnected = ((jsonSocket != null) && jsonSocket.isConnected());
                     if (! isConnected) {
@@ -303,7 +303,7 @@ public class ElectrumModule {
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
         final AddressInflater addressInflater = new AddressInflater();
 
-        final HashSet<Tuple<AddressType, Address>> matchedAddresses = new HashSet<>();
+        final MutableHashSet<Tuple<AddressType, Address>> matchedAddresses = new MutableHashSet<>();
         for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
             final LockingScript lockingScript = transactionOutput.getLockingScript();
 
@@ -369,7 +369,7 @@ public class ElectrumModule {
 
         for (final Tuple<AddressType, Address> addressTuple : matchedAddresses) {
             synchronized (_connectionAddresses) {
-                final LinkedList<ConnectionAddress> connectionAddresses = _connectionAddresses.get(new AddressSubscriptionKey(addressTuple.first, addressTuple.second, null));
+                final List<ConnectionAddress> connectionAddresses = _connectionAddresses.get(new AddressSubscriptionKey(addressTuple.first, addressTuple.second, null));
                 for (final ConnectionAddress connectionAddress : connectionAddresses) {
                     final JsonSocket jsonSocket = connectionAddress.connection.get();
                     final boolean jsonSocketIsConnected = ((jsonSocket != null) && jsonSocket.isConnected());
@@ -751,7 +751,7 @@ public class ElectrumModule {
         final Json hostsJson;
         {
             hostsJson = new ElectrumJson(false);
-            for (final ElectrumPeer electrumPeer : _peers.values()) {
+            for (final ElectrumPeer electrumPeer : _peers.getValues()) {
                 final Json hostPortsJson = new ElectrumJson(false);
                 hostPortsJson.put("tcp_port", electrumPeer.tcpPort);
                 hostPortsJson.put("ssl_port", electrumPeer.tlsPort);
@@ -1251,7 +1251,7 @@ public class ElectrumModule {
 
     protected Sha256Hash _getCachedAddressStatus(final AddressSubscriptionKey addressKey) {
         synchronized (_connectionAddresses) {
-            final LinkedList<ConnectionAddress> connectionAddresses = _connectionAddresses.get(addressKey);
+            final List<ConnectionAddress> connectionAddresses = _connectionAddresses.get(addressKey);
             if (connectionAddresses == null) { return null; }
 
             for (final ConnectionAddress connectionAddress : connectionAddresses) {
@@ -1274,7 +1274,7 @@ public class ElectrumModule {
                 final Integer transactionCount = transactionsArray.length();
                 if (transactionCount < 1) { return null; }
 
-                transactionPositions = new MutableList<>(transactionCount);
+                transactionPositions = new MutableArrayList<>(transactionCount);
                 for (int i = 0; i < transactionCount; ++i) {
                     final Sha256Hash transactionHash;
                     {
@@ -1347,12 +1347,12 @@ public class ElectrumModule {
 
     protected void _addAddressSubscription(final AddressSubscriptionKey addressKey, final JsonSocket jsonSocket, final Sha256Hash addressStatus) {
         synchronized (_connectionAddresses) {
-            final LinkedList<ConnectionAddress> connectionAddresses;
+            final MutableLinkedList<ConnectionAddress> connectionAddresses;
             if (_connectionAddresses.containsKey(addressKey)) {
                 connectionAddresses = _connectionAddresses.get(addressKey);
             }
             else {
-                connectionAddresses = new LinkedList<>();
+                connectionAddresses = new MutableLinkedList<>();
                 _connectionAddresses.put(addressKey, connectionAddresses);
             }
 
@@ -1381,14 +1381,14 @@ public class ElectrumModule {
 
     protected Boolean _removeAddressSubscription(final AddressSubscriptionKey addressKey, final JsonSocket jsonSocket) {
         synchronized (_connectionAddresses) {
-            final LinkedList<ConnectionAddress> connectionAddresses = _connectionAddresses.get(addressKey);
+            final MutableList<ConnectionAddress> connectionAddresses = _connectionAddresses.get(addressKey);
             if (connectionAddresses == null) { return false; }
 
-            final Iterator<ConnectionAddress> iterator = connectionAddresses.iterator();
-            while (iterator.hasNext()) {
-                final ConnectionAddress connectionAddress = iterator.next();
+            final Iterator<ConnectionAddress> mutableIterator = connectionAddresses.mutableIterator();
+            while (mutableIterator.hasNext()) {
+                final ConnectionAddress connectionAddress = mutableIterator.next();
                 if (Util.areEqual(jsonSocket, connectionAddress.connection.get())) {
-                    iterator.remove();
+                    mutableIterator.remove();
                     return true;
                 }
             }
@@ -1646,7 +1646,7 @@ public class ElectrumModule {
 
             final Json transactionsJson = addressTransactionsJson.get("transactions");
             final int transactionCount = transactionsJson.length();
-            final MutableList<TransactionPosition> transactionPositions = new MutableList<>(transactionCount);
+            final MutableList<TransactionPosition> transactionPositions = new MutableArrayList<>(transactionCount);
             for (int i = 0; i < transactionCount; ++i) {
                 final String transactionHashString = transactionsJson.getString(i);
                 final Sha256Hash transactionHash = Sha256Hash.fromHexString(transactionHashString);
@@ -1728,8 +1728,8 @@ public class ElectrumModule {
 
             final Json transactionsJson = addressTransactionsJson.get("transactions");
             final int transactionCount = transactionsJson.length();
-            final MutableList<TransactionPosition> transactionPositions = new MutableList<>(transactionCount);
-            final HashMap<TransactionPosition, MutableList<Json>> transactionPositionJsons = new HashMap<>();
+            final MutableList<TransactionPosition> transactionPositions = new MutableArrayList<>(transactionCount);
+            final MutableMap<TransactionPosition, MutableList<Json>> transactionPositionJsons = new MutableHashMap<>();
             for (int i = 0; i < transactionCount; ++i) {
                 final Json transactionJson = transactionsJson.get(i);
                 final Sha256Hash transactionHash = Sha256Hash.fromHexString(transactionJson.getString("hash"));
@@ -1761,7 +1761,7 @@ public class ElectrumModule {
 
                     MutableList<Json> jsonList = transactionPositionJsons.get(transactionPosition);
                     if (jsonList == null) {
-                        jsonList = new MutableList<>();
+                        jsonList = new MutableArrayList<>();
                         transactionPositionJsons.put(transactionPosition, jsonList);
                     }
 
@@ -2116,21 +2116,21 @@ public class ElectrumModule {
 
                     if (iterationsSinceAddressCleanup >= 20) {
                         synchronized (_connectionAddresses) {
-                            final HashSet<AddressSubscriptionKey> connectionsToRemove = new HashSet<>();
-                            for (final Map.Entry<AddressSubscriptionKey, LinkedList<ConnectionAddress>> entry : _connectionAddresses.entrySet()) {
+                            final MutableHashSet<AddressSubscriptionKey> connectionsToRemove = new MutableHashSet<>();
+                            for (final Tuple<AddressSubscriptionKey, MutableLinkedList<ConnectionAddress>> entry : _connectionAddresses) {
                                 boolean queueHasActiveSocket = false;
 
-                                final AddressSubscriptionKey addressSubscriptionKey = entry.getKey();
-                                final LinkedList<ConnectionAddress> connectionAddresses = entry.getValue();
-                                final Iterator<ConnectionAddress> iterator = connectionAddresses.iterator();
-                                while (iterator.hasNext()) {
-                                    final ConnectionAddress connectionAddress = iterator.next();
+                                final AddressSubscriptionKey addressSubscriptionKey = entry.first;
+                                final MutableList<ConnectionAddress> connectionAddresses = entry.second;
+                                final Iterator<ConnectionAddress> mutableIterator = connectionAddresses.mutableIterator();
+                                while (mutableIterator.hasNext()) {
+                                    final ConnectionAddress connectionAddress = mutableIterator.next();
 
                                     final JsonSocket jsonSocket = connectionAddress.connection.get();
                                     final boolean jsonSocketIsConnected = ( (jsonSocket != null) && jsonSocket.isConnected() );
 
                                     if (! jsonSocketIsConnected) {
-                                        iterator.remove();
+                                        mutableIterator.remove();
                                     }
                                     else {
                                         queueHasActiveSocket = true;
@@ -2215,7 +2215,7 @@ public class ElectrumModule {
 
         _electrumServerSocket.stop();
 
-        for (final JsonSocket socket : _connections.values()) {
+        for (final JsonSocket socket : _connections.getValues()) {
             socket.close();
         }
         _connections.clear();

@@ -23,6 +23,9 @@ import com.softwareverde.bitcoin.test.fake.FakeDifficultyCalculatorContext;
 import com.softwareverde.bitcoin.test.fake.FakeReferenceBlockLoaderContext;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.map.Map;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.util.HashUtil;
 import com.softwareverde.json.Json;
@@ -34,8 +37,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.math.BigInteger;
-import java.util.HashMap;
-import java.util.Map;
+
 
 public class DifficultyCalculatorUnitTests extends UnitTest {
 
@@ -61,7 +63,7 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
         final BlockHeader blockHeader_587198 = blockHeaderInflater.fromBytes(ByteArray.fromHexString("00E0FF3FEA3DA6788DDDFB4BC584A6F342CE5AB6C4C67DDB4319860100000000000000003FB1703177952BCFA51D4AD1A099FE56D5E681266BDF4DAE12941DE9AC685AF3F871055D144703183F87E206"));
         final BlockHeader blockHeader_587199 = blockHeaderInflater.fromBytes(ByteArray.fromHexString("000000208D950B2E905F563F7DD5B268218FC71A5650BCB6A06EB601000000000000000062FAE64FAFFBCE8F47250501AF1C9DEF00585B4668DA8A0B2E635DFC02A5B2CA2972055D0D41031882224C0B"));
 
-        final HashMap<Sha256Hash, Long> blockHeights = new HashMap<>(3);
+        final MutableMap<Sha256Hash, Long> blockHeights = new MutableHashMap<>(3);
         blockHeights.put(blockHeader_587196.getHash(), 587196L);
         blockHeights.put(blockHeader_587197.getHash(), 587197L);
         blockHeights.put(blockHeader_587198.getHash(), 587198L);
@@ -186,9 +188,9 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
         // Setup
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
-        final HashMap<Long, BlockHeader> blockHeaders = new HashMap<>();
-        final HashMap<Long, ChainWork> chainWorks = new HashMap<>();
-        final HashMap<Long, MedianBlockTime> medianBlockTimes = new HashMap<>();
+        final MutableMap<Long, BlockHeader> blockHeaders = new MutableHashMap<>();
+        final MutableMap<Long, ChainWork> chainWorks = new MutableHashMap<>();
+        final MutableMap<Long, MedianBlockTime> medianBlockTimes = new MutableHashMap<>();
 
         {
             final Long blockHeight = 587051L;
@@ -299,8 +301,8 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
         final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
         final FakeDifficultyCalculatorContext difficultyCalculatorContext = new FakeDifficultyCalculatorContext(upgradeSchedule);
-        final HashMap<Long, BlockHeader> blockHeaders = difficultyCalculatorContext.getBlockHeaders();
-        final HashMap<Long, MedianBlockTime> medianBlockTimes = difficultyCalculatorContext.getMedianBlockTimes();
+        final MutableMap<Long, BlockHeader> blockHeaders = difficultyCalculatorContext.getBlockHeaders();
+        final MutableMap<Long, MedianBlockTime> medianBlockTimes = difficultyCalculatorContext.getMedianBlockTimes();
 
         {
             final Long blockHeight = 499962L;
@@ -341,8 +343,8 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
         final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
         final FakeBlockHeaderValidatorContext context = new FakeBlockHeaderValidatorContext(new MutableNetworkTime(), upgradeSchedule);
-        final HashMap<Long, BlockHeader> blockHeaders = context.getBlockHeaders();
-        final HashMap<Long, MedianBlockTime> medianBlockTimes = context.getMedianBlockTimes();
+        final MutableMap<Long, BlockHeader> blockHeaders = context.getBlockHeaders();
+        final MutableMap<Long, MedianBlockTime> medianBlockTimes = context.getMedianBlockTimes();
 
         {
             final long blockHeight = 478575L;
@@ -415,9 +417,9 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
                 }
             }
         };
-        final HashMap<Long, BlockHeader> blockHeaders = difficultyCalculatorContext.getBlockHeaders();
-        final HashMap<Long, MedianBlockTime> medianBlockTimes = difficultyCalculatorContext.getMedianBlockTimes();
-        final HashMap<Long, ChainWork> chainWorks = difficultyCalculatorContext.getChainWorks();
+        final MutableMap<Long, BlockHeader> blockHeaders = difficultyCalculatorContext.getBlockHeaders();
+        final MutableMap<Long, MedianBlockTime> medianBlockTimes = difficultyCalculatorContext.getMedianBlockTimes();
+        final MutableMap<Long, ChainWork> chainWorks = difficultyCalculatorContext.getChainWorks();
 
         { // Inflate the context from the testnet json resource...
             final int headerCount = headersObjectJson.length();

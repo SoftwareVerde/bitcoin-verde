@@ -37,7 +37,11 @@ import com.softwareverde.bitcoin.transaction.script.slp.genesis.SlpGenesisScript
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.Map;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.json.Json;
@@ -45,8 +49,7 @@ import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
 import java.math.BigInteger;
-import java.util.HashMap;
-import java.util.Map;
+
 
 public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
 
@@ -153,7 +156,7 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
         }
 
         { // Process TransactionInputs...
-            final HashMap<Sha256Hash, Transaction> cachedTransactions = new HashMap<>(8);
+            final MutableMap<Sha256Hash, Transaction> cachedTransactions = new MutableHashMap<>(8);
 
             int transactionInputIndex = 0;
             for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
@@ -239,7 +242,7 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
             }
         }
 
-        final MutableList<MemoAction> memoActions = new MutableList<>();
+        final MutableList<MemoAction> memoActions = new MutableArrayList<>();
         { // Process TransactionOutputs...
             int transactionOutputIndex = 0;
             for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {

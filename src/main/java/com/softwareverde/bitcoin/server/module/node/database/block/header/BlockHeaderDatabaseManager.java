@@ -10,11 +10,10 @@ import com.softwareverde.bitcoin.server.module.node.database.Visitor;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockMetadata;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.map.Map;
 import com.softwareverde.constable.set.Set;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
-
-import java.util.Map;
 
 public interface BlockHeaderDatabaseManager {
     Object MUTEX = new Object();

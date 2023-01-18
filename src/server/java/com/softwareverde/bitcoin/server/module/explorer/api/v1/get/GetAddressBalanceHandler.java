@@ -16,6 +16,7 @@ import com.softwareverde.util.Util;
 
 import java.util.Map;
 
+
 public class GetAddressBalanceHandler implements RequestHandler<Environment> {
 
     protected final AddressInflater _addressInflater = new AddressInflater();

@@ -14,6 +14,7 @@ import com.softwareverde.bitcoin.test.fake.FakeBitcoinNode;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
@@ -68,7 +69,7 @@ public class UtxoCommitmentDownloaderTests extends UnitTest {
     }
 
     public static List<UtxoCommitmentBucket> inflateUtxoCommitmentBuckets(final String bucketResource, final String subBucketsResource) {
-        final MutableList<UtxoCommitmentBucket> utxoCommitmentBuckets = new MutableList<>();
+        final MutableList<UtxoCommitmentBucket> utxoCommitmentBuckets = new MutableArrayList<>();
 
         final String bucketsCsv = IoUtil.getResource(bucketResource);
         final String subBucketsCsv = (subBucketsResource != null ? IoUtil.getResource(subBucketsResource) : "");
@@ -80,7 +81,7 @@ public class UtxoCommitmentDownloaderTests extends UnitTest {
             final PublicKey bucketPublicKey = PublicKey.fromBytes(ByteArray.fromHexString(fields[0]));
             final Long bucketByteCount = Util.parseLong(fields[1]);
 
-            final MutableList<UtxoCommitmentSubBucket> subBuckets = new MutableList<>();
+            final MutableList<UtxoCommitmentSubBucket> subBuckets = new MutableArrayList<>();
             if (subBucketsResource != null) {
                 final String subBucketLine = subBucketLines[bucketIndex];
                 final String[] subBucketFields = subBucketLine.split(",");
@@ -116,7 +117,7 @@ public class UtxoCommitmentDownloaderTests extends UnitTest {
                 (new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        final MutableList<NodeSpecificUtxoCommitmentBreakdown> utxoCommitmentBreakdowns = new MutableList<>();
+                        final MutableList<NodeSpecificUtxoCommitmentBreakdown> utxoCommitmentBreakdowns = new MutableArrayList<>();
 
                         { // UTXO Commit 680000
                             final List<UtxoCommitmentBucket> utxoCommitmentBuckets = UtxoCommitmentDownloaderTests.inflateUtxoCommitmentBuckets("/utxo/030B9820CB8174C850FD89A208193C45370AD190F3E80578A1D5243051A4F86A07_buckets.csv", null);

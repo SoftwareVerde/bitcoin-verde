@@ -9,7 +9,9 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.utxo.UtxoDatabaseSubBucket;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.EcMultiset;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
@@ -17,7 +19,6 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 
 import java.util.Comparator;
-import java.util.HashMap;
 
 public class UtxoCommitmentDatabaseManager {
     protected final FullNodeDatabaseManager _databaseManager;
@@ -115,19 +116,16 @@ public class UtxoCommitmentDatabaseManager {
         final Sha256Hash ecMultisetHash = UtxoCommitmentDatabaseManager.calculateEcMultisetHash(utxoCommitmentMetadata.publicKey);
         _setUtxoCommitmentHash(utxoCommitmentId, ecMultisetHash, utxoCommitmentMetadata.publicKey);
 
-        final HashMap<Integer, EcMultiset> bucketHashes = new HashMap<>();
-        final HashMap<Integer, MutableList<UtxoDatabaseSubBucket>> bucketFiles = new HashMap<>();
+        final MutableHashMap<Integer, EcMultiset> bucketHashes = new MutableHashMap<>();
+        final MutableHashMap<Integer, MutableList<UtxoDatabaseSubBucket>> bucketFiles = new MutableHashMap<>();
         for (final UtxoDatabaseSubBucket subBucket : utxoCommitmentFiles) {
-            bucketFiles.putIfAbsent(subBucket.bucketIndex, new MutableList<>());
-            bucketHashes.putIfAbsent(subBucket.bucketIndex, new EcMultiset());
-
-            final MutableList<UtxoDatabaseSubBucket> subBuckets = bucketFiles.get(subBucket.bucketIndex);
+            final MutableList<UtxoDatabaseSubBucket> subBuckets = bucketFiles.getOrPut(subBucket.bucketIndex, MutableArrayList::new);
             subBuckets.add(subBucket);
 
-            final EcMultiset bucketHash = bucketHashes.get(subBucket.bucketIndex);
+            final EcMultiset bucketHash = bucketHashes.getOrPut(subBucket.bucketIndex, EcMultiset::new);
             bucketHash.add(subBucket.subBucketPublicKey);
         }
-        for (final MutableList<UtxoDatabaseSubBucket> subBuckets : bucketFiles.values()) {
+        for (final MutableList<UtxoDatabaseSubBucket> subBuckets : bucketFiles.getValues()) {
             subBuckets.sort(new Comparator<UtxoDatabaseSubBucket>() {
                 @Override
                 public int compare(final UtxoDatabaseSubBucket subBucket0, final UtxoDatabaseSubBucket subBucket1) {
@@ -136,7 +134,7 @@ public class UtxoCommitmentDatabaseManager {
             });
         }
 
-        for (final Integer bucketIndex : bucketHashes.keySet()) {
+        for (final Integer bucketIndex : bucketHashes.getKeys()) {
             final EcMultiset bucketHash = bucketHashes.get(bucketIndex);
             final List<UtxoDatabaseSubBucket> subBuckets = bucketFiles.get(bucketIndex);
 

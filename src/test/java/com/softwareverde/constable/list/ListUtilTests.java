@@ -1,6 +1,7 @@
 package com.softwareverde.constable.list;
 
 import com.softwareverde.bitcoin.test.UnitTest;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import org.junit.After;
 import org.junit.Assert;
@@ -21,7 +22,7 @@ public class ListUtilTests extends UnitTest {
     @Test
     public void should_reverse_list_empty() throws Exception {
         // Setup
-        final MutableList<Integer> mutableList = new MutableList<>(0);
+        final MutableList<Integer> mutableList = new MutableArrayList<>(0);
 
         // Action
         ListUtil.reverse(mutableList);
@@ -33,7 +34,7 @@ public class ListUtilTests extends UnitTest {
     @Test
     public void should_reverse_list_even() throws Exception {
         // Setup
-        final MutableList<Integer> mutableList = new MutableList<>(8);
+        final MutableList<Integer> mutableList = new MutableArrayList<>(8);
         for (int i = 0; i < 8; ++i) {
             mutableList.add(i);
         }
@@ -55,7 +56,7 @@ public class ListUtilTests extends UnitTest {
     @Test
     public void should_reverse_list_odd() throws Exception {
         // Setup
-        final MutableList<Integer> mutableList = new MutableList<>(7);
+        final MutableList<Integer> mutableList = new MutableArrayList<>(7);
         for (int i = 0; i < 7; ++i) {
             mutableList.add(i);
         }

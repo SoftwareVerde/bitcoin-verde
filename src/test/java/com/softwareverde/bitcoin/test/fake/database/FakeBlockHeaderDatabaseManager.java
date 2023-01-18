@@ -13,11 +13,12 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManagerCore;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.MedianBlockTimeDatabaseManagerUtil;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.map.Map;
 import com.softwareverde.constable.set.Set;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 
-import java.util.Map;
+
 
 public interface FakeBlockHeaderDatabaseManager extends BlockHeaderDatabaseManager {
     static MutableMedianBlockTime newInitializedMedianBlockTime(final BlockHeaderDatabaseManager blockDatabaseManager, final Sha256Hash headBlockHash) throws DatabaseException {

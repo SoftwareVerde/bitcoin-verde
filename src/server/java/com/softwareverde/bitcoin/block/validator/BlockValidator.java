@@ -31,6 +31,7 @@ import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableArrayListBuilder;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
@@ -202,7 +203,7 @@ public class BlockValidator {
         if (currentThread.isInterrupted()) { BlockValidationResult.invalid("Validation aborted."); } // Bail out if an abort occurred...
         if (transactionValidationTaskResults == null) { return BlockValidationResult.invalid("An internal error occurred during InputsValidatorTask."); }
 
-        final MutableList<Sha256Hash> invalidTransactions = new MutableList<>();
+        final MutableList<Sha256Hash> invalidTransactions = new MutableArrayList<>();
 
         final long totalTransactionFees;
         {

@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.server.stratum.task.StratumUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
@@ -16,7 +17,7 @@ public class MinerNotifyMessage extends RequestMessage {
     protected Sha256Hash _previousBlockHash;
     protected ByteArray _coinbaseTransactionHead;
     protected ByteArray _coinbaseTransactionTail;
-    protected final MutableList<Sha256Hash> _littleEndianMerkleTreeBranches = new MutableList<>(0);
+    protected final MutableList<Sha256Hash> _littleEndianMerkleTreeBranches = new MutableArrayList<>(0);
     protected Long _blockVersion;
     protected Difficulty _blockDifficulty;
     protected Long _blockTimestamp;

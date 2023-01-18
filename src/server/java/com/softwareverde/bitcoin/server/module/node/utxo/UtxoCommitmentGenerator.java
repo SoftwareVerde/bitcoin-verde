@@ -34,7 +34,10 @@ import com.softwareverde.bitcoin.util.BlockUtil;
 import com.softwareverde.concurrent.service.PausableSleepyService;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.Map;
+import com.softwareverde.constable.map.mutable.MutableTreeMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.EcMultiset;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
@@ -54,8 +57,6 @@ import com.softwareverde.util.timer.NanoTimer;
 
 import java.io.File;
 import java.util.HashSet;
-import java.util.Map;
-import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -195,12 +196,12 @@ public class UtxoCommitmentGenerator extends PausableSleepyService {
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
         final UtxoCommitmentId utxoCommitmentId = utxoCommitmentDatabaseManager.createUtxoCommitment(blockId);
         final EcMultiset utxoCommitMultiset = new EcMultiset();
-        final MutableList<File> utxoCommitmentFiles = new MutableList<>(UtxoCommitment.BUCKET_COUNT);
+        final MutableList<File> utxoCommitmentFiles = new MutableArrayList<>(UtxoCommitment.BUCKET_COUNT);
 
         final int batchSize = Math.min(1024, databaseManager.getMaxQueryBatchSize());
         final AtomicInteger objectMemoryCount = new AtomicInteger(0);
 
-        final MutableList<BucketFile> bucketQueues = new MutableList<>(UtxoCommitment.BUCKET_COUNT);
+        final MutableList<BucketFile> bucketQueues = new MutableArrayList<>(UtxoCommitment.BUCKET_COUNT);
         for (int i = 0; i < UtxoCommitment.BUCKET_COUNT; ++i) {
             bucketQueues.add(new BucketFile(i, _outputDirectory, UtxoCommitment.MAX_BUCKET_BYTE_COUNT));
         }
@@ -208,7 +209,7 @@ public class UtxoCommitmentGenerator extends PausableSleepyService {
         final Runtime runtime = Runtime.getRuntime();
         final int threadCount = Math.max(1, (runtime.availableProcessors() / 2));
         final Container<Exception> exceptionContainer = new Container<>(null);
-        final MutableList<Tuple<Thread, AtomicBoolean>> threads = new MutableList<>(threadCount);
+        final MutableList<Tuple<Thread, AtomicBoolean>> threads = new MutableArrayList<>(threadCount);
         for (int i = 0; i < threadCount; ++i) {
             final int minIndex = i * (UtxoCommitment.BUCKET_COUNT / threadCount);
             final int maxIndex;
@@ -546,10 +547,10 @@ public class UtxoCommitmentGenerator extends PausableSleepyService {
             final int transactionOutputCount = blockUtxoDiff.unspentTransactionOutputIdentifiers.getCount();
 
             final Map<TransactionOutputIdentifier, TransactionOutput> unspentTransactionOutputMap;
-            final MutableList<TransactionOutputIdentifier> sortedSpentIdentifiers = new MutableList<>(spentTransactionOutputCount);
-            final MutableList<TransactionOutputIdentifier> sortedUnspentIdentifiers = new MutableList<>(transactionOutputCount);
+            final MutableList<TransactionOutputIdentifier> sortedSpentIdentifiers = new MutableArrayList<>(spentTransactionOutputCount);
+            final MutableList<TransactionOutputIdentifier> sortedUnspentIdentifiers = new MutableArrayList<>(transactionOutputCount);
             {
-                final TreeMap<TransactionOutputIdentifier, TransactionOutput> sortedUnspentTransactionOutputIdentifierMap = new TreeMap<>();
+                final MutableTreeMap<TransactionOutputIdentifier, TransactionOutput> sortedUnspentTransactionOutputIdentifierMap = new MutableTreeMap<>();
                 for (int i = 0; i < transactionOutputCount; ++i) {
                     final TransactionOutputIdentifier transactionOutputIdentifier = blockUtxoDiff.unspentTransactionOutputIdentifiers.get(i);
                     final TransactionOutput transactionOutput = blockUtxoDiff.unspentTransactionOutputs.get(i);
@@ -563,7 +564,7 @@ public class UtxoCommitmentGenerator extends PausableSleepyService {
                 }
 
                 // Exclude the creation of block outputs that are also deleted by this block...
-                for (final TransactionOutputIdentifier transactionOutputIdentifier : sortedUnspentTransactionOutputIdentifierMap.keySet()) {
+                for (final TransactionOutputIdentifier transactionOutputIdentifier : sortedUnspentTransactionOutputIdentifierMap.getKeys()) {
                     final boolean outputIdentifierWasSpentInThisBlock = sortedSpentIdentifiersHashSet.remove(transactionOutputIdentifier);
                     if (! outputIdentifierWasSpentInThisBlock) {
                         sortedUnspentIdentifiers.add(transactionOutputIdentifier);

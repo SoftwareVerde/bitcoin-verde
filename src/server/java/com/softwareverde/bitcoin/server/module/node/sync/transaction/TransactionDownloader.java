@@ -12,18 +12,18 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.Map;
+import com.softwareverde.constable.map.mutable.ConcurrentMutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.set.Set;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.Tuple;
 import com.softwareverde.util.timer.MilliTimer;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class TransactionDownloader extends SleepyService {
     public static final Integer MAX_DOWNLOAD_FAILURE_COUNT = 10;
@@ -34,10 +34,10 @@ public class TransactionDownloader extends SleepyService {
 
     protected final BitcoinNodeManager _bitcoinNodeManager;
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
-    protected final Map<Sha256Hash, MilliTimer> _currentTransactionDownloadSet = new ConcurrentHashMap<>();
+    protected final ConcurrentMutableHashMap<Sha256Hash, MilliTimer> _currentTransactionDownloadSet = new ConcurrentMutableHashMap<>();
     protected final BitcoinNode.DownloadTransactionCallback _transactionDownloadedCallback;
 
-    protected final ConcurrentHashMap<Sha256Hash, Tuple<RequestId, BitcoinNode>> _pendingRequests = new ConcurrentHashMap<>();
+    protected final ConcurrentMutableHashMap<Sha256Hash, Tuple<RequestId, BitcoinNode>> _pendingRequests = new ConcurrentMutableHashMap<>();
 
     protected Runnable _newTransactionAvailableCallback = null;
 
@@ -68,8 +68,8 @@ public class TransactionDownloader extends SleepyService {
     //  This function should not be necessary, and is a work-around for a bug within the NodeManager that is causing onFailure to not be triggered.
     // TODO: Investigate why onFailure is not being invoked by the BitcoinNodeManager.
     protected void _checkForStalledDownloads() {
-        final MutableList<Sha256Hash> stalledTransactionHashes = new MutableList<>();
-        for (final Sha256Hash transactionHash : _currentTransactionDownloadSet.keySet()) {
+        final MutableList<Sha256Hash> stalledTransactionHashes = new MutableArrayList<>();
+        for (final Sha256Hash transactionHash : _currentTransactionDownloadSet.getKeys()) {
             final MilliTimer milliTimer = _currentTransactionDownloadSet.get(transactionHash);
             if (milliTimer == null) {
                 stalledTransactionHashes.add(transactionHash);
@@ -106,7 +106,7 @@ public class TransactionDownloader extends SleepyService {
         _checkForStalledDownloads();
 
         { // Determine if routine should wait for a request to complete...
-            int currentDownloadCount = _currentTransactionDownloadSet.size();
+            int currentDownloadCount = _currentTransactionDownloadSet.getCount();
             while (currentDownloadCount >= maximumConcurrentDownloadCount) {
                 synchronized (_downloadCallbackPin) {
                     final MilliTimer waitTimer = new MilliTimer();
@@ -119,13 +119,13 @@ public class TransactionDownloader extends SleepyService {
 
                     if (waitTimer.getMillisecondsElapsed() > MAX_TIMEOUT) {
                         Logger.warn("Transaction download stalled.");
-                        _markPendingTransactionIdsAsFailed(_currentTransactionDownloadSet.keySet());
+                        _markPendingTransactionIdsAsFailed(_currentTransactionDownloadSet.getKeys());
                         _currentTransactionDownloadSet.clear();
                         return false;
                     }
                 }
 
-                currentDownloadCount = _currentTransactionDownloadSet.size();
+                currentDownloadCount = _currentTransactionDownloadSet.getCount();
             }
         }
 
@@ -134,7 +134,7 @@ public class TransactionDownloader extends SleepyService {
             final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = databaseManager.getPendingTransactionDatabaseManager();
 
             final List<BitcoinNode> nodes = _bitcoinNodeManager.getNodes();
-            final HashMap<NodeId, BitcoinNode> nodeMap = new HashMap<>();
+            final MutableHashMap<NodeId, BitcoinNode> nodeMap = new MutableHashMap<>();
             final List<NodeId> nodeIds;
             {
                 final ImmutableListBuilder<NodeId> listBuilder = new ImmutableListBuilder<>(nodes.getCount());
@@ -151,10 +151,10 @@ public class TransactionDownloader extends SleepyService {
             final Map<NodeId, ? extends List<PendingTransactionId>> downloadPlan = pendingTransactionDatabaseManager.selectIncompletePendingTransactions(nodeIds);
             if (downloadPlan.isEmpty()) { return false; }
 
-            for (final NodeId nodeId : downloadPlan.keySet()) {
-                if (_currentTransactionDownloadSet.size() >= maximumConcurrentDownloadCount) { break; }
+            for (final NodeId nodeId : downloadPlan.getKeys()) {
+                if (_currentTransactionDownloadSet.getCount() >= maximumConcurrentDownloadCount) { break; }
                 final List<PendingTransactionId> pendingTransactionIds = downloadPlan.get(nodeId);
-                final MutableList<Sha256Hash> pendingTransactionHashes = new MutableList<>(pendingTransactionIds.getCount());
+                final MutableList<Sha256Hash> pendingTransactionHashes = new MutableArrayList<>(pendingTransactionIds.getCount());
                 for (final PendingTransactionId pendingTransactionId : pendingTransactionIds) {
                     final Sha256Hash transactionHash = pendingTransactionDatabaseManager.getPendingTransactionHash(pendingTransactionId);
                     if (transactionHash == null) { continue; }

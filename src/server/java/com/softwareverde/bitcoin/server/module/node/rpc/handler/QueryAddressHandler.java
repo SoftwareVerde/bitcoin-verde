@@ -15,13 +15,14 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.SortUtil;
-
-import java.util.HashMap;
 
 public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
@@ -61,8 +62,8 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
             transactionIds = blockchainIndexerDatabaseManager.getTransactionIds(headChainSegmentId, scriptHash, true);
         }
 
-        final MutableList<T> pendingTransactions = new MutableList<>(0);
-        final HashMap<Long, MutableList<T>> transactionTimestamps = new HashMap<>(transactionIds.getCount());
+        final MutableList<T> pendingTransactions = new MutableArrayList<>(0);
+        final MutableMap<Long, MutableList<T>> transactionTimestamps = new MutableHashMap<>(transactionIds.getCount());
 
         for (final TransactionId transactionId : transactionIds) {
             final BlockId blockId = transactionDatabaseManager.getBlockId(headChainSegmentId, transactionId);
@@ -79,7 +80,7 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
 
                 MutableList<T> transactions = transactionTimestamps.get(transactionTimestamp);
                 if (transactions == null) {
-                    transactions = new MutableList<>(1);
+                    transactions = new MutableArrayList<>(1);
                     transactionTimestamps.put(transactionTimestamp, transactions);
                 }
 
@@ -94,7 +95,7 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
 
         final ImmutableListBuilder<T> transactions = new ImmutableListBuilder<>(transactionIds.getCount());
         { // Add the Transactions in descending order by timestamp...
-            final MutableList<Long> timestamps = new MutableList<>(transactionTimestamps.keySet());
+            final MutableList<Long> timestamps = new MutableArrayList<>(transactionTimestamps.getKeys());
             timestamps.sort(SortUtil.longComparator.reversed());
 
             transactions.addAll(pendingTransactions); // Display unconfirmed transactions first...
