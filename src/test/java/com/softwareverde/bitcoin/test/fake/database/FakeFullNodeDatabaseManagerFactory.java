@@ -10,7 +10,7 @@ import com.softwareverde.database.DatabaseException;
 public class FakeFullNodeDatabaseManagerFactory extends FullNodeDatabaseManagerFactory {
 
     public FakeFullNodeDatabaseManagerFactory() {
-        super(null, null, null, null, null, null, null);
+        super(null, null, null, null, null, null, null, null);
     }
 
     protected BlockchainDatabaseManager _blockchainDatabaseManager = new FakeBlockchainDatabaseManager() { };

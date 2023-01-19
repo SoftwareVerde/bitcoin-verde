@@ -86,6 +86,18 @@ public class TransactionOutputDeflater {
         return _getScriptBytes(transactionOutput);
     }
 
+    public Integer getLegacyScriptByteCount(final TransactionOutput transactionOutput) {
+        final LockingScript lockingScript = transactionOutput.getLockingScript();
+        final int lockingScriptByteCount = lockingScript.getByteCount();
+
+        final CashToken cashToken = transactionOutput.getCashToken();
+        if (cashToken != null) {
+            return (lockingScriptByteCount + cashToken.getByteCount());
+        }
+
+        return lockingScriptByteCount;
+    }
+
     public Json toJson(final TransactionOutput transactionOutput) {
         final Boolean isTokenAware = transactionOutput.hasCashToken();
         final CashToken cashToken = transactionOutput.getCashToken();

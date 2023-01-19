@@ -458,7 +458,8 @@ public class NodeModule {
             _masterInflater,
             _checkpointConfiguration,
             _bitcoinProperties.getMaxCachedUtxoCount(),
-            _bitcoinProperties.getUtxoCachePurgePercent()
+            _bitcoinProperties.getUtxoCachePurgePercent(),
+            new File(bitcoinProperties.getDataDirectory() + "/filedb")
         );
         _databaseManagerFactory = databaseManagerFactory;
 

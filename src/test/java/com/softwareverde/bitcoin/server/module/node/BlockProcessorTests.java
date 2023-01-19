@@ -712,7 +712,7 @@ public class BlockProcessorTests extends IntegrationTest {
         final TransactionInflaters transactionInflaters = _masterInflater;
         final FakeBlockInflaters blockInflaters = new FakeBlockInflaters();
 
-        final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(_databaseConnectionFactory, _database.getMaxQueryBatchSize(), _propertiesStore, _blockStore, _utxoCommitmentStore, _masterInflater, _checkpointConfiguration) {
+        final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(_databaseConnectionFactory, _database.getMaxQueryBatchSize(), _propertiesStore, _blockStore, _utxoCommitmentStore, _masterInflater, _checkpointConfiguration, null) {
             protected final MutableMap<Sha256Hash, TransactionId> _transactionIds = new MutableHashMap<>();
             protected final MutableMap<TransactionId, Transaction> _transactions = new MutableHashMap<>();
 

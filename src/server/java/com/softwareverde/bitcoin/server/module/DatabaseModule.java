@@ -34,7 +34,8 @@ public class DatabaseModule {
             inflater,
             new TestNetCheckpointConfiguration(),
             1073741824L,
-            0.5F
+            0.5F,
+            null
         );
 
         try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
