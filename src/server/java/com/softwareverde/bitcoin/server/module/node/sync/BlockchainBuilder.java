@@ -25,8 +25,6 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
@@ -85,23 +83,6 @@ public class BlockchainBuilder extends GracefulSleepyService {
                     asynchronousNewBlockProcessedCallback.onNewBlock(processBlockResult);
                 }
             });
-        }
-    }
-
-    protected void _checkUtxoSet(final FullNodeDatabaseManager databaseManager) throws DatabaseException {
-        if (! UnspentTransactionOutputDatabaseManager.isUtxoCacheReady()) {
-            final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
-
-            Logger.info("Rebuilding UTXO set.");
-            final NanoTimer nanoTimer = new NanoTimer();
-            nanoTimer.start();
-
-            final Long utxoCommitFrequency = _blockProcessor.getUtxoCommitFrequency();
-            final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, utxoCommitFrequency);
-            unspentTransactionOutputManager.buildUtxoSet(databaseManagerFactory);
-
-            nanoTimer.stop();
-            Logger.trace("Rebuilt UTXO set in " + nanoTimer.getMillisecondsElapsed() + "ms.");
         }
     }
 
@@ -321,8 +302,6 @@ public class BlockchainBuilder extends GracefulSleepyService {
 
                     return false;
                 }
-
-                _checkUtxoSet(databaseManager);
 
                 final Block nextBlock;
                 final Long nextBlockHeight;

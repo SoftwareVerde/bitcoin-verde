@@ -33,6 +33,7 @@ public class MutableVersionedHashMap<Key, Value> implements VersionedMap<Key, Va
     protected Value _get(final Key key, final Integer version) {
         for (int i = version; i > 0; i -= 1) {
             final MutableMap<Key, Value> versionMap = _stagedValues.get(i);
+            if (versionMap == null) { continue; }
             final Value value = versionMap.get(key);
             if (value != null) { return value; }
             else if (versionMap.containsKey(key)) { return null; } // Key's value was set to null...
@@ -44,6 +45,7 @@ public class MutableVersionedHashMap<Key, Value> implements VersionedMap<Key, Va
     protected Boolean _containsKey(final Key key, final Integer version) {
         for (int i = version; i > 0; i -= 1) {
             final MutableMap<Key, Value> versionMap = _stagedValues.get(i);
+            if (versionMap == null) { continue; }
             if (versionMap.containsKey(key)) { return true; }
         }
 
@@ -54,6 +56,7 @@ public class MutableVersionedHashMap<Key, Value> implements VersionedMap<Key, Va
         for (int i = version; i > 0; i -= 1) {
             final int mapVersion = i;
             final MutableMap<Key, Value> versionMap = _stagedValues.get(mapVersion);
+            if (versionMap == null) { continue; }
 
             final MutableMap.MutableVisitor<Key, Value> internalVisitor = new MutableMap.MutableVisitor<>() {
                 @Override
@@ -156,6 +159,7 @@ public class MutableVersionedHashMap<Key, Value> implements VersionedMap<Key, Va
 
         for (int i = 1; i <= hashMap._version; i += 1) {
             final MutableMap<Key, Value> versionMap = hashMap._stagedValues.get(i);
+            if (versionMap == null) { continue; }
             _committedValues.putAll(versionMap);
         }
     }
@@ -165,7 +169,11 @@ public class MutableVersionedHashMap<Key, Value> implements VersionedMap<Key, Va
             _committedValues.put(key, value);
         }
         else {
-            final MutableMap<Key, Value> versionMap = _stagedValues.get(_version);
+            MutableMap<Key, Value> versionMap = _stagedValues.get(_version);
+            if (versionMap == null) {
+                versionMap = new MutableHashMap<>();
+                _stagedValues.put(_version, versionMap);
+            }
             versionMap.put(key, value);
         }
     }
@@ -199,6 +207,7 @@ public class MutableVersionedHashMap<Key, Value> implements VersionedMap<Key, Va
 
         for (int i = _version; i > 0; i -= 1) {
             final MutableMap<Key, Value> versionMap = _stagedValues.get(i);
+            if (versionMap == null) { continue; }
             itemCount += versionMap.getCount();
         }
 
@@ -210,6 +219,7 @@ public class MutableVersionedHashMap<Key, Value> implements VersionedMap<Key, Va
 
         for (int i = _version; i > 0; i -= 1) {
             final MutableMap<Key, Value> versionMap = _stagedValues.get(i);
+            if (versionMap == null) { continue; }
             for (final Key key : versionMap.getKeys()) {
                 keySet.add(key);
             }
@@ -228,6 +238,7 @@ public class MutableVersionedHashMap<Key, Value> implements VersionedMap<Key, Va
 
         for (int i = _version; i > 0; i -= 1) {
             final MutableMap<Key, Value> versionMap = _stagedValues.get(i);
+            if (versionMap == null) { continue; }
             for (final Value value : versionMap.getValues()) {
                 valueSet.add(value);
             }

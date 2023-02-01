@@ -55,12 +55,10 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullNodeBitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.CacheLoadingMethod;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.CommitAsyncMode;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UndoLogDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputJvmManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputFileDbManager;
 import com.softwareverde.bitcoin.server.module.node.handler.BlockInventoryMessageHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.MemoryPoolEnquirerHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.QueryUtxoCommitmentsHandler;
@@ -188,6 +186,7 @@ public class NodeModule {
     protected final UtxoCommitmentGenerator _utxoCommitmentGenerator;
     protected final UtxoCommitmentDownloader _utxoCommitmentDownloader;
     protected final List<SleepyService> _allServices;
+    protected final UnspentTransactionOutputDatabaseManager _unspentTransactionOutputDatabaseManager;
 
     protected final BitcoinNodeFactory _bitcoinNodeFactory;
     protected final DifficultyCalculatorFactory _difficultyCalculatorFactory;
@@ -264,30 +263,20 @@ public class NodeModule {
         Logger.info("[Stopping Node Manager]");
         _bitcoinNodeManager.shutdown();
 
+        Logger.info("Saving UTXO DB");
+        try {
+            _unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(null, null);
+        }
+        catch (final Exception exception) {
+            Logger.warn("Unable to save UTXO DB.", exception);
+        }
+
         Logger.info("[Stopping Socket Server]");
         _socketServer.stop();
 
         if (_blockPruner != null) {
             Logger.info("[Stopping BlockPruner]");
             _blockPruner.stop();
-        }
-
-        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
-            if (unspentTransactionOutputDatabaseManager instanceof UnspentTransactionOutputJvmManager) {
-                Logger.info("[Saving UTXO Cache]");
-
-                final UnspentTransactionOutputJvmManager unspentTransactionOutputJvmManager = (UnspentTransactionOutputJvmManager) unspentTransactionOutputDatabaseManager;
-                if (_utxoCacheLoadFileIsEnabled) {
-                    unspentTransactionOutputJvmManager.writeUtxoCacheLoadFile();
-                }
-                else {
-                    unspentTransactionOutputJvmManager.deleteUtxoCacheLoadFile();
-                }
-            }
-        }
-        catch (final DatabaseException exception) {
-            Logger.warn(exception);
         }
 
         Logger.info("[Committing UTXO Set]");
@@ -360,6 +349,15 @@ public class NodeModule {
 
         _systemTime = new SystemTime();
         _masterInflater = new CoreInflater();
+
+        try {
+            final File fileDbDirectory = new File(bitcoinProperties.getDataDirectory() + "/filedb");
+            _unspentTransactionOutputDatabaseManager = new UnspentTransactionOutputFileDbManager(fileDbDirectory);
+        }
+        catch (final Exception exception) {
+            Logger.warn("Unable to initialize FileDb.", exception);
+            throw new RuntimeException(exception);
+        }
 
         { // Upgrade Schedule
             if (bitcoinProperties.isTestNet()) {
@@ -459,7 +457,7 @@ public class NodeModule {
             _checkpointConfiguration,
             _bitcoinProperties.getMaxCachedUtxoCount(),
             _bitcoinProperties.getUtxoCachePurgePercent(),
-            new File(bitcoinProperties.getDataDirectory() + "/filedb")
+            _unspentTransactionOutputDatabaseManager
         );
         _databaseManagerFactory = databaseManagerFactory;
 
@@ -1251,32 +1249,6 @@ public class NodeModule {
             }
         }
 
-        { // Validate the UTXO set is up to date...
-            Logger.info("[Checking UTXO Set]");
-            try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                final long utxoCommitFrequency = _getUtxoCommitFrequency();
-                final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, utxoCommitFrequency);
-
-                if (_rebuildUtxoSet) {
-                    Logger.info("Rebuilding UTXO set from genesis.");
-                    unspentTransactionOutputManager.rebuildUtxoSetFromGenesisBlock(databaseManagerFactory, UndoLogDatabaseManager.MAX_REORG_DEPTH.longValue(), new Runnable() {
-                        @Override
-                        public void run() {
-                            _utxoCommitmentGenerator.wakeUp();
-                        }
-                    });
-                }
-                else {
-                    unspentTransactionOutputManager.buildUtxoSet(databaseManagerFactory);
-                }
-            }
-            catch (final DatabaseException exception) {
-                Logger.error(exception);
-                _shutdown();
-                System.exit(1);
-            }
-        }
-
         if (_bitcoinProperties.isBlockchainCacheEnabled()) { // Warm up the DB Cache...
             Logger.info("[Warming DB Cache]");
             try {
@@ -1286,37 +1258,6 @@ public class NodeModule {
                 Logger.error(exception);
                 _shutdown();
                 System.exit(1);
-            }
-        }
-
-        { // Warm up the UTXO cache...
-            try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
-                if (unspentTransactionOutputDatabaseManager instanceof UnspentTransactionOutputJvmManager) {
-                    Logger.info("[Warming UTXO Cache]");
-
-                    final UnspentTransactionOutputJvmManager unspentTransactionOutputJvmManager = (UnspentTransactionOutputJvmManager) unspentTransactionOutputDatabaseManager;
-                    final Boolean utxoCacheFileExists = unspentTransactionOutputJvmManager.doesUtxoCacheLoadFileExist();
-                    // The LOAD_VIA_RECENT_TRANSACTIONS depends on the transactions table being populated which is (effectively) unavailable in pruning mode.
-
-                    final CacheLoadingMethod cacheLoadingMethod;
-                    if (utxoCacheFileExists && _utxoCacheLoadFileIsEnabled) {
-                        cacheLoadingMethod = CacheLoadingMethod.LOAD_VIA_UTXO_LOAD_FILE;
-                    }
-                    else {
-                        cacheLoadingMethod =  (! pruningModeIsEnabled ? CacheLoadingMethod.LOAD_VIA_RECENT_TRANSACTIONS : null);
-                    }
-
-                    if (cacheLoadingMethod != null) {
-                        unspentTransactionOutputJvmManager.populateCache(cacheLoadingMethod);
-                    }
-                }
-                else {
-                    Logger.debug("Unexpected UnspentTransactionOutputDatabaseManager implementation.");
-                }
-            }
-            catch (final DatabaseException exception) {
-                Logger.warn(exception);
             }
         }
 

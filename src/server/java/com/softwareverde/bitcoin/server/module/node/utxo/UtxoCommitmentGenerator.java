@@ -21,7 +21,6 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UndoLogDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputJvmManager;
 import com.softwareverde.bitcoin.server.module.node.database.utxo.UtxoCommitmentDatabaseManager;
 import com.softwareverde.bitcoin.server.properties.PropertiesStore;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
@@ -91,65 +90,7 @@ public class UtxoCommitmentGenerator extends PausableSleepyService {
     }
 
     protected void _importFromCommittedUtxos(final FullNodeDatabaseManager databaseManager) throws DatabaseException {
-        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-        final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
-
-        final int batchSize = 1048576; // Uses a higher batch size instead of databaseManager.getMaxQueryBatchSize since results are not returned...
-
-        databaseConnection.executeSql(
-            new Query("DELETE FROM staged_utxo_commitment")
-        );
-        _setStagedUtxoCommitmentBlockHeight(0L, databaseManager);
-
-        UnspentTransactionOutputJvmManager.COMMITTED_UTXO_TABLE_WRITE_LOCK.lock();
-        try {
-            Logger.debug("UTXO double buffer lock acquired.");
-
-            final BlockId headBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
-            if (headBlockId == null) { return; }
-
-            final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
-            final Long committedUtxoBlockHeight = unspentTransactionOutputDatabaseManager.getCommittedUnspentTransactionOutputBlockHeight(true);
-            if (committedUtxoBlockHeight > (headBlockHeight - _utxoCommitmentBlockLag)) {
-                Logger.debug("Committed UTXO set surpasses UTXO Commitment lag, not importing UTXOs from committed buffer.");
-                return;
-            }
-
-            TransactionOutputIdentifier previousTransactionOutputIdentifier = new TransactionOutputIdentifier(Sha256Hash.EMPTY_HASH, -1);
-            while (true) {
-                final Sha256Hash previousTransactionHash = previousTransactionOutputIdentifier.getTransactionHash();
-                final Integer previousOutputIndex = previousTransactionOutputIdentifier.getOutputIndex();
-
-                databaseConnection.executeSql(
-                    new Query("INSERT INTO staged_utxo_commitment SELECT * FROM committed_unspent_transaction_outputs WHERE ((transaction_hash > ?) OR (transaction_hash = ? AND `index` > ?)) AND (amount > 0) ORDER BY transaction_hash ASC, `index` ASC LIMIT " + batchSize)
-                        .setParameter(previousTransactionHash)
-                        .setParameter(previousTransactionHash)
-                        .setParameter(previousOutputIndex)
-                );
-
-                final java.util.List<Row> rows = databaseConnection.query(
-                    new Query("SELECT transaction_hash, `index` FROM staged_utxo_commitment ORDER BY transaction_hash DESC, `index` DESC LIMIT 1")
-                );
-                if (rows.isEmpty()) { break; }
-
-                final Row row = rows.get(0);
-                final Sha256Hash transactionHash = Sha256Hash.wrap(row.getBytes("transaction_hash"));
-                final Integer outputIndex = row.getInteger("index");
-
-                if (Util.areEqual(previousTransactionOutputIdentifier.getTransactionHash(), transactionHash) && Util.areEqual(previousTransactionOutputIdentifier.getOutputIndex(), outputIndex)) {
-                    break;
-                }
-
-                previousTransactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
-            }
-
-            _setStagedUtxoCommitmentBlockHeight(committedUtxoBlockHeight, databaseManager);
-        }
-        finally {
-            UnspentTransactionOutputJvmManager.COMMITTED_UTXO_TABLE_WRITE_LOCK.unlock();
-            Logger.debug("UTXO double buffer lock released.");
-        }
+        throw new UnsupportedOperationException(); // TODO
     }
 
     protected int _calculateBucketIndex(final Sha256Hash blockHash, final TransactionOutputIdentifier transactionOutputIdentifier) {

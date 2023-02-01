@@ -21,6 +21,7 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.filedb.EntryInflater;
 import com.softwareverde.filedb.FileDb;
+import com.softwareverde.filedb.Item;
 import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
@@ -29,12 +30,9 @@ import com.softwareverde.util.bytearray.ByteArrayReader;
 import java.io.File;
 
 public class UnspentTransactionOutputFileDbManager implements UnspentTransactionOutputDatabaseManager {
-    protected final FileDb<TransactionOutputIdentifier, UnspentTransactionOutput> _fileDb;
+    public final FileDb<TransactionOutputIdentifier, UnspentTransactionOutput> _fileDb;
 
     public UnspentTransactionOutputFileDbManager(final File dataDirectory) throws Exception {
-        final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
-        final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
-
         if (! FileDb.exists(dataDirectory)) {
             FileDb.initialize(dataDirectory, 1117902, 2097152, 7);
         }
@@ -56,8 +54,10 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
 
     @Override
     public void insertUnspentTransactionOutputs(final List<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers, final List<TransactionOutput> transactionOutputs, final Long blockHeight, final Sha256Hash coinbaseTransactionHash) throws DatabaseException {
+        final int outputCount = unspentTransactionOutputIdentifiers.getCount();
+        if (outputCount != transactionOutputs.getCount()) { throw new RuntimeException("unspentTransactionOutputIdentifiers count mismatch."); }
+
         try {
-            final int outputCount = unspentTransactionOutputIdentifiers.getCount();
             for (int i = 0; i < outputCount; ++i) {
                 final TransactionOutputIdentifier transactionOutputIdentifier = unspentTransactionOutputIdentifiers.get(i);
                 final TransactionOutput transactionOutput = transactionOutputs.get(i);
@@ -156,7 +156,13 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
 
     @Override
     public Boolean commitUnspentTransactionOutputs(final DatabaseManagerFactory databaseManagerFactory, final CommitAsyncMode commitAsyncMode) throws DatabaseException {
-        return true;
+        try {
+            _fileDb.flush();
+            return true;
+        }
+        catch (final Exception exception) {
+            throw new DatabaseException(exception);
+        }
     }
 
     @Override
@@ -230,11 +236,11 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
         try {
             _fileDb.visitEntries(new Visitor<>() {
                 @Override
-                public boolean run(final Tuple<TransactionOutputIdentifier, Tuple<UnspentTransactionOutput, Boolean>> entry) {
+                public boolean run(final Tuple<TransactionOutputIdentifier, Item<UnspentTransactionOutput>> entry) {
                     try {
-                        if (entry.second.second) { return true; }
+                        if (entry.second.isDeleted()) { return true; }
 
-                        visitor.run(entry.first, entry.second.first);
+                        visitor.run(entry.first, entry.second.getValue());
 
                         return true;
                     }

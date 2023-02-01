@@ -709,7 +709,6 @@ public class UtxoCommitmentDownloader {
 
                 final Long blockHeight = (downloadableUtxoCommitment.metadata.blockHeight - 1L); // Utxo Commitments do not include the outputs of that block/blockHeight.
 
-                UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.lock();
                 try {
                     final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
                     databaseManager.startTransaction();
@@ -740,7 +739,6 @@ public class UtxoCommitmentDownloader {
                     databaseManager.commitTransaction();
                 }
                 finally {
-                    UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.unlock();
                     loadFileDestination.delete();
                 }
             }

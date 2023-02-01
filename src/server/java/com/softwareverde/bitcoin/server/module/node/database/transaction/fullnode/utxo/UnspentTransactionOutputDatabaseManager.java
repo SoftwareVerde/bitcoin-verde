@@ -9,8 +9,6 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-
 public interface UnspentTransactionOutputDatabaseManager {
     interface SpentState {
         Boolean isSpent();
@@ -20,40 +18,6 @@ public interface UnspentTransactionOutputDatabaseManager {
     Long DEFAULT_MAX_UTXO_CACHE_COUNT = 500000L;
     Float DEFAULT_PURGE_PERCENT = 0.5F;
     Long BYTES_PER_UTXO = 128L; // NOTE: This value is larger than the actual size.  // TODO: Research a more accurate UTXO byte count.
-
-    ReentrantReadWriteLock.ReadLock UTXO_READ_MUTEX = UtxoCacheStaticState.READ_LOCK;
-    ReentrantReadWriteLock.WriteLock UTXO_WRITE_MUTEX = UtxoCacheStaticState.WRITE_LOCK;
-
-    static void lockUtxoSet() {
-        UTXO_WRITE_MUTEX.lock();
-    }
-
-    static void unlockUtxoSet() {
-        UTXO_WRITE_MUTEX.unlock();
-    }
-
-    /**
-     * Marks the UTXO set as invalid, equivalently putting it in an error-state.
-     *  Once invalidated, UTXOs may not be accessed until it is reset via ::clearUncommittedUtxoSet.
-     * This function cannot throw and ensures the current UTXO will not be committed to disk.
-     */
-    static void invalidateUncommittedUtxoSet() {
-        // First immediately invalidate the UTXO set without a lock, to ensure the set cannot be committed to desk, even upon deadlock or error.
-        UtxoCacheStaticState.UNCOMMITTED_UTXO_BLOCK_HEIGHT.value = -1L;
-
-        // Second, acquire the write lock and re-set the invalidation state to ensure any functions mid-execution did not accidentally clear the above invalidation.
-        UTXO_WRITE_MUTEX.lock();
-        try {
-            UtxoCacheStaticState.UNCOMMITTED_UTXO_BLOCK_HEIGHT.value = -1L;
-        }
-        finally {
-            UTXO_WRITE_MUTEX.unlock();
-        }
-    }
-
-    static Boolean isUtxoCacheReady() {
-        return UtxoCacheStaticState.isUtxoCacheReady();
-    }
 
     void markTransactionOutputsAsSpent(List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers) throws DatabaseException;
     void insertUnspentTransactionOutputs(List<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers, List<TransactionOutput> transactionOutputs, Long blockHeight, Sha256Hash coinbaseTransactionHash) throws DatabaseException;

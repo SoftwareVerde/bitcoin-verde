@@ -23,8 +23,6 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input.UnconfirmedTransactionInputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.UnconfirmedTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputFileDbManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputJvmManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.pending.PendingTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManagerCore;
@@ -37,8 +35,6 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 
-import java.io.File;
-
 public class FullNodeDatabaseManager implements DatabaseManager {
     protected final DatabaseConnection _databaseConnection;
     protected final PropertiesStore _propertiesStore;
@@ -49,7 +45,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     protected final Float _utxoPurgePercent;
     protected final CheckpointConfiguration _checkpointConfiguration;
     protected final UtxoCommitmentStore _utxoCommitmentStore;
-    protected final File _fileDbDirectory;
+    protected final UnspentTransactionOutputDatabaseManager _unspentTransactionOutputDatabaseManager;
 
     protected FullNodeBitcoinNodeDatabaseManager _nodeDatabaseManager;
     protected BlockchainDatabaseManagerCore _blockchainDatabaseManager;
@@ -61,7 +57,6 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     protected UnconfirmedTransactionOutputDatabaseManager _unconfirmedTransactionOutputDatabaseManager;
     protected PendingTransactionDatabaseManager _pendingTransactionDatabaseManager;
     protected SlpTransactionDatabaseManager _slpTransactionDatabaseManager;
-    protected UnspentTransactionOutputDatabaseManager _unspentTransactionOutputDatabaseManager;
     protected UtxoCommitmentDatabaseManager _utxoCommitmentDatabaseManager;
     protected UtxoCommitmentManager _utxoCommitmentManager;
 
@@ -77,7 +72,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
         return _globalBlockchainCache.getVersion();
     }
 
-    protected FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final PropertiesStore propertiesStore, final PendingBlockStore blockStore, final UtxoCommitmentStore utxoCommitmentStore, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration, final Long maxUtxoCount, final Float utxoPurgePercent, final MutableBlockchainCache blockchainCache, final File fileDbDirectory) {
+    protected FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final PropertiesStore propertiesStore, final PendingBlockStore blockStore, final UtxoCommitmentStore utxoCommitmentStore, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration, final Long maxUtxoCount, final Float utxoPurgePercent, final MutableBlockchainCache blockchainCache, final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager) {
         _databaseConnection = databaseConnection;
         _propertiesStore = propertiesStore;
         _maxQueryBatchSize = maxQueryBatchSize;
@@ -88,7 +83,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
         _checkpointConfiguration = checkpointConfiguration;
         _utxoCommitmentStore = utxoCommitmentStore;
         _globalBlockchainCache = blockchainCache;
-        _fileDbDirectory = fileDbDirectory;
+        _unspentTransactionOutputDatabaseManager = unspentTransactionOutputDatabaseManager;
 
         _blockchainCacheChildReference = new BlockchainCacheReference() {
             @Override
@@ -143,8 +138,8 @@ public class FullNodeDatabaseManager implements DatabaseManager {
         this(databaseConnection, maxQueryBatchSize, propertiesStore, blockStore, utxoCommitmentStore, masterInflater, checkpointConfiguration, maxUtxoCount, utxoPurgePercent, blockchainCache, null);
     }
 
-    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final PropertiesStore propertiesStore, final PendingBlockStore blockStore, final UtxoCommitmentStore utxoCommitmentStore, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration, final File fileDbDirectory, final MutableBlockchainCache blockchainCache) {
-        this(databaseConnection, maxQueryBatchSize, propertiesStore, blockStore, utxoCommitmentStore, masterInflater, checkpointConfiguration, null, null, blockchainCache, fileDbDirectory);
+    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final PropertiesStore propertiesStore, final PendingBlockStore blockStore, final UtxoCommitmentStore utxoCommitmentStore, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration, final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager, final MutableBlockchainCache blockchainCache) {
+        this(databaseConnection, maxQueryBatchSize, propertiesStore, blockStore, utxoCommitmentStore, masterInflater, checkpointConfiguration, null, null, blockchainCache, unspentTransactionOutputDatabaseManager);
     }
 
     @Override
@@ -249,20 +244,6 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     }
 
     public UnspentTransactionOutputDatabaseManager getUnspentTransactionOutputDatabaseManager() {
-        if (_unspentTransactionOutputDatabaseManager == null) {
-            if (_fileDbDirectory != null) {
-                try {
-                    _unspentTransactionOutputDatabaseManager = new UnspentTransactionOutputFileDbManager(_fileDbDirectory);
-                }
-                catch (final Exception exception) {
-                    throw new RuntimeException(exception);
-                }
-            }
-            else {
-                _unspentTransactionOutputDatabaseManager = new UnspentTransactionOutputJvmManager(_maxUtxoCount, _utxoPurgePercent, this, _blockStore, _masterInflater);
-            }
-        }
-
         return _unspentTransactionOutputDatabaseManager;
     }
 
@@ -323,9 +304,9 @@ public class FullNodeDatabaseManager implements DatabaseManager {
             // NOTE: Neither _blockchainCacheGlobalReference nor _blockchainCacheLocalReference can be null if _cacheWasMutated is true.
             _cacheWasMutated = false;
             _localBlockchainCache = null;
+            _localBlockchainCacheWasCreatedWithBlockHeaderLock = false;
         }
         _hasDatabaseTransaction = false;
-        _localBlockchainCacheWasCreatedWithBlockHeaderLock = false;
     }
 
     @Override

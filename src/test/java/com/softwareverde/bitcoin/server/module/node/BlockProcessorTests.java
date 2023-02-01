@@ -31,7 +31,6 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.CommitAsyncMode;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UndoLogDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilderTests;
 import com.softwareverde.bitcoin.test.BlockData;
@@ -228,10 +227,6 @@ public class BlockProcessorTests extends IntegrationTest {
 
         public Block inflateBlock(final String blockData) {
             return this.blockInflater.fromBytes(ByteArray.fromHexString(blockData));
-        }
-
-        public UnspentTransactionOutputManager newUnspentTransactionOutputManager(final FullNodeDatabaseManager databaseManager) {
-            return new UnspentTransactionOutputManager(databaseManager, Long.MAX_VALUE);
         }
     }
 

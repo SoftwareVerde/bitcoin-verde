@@ -23,8 +23,6 @@ import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.main.BitcoinVerdeDatabase;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.spv.SpvDatabaseManagerFactory;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputJvmManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UtxoCacheStaticState;
 import com.softwareverde.bitcoin.server.module.node.store.UtxoCommitmentStore;
 import com.softwareverde.bitcoin.server.module.node.store.UtxoCommitmentStoreCore;
 import com.softwareverde.bitcoin.server.properties.InMemoryPropertiesStore;
@@ -46,7 +44,6 @@ import com.softwareverde.database.mysql.connection.ReadUncommittedDatabaseConnec
 import com.softwareverde.database.row.Row;
 import com.softwareverde.test.database.MysqlTestDatabase;
 import com.softwareverde.test.database.TestDatabase;
-import com.softwareverde.util.Container;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -167,12 +164,6 @@ public class IntegrationTest extends UnitTest {
         }
     }
 
-    static class UtxoCacheStaticStateHack extends UtxoCacheStaticState {
-        public Container<Long> getUncommittedUtxoBlockHeightContainer() {
-            return UtxoCacheStaticState.UNCOMMITTED_UTXO_BLOCK_HEIGHT;
-        }
-    }
-
     @Override
     public void before() throws Exception {
         IntegrationTest.resetDatabase();
@@ -181,23 +172,6 @@ public class IntegrationTest extends UnitTest {
         _synchronizationStatus.setState(State.ONLINE);
         _synchronizationStatus.setCurrentBlockHeight(Long.MAX_VALUE);
         _blockStore.clear();
-
-        // Make sure UTXO set appears initialized...
-        final Container<Long> uncommittedUtxoBlockHeight = (new UtxoCacheStaticStateHack()).getUncommittedUtxoBlockHeightContainer(); // ReflectionUtil.getStaticValue(UtxoCacheStaticState.class, "UNCOMMITTED_UTXO_BLOCK_HEIGHT");
-        uncommittedUtxoBlockHeight.value = 0L;
-
-        // Clear the static UTXO cache and the double buffer.
-        new UnspentTransactionOutputJvmManager(null, 0.5F, null, null, null) {
-            {
-                final Thread doubleBufferThread = UnspentTransactionOutputJvmManager.DOUBLE_BUFFER_THREAD;
-                if (doubleBufferThread != null) {
-                    doubleBufferThread.join();
-                }
-
-                UnspentTransactionOutputJvmManager.UTXO_SET.clear();
-                UnspentTransactionOutputJvmManager.DOUBLE_BUFFER.clear();
-            }
-        };
 
         final File file = new File(_utxoCommitmentStore.getUtxoDataDirectory());
         file.delete();
