@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.configuration;
 
-import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.ParsedAddress;
 import com.softwareverde.bitcoin.server.main.NetworkType;
 import com.softwareverde.logging.LogLevel;
 
@@ -21,7 +21,7 @@ public class ElectrumProperties {
     protected String _tlsKeyFile;
     protected String _tlsCertificateFile;
 
-    protected Address _donationAddress;
+    protected ParsedAddress _donationAddress;
 
     public String getBitcoinRpcUrl() {
         return _bitcoinRpcUrl;
@@ -47,7 +47,7 @@ public class ElectrumProperties {
         return _tlsCertificateFile;
     }
 
-    public Address getDonationAddress() {
+    public ParsedAddress getDonationAddress() {
         return _donationAddress;
     }
 
@@ -63,6 +63,7 @@ public class ElectrumProperties {
     public NetworkType getNetworkType() {
         switch (_testNet) {
             case 4: return NetworkType.TEST_NET4;
+            case 5: return NetworkType.CHIP_NET;
 
             case 1:
             case 3: return NetworkType.TEST_NET;

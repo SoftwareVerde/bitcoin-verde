@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo;
 
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
@@ -65,7 +66,7 @@ public interface UnspentTransactionOutputDatabaseManager {
     /**
      * Re-inserts the provided UTXOs into the UTXO set and looks up their original associated blockHeight.  These UTXOs will be synchronized to disk during the next UTXO commit.
      */
-    void undoSpendingOfTransactionOutputs(List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException;
+    void undoSpendingOfTransactionOutputs(List<TransactionOutputIdentifier> transactionOutputIdentifiers, BlockchainSegmentId blockchainSegmentId) throws DatabaseException;
 
     UnspentTransactionOutput getUnspentTransactionOutput(TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException;
 
@@ -108,7 +109,7 @@ public interface UnspentTransactionOutputDatabaseManager {
 
     Long getMaxUtxoCount();
 
-    UnspentTransactionOutput findOutputData(TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException;
+    UnspentTransactionOutput findOutputData(TransactionOutputIdentifier transactionOutputIdentifier, BlockchainSegmentId blockchainSegmentId) throws DatabaseException;
 
     void visitUnspentTransactionOutputs(UnspentTransactionOutputVisitor visitor) throws DatabaseException;
 }

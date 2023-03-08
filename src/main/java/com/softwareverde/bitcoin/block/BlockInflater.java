@@ -5,9 +5,10 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 
 public class BlockInflater {
     protected MutableBlock _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
@@ -19,12 +20,13 @@ public class BlockInflater {
         final BlockHeader blockHeader = blockHeaderInflater.fromBytes(byteArrayReader);
         if (blockHeader == null) { return null; }
 
-        final int transactionCount = byteArrayReader.readVariableLengthInteger().intValue();
-        if (transactionCount > BitcoinConstants.getMaxTransactionCountPerBlock()) { return null; }
+        final CompactVariableLengthInteger transactionCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
+        if (! transactionCount.isCanonical()) { return null; }
+        if (transactionCount.intValue() > BitcoinConstants.getMaxTransactionCountPerBlock()) { return null; }
 
-        final MutableList<Transaction> transactions = new MutableList<>(transactionCount);
+        final MutableList<Transaction> transactions = new MutableList<>(transactionCount.intValue());
 
-        for (int i = 0; i < transactionCount; ++i) {
+        for (int i = 0; i < transactionCount.intValue(); ++i) {
             final Transaction transaction = transactionInflater.fromBytes(byteArrayReader);
             if (transaction == null) { return null; }
 

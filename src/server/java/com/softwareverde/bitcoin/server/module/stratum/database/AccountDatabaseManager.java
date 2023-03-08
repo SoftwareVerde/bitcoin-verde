@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.module.stratum.database;
 
-import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.address.ParsedAddress;
 import com.softwareverde.bitcoin.miner.pool.AccountId;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
@@ -98,7 +98,7 @@ public class AccountDatabaseManager {
         return (isAuthenticated ? accountId : null);
     }
 
-    public Address getPayoutAddress(final AccountId accountId) throws DatabaseException {
+    public ParsedAddress getPayoutAddress(final AccountId accountId) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id, payout_address FROM accounts WHERE id = ?")
                 .setParameter(accountId)
@@ -111,10 +111,10 @@ public class AccountDatabaseManager {
         return addressInflater.fromBase58Check(addressString);
     }
 
-    public void setPayoutAddress(final AccountId accountId, final Address address) throws DatabaseException {
+    public void setPayoutAddress(final AccountId accountId, final ParsedAddress address) throws DatabaseException {
         _databaseConnection.executeSql(
             new Query("UPDATE accounts SET payout_address = ? WHERE id = ?")
-                .setParameter((address != null ? address.toBase58CheckEncoded() : null))
+                .setParameter(address != null ? address.toString() : null)
                 .setParameter(accountId)
         );
     }

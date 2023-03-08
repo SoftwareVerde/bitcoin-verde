@@ -11,6 +11,10 @@ import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
 public class DoubleSpendProofAnnouncementHandlerFactory implements NodeInitializer.DoubleSpendProofAnnouncementHandlerFactory {
+    public interface DoubleSpendProofCallback {
+        void onNewDoubleSpendProof(DoubleSpendProof doubleSpendProof);
+    }
+
     public interface BitcoinNodeCollector {
         List<BitcoinNode> getConnectedNodes();
     }
@@ -18,6 +22,7 @@ public class DoubleSpendProofAnnouncementHandlerFactory implements NodeInitializ
     protected final DoubleSpendProofProcessor _doubleSpendProofProcessor;
     protected final DoubleSpendProofStore _doubleSpendProofStore;
     protected final BitcoinNodeCollector _bitcoinNodeCollector;
+    protected final DoubleSpendProofCallback _doubleSpendProofCallback;
 
     protected void _downloadDoubleSpendProof(final Sha256Hash doubleSpendProofHash, final BitcoinNode bitcoinNode) {
         bitcoinNode.requestDoubleSpendProof(doubleSpendProofHash, new BitcoinNode.DownloadDoubleSpendProofCallback() {
@@ -31,30 +36,36 @@ public class DoubleSpendProofAnnouncementHandlerFactory implements NodeInitializ
 
     protected void _onDoubleSpendProofDownloaded(final DoubleSpendProof doubleSpendProof, final BitcoinNode originatingBitcoinNode) {
         final Boolean isValidAndUnseen = _doubleSpendProofProcessor.processDoubleSpendProof(doubleSpendProof);
-        if (isValidAndUnseen) { // Broadcast unseen proofs to other peers...
-            final Sha256Hash doubleSpendProofHash = doubleSpendProof.getHash();
-            Logger.debug("DoubleSpendProof validated: " + doubleSpendProofHash);
+        if (! isValidAndUnseen) { return; }
 
-            final Boolean isExtendedDoubleSpendProof = doubleSpendProof.usesExtendedFormat();
+        // Broadcast unseen proofs to other peers...
+        final Sha256Hash doubleSpendProofHash = doubleSpendProof.getHash();
+        Logger.debug("DoubleSpendProof validated: " + doubleSpendProofHash);
 
-            final List<BitcoinNode> bitcoinNodes = _bitcoinNodeCollector.getConnectedNodes();
-            for (final BitcoinNode bitcoinNode : bitcoinNodes) {
-                if (Util.areEqual(originatingBitcoinNode, bitcoinNode)) { continue; }
+        final Boolean isExtendedDoubleSpendProof = doubleSpendProof.usesExtendedFormat();
 
-                if (isExtendedDoubleSpendProof) {
-                    final Boolean nodeSupportsExtendedDoubleSpendProofs = bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.EXTENDED_DOUBLE_SPEND_PROOFS_ENABLED);
-                    if (! nodeSupportsExtendedDoubleSpendProofs) { continue; }
-                }
+        final List<BitcoinNode> bitcoinNodes = _bitcoinNodeCollector.getConnectedNodes();
+        for (final BitcoinNode bitcoinNode : bitcoinNodes) {
+            if (Util.areEqual(originatingBitcoinNode, bitcoinNode)) { continue; }
 
-                bitcoinNode.transmitDoubleSpendProofHash(doubleSpendProofHash);
+            if (isExtendedDoubleSpendProof) {
+                final Boolean nodeSupportsExtendedDoubleSpendProofs = bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.EXTENDED_DOUBLE_SPEND_PROOFS_ENABLED);
+                if (! nodeSupportsExtendedDoubleSpendProofs) { continue; }
             }
+
+            bitcoinNode.transmitDoubleSpendProofHash(doubleSpendProofHash);
+        }
+
+        if (_doubleSpendProofCallback != null) {
+            _doubleSpendProofCallback.onNewDoubleSpendProof(doubleSpendProof);
         }
     }
 
-    public DoubleSpendProofAnnouncementHandlerFactory(final DoubleSpendProofProcessor doubleSpendProofProcessor, final DoubleSpendProofStore doubleSpendProofStore, final BitcoinNodeCollector bitcoinNodeCollector) {
+    public DoubleSpendProofAnnouncementHandlerFactory(final DoubleSpendProofProcessor doubleSpendProofProcessor, final DoubleSpendProofStore doubleSpendProofStore, final BitcoinNodeCollector bitcoinNodeCollector, final DoubleSpendProofCallback doubleSpendProofCallback) {
         _doubleSpendProofProcessor = doubleSpendProofProcessor;
         _doubleSpendProofStore = doubleSpendProofStore;
         _bitcoinNodeCollector = bitcoinNodeCollector;
+        _doubleSpendProofCallback = doubleSpendProofCallback;
     }
 
     @Override

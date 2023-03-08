@@ -13,7 +13,7 @@ import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
 public class BitcoinConstants {
-    public static final Integer DATABASE_VERSION = 10;
+    public static final Integer DATABASE_VERSION = 11;
 
     public static class Default {
         public final String genesisBlockHash;
@@ -50,7 +50,9 @@ public class BitcoinConstants {
     protected static Integer DEFAULT_RPC_PORT;
     protected static Integer DEFAULT_TEST_RPC_PORT;
 
-    protected static Integer TRANSACTION_MIN_BYTE_COUNT = 100;
+    @Deprecated
+    protected static Integer TRANSACTION_MIN_BYTE_COUNT_HF20181115 = 100;
+    protected static Integer TRANSACTION_MIN_BYTE_COUNT = 65;
     protected static Integer TRANSACTION_MAX_BYTE_COUNT = (int) (2L * ByteUtil.Unit.Si.MEGABYTES);
     protected static Integer BLOCK_MAX_BYTE_COUNT = (int) (32L * ByteUtil.Unit.Si.MEGABYTES);
 
@@ -107,18 +109,27 @@ public class BitcoinConstants {
         (int) (32L * ByteUtil.Unit.Si.MEGABYTES)
     );
 
+    public static final Default ChipNet = new Default(
+        TestNet4.genesisBlockHash,
+        TestNet4.genesisBlockTimestamp, // In seconds.
+        48333,
+        "AFDAB7E2",
+        TEST_NET4_ASERT_REFERENCE_BLOCK,
+        (int) (32L * ByteUtil.Unit.Si.MEGABYTES)
+    );
+
     static {
         final Long defaultBlockVersion = 0x04L;
         final Long defaultTransactionVersion = 0x02L;
         final Integer defaultProtocolVersion = 70015;
-        final String defaultUserAgent = "/Bitcoin Verde:2.2.0/";
+        final String defaultUserAgent = "/Bitcoin Verde:2.4.0/";
         final String coinbaseMessage = "/pool.bitcoinverde.org/VERDE/";
 
         // SELECT blocks.hash, blocks.block_height, utxo_commitments.public_key, SUM(utxo_commitment_files.byte_count) AS byte_count FROM blocks INNER JOIN utxo_commitments ON utxo_commitments.block_id = blocks.id INNER JOIN utxo_commitment_buckets ON utxo_commitment_buckets.utxo_commitment_id = utxo_commitments.id INNER JOIN utxo_commitment_files ON utxo_commitment_files.utxo_commitment_bucket_id = utxo_commitment_buckets.id GROUP BY utxo_commitments.id ORDER BY blocks.block_height ASC;
         final String utxoCommitmentsString =
             // Sha256Hash blockHash, Long blockHeight, PublicKey multisetPublicKey, Long byteCount
-            "00000000000000000259AD550B5420E5418CDFC14873D6985BCF1DFA261DBC9C,710000,0386C0DF8BEF2E4C1D65CBF721E0699648F142415415F738D544FE649B9C5C7C47,4575578354;" +
-            "000000000000000001B08717BD8354AC6E81531FABDF074E1677A7AC867D2CC0,720000,03E27196CCDB02B64D1804B8C1058F91B69BFD508E5E6950519760CE646D396173,5036069516";
+            "00000000000000000621B8F668B02530BCF77446E85E56CB0257A51B4EC980BA,750000,03DFCEAE98BB44D0E3D7EE21FA7BED28BC338D014053E2B4BDF1B8F66C29DA66F3,5174255942;" +
+            "000000000000000000480527D21EB07089D8390CAEF5008BA2971FD554777FAE,760000,0302B84B38922825D8FE159CF42A9D5141D26240D2C73A7238F063172632C1F50D,5312373328";
 
         GENESIS_BLOCK_HASH = System.getProperty("GENESIS_BLOCK_HASH", MainNet.genesisBlockHash);
         GENESIS_BLOCK_TIMESTAMP = Util.parseLong(System.getProperty("GENESIS_BLOCK_TIMESTAMP", String.valueOf(MainNet.genesisBlockTimestamp)));
@@ -168,6 +179,14 @@ public class BitcoinConstants {
                 BitcoinConstants.setDefaultNetworkPort(BitcoinConstants.TestNet4.defaultNetworkPort);
                 BitcoinConstants.setDefaultRpcPort(BitcoinConstants.TestNet4.defaultRpcPort);
                 BitcoinConstants.setAsertReferenceBlock(BitcoinConstants.TestNet4.asertReferenceBlock);
+            } break;
+            case CHIP_NET: {
+                BitcoinConstants.setGenesisBlockHash(BitcoinConstants.ChipNet.genesisBlockHash);
+                BitcoinConstants.setGenesisBlockTimestamp(BitcoinConstants.ChipNet.genesisBlockTimestamp);
+                BitcoinConstants.setNetMagicNumber(BitcoinConstants.ChipNet.netMagicNumber);
+                BitcoinConstants.setDefaultNetworkPort(BitcoinConstants.ChipNet.defaultNetworkPort);
+                BitcoinConstants.setDefaultRpcPort(BitcoinConstants.ChipNet.defaultRpcPort);
+                BitcoinConstants.setAsertReferenceBlock(BitcoinConstants.ChipNet.asertReferenceBlock);
             } break;
             default: {
                 BitcoinConstants.setGenesisBlockHash(BitcoinConstants.MainNet.genesisBlockHash);

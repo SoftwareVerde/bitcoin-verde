@@ -5,7 +5,7 @@ import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
-import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -52,7 +52,7 @@ public class ThinTransactionsMessage extends BitcoinProtocolMessage {
 
         { // Transactions...
             final int transactionCount = _transactions.getCount();
-            byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionCount));
+            byteArrayBuilder.appendBytes(CompactVariableLengthInteger.variableLengthIntegerToBytes(transactionCount));
             for (final Transaction transaction : _transactions) {
                 byteArrayBuilder.appendBytes(transactionDeflater.toBytes(transaction));
             }
@@ -71,7 +71,7 @@ public class ThinTransactionsMessage extends BitcoinProtocolMessage {
         }
 
         final int transactionCount = _transactions.getCount();
-        final byte[] transactionCountBytes = ByteUtil.variableLengthIntegerToBytes(transactionCount);
-        return (Sha256Hash.BYTE_COUNT + transactionCountBytes.length + totalTransactionByteCount);
+        final ByteArray transactionCountBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(transactionCount);
+        return (Sha256Hash.BYTE_COUNT + transactionCountBytes.getByteCount() + totalTransactionByteCount);
     }
 }

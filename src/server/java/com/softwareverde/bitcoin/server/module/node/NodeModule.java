@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node;
 
 import com.softwareverde.bitcoin.CoreInflater;
+import com.softwareverde.bitcoin.bip.ChipNetUpgradeSchedule;
 import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
 import com.softwareverde.bitcoin.bip.TestNet4UpgradeSchedule;
 import com.softwareverde.bitcoin.bip.TestNetUpgradeSchedule;
@@ -30,6 +31,7 @@ import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.State;
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.server.configuration.CheckpointConfiguration;
+import com.softwareverde.bitcoin.server.configuration.ChipNetCheckpointConfiguration;
 import com.softwareverde.bitcoin.server.configuration.NodeProperties;
 import com.softwareverde.bitcoin.server.configuration.TestNetCheckpointConfiguration;
 import com.softwareverde.bitcoin.server.database.Database;
@@ -69,7 +71,6 @@ import com.softwareverde.bitcoin.server.module.node.handler.block.RequestBlockHa
 import com.softwareverde.bitcoin.server.module.node.handler.block.RequestBlockHeadersHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.RequestSpvBlocksHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.QueryUnconfirmedTransactionsHandler;
-import com.softwareverde.bitcoin.server.module.node.handler.transaction.RequestSlpTransactionsHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.TransactionAnnouncementHandlerFactory;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.dsproof.DoubleSpendProofAnnouncementHandlerFactory;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.dsproof.DoubleSpendProofDatabase;
@@ -204,6 +205,8 @@ public class NodeModule {
 
     protected final AtomicBoolean _isShuttingDown = new AtomicBoolean(false);
 
+    protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
+
     protected Long _getUtxoCommitFrequency() {
         final Long utxoCommitProperty = _bitcoinProperties.getUtxoCacheCommitFrequency();
         return (_bitcoinProperties.isPruningModeEnabled() ? Math.min(UndoLogDatabaseManager.MAX_REORG_DEPTH, utxoCommitProperty) : utxoCommitProperty);
@@ -216,21 +219,6 @@ public class NodeModule {
                 try { _isShuttingDown.wait(30000); } catch (final Exception exception) { }
                 return;
             }
-        }
-
-        final FullNodeDatabaseManagerFactory databaseManagerFactory;
-        {
-            final Database database = _environment.getDatabase();
-            final DatabaseConnectionFactory databaseConnectionFactory = _environment.getDatabaseConnectionFactory();
-            databaseManagerFactory = new FullNodeDatabaseManagerFactory(
-                databaseConnectionFactory,
-                database.getMaxQueryBatchSize(),
-                _propertiesStore,
-                _blockStore,
-                _utxoCommitmentStore,
-                _masterInflater,
-                _checkpointConfiguration
-            );
         }
 
         _utxoCommitmentDownloader.shutdown();
@@ -283,7 +271,7 @@ public class NodeModule {
             _blockPruner.stop();
         }
 
-        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
             if (unspentTransactionOutputDatabaseManager instanceof UnspentTransactionOutputJvmManager) {
                 Logger.info("[Saving UTXO Cache]");
@@ -302,12 +290,12 @@ public class NodeModule {
         }
 
         Logger.info("[Committing UTXO Set]");
-        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
             final MilliTimer utxoCommitTimer = new MilliTimer();
             utxoCommitTimer.start();
             Logger.info("Committing UTXO set.");
-            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
+            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_databaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
             utxoCommitTimer.stop();
             Logger.debug("Commit Timer: " + utxoCommitTimer.getMillisecondsElapsed() + "ms.");
         }
@@ -379,6 +367,9 @@ public class NodeModule {
                     case TEST_NET4: {
                         _upgradeSchedule = new TestNet4UpgradeSchedule();
                     } break;
+                    case CHIP_NET: {
+                        _upgradeSchedule = new ChipNetUpgradeSchedule();
+                    } break;
                     default: {
                         _upgradeSchedule = new TestNetUpgradeSchedule();
                     }
@@ -417,7 +408,14 @@ public class NodeModule {
         { // Block Checkpoints
             final Boolean isTestNet = bitcoinProperties.isTestNet();
             if (isTestNet) {
-                _checkpointConfiguration = new TestNetCheckpointConfiguration();
+                switch (bitcoinProperties.getNetworkType()) {
+                    case CHIP_NET: {
+                        _checkpointConfiguration = new ChipNetCheckpointConfiguration();
+                    } break;
+                    default: {
+                        _checkpointConfiguration = new TestNetCheckpointConfiguration();
+                    } break;
+                }
             }
             else {
                 _checkpointConfiguration = new CheckpointConfiguration();
@@ -439,8 +437,15 @@ public class NodeModule {
         _rpcThreadPool = new CachedThreadPool(32, 60000L);
 
         final Database database = _environment.getDatabase();
+
+        { // Initialize the property store...
+            // NOTE: The DatabasePropertiesStore should not use the core DatabaseConnectionFactory;
+            //  it is important that its values are written to disk even during a partially-unclean shutdown.
+            final DatabaseConnectionFactory databaseConnectionFactory = _environment.newDatabaseConnectionFactory();
+            _propertiesStore = new DatabasePropertiesStore(databaseConnectionFactory);
+        }
+
         final DatabaseConnectionFactory databaseConnectionFactory = _environment.getDatabaseConnectionFactory();
-        _propertiesStore = new DatabasePropertiesStore(databaseConnectionFactory);
 
         final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(
             databaseConnectionFactory,
@@ -453,6 +458,7 @@ public class NodeModule {
             _bitcoinProperties.getMaxCachedUtxoCount(),
             _bitcoinProperties.getUtxoCachePurgePercent()
         );
+        _databaseManagerFactory = databaseManagerFactory;
 
         _banFilter = (bitcoinProperties.isBanFilterEnabled() ? new BanFilterCore(databaseManagerFactory) : new DisabledBanFilter());
 
@@ -493,11 +499,6 @@ public class NodeModule {
                 nodeFeatures.enableFeature(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
                 nodeFeatures.enableFeature(NodeFeatures.Feature.XTHIN_PROTOCOL_ENABLED);
                 nodeFeatures.enableFeature(NodeFeatures.Feature.BLOOM_CONNECTIONS_ENABLED);
-
-                if (indexModeIsEnabled) {
-                    nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_INDEX_ENABLED); // BitcoinVerde 2019-04-22
-                    nodeFeatures.enableFeature(NodeFeatures.Feature.SLP_INDEX_ENABLED); // BitcoinVerde 2019-10-24
-                }
 
                 nodeFeatures.enableFeature(NodeFeatures.Feature.EXTENDED_DOUBLE_SPEND_PROOFS_ENABLED); // BitcoinVerde 2021-04-27
                 nodeFeatures.enableFeature(NodeFeatures.Feature.UTXO_COMMITMENTS_ENABLED); // BitcoinVerde 2021-05-26
@@ -562,17 +563,27 @@ public class NodeModule {
             nodeInitializerContext.threadPoolFactory = nodeThreadPoolFactory;
             nodeInitializerContext.localNodeFeatures = localNodeFeatures;
             nodeInitializerContext.transactionsAnnouncementHandlerFactory = new TransactionAnnouncementHandlerFactory(databaseManagerFactory, synchronizationStatusHandler, newInventoryCallback);
-            nodeInitializerContext.doubleSpendProofAnnouncementHandlerFactory = new DoubleSpendProofAnnouncementHandlerFactory(doubleSpendProofProcessor, doubleSpendProofStore, new DoubleSpendProofAnnouncementHandlerFactory.BitcoinNodeCollector() {
-                @Override
-                public List<BitcoinNode> getConnectedNodes() {
-                    return _bitcoinNodeManager.getNodes();
+            nodeInitializerContext.doubleSpendProofAnnouncementHandlerFactory = new DoubleSpendProofAnnouncementHandlerFactory(doubleSpendProofProcessor, doubleSpendProofStore,
+                new DoubleSpendProofAnnouncementHandlerFactory.BitcoinNodeCollector() {
+                    @Override
+                    public List<BitcoinNode> getConnectedNodes() {
+                        return _bitcoinNodeManager.getNodes();
+                    }
+                },
+                new DoubleSpendProofAnnouncementHandlerFactory.DoubleSpendProofCallback() {
+                    @Override
+                    public void onNewDoubleSpendProof(final DoubleSpendProof doubleSpendProof) {
+                        final NodeRpcHandler nodeRpcHandler = _nodeRpcHandler;
+                        if (nodeRpcHandler != null) {
+                            nodeRpcHandler.onNewDoubleSpendProof(doubleSpendProof);
+                        }
+                    }
                 }
-            });
+            );
             nodeInitializerContext.requestBlockHashesHandler = new RequestBlockHashesHandler(databaseManagerFactory);
             nodeInitializerContext.requestBlockHeadersHandler = new RequestBlockHeadersHandler(databaseManagerFactory);
             nodeInitializerContext.requestDataHandler = _transactionWhitelist;
             nodeInitializerContext.requestSpvBlocksHandler = new RequestSpvBlocksHandler(databaseManagerFactory, spvUnconfirmedTransactionsHandler);
-            nodeInitializerContext.requestSlpTransactionsHandler = new RequestSlpTransactionsHandler(databaseManagerFactory);
             nodeInitializerContext.queryUtxoCommitmentsHandler = new QueryUtxoCommitmentsHandler(databaseManagerFactory);
             nodeInitializerContext.requestUnconfirmedTransactionsHandler = new QueryUnconfirmedTransactionsHandler(databaseManagerFactory);
 
@@ -666,12 +677,6 @@ public class NodeModule {
 
             _bitcoinNodeManager = new BitcoinNodeManager(context);
             _bitcoinNodeManager.setDefaultExternalPort(bitcoinProperties.getBitcoinPort());
-            _bitcoinNodeManager.setNewNodeHandshakedCallback(new BitcoinNodeManager.NewNodeCallback() {
-                @Override
-                public void onNodeHandshakeComplete(final BitcoinNode bitcoinNode) {
-                    _blockDownloader.wakeUp();
-                }
-            });
 
             final BitcoinNodeHeadBlockFinder bitcoinNodeHeadBlockFinder = new BitcoinNodeHeadBlockFinder(databaseManagerFactory, _generalThreadPool, _banFilter);
             _bitcoinNodeManager.setNewNodeHandshakedCallback(new BitcoinNodeManager.NewNodeCallback() {
@@ -687,6 +692,15 @@ public class NodeModule {
                             catch (final DatabaseException databaseException) {
                                 Logger.debug(databaseException);
                             }
+
+                            _blockHeaderDownloader.wakeUp();
+                            _blockDownloader.wakeUp();
+                        }
+
+                        @Override
+                        public void onFailure() {
+                            _blockHeaderDownloader.wakeUp();
+                            _blockDownloader.wakeUp();
                         }
                     });
                 }
@@ -770,7 +784,7 @@ public class NodeModule {
 
         { // Initialize BlockchainBuilder...
             final BlockDownloader.StatusMonitor blockDownloaderStatusMonitor = _blockDownloader.getStatusMonitor();
-            final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(_masterInflater, databaseManagerFactory, _bitcoinNodeManager, _systemTime, _blockProcessingThreadPool);
+            final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(_masterInflater, databaseManagerFactory, _upgradeSchedule, _bitcoinNodeManager, _systemTime, _blockProcessingThreadPool);
             _blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, _blockStore, blockDownloaderStatusMonitor);
             _blockchainBuilder.setUnavailableBlockCallback(new BlockchainBuilder.UnavailableBlockCallback() {
                 @Override
@@ -1011,6 +1025,11 @@ public class NodeModule {
                         for (final BitcoinNode bitcoinNode : bitcoinNodes) {
                             bitcoinNode.transmitDoubleSpendProofHash(doubleSpendProofHash);
                         }
+
+                        final NodeRpcHandler nodeRpcHandler = _nodeRpcHandler;
+                        if (nodeRpcHandler != null) {
+                            nodeRpcHandler.onNewDoubleSpendProof(doubleSpendProof);
+                        }
                     }
                 }
             });
@@ -1219,19 +1238,7 @@ public class NodeModule {
         final MilliTimer timer = new MilliTimer();
         timer.start();
 
-        final Database database = _environment.getDatabase();
-        final DatabaseConnectionFactory databaseConnectionFactory = _environment.getDatabaseConnectionFactory();
-        final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(
-            databaseConnectionFactory,
-            database.getMaxQueryBatchSize(),
-            _propertiesStore,
-            _blockStore,
-            _utxoCommitmentStore,
-            _masterInflater,
-            _checkpointConfiguration,
-            _bitcoinProperties.getMaxCachedUtxoCount(),
-            _bitcoinProperties.getUtxoCachePurgePercent()
-        );
+        final FullNodeDatabaseManagerFactory databaseManagerFactory = _databaseManagerFactory;
 
         if (bootstrapIsEnabled) {
             final HeadersBootstrapper headersBootstrapper = new FullNodeHeadersBootstrapper(databaseManagerFactory);
@@ -1262,7 +1269,18 @@ public class NodeModule {
             }
             catch (final DatabaseException exception) {
                 Logger.error(exception);
+                _shutdown();
+                System.exit(1);
+            }
+        }
 
+        if (_bitcoinProperties.isBlockchainCacheEnabled()) { // Warm up the DB Cache...
+            Logger.info("[Warming DB Cache]");
+            try {
+                databaseManagerFactory.initializeCache();
+            }
+            catch (final Exception exception) {
+                Logger.error(exception);
                 _shutdown();
                 System.exit(1);
             }

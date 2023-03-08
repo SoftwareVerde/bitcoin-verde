@@ -1,6 +1,9 @@
 package com.softwareverde.bitcoin.transaction.validator;
 
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -10,6 +13,7 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 
@@ -26,17 +30,25 @@ public class UtxoUndoLog {
     }
 
     public void undoBlock(final Block block) throws DatabaseException {
-        Logger.debug("Undoing Block: " + block.getHash());
+        final Sha256Hash blockHash = block.getHash();
+        Logger.debug("Undoing Block: " + blockHash);
         final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
 
-        final List<Transaction> transactions = block.getTransactions();
+        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+        final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
+
         boolean isCoinbase = true;
+        final List<Transaction> transactions = block.getTransactions();
         for (final Transaction transaction : transactions) {
-            if (! isCoinbase) {
-                final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-                for (final TransactionInput transactionInput : transactionInputs) {
-                    final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-                    final UnspentTransactionOutput unspentTransactionOutput = unspentTransactionOutputDatabaseManager.findOutputData(transactionOutputIdentifier);
+            final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+            for (final TransactionInput transactionInput : transactionInputs) {
+                if (isCoinbase) { break; } // Do not process the coinbase transaction...
+
+                final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+                final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
+                if (! block.hasTransaction(transactionHash)) { // Do not add outputs created by this block to the available UTXO set...
+                    final UnspentTransactionOutput unspentTransactionOutput = unspentTransactionOutputDatabaseManager.findOutputData(transactionOutputIdentifier, blockchainSegmentId);
                     if (unspentTransactionOutput == null) {
                         throw new DatabaseException("Unable to find Output: " + transactionOutputIdentifier);
                     }
@@ -45,6 +57,7 @@ public class UtxoUndoLog {
                 }
             }
 
+            // Add the Output's identifier to the list of unavailable outputs so that it cannot be found by a dirty UTXO set read.
             final List<TransactionOutputIdentifier> transactionOutputIdentifiers = TransactionOutputIdentifier.fromTransactionOutputs(transaction);
             for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
                 _unavailableOutputs.add(transactionOutputIdentifier);

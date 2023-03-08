@@ -19,7 +19,7 @@ public class FakeFullNodeDatabaseManagerFactory extends FullNodeDatabaseManagerF
 
     @Override
     public FullNodeDatabaseManager newDatabaseManager() throws DatabaseException {
-        return new FullNodeDatabaseManager(null, null, null, null, null, null, null) {
+        return new FullNodeDatabaseManager(null, null, null, null, null, null, null, null) {
             @Override
             public BlockchainDatabaseManager getBlockchainDatabaseManager() {
                 return FakeFullNodeDatabaseManagerFactory.this._blockchainDatabaseManager;

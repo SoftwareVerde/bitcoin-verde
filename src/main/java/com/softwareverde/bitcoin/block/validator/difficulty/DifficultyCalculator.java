@@ -118,7 +118,7 @@ public class DifficultyCalculator {
 
         final Map<Sha256Hash, Long> blockHeights = new HashMap<>(6);
 
-        // Set the lastBlockHeaders to be the head blockId, its parent, and its grandparent...
+        // Set the lastBlockHeaders to be the target block's parent, and its grandparent, and great grandparent...
         final long parentBlockHeight = (forBlockHeight - 1L);
         for (int i = 0; i < lastBlockHeaders.length; ++i) {
             final Long blockHeight = (parentBlockHeight - i);
@@ -132,7 +132,7 @@ public class DifficultyCalculator {
             lastBlockHeaders[i] = blockHeader;
         }
 
-        // Set the firstBlockHeaders to be the 144th, 145th, and 146th parent of the first block's parent...
+        // Set the firstBlockHeaders to be the 144th, 145th, and 146th parent of the target block's parent...
         for (int i = 0; i < firstBlockHeaders.length; ++i) {
             final Long blockHeight = (parentBlockHeight - 144L - i);
 

@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
@@ -37,7 +38,7 @@ public class DoubleSpendProofPreimageDeflater {
 
         if (includeItemCount) {
             final int itemCount = hashTypes.getCount();
-            final byte[] itemCountBytes = ByteUtil.variableLengthIntegerToBytes(itemCount);
+            final ByteArray itemCountBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(itemCount);
             byteArrayBuilder.appendBytes(itemCountBytes);
         }
 
@@ -97,12 +98,12 @@ public class DoubleSpendProofPreimageDeflater {
         { // Pushed Data
             final List<ByteArray> pushedData = doubleSpendProofPreimage.getUnlockingScriptPushData();
             final int pushCount = pushedData.getCount();
-            final ByteArray pushCountBytes = ByteArray.wrap(ByteUtil.variableLengthIntegerToBytes(pushCount));
+            final ByteArray pushCountBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(pushCount);
             byteArrayBuilder.appendBytes(pushCountBytes, Endian.BIG);
 
             for (ByteArray byteArray : pushedData) {
                 final int byteCount = byteArray.getByteCount();
-                final ByteArray byteArrayByteCountBytes = ByteArray.wrap(ByteUtil.variableLengthIntegerToBytes(byteCount));
+                final ByteArray byteArrayByteCountBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(byteCount);
                 byteArrayBuilder.appendBytes(byteArrayByteCountBytes, Endian.BIG);
                 byteArrayBuilder.appendBytes(byteArray, Endian.BIG);
             }

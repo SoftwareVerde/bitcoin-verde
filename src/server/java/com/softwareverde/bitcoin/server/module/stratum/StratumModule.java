@@ -3,10 +3,14 @@ package com.softwareverde.bitcoin.server.module.stratum;
 import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.address.AddressType;
+import com.softwareverde.bitcoin.address.ParsedAddress;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.miner.pool.WorkerId;
+import com.softwareverde.bitcoin.rpc.BitcoinMiningRpcConnectorFactory;
+import com.softwareverde.bitcoin.rpc.RpcCredentials;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.database.Database;
@@ -29,12 +33,16 @@ import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.work
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolHashRateApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolPrototypeBlockApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolWorkerApi;
-import com.softwareverde.bitcoin.server.module.stratum.callback.BlockFoundCallback;
-import com.softwareverde.bitcoin.server.module.stratum.callback.WorkerShareCallback;
 import com.softwareverde.bitcoin.server.module.stratum.database.WorkerDatabaseManager;
 import com.softwareverde.bitcoin.server.module.stratum.key.ServerEncryptionKey;
 import com.softwareverde.bitcoin.server.module.stratum.rpc.StratumRpcServer;
 import com.softwareverde.bitcoin.server.properties.DatabasePropertiesStore;
+import com.softwareverde.bitcoin.stratum.BitcoinCoreStratumServer;
+import com.softwareverde.bitcoin.stratum.StratumServer;
+import com.softwareverde.bitcoin.stratum.callback.BlockFoundCallback;
+import com.softwareverde.bitcoin.stratum.callback.WorkerShareCallback;
+import com.softwareverde.bitcoin.stratum.rpc.BitcoinCoreMiningRpcConnectorFactory;
+import com.softwareverde.bitcoin.stratum.rpc.BitcoinVerdeMiningRpcConnectorFactory;
 import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -90,12 +98,22 @@ public class StratumModule {
         _databasePropertiesStore = new DatabasePropertiesStore(databaseConnectionFactory);
 
         final MasterInflater masterInflater = new CoreInflater();
-        if (useBitcoinCoreStratumServer) {
-            _stratumServer = new BitcoinCoreStratumServer(_stratumProperties, _databasePropertiesStore, _stratumThreadPool, masterInflater);
+        final BitcoinMiningRpcConnectorFactory rpcConnectorFactory;
+        {
+            final String bitcoinRpcUrl = _stratumProperties.getBitcoinRpcUrl();
+            final Integer bitcoinRpcPort = _stratumProperties.getBitcoinRpcPort();
+            final RpcCredentials rpcCredentials = _stratumProperties.getRpcCredentials();
+
+            if (useBitcoinCoreStratumServer) {
+                rpcConnectorFactory = new BitcoinCoreMiningRpcConnectorFactory(bitcoinRpcUrl, bitcoinRpcPort, rpcCredentials);
+            }
+            else {
+                rpcConnectorFactory = new BitcoinVerdeMiningRpcConnectorFactory(bitcoinRpcUrl, bitcoinRpcPort, rpcCredentials);
+            }
         }
-        else {
-            _stratumServer = new BitcoinVerdeStratumServer(_stratumProperties, _databasePropertiesStore, _stratumThreadPool, masterInflater);
-        }
+
+        final Integer stratumPort = _stratumProperties.getBitcoinRpcPort();
+        _stratumServer = new BitcoinCoreStratumServer(rpcConnectorFactory, stratumPort, _stratumThreadPool, masterInflater);
 
         _workerShareQueue = new WorkerShareQueue(databaseConnectionFactory);
         _stratumServer.setWorkerShareCallback(new WorkerShareCallback() {
@@ -234,7 +252,7 @@ public class StratumModule {
         _databasePropertiesStore.start();
 
         { // Ensure the StratumServer's PropertiesStore has the correct payout address; if a payout address does not exist, then create an encrypted one.
-            final Address coinbaseAddress;
+            final ParsedAddress coinbaseAddress;
             {
                 final AddressInflater addressInflater = new AddressInflater();
                 final String privateKeyCipher = _databasePropertiesStore.getString(StratumModule.COINBASE_PRIVATE_KEY_KEY);
@@ -247,19 +265,20 @@ public class StratumModule {
                     }
                     _databasePropertiesStore.set(StratumModule.COINBASE_PRIVATE_KEY_KEY, encryptedPrivateKey);
 
-                    coinbaseAddress = addressInflater.fromPrivateKey(privateKey, true);
+                    final Address address = addressInflater.fromPrivateKey(privateKey, true);
+                    coinbaseAddress = new ParsedAddress(AddressType.P2PKH, false, address);
                 }
                 else {
                     final ByteArray privateKeyCipherBytes = ByteArray.fromHexString(privateKeyCipher);
                     final ByteArray privateKeyBytes = serverEncryptionKey.decrypt(privateKeyCipherBytes);
                     final PrivateKey privateKey = PrivateKey.fromBytes(privateKeyBytes);
 
-                    coinbaseAddress = addressInflater.fromPrivateKey(privateKey, true);
+                    final Address address = addressInflater.fromPrivateKey(privateKey, true);
+                    coinbaseAddress = new ParsedAddress(AddressType.P2PKH, false, address);
                 }
             }
 
-            final String coinbaseAddressString = coinbaseAddress.toBase32CheckEncoded();
-            _databasePropertiesStore.set(BitcoinCoreStratumServer.COINBASE_ADDRESS_KEY, coinbaseAddressString);
+            _stratumServer.setCoinbaseAddress(coinbaseAddress);
         }
 
         { // Ensure the StratumServer has a share difficulty set...

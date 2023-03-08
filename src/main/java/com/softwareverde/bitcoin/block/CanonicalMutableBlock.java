@@ -95,6 +95,20 @@ public class CanonicalMutableBlock extends MutableBlock {
         _addTransaction(newTransaction);
     }
 
+    public void setTransactions(final Transaction coinbaseTransaction, final List<Transaction> transactions) {
+        final MutableList<Transaction> sortedTransactions = new MutableList<>(transactions);
+        sortedTransactions.sort(LEXICAL_TRANSACTION_ORDERING);
+
+        _transactions.clear();
+        _transactions.add(coinbaseTransaction);
+        _transactions.addAll(sortedTransactions);
+
+        _merkleTree.clear();
+        for (final Transaction transaction : _transactions) {
+            _merkleTree.addItem(transaction);
+        }
+    }
+
     @Override
     public void replaceTransaction(final Integer index, final Transaction transaction) {
         if (index == 0) { // Traditionally replace the coinbase...

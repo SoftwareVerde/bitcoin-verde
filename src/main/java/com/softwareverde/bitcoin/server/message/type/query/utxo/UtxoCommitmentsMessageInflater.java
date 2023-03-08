@@ -7,12 +7,13 @@ import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentSubBucket;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
 
 public class UtxoCommitmentsMessageInflater extends BitcoinProtocolMessageInflater {
@@ -24,13 +25,15 @@ public class UtxoCommitmentsMessageInflater extends BitcoinProtocolMessageInflat
         final BitcoinProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, MessageType.UTXO_COMMITMENTS);
         if (protocolMessageHeader == null) { return null; }
 
-        final Long messageVersion = byteArrayReader.readVariableLengthInteger();
-        if (! Util.areEqual(UtxoCommitmentsMessage.VERSION, messageVersion)) { return null; }
+        final CompactVariableLengthInteger messageVersion = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
+        if (! messageVersion.isCanonical()) { return null; }
+        if (! Util.areEqual(UtxoCommitmentsMessage.VERSION, messageVersion.value)) { return null; }
 
-        final Long commitmentCount = byteArrayReader.readVariableLengthInteger();
-        if (commitmentCount > UtxoCommitmentsMessage.MAX_COMMITMENT_COUNT) { return null; }
+        final CompactVariableLengthInteger commitmentCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
+        if (! commitmentCount.isCanonical()) { return null; }
+        if (commitmentCount.value > UtxoCommitmentsMessage.MAX_COMMITMENT_COUNT) { return null; }
 
-        for (int i = 0; i < commitmentCount; ++i) {
+        for (int i = 0; i < commitmentCount.value; ++i) {
             final Sha256Hash blockHash = Sha256Hash.wrap(byteArrayReader.readBytes(Sha256Hash.BYTE_COUNT, Endian.LITTLE));
             final Long blockHeight = byteArrayReader.readLong(4, Endian.LITTLE);
             final PublicKey commitmentPublicKey = PublicKey.fromBytes(byteArrayReader.readBytes(PublicKey.COMPRESSED_BYTE_COUNT));
@@ -43,10 +46,11 @@ public class UtxoCommitmentsMessageInflater extends BitcoinProtocolMessageInflat
                 final ByteArray bucketPublicKeyBytes = ByteArray.wrap(byteArrayReader.readBytes(PublicKey.COMPRESSED_BYTE_COUNT));
                 final PublicKey bucketPublicKey = PublicKey.fromBytes(bucketPublicKeyBytes);
                 final Long bucketByteCount = byteArrayReader.readLong(8, Endian.LITTLE);
-                final Long subBucketCount = byteArrayReader.readVariableLengthInteger();
+                final CompactVariableLengthInteger subBucketCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
+                if (! subBucketCount.isCanonical()) { return null; }
 
                 final MutableList<UtxoCommitmentSubBucket> subBuckets = new MutableList<>(subBucketCount.intValue());
-                for (int k = 0; k < subBucketCount; ++k) {
+                for (int k = 0; k < subBucketCount.value; ++k) {
                     final ByteArray subBucketPublicKeyBytes = ByteArray.wrap(byteArrayReader.readBytes(PublicKey.COMPRESSED_BYTE_COUNT));
                     final PublicKey subBucketPublicKey = PublicKey.fromBytes(subBucketPublicKeyBytes);
                     final Long subBucketByteCount = byteArrayReader.readLong(8, Endian.LITTLE);

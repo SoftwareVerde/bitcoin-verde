@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.message.type.query.response.utxo;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
@@ -50,8 +51,8 @@ public class UtxoCommitmentMessage extends BitcoinProtocolMessage {
     @Override
     protected Integer _getPayloadByteCount() {
         final int byteCount = _utxoCommitmentBytes.getByteCount();
-        final byte[] byteCountByteCount = ByteUtil.variableLengthIntegerToBytes(byteCount);
+        final ByteArray byteCountByteCount = CompactVariableLengthInteger.variableLengthIntegerToBytes(byteCount);
 
-        return (Sha256Hash.BYTE_COUNT + byteCountByteCount.length + _utxoCommitmentBytes.getByteCount());
+        return (Sha256Hash.BYTE_COUNT + byteCountByteCount.getByteCount() + _utxoCommitmentBytes.getByteCount());
     }
 }

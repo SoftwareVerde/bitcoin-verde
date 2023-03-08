@@ -43,12 +43,9 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.MysqlDatabaseInitializer;
 import com.softwareverde.database.mysql.connection.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.database.row.Row;
-import com.softwareverde.logging.LogLevel;
-import com.softwareverde.logging.Logger;
 import com.softwareverde.test.database.MysqlTestDatabase;
 import com.softwareverde.test.database.TestDatabase;
 import com.softwareverde.util.Container;
-import com.softwareverde.util.ReflectionUtil;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -78,11 +75,6 @@ public class IntegrationTest extends UnitTest {
     protected final Long _requiredCoinbaseMaturity = 0L;
 
     public IntegrationTest() {
-        Logger.setLogLevel("com.zaxxer.hikari.pool", LogLevel.WARN);
-        Logger.setLogLevel("com.zaxxer.hikari.pool", LogLevel.WARN);
-        Logger.setLogLevel("ch.vorburger.exec", LogLevel.WARN);
-        Logger.setLogLevel("ch.vorburger.mariadb4j", LogLevel.WARN);
-
         try {
             _utxoCommitmentStore = new UtxoCommitmentStoreCore(Files.createTempDirectory("utxo").toFile().getAbsolutePath());
             _propertiesStore = new InMemoryPropertiesStore();
@@ -112,7 +104,6 @@ public class IntegrationTest extends UnitTest {
         final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactoryWrapper(_databaseConnectionFactory);
         _readUncommittedDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, _database.getMaxQueryBatchSize(), _propertiesStore, _blockStore, _utxoCommitmentStore, _masterInflater, _checkpointConfiguration);
 
-        // Bypass the Hikari database connection pool...
         _database.setDatabaseConnectionPool(new DatabaseConnectionPool() {
             protected final MutableList<DatabaseConnection> _databaseConnections = new MutableList<>();
 
@@ -175,6 +166,12 @@ public class IntegrationTest extends UnitTest {
         }
     }
 
+    static class UtxoCacheStaticStateHack extends UtxoCacheStaticState {
+        public Container<Long> getUncommittedUtxoBlockHeightContainer() {
+            return UtxoCacheStaticState.UNCOMMITTED_UTXO_BLOCK_HEIGHT;
+        }
+    }
+
     @Override
     public void before() throws Exception {
         IntegrationTest.resetDatabase();
@@ -184,8 +181,8 @@ public class IntegrationTest extends UnitTest {
         _synchronizationStatus.setCurrentBlockHeight(Long.MAX_VALUE);
         _blockStore.clear();
 
-        // make sure UTXO set appears initialized
-        final Container<Long> uncommittedUtxoBlockHeight = ReflectionUtil.getStaticValue(UtxoCacheStaticState.class, "UNCOMMITTED_UTXO_BLOCK_HEIGHT");
+        // Make sure UTXO set appears initialized...
+        final Container<Long> uncommittedUtxoBlockHeight = (new UtxoCacheStaticStateHack()).getUncommittedUtxoBlockHeightContainer(); // ReflectionUtil.getStaticValue(UtxoCacheStaticState.class, "UNCOMMITTED_UTXO_BLOCK_HEIGHT");
         uncommittedUtxoBlockHeight.value = 0L;
 
         // Clear the static UTXO cache and the double buffer.

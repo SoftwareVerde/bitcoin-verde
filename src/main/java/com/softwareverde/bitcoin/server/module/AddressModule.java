@@ -1,6 +1,10 @@
 package com.softwareverde.bitcoin.server.module;
 
+import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.AddressFormat;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.address.AddressType;
+import com.softwareverde.bitcoin.address.ParsedAddress;
 import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
 import com.softwareverde.util.Base32Util;
 import com.softwareverde.util.Base58Util;
@@ -66,13 +70,20 @@ public class AddressModule {
 
                     final String address;
                     final String compressedAddress;
-                    if (useBase32) {
-                        address = addressInflater.fromPrivateKey(privateKey, false).toBase32CheckEncoded(false);
-                        compressedAddress = addressInflater.fromPrivateKey(privateKey, true).toBase32CheckEncoded(false);
-                    }
-                    else {
-                        address = addressInflater.fromPrivateKey(privateKey, false).toBase58CheckEncoded();
-                        compressedAddress = addressInflater.fromPrivateKey(privateKey, true).toBase58CheckEncoded();
+                    {
+                        final Address addressBytes = addressInflater.fromPrivateKey(privateKey, false);
+                        final Address compressedAddressBytes = addressInflater.fromPrivateKey(privateKey, true);
+                        final ParsedAddress parsedAddress = new ParsedAddress(AddressType.P2PKH, false, addressBytes, AddressFormat.BASE_32, ParsedAddress.BASE_32_BCH_LABEL);
+                        final ParsedAddress compressedParsedAddress = new ParsedAddress(AddressType.P2PKH, false, compressedAddressBytes, AddressFormat.BASE_32, ParsedAddress.BASE_32_BCH_LABEL);
+
+                        if (useBase32) {
+                            address = parsedAddress.toBase32CheckEncoded(false);
+                            compressedAddress = compressedParsedAddress.toBase32CheckEncoded(false);
+                        }
+                        else {
+                            address = parsedAddress.toBase58CheckEncoded();
+                            compressedAddress = compressedParsedAddress.toBase58CheckEncoded();
+                        }
                     }
 
                     boolean isMatch = false;
@@ -86,11 +97,15 @@ public class AddressModule {
                     hashCount.addAndGet(2L);
 
                     if (isMatch) {
-                        System.out.println("Private Key                 : " + HexUtil.toHexString(privateKey.getBytes()));
-                        System.out.println("Public Key                  : " + privateKey.getPublicKey());
-                        System.out.println("Bitcoin Address             : " + address);
-                        System.out.println("Compressed Bitcoin Address  : " + compressedAddress);
-                        miningPin.set(false);
+                        final boolean wasUnset = miningPin.compareAndSet(true, false);
+                        if (wasUnset) {
+                            System.out.println("Private Key                 : " + HexUtil.toHexString(privateKey.getBytes()));
+                            System.out.println("Public Key                  : " + privateKey.getPublicKey());
+                            System.out.println("Bitcoin Address             : " + address);
+                            System.out.println("Compressed Bitcoin Address  : " + compressedAddress);
+                            System.out.println();
+                            System.out.println("[Press any key to exit]");
+                        }
                     }
                 }
             }

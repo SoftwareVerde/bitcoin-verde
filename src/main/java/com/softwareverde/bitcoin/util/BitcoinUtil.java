@@ -3,6 +3,8 @@ package com.softwareverde.bitcoin.util;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.secp256k1.signature.BitcoinMessageSignature;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.Secp256k1;
@@ -28,25 +30,25 @@ public class BitcoinUtil {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendByte((byte) (preambleBytes.length & 0xFF));
         byteArrayBuilder.appendBytes(preambleBytes);
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(messageBytes.length));
+        byteArrayBuilder.appendBytes(CompactVariableLengthInteger.variableLengthIntegerToBytes(messageBytes.length));
         byteArrayBuilder.appendBytes(messageBytes);
         return HashUtil.doubleSha256(MutableByteArray.wrap(byteArrayBuilder.build()));
     }
 
-    public static String toBase58String(final byte[] bytes) {
-        return Base58Util.toBase58String(bytes);
+    public static String toBase58String(final ByteArray bytes) {
+        return Base58Util.toBase58String(bytes.getBytes());
     }
 
-    public static byte[] base58StringToBytes(final String base58String) {
-        return Base58Util.base58StringToByteArray(base58String);
+    public static ByteArray base58StringToBytes(final String base58String) {
+        return ByteArray.wrap(Base58Util.base58StringToByteArray(base58String));
     }
 
-    public static String toBase32String(final byte[] bytes) {
-        return Base32Util.toBase32String(bytes);
+    public static String toBase32String(final ByteArray bytes) {
+        return Base32Util.toBase32String(bytes.getBytes());
     }
 
-    public static byte[] base32StringToBytes(final String base58String) {
-        return Base32Util.base32StringToByteArray(base58String);
+    public static ByteArray base32StringToBytes(final String base58String) {
+        return ByteArray.wrap(Base32Util.base32StringToByteArray(base58String));
     }
 
     public static String reverseEndianString(final String string) {

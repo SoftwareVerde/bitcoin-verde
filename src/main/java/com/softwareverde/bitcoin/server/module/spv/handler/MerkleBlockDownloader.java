@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin.server.module.spv.handler;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.MerkleBlock;
 import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTree;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -20,7 +19,6 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
@@ -89,23 +87,22 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryAnnou
 //            final UpdateBloomFilterMode updateBloomFilterMode = Util.coalesce(UpdateBloomFilterMode.valueOf(bloomFilter.getUpdateMode()), UpdateBloomFilterMode.READ_ONLY);
 //            final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(bloomFilter, updateBloomFilterMode);
 //            return transactionBloomFilterMatcher.shouldInclude(transaction);
-            try (final SpvDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-                final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-                final SpvBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-                final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                try (final SpvDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                    final SpvBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+                    final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
-                TransactionUtil.startTransaction(databaseConnection);
-                final Sha256Hash previousBlockHash = merkleBlock.getPreviousBlockHash();
-                if (! Util.areEqual(previousBlockHash, Sha256Hash.EMPTY_HASH)) { // Check for Genesis Block...
-                    final BlockId previousBlockId = blockHeaderDatabaseManager.getBlockHeaderId(merkleBlock.getPreviousBlockHash());
-                    if (previousBlockId == null) {
-                        Logger.debug("NOTICE: Out of order MerkleBlock received. Discarding. " + merkleBlock.getHash());
-                        return false;
+                    databaseManager.startTransaction();
+                    final Sha256Hash previousBlockHash = merkleBlock.getPreviousBlockHash();
+                    if (!Util.areEqual(previousBlockHash, Sha256Hash.EMPTY_HASH)) { // Check for Genesis Block...
+                        final BlockId previousBlockId = blockHeaderDatabaseManager.getBlockHeaderId(merkleBlock.getPreviousBlockHash());
+                        if (previousBlockId == null) {
+                            Logger.debug("NOTICE: Out of order MerkleBlock received. Discarding. " + merkleBlock.getHash());
+                            return false;
+                        }
                     }
-                }
 
-                synchronized (BlockHeaderDatabaseManager.MUTEX) {
                     final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(merkleBlock);
                     blockDatabaseManager.storePartialMerkleTree(blockId, partialMerkleTree);
 
@@ -113,12 +110,12 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryAnnou
                         final TransactionId transactionId = transactionDatabaseManager.storeTransaction(transaction);
                         blockDatabaseManager.addTransactionToBlock(blockId, transactionId);
                     }
+                    databaseManager.commitTransaction();
                 }
-                TransactionUtil.commitTransaction(databaseConnection);
-            }
-            catch (final DatabaseException exception) {
-                Logger.warn(exception);
-                return false;
+                catch (final DatabaseException exception) {
+                    Logger.warn(exception);
+                    return false;
+                }
             }
 
             final DownloadCompleteCallback downloadCompleteCallback = _downloadCompleteCallback;

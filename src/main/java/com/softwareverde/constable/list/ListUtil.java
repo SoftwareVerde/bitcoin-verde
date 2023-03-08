@@ -34,5 +34,16 @@ public class ListUtil {
         return mutableList;
     }
 
+    public static <T> void reverse(final MutableList<T> mutableList) {
+        final int objectCount = mutableList.getCount();
+        for (int i = 0; i < (objectCount / 2); ++i) {
+            final int tailIndex = (objectCount - 1 - i);
+            final T object0 = mutableList.get(i);
+            final T object1 = mutableList.get(tailIndex);
+            mutableList.set(i, object1);
+            mutableList.set(tailIndex, object0);
+        }
+    }
+
     protected ListUtil() { }
 }

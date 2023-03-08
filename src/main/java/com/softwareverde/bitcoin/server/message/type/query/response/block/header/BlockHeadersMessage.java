@@ -7,7 +7,7 @@ import com.softwareverde.bitcoin.inflater.BlockHeaderInflaters;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.server.message.type.query.header.RequestBlockHeadersMessage;
-import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -39,7 +39,7 @@ public class BlockHeadersMessage extends BitcoinProtocolMessage {
     protected ByteArray _getPayload() {
         final int blockHeaderCount = _blockHeaders.getCount();
 
-        final byte[] blockHeaderCountBytes = ByteUtil.variableLengthIntegerToBytes(blockHeaderCount);
+        final ByteArray blockHeaderCountBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(blockHeaderCount);
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(blockHeaderCountBytes);
@@ -50,7 +50,7 @@ public class BlockHeadersMessage extends BitcoinProtocolMessage {
             byteArrayBuilder.appendBytes(blockHeaderDeflater.toBytes(blockHeader));
 
             final int transactionCount = 0; // blockHeader.getTransactionCount();
-            final byte[] transactionCountBytes = ByteUtil.variableLengthIntegerToBytes(transactionCount);
+            final ByteArray transactionCountBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(transactionCount);
             byteArrayBuilder.appendBytes(transactionCountBytes);
         }
 
@@ -60,8 +60,8 @@ public class BlockHeadersMessage extends BitcoinProtocolMessage {
     @Override
     protected Integer _getPayloadByteCount() {
         final int blockHeaderCount = _blockHeaders.getCount();
-        final byte[] blockHeaderCountBytes = ByteUtil.variableLengthIntegerToBytes(blockHeaderCount);
+        final ByteArray blockHeaderCountBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(blockHeaderCount);
 
-        return (blockHeaderCountBytes.length + (blockHeaderCount * (BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT + 1)));
+        return (blockHeaderCountBytes.getByteCount() + (blockHeaderCount * (BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT + 1)));
     }
 }

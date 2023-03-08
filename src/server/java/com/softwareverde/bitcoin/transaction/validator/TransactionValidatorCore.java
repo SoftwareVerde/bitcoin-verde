@@ -21,6 +21,7 @@ import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.runner.context.TransactionContext;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -46,10 +47,18 @@ public class TransactionValidatorCore implements TransactionValidator {
         final TransactionInputDeflater transactionInputDeflater = new TransactionInputDeflater();
         final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
 
+        final Json previousOutputs = new Json(true);
+        final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+        for (int i = 0; i < transactionInputs.getCount(); ++i) {
+            final TransactionOutput transactionOutput = transactionContext.getPreviousTransactionOutput(i);
+            final ByteArray outputBytes = (transactionOutput != null ? transactionOutputDeflater.toBytes(transactionOutput) : null);
+            previousOutputs.add(outputBytes);
+        }
+
         final TransactionOutput outputToSpend = transactionContext.getTransactionOutputBeingSpent();
         final TransactionInput transactionInput = transactionContext.getTransactionInput();
 
-        final LockingScript lockingScript = (outputToSpend != null ? outputToSpend.getLockingScript() : null);
+        final ByteArray legacyLockingScriptBytes = (outputToSpend != null ? transactionOutputDeflater.toLegacyScriptBytes(outputToSpend) : null);
         final UnlockingScript unlockingScript = (transactionInput != null ? transactionInput.getUnlockingScript() : null);
 
         final Integer transactionInputIndex = transactionContext.getTransactionInputIndex();
@@ -66,10 +75,12 @@ public class TransactionValidatorCore implements TransactionValidator {
         // json.put("transactionOutputIndex", );
         json.put("previousOutputBytes", ((outputToSpend != null) ? transactionOutputDeflater.toBytes(outputToSpend) : null));
         json.put("blockHeight", transactionContext.getBlockHeight());
-        json.put("lockingScriptBytes", (lockingScript != null ? lockingScript.getBytes() : null));
+        json.put("lockingScriptBytes", legacyLockingScriptBytes);
         json.put("unlockingScriptBytes", (unlockingScript != null ? unlockingScript.getBytes() : null));
         json.put("medianBlockTime", (medianBlockTime != null ? medianBlockTime.getCurrentTimeInSeconds() : null));
         json.put("networkTime", (networkTime != null ? networkTime.getCurrentTimeInSeconds() : null));
+        json.put("previousOutputs", previousOutputs);
+
         return json;
     }
 
@@ -126,6 +137,16 @@ public class TransactionValidatorCore implements TransactionValidator {
         }
 
         return null;
+    }
+
+    protected Boolean _isTransactionOutputPreActivationCashToken(final TransactionOutputIdentifier transactionOutputIdentifier, final MedianBlockTime medianBlockTime, final UpgradeSchedule upgradeSchedule) {
+        final Boolean isPatfo = _context.isPreActivationTokenForgery(transactionOutputIdentifier);
+        if (isPatfo == null) {
+            // UTXO must be from this block.
+            return (! upgradeSchedule.areCashTokensEnabled(medianBlockTime));
+        }
+
+        return isPatfo;
     }
 
     /**
@@ -267,16 +288,48 @@ public class TransactionValidatorCore implements TransactionValidator {
                     return TransactionValidationResult.invalid(errorJson);
                 }
 
+                if (transactionOutput.hasCashToken()) {
+                    if (upgradeSchedule.areCashTokensEnabled(medianBlockTime)) {
+                        if (_isTransactionOutputPreActivationCashToken(transactionOutputIdentifier, medianBlockTime, upgradeSchedule)) {
+                            final Json errorJson = _createInvalidTransactionReport("Attempted to spend PATFO CashToken.", transaction, transactionContext);
+                            return TransactionValidationResult.invalid(errorJson);
+                        }
+                    }
+                    else {
+                        final Json errorJson = _createInvalidTransactionReport("Attempted to spend CashToken output before activation.", transaction, transactionContext);
+                        return TransactionValidationResult.invalid(errorJson);
+                    }
+                }
+
                 transactionOutputsBeingSpent.add(transactionOutput);
             }
             transactionContext.setPreviousTransactionOutputs(transactionOutputsBeingSpent.build());
         }
 
         { // Enforce Transaction minimum byte count...
-            if (upgradeSchedule.areTransactionsLessThanOneHundredBytesDisallowed(blockHeight)) {
+            if (upgradeSchedule.areTransactionsLessThanSixtyFiveBytesDisallowed(medianBlockTime)) {
                 final Integer transactionByteCount = transaction.getByteCount();
-                if (transactionByteCount < BitcoinConstants.getTransactionMinByteCount()) {
-                    final Json errorJson = _createInvalidTransactionReport("Invalid byte count." + transactionByteCount + " " + transactionHash, transaction, transactionContext);
+                final int minByteCount = BitcoinConstants.getTransactionMinByteCount();
+                if (transactionByteCount < minByteCount) {
+                    final Json errorJson = _createInvalidTransactionReport("Invalid byte count. " + transactionByteCount + " < " + minByteCount, transaction, transactionContext);
+                    return TransactionValidationResult.invalid(errorJson);
+                }
+            }
+            else if (upgradeSchedule.areTransactionsLessThanOneHundredBytesDisallowed(blockHeight)) { // NOTE: This check becomes disabled once HF20230515 activates, thus ELSEIF and not IF. // TODO: Remove after HF20230515.
+                final Integer transactionByteCount = transaction.getByteCount();
+                final int minByteCount = 100;
+                if (transactionByteCount < minByteCount) {
+                    final Json errorJson = _createInvalidTransactionReport("Invalid byte count. (Legacy) " + transactionByteCount + " < " + minByteCount, transaction, transactionContext);
+                    return TransactionValidationResult.invalid(errorJson);
+                }
+            }
+        }
+
+        { // Enforce Transaction versions...
+            if (upgradeSchedule.areTransactionVersionsRestricted(medianBlockTime)) {
+                final Long transactionVersion = transaction.getVersion();
+                if (transactionVersion != 1L && transactionVersion != 2L) {
+                    final Json errorJson = _createInvalidTransactionReport("Invalid transaction version. v" + transactionVersion + " " + transactionHash, transaction, transactionContext);
                     return TransactionValidationResult.invalid(errorJson);
                 }
             }

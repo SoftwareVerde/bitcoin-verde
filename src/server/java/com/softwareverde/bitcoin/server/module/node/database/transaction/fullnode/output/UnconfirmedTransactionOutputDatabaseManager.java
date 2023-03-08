@@ -9,16 +9,20 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputInflater;
 import com.softwareverde.bitcoin.transaction.output.UnconfirmedTransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.token.CashToken;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
+import com.softwareverde.util.Tuple;
 
 import java.util.Map;
 
@@ -27,6 +31,7 @@ public class UnconfirmedTransactionOutputDatabaseManager {
 
     protected UnconfirmedTransactionOutputId _insertUnconfirmedTransactionOutput(final TransactionId transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
 
         final Integer index;
         {
@@ -39,14 +44,14 @@ public class UnconfirmedTransactionOutputDatabaseManager {
         }
 
         final Long amount = transactionOutput.getAmount();
-        final LockingScript lockingScript = transactionOutput.getLockingScript();
+        final ByteArray lockingScriptBytes = transactionOutputDeflater.toLegacyScriptBytes(transactionOutput);
 
         final Long transactionOutputId = databaseConnection.executeSql(
             new Query("INSERT INTO unconfirmed_transaction_outputs (transaction_id, `index`, amount, locking_script) VALUES (?, ?, ?, ?)")
                 .setParameter(transactionId)
                 .setParameter(index)
                 .setParameter(amount)
-                .setParameter(lockingScript.getBytes())
+                .setParameter(lockingScriptBytes)
         );
 
         return UnconfirmedTransactionOutputId.wrap(transactionOutputId);
@@ -62,6 +67,7 @@ public class UnconfirmedTransactionOutputDatabaseManager {
 
     public List<UnconfirmedTransactionOutputId> insertUnconfirmedTransactionOutputs(final Map<Sha256Hash, TransactionId> transactionIds, final List<Transaction> transactions) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
 
         final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO unconfirmed_transaction_outputs (transaction_id, `index`, amount, locking_script) VALUES (?, ?, ?, ?)");
         for (final Transaction transaction : transactions) {
@@ -71,12 +77,12 @@ public class UnconfirmedTransactionOutputDatabaseManager {
             int index = 0;
             for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
                 final Long amount = transactionOutput.getAmount();
-                final LockingScript lockingScript = transactionOutput.getLockingScript();
+                final ByteArray lockingScriptBytes = transactionOutputDeflater.toLegacyScriptBytes(transactionOutput);
 
                 batchedInsertQuery.setParameter(transactionId);
                 batchedInsertQuery.setParameter(index);
                 batchedInsertQuery.setParameter(amount);
-                batchedInsertQuery.setParameter(lockingScript.getBytes());
+                batchedInsertQuery.setParameter(lockingScriptBytes);
 
                 index += 1;
             }
@@ -121,6 +127,7 @@ public class UnconfirmedTransactionOutputDatabaseManager {
     }
 
     public TransactionOutput getUnconfirmedTransactionOutput(final UnconfirmedTransactionOutputId transactionOutputId) throws DatabaseException {
+        final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT * FROM unconfirmed_transaction_outputs WHERE id = ?")
@@ -131,16 +138,19 @@ public class UnconfirmedTransactionOutputDatabaseManager {
         final Row row = rows.get(0);
         final Integer index = row.getInteger("index");
         final Long amount = row.getLong("amount");
-        final LockingScript lockingScript = new ImmutableLockingScript(MutableByteArray.wrap(row.getBytes("locking_script")));
+        final ByteArray legacyLockingScriptBytes = MutableByteArray.wrap(row.getBytes("locking_script"));
+        final Tuple<LockingScript, CashToken> lockingScriptTuple = transactionOutputInflater.fromLegacyScriptBytes(legacyLockingScriptBytes);
 
         final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
         transactionOutput.setIndex(index);
         transactionOutput.setAmount(amount);
-        transactionOutput.setLockingScript(lockingScript);
+        transactionOutput.setLockingScript(lockingScriptTuple.first);
+        transactionOutput.setCashToken(lockingScriptTuple.second);
         return transactionOutput;
     }
 
     public TransactionOutput getUnconfirmedTransactionOutput(final TransactionId transactionId, final Integer outputIndex) throws DatabaseException {
+        final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT * FROM unconfirmed_transaction_outputs WHERE transaction_id = ? AND `index` = ?")
@@ -152,12 +162,14 @@ public class UnconfirmedTransactionOutputDatabaseManager {
         final Row row = rows.get(0);
         final Integer index = row.getInteger("index");
         final Long amount = row.getLong("amount");
-        final LockingScript lockingScript = new ImmutableLockingScript(MutableByteArray.wrap(row.getBytes("locking_script")));
+        final ByteArray legacyLockingScriptBytes = MutableByteArray.wrap(row.getBytes("locking_script"));
+        final Tuple<LockingScript, CashToken> lockingScriptTuple = transactionOutputInflater.fromLegacyScriptBytes(legacyLockingScriptBytes);
 
         final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
         transactionOutput.setIndex(index);
         transactionOutput.setAmount(amount);
-        transactionOutput.setLockingScript(lockingScript);
+        transactionOutput.setLockingScript(lockingScriptTuple.first);
+        transactionOutput.setCashToken(lockingScriptTuple.second);
         return transactionOutput;
     }
 

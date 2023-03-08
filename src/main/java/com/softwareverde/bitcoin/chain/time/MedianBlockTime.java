@@ -1,7 +1,9 @@
 package com.softwareverde.bitcoin.chain.time;
 
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.constable.Constable;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.Time;
 
@@ -16,6 +18,37 @@ public interface MedianBlockTime extends Time, Constable<ImmutableMedianBlockTim
 
     static MedianBlockTime fromMilliseconds(final Long medianBlockTimeInMilliseconds) {
         return ImmutableMedianBlockTime.fromMilliseconds(medianBlockTimeInMilliseconds);
+    }
+
+    interface BlockStore {
+        BlockHeader getBlock(Long blockHeight);
+    }
+
+    /**
+     * Calculates the MedianBlockTime for the provided Block at blockHeight.
+     *  BlockStore must provide the BlockHeaders for the Block at blockHeight and its (MedianBlockTime.BLOCK_COUNT - 1) ancestors.
+     */
+    static MedianBlockTime calculateMedianBlockTime(final Long blockHeight, final BlockStore blockStore) {
+        final MutableList<BlockHeader> blockHeadersInDescendingOrder = new MutableList<>(MedianBlockTime.BLOCK_COUNT);
+
+        // Load the blocks from the store in descending order, including the block at blockHeight...
+        for (int i = 0; i < MedianBlockTime.BLOCK_COUNT; ++i) {
+            final long blockIndex = (blockHeight - i);
+            if (blockIndex < 0L) { break; }
+
+            final BlockHeader block = blockStore.getBlock(blockIndex);
+            blockHeadersInDescendingOrder.add(block);
+        }
+
+        final MutableMedianBlockTime medianBlockTime = new MutableMedianBlockTime();
+        // Add the blocks to the MedianBlockTime in ascending order (lowest block-height is added first)...
+        final int blockHeaderCount = blockHeadersInDescendingOrder.getCount();
+        for (int i = 0; i < blockHeaderCount; ++i) {
+            final BlockHeader blockHeader = blockHeadersInDescendingOrder.get(blockHeaderCount - i - 1);
+            medianBlockTime.addBlock(blockHeader);
+        }
+
+        return medianBlockTime;
     }
 
     @Override

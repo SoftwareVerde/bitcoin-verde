@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.module;
 import com.softwareverde.bitcoin.server.configuration.Configuration;
 import com.softwareverde.bitcoin.server.configuration.ConfigurationPropertiesExporter;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.logging.Logger;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -62,8 +63,7 @@ public class ConfigurationModule {
             ConfigurationPropertiesExporter.exportConfiguration(configuration, _configurationFilename, _userInputMap);
         }
         catch (final Exception exception) {
-            System.out.println(exception);
-            exception.printStackTrace();
+            Logger.error(exception);
             BitcoinUtil.exitFailure();
         }
 

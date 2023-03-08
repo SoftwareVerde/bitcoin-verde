@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.server.module.electrum;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.address.AddressType;
+import com.softwareverde.bitcoin.address.ParsedAddress;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
@@ -21,6 +23,7 @@ import com.softwareverde.bitcoin.server.module.electrum.json.ElectrumJsonProtoco
 import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.HeadersBootstrapper;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
+import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProof;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
@@ -46,6 +49,7 @@ import com.softwareverde.network.socket.JsonProtocolMessage;
 import com.softwareverde.network.socket.JsonSocket;
 import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.StringUtil;
+import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 
@@ -223,6 +227,11 @@ public class ElectrumModule {
             public void onNewTransaction(final Transaction transaction, final Long fee) {
                 _onNewTransaction(transaction, fee);
             }
+
+            @Override
+            public void onNewDoubleSpendProof(final DoubleSpendProof doubleSpendProofJson) {
+                // TODO
+            }
         });
     }
 
@@ -294,7 +303,7 @@ public class ElectrumModule {
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
         final AddressInflater addressInflater = new AddressInflater();
 
-        final HashSet<Address> matchedAddresses = new HashSet<>();
+        final HashSet<Tuple<AddressType, Address>> matchedAddresses = new HashSet<>();
         for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
             final LockingScript lockingScript = transactionOutput.getLockingScript();
 
@@ -304,11 +313,12 @@ public class ElectrumModule {
             final Address address = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
             if (address == null) { continue; }
 
-            final AddressSubscriptionKey addressSubscriptionKey = new AddressSubscriptionKey(address, null);
+            final AddressType addressType = AddressType.fromScriptType(scriptType);
+            final AddressSubscriptionKey addressSubscriptionKey = new AddressSubscriptionKey(addressType, address, null);
             synchronized (_connectionAddresses) {
                 final boolean addressIsConnected = _connectionAddresses.containsKey(addressSubscriptionKey);
                 if (addressIsConnected) {
-                    matchedAddresses.add(address);
+                    matchedAddresses.add(new Tuple<>(addressType, address));
                 }
             }
         }
@@ -322,11 +332,11 @@ public class ElectrumModule {
                 continue;
             }
 
-            final AddressSubscriptionKey addressSubscriptionKey = new AddressSubscriptionKey(address, null);
+            final AddressSubscriptionKey addressSubscriptionKey = new AddressSubscriptionKey(AddressType.P2PKH, address, null);
             synchronized (_connectionAddresses) {
                 final boolean addressIsConnected = _connectionAddresses.containsKey(addressSubscriptionKey);
                 if (addressIsConnected) {
-                    matchedAddresses.add(address);
+                    matchedAddresses.add(new Tuple<>(AddressType.P2PKH, address));
                 }
             }
         }
@@ -342,14 +352,14 @@ public class ElectrumModule {
                         final Json transactionInputJson = transactionInputsJson.get(i);
                         final String addressString = transactionInputJson.getString("address");
 
-                        final Address address = addressInflater.fromBase58Check(addressString);
+                        final ParsedAddress address = addressInflater.fromBase58Check(addressString);
                         if (address == null) { continue; }
 
                         final AddressSubscriptionKey addressSubscriptionKey = new AddressSubscriptionKey(address, null);
                         synchronized (_connectionAddresses) {
                             final boolean addressIsConnected = _connectionAddresses.containsKey(addressSubscriptionKey);
                             if (addressIsConnected) {
-                                matchedAddresses.add(address);
+                                matchedAddresses.add(new Tuple<>(address.getType(), address.getBytes()));
                             }
                         }
                     }
@@ -357,9 +367,9 @@ public class ElectrumModule {
             }
         }
 
-        for (final Address address : matchedAddresses) {
+        for (final Tuple<AddressType, Address> addressTuple : matchedAddresses) {
             synchronized (_connectionAddresses) {
-                final LinkedList<ConnectionAddress> connectionAddresses = _connectionAddresses.get(new AddressSubscriptionKey(address, null));
+                final LinkedList<ConnectionAddress> connectionAddresses = _connectionAddresses.get(new AddressSubscriptionKey(addressTuple.first, addressTuple.second, null));
                 for (final ConnectionAddress connectionAddress : connectionAddresses) {
                     final JsonSocket jsonSocket = connectionAddress.connection.get();
                     final boolean jsonSocketIsConnected = ((jsonSocket != null) && jsonSocket.isConnected());
@@ -606,12 +616,12 @@ public class ElectrumModule {
     protected void _handleDonationAddressMessage(final JsonSocket jsonSocket, final Json message) {
         final Object id = ElectrumModule.getRequestId(message);
 
-        final Address donationAddress = _electrumProperties.getDonationAddress();
+        final ParsedAddress donationAddress = _electrumProperties.getDonationAddress();
 
         final Json json = new ElectrumJson(false);
 
         json.put("id", id);
-        json.put("result", (donationAddress != null ? donationAddress.toBase32CheckEncoded() : ""));
+        json.put("result", donationAddress);
         jsonSocket.write(new ElectrumJsonProtocolMessage(json));
         jsonSocket.flush();
 
@@ -785,7 +795,7 @@ public class ElectrumModule {
             final int headerIndex = (blockHeaderMerkleTree.getItemCount() - 1);
 
             merkleRoot = blockHeaderMerkleTree.getMerkleRoot();
-            partialMerkleTree = blockHeaderMerkleTree.getPartialTree(headerIndex, true);
+            partialMerkleTree = blockHeaderMerkleTree.getPartialTree(headerIndex);
         }
         else {
             merkleRoot = null;
@@ -1003,7 +1013,7 @@ public class ElectrumModule {
             final Json blockJson = nodeConnection.getBlock(blockHeight, true);
             final Block block = blockInflater.fromBytes(ByteArray.fromHexString(blockJson.getString("block")));
 
-            final List<Sha256Hash> partialMerkleTree = block.getPartialMerkleTree(transactionIndex, false);
+            final List<Sha256Hash> partialMerkleTree = block.getPartialMerkleTree(transactionIndex);
             final Json partialMerkleTreeJson = new ElectrumJson(true);
             for (final Sha256Hash item : partialMerkleTree) {
                 partialMerkleTreeJson.add(item);
@@ -1031,7 +1041,7 @@ public class ElectrumModule {
         final Object id = ElectrumModule.getRequestId(message);
         final Json paramsJson = message.get("params");
 
-        final Address address;
+        final ParsedAddress address;
         {
             final String addressString = paramsJson.getString(0);
             address = Util.coalesce(addressInflater.fromBase32Check(addressString), addressInflater.fromBase58Check(addressString));
@@ -1102,7 +1112,7 @@ public class ElectrumModule {
             final Transaction transaction = transactions.get(transactionIndex);
 
             transactionHash = transaction.getHash();
-            partialMerkleTree = (includePartialMerkleTree ? block.getPartialMerkleTree(transactionIndex, false) : null);
+            partialMerkleTree = (includePartialMerkleTree ? block.getPartialMerkleTree(transactionIndex) : null);
         }
 
         final Json json = new ElectrumJson(false);
@@ -1154,7 +1164,7 @@ public class ElectrumModule {
         final Long amount;
         final Long blockHeight;
         final Sha256Hash scriptHash;
-        final Address address;
+        final ParsedAddress address;
         try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
             final Json getTransactionJson = nodeConnection.getTransaction(transactionHash, false);
             final Json transactionJson = getTransactionJson.get("transaction");
@@ -1197,9 +1207,13 @@ public class ElectrumModule {
             );
             final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
 
+            final boolean hasCommitmentData = (transactionOutputJson.getOrNull("cashToken", Json.Types.JSON) != null);
+
             amount = transactionOutputJson.getLong("amount");
             blockHeight = transactionBlockHeight;
-            address = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
+
+            final Address addressBytes = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
+            address = new ParsedAddress(AddressType.fromScriptType(scriptType), hasCommitmentData, addressBytes);
             scriptHash = ScriptBuilder.computeScriptHash(lockingScript);
         }
 
@@ -1461,7 +1475,7 @@ public class ElectrumModule {
         final Json paramsJson = message.get("params");
 
         final String addressString = paramsJson.getString(0);
-        final Address address = Util.coalesce(addressInflater.fromBase32Check(addressString), addressInflater.fromBase58Check(addressString));
+        final ParsedAddress address = Util.coalesce(addressInflater.fromBase32Check(addressString), addressInflater.fromBase58Check(addressString));
         if (address == null) {
             final String errorMessage = "Invalid address: " + addressString;
             final Json json = ElectrumModule.createErrorJson(id, errorMessage, null);
@@ -1548,7 +1562,7 @@ public class ElectrumModule {
         final Json paramsJson = message.get("params");
 
         final String addressString = paramsJson.getString(0);
-        final Address address = Util.coalesce(addressInflater.fromBase32Check(addressString), addressInflater.fromBase58Check(addressString));
+        final ParsedAddress address = Util.coalesce(addressInflater.fromBase32Check(addressString), addressInflater.fromBase58Check(addressString));
         if (address == null) {
             final String errorMessage = "Invalid address: " + addressString;
             final Json json = ElectrumModule.createErrorJson(id, errorMessage, null);
@@ -1570,7 +1584,7 @@ public class ElectrumModule {
         final Json paramsJson = message.get("params");
 
         final String addressString = paramsJson.getString(0);
-        final Address address = Util.coalesce(addressInflater.fromBase32Check(addressString), addressInflater.fromBase58Check(addressString));
+        final ParsedAddress address = Util.coalesce(addressInflater.fromBase32Check(addressString), addressInflater.fromBase58Check(addressString));
         if (address == null) {
             final String errorMessage = "Invalid address: " + addressString;
             final Json json = ElectrumModule.createErrorJson(id, errorMessage, null);
@@ -1604,7 +1618,7 @@ public class ElectrumModule {
         final Json paramsJson = message.get("params");
 
         final Sha256Hash scriptHash;
-        final Address address;
+        final ParsedAddress address;
         {
             final String addressString = paramsJson.getString(0);
             scriptHash = Sha256Hash.fromHexString(BitcoinUtil.reverseEndianString(addressString));
@@ -1681,7 +1695,7 @@ public class ElectrumModule {
         final Json paramsJson = message.get("params");
 
         final Sha256Hash scriptHash;
-        final Address address;
+        final ParsedAddress address;
         {
             final String addressString = paramsJson.getString(0);
             address = Util.coalesce(addressInflater.fromBase32Check(addressString), addressInflater.fromBase58Check(addressString));

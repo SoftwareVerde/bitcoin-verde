@@ -9,4 +9,7 @@ public interface BlockWork extends Work {
     }
 
     MutableChainWork add(final Work work);
+
+    @Override
+    ImmutableBlockWork asConst();
 }

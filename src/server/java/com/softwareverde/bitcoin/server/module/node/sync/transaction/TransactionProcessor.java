@@ -13,10 +13,9 @@ import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.context.UpgradeScheduleContext;
 import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
 import com.softwareverde.bitcoin.context.lazy.DoubleSpendProofUtxoSet;
-import com.softwareverde.bitcoin.context.lazy.LazyMedianBlockTimeContext;
+import com.softwareverde.bitcoin.context.lazy.HeadBlockchainMedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.lazy.LazyUnconfirmedTransactionUtxoSet;
 import com.softwareverde.bitcoin.inflater.TransactionInflaters;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
@@ -45,10 +44,8 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.VolatileNetworkTime;
-import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
 
@@ -74,13 +71,12 @@ public class TransactionProcessor extends SleepyService {
     protected DoubleSpendProofCallback _doubleSpendProofCallback;
 
     protected void _deletePendingTransaction(final FullNodeDatabaseManager databaseManager, final PendingTransactionId pendingTransactionId) {
-        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
         final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = databaseManager.getPendingTransactionDatabaseManager();
 
         try {
-            TransactionUtil.startTransaction(databaseConnection);
+            databaseManager.startTransaction();
             pendingTransactionDatabaseManager.deletePendingTransaction(pendingTransactionId);
-            TransactionUtil.commitTransaction(databaseConnection);
+            databaseManager.commitTransaction();
         }
         catch (final DatabaseException exception) {
             Logger.warn(exception);
@@ -95,20 +91,19 @@ public class TransactionProcessor extends SleepyService {
         final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
         final VolatileNetworkTime networkTime = _context.getNetworkTime();
         final SystemTime systemTime = _context.getSystemTime();
+        final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
 
         final Thread thread = Thread.currentThread();
 
         try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
             final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = databaseManager.getPendingTransactionDatabaseManager();
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = databaseManager.getBlockchainIndexerDatabaseManager();
 
             final TransactionInflaters transactionInflaters = _context;
-            final UnspentTransactionOutputContext unconfirmedTransactionUtxoSet = new LazyUnconfirmedTransactionUtxoSet(databaseManager, true);
-            final MedianBlockTimeContext medianBlockTimeContext = new LazyMedianBlockTimeContext(databaseManager);
-            final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
+            final UnspentTransactionOutputContext unconfirmedTransactionUtxoSet = new LazyUnconfirmedTransactionUtxoSet(databaseManager, upgradeSchedule, true);
+            final MedianBlockTimeContext medianBlockTimeContext = new HeadBlockchainMedianBlockTimeContext(databaseManager);
             final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(transactionInflaters, networkTime, medianBlockTimeContext, unconfirmedTransactionUtxoSet, upgradeSchedule);
             final TransactionValidator transactionValidator = _context.getUnconfirmedTransactionValidator(transactionValidatorContext);
 
@@ -199,43 +194,13 @@ public class TransactionProcessor extends SleepyService {
 
                             final boolean isAttemptedDoubleSpend = (firstSeenTransactionId != null);
                             if (isAttemptedDoubleSpend) {
-                                final DoubleSpendProofUtxoSet modifiedUnconfirmedTransactionUtxoSet = new DoubleSpendProofUtxoSet(databaseManager, true);
+                                final DoubleSpendProofUtxoSet doubleSpendProofUtxoSet = new DoubleSpendProofUtxoSet(databaseManager, upgradeSchedule);
 
                                 boolean shouldAbort = false;
-                                TransactionOutput transactionOutputBeingDoubleSpent = null;
-                                final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-                                for (final TransactionInput transactionInput : transactionInputs) {
-                                    // TODO: Obtain previousTransactionOutput without relying on non-pruned mode...
-                                    final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-
-                                    final Sha256Hash transactionHashBeingSpent = transactionOutputIdentifier.getTransactionHash();
-                                    final Integer transactionOutputIndexBeingSpent = transactionOutputIdentifier.getOutputIndex();
-
-                                    final TransactionId transactionIdBeingSpent = transactionDatabaseManager.getTransactionId(transactionHashBeingSpent);
-                                    if (transactionIdBeingSpent == null) {
-                                        shouldAbort = true;
-                                        break;
-                                    }
-
-                                    final Transaction transactionBeingSpent = transactionDatabaseManager.getTransaction(transactionIdBeingSpent);
-                                    if (transactionBeingSpent == null) {
-                                        shouldAbort = true;
-                                        break;
-                                    }
-
-                                    final List<TransactionOutput> transactionOutputs = transactionBeingSpent.getTransactionOutputs();
-                                    final TransactionOutput transactionOutput = transactionOutputs.get(transactionOutputIndexBeingSpent);
-
-                                    modifiedUnconfirmedTransactionUtxoSet.addTransactionOutput(transactionOutputIdentifier, transactionOutput);
-
-                                    if (Util.areEqual(transactionOutputIdentifierBeingDoubleSpent, transactionOutputIdentifier)) {
-                                        transactionOutputBeingDoubleSpent = transactionOutput;
-                                    }
-                                }
+                                final TransactionOutput transactionOutputBeingDoubleSpent = doubleSpendProofUtxoSet.getTransactionOutput(transactionOutputIdentifierBeingDoubleSpent);
 
                                 if ( (! shouldAbort) && (transactionOutputBeingDoubleSpent != null) ) {
-
-                                    final TransactionValidatorContext modifiedTransactionValidatorContext = new TransactionValidatorContext(transactionInflaters, networkTime, medianBlockTimeContext, modifiedUnconfirmedTransactionUtxoSet, upgradeSchedule);
+                                    final TransactionValidatorContext modifiedTransactionValidatorContext = new TransactionValidatorContext(transactionInflaters, networkTime, medianBlockTimeContext, doubleSpendProofUtxoSet, upgradeSchedule);
                                     final TransactionValidator modifiedTransactionValidator = _context.getUnconfirmedTransactionValidator(modifiedTransactionValidatorContext);
 
                                     // Ensure the DoubleSpend Transaction would have otherwise been valid had the UTXO not been spent already...
@@ -270,13 +235,13 @@ public class TransactionProcessor extends SleepyService {
                         continue;
                     }
 
-                    TransactionUtil.startTransaction(databaseConnection);
+                    databaseManager.startTransaction();
                     final TransactionId transactionId = transactionDatabaseManager.storeUnconfirmedTransaction(transaction);
                     final boolean isUnconfirmedTransaction = (transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId) == null); // TODO: This check is likely redundant...
                     if (isUnconfirmedTransaction) {
                         transactionDatabaseManager.addToUnconfirmedTransactions(transactionId);
                     }
-                    TransactionUtil.commitTransaction(databaseConnection);
+                    databaseManager.commitTransaction();
 
                     _deletePendingTransaction(databaseManager, pendingTransactionId);
 

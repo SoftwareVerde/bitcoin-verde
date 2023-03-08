@@ -6,6 +6,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.map.Visitor;
 
 import java.util.HashMap;
 
@@ -50,6 +51,18 @@ public class MockBlockchainDatabaseManager implements FakeBlockchainDatabaseMana
     @Override
     public List<BlockchainSegmentId> getLeafBlockchainSegmentIds() throws DatabaseException {
         return _leafBlockchainSegmentIds;
+    }
+
+    @Override
+    public void visitBlockchainSegments(final Visitor<BlockchainSegmentId> visitor) throws DatabaseException {
+        for (final BlockchainSegmentId blockchainSegmentId : _parentBlockchainSegmentIds.keySet()) {
+            try {
+                visitor.visit(blockchainSegmentId);
+            }
+            catch (final Exception exception) {
+                throw new DatabaseException(exception);
+            }
+        }
     }
 
     @Override

@@ -6,8 +6,12 @@
 # Setting -XX:G1MixedGCLiveThresholdPercent to 50 to encourage collecting "old" data before expanding the heap.
 JVM_PARAMS='-XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:NewSize=128M -XX:MaxNewSize=128M -XX:+UnlockExperimentalVMOptions -XX:InitiatingHeapOccupancyPercent=20 -XX:G1OldCSetRegionThresholdPercent=90 -XX:G1MixedGCLiveThresholdPercent=50 -XX:MaxGCPauseMillis=1000'
 
+# Allows JVM debugging. (Should not use for production runtimes.)
+DEBUG_PARAMS='-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=1044'
+
 echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"\$@\"\n" > out/run.sh
 echo -e "#!/bin/bash\n\nexec java ${JVM_PARAMS} -jar bin/main.jar \"NODE\" \"conf/server.conf\"\n" > out/run-node.sh
+echo -e "#!/bin/bash\n\nexec java ${DEBUG_PARAMS} ${JVM_PARAMS} -jar bin/main.jar \"NODE\" \"conf/server.conf\"\n" > out/run-node-debug.sh
 echo -e "#!/bin/bash\n\nexec java ${JVM_PARAMS} -jar bin/main.jar \"EXPLORER\" \"conf/server.conf\"\n" > out/run-explorer.sh
 echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"SPV\" \"conf/server.conf\"\n" > out/run-spv.sh
 echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"WALLET\" \"conf/server.conf\"\n" > out/run-wallet.sh

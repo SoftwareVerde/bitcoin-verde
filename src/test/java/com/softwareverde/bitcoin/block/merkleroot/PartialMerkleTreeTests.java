@@ -4,6 +4,8 @@ import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MerkleBlock;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.server.message.type.bloomfilter.set.SetTransactionBloomFilterMessage;
@@ -231,4 +233,74 @@ public class PartialMerkleTreeTests {
         final PartialMerkleTree reinflatedPartialMerkleTree = PartialMerkleTree.build(block.getTransactionCount(), generatedPartialMerkleTree.getHashes(), generatedPartialMerkleTree.getFlags());
         Assert.assertEquals(block.getMerkleRoot(), reinflatedPartialMerkleTree.getMerkleRoot());
     }
+
+    @Test
+    public void should_produce_correct_merkle_proof() {
+        // taken from https://electrumx.readthedocs.io/en/latest/protocol-methods.html#cp-height-example
+        final MutableList<String> blockHeaders = new MutableList<>();
+        blockHeaders.add("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c");
+        blockHeaders.add("010000006fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000982051fd1e4ba744bbbe680e1fee14677ba1a3c3540bf7b1cdb606e857233e0e61bc6649ffff001d01e36299");
+        blockHeaders.add("010000004860eb18bf1b1620e37e9490fc8a427514416fd75159ab86688e9a8300000000d5fdcc541e25de1c7a5addedf24858b8bb665c9f36ef744ee42c316022c90f9bb0bc6649ffff001d08d2bd61");
+        blockHeaders.add("01000000bddd99ccfda39da1b108ce1a5d70038d0a967bacb68b6b63065f626a0000000044f672226090d85db9a9f2fbfe5f0f9609b387af7be5b7fbb7a1767c831c9e995dbe6649ffff001d05e0ed6d");
+        blockHeaders.add("010000004944469562ae1c2c74d9a535e00b6f3e40ffbad4f2fda3895501b582000000007a06ea98cd40ba2e3288262b28638cec5337c1456aaf5eedc8e9e5a20f062bdf8cc16649ffff001d2bfee0a9");
+        blockHeaders.add("0100000085144a84488ea88d221c8bd6c059da090e88f8a2c99690ee55dbba4e00000000e11c48fecdd9e72510ca84f023370c9a38bf91ac5cae88019bee94d24528526344c36649ffff001d1d03e477");
+        blockHeaders.add("01000000fc33f596f822a0a1951ffdbf2a897b095636ad871707bf5d3162729b00000000379dfb96a5ea8c81700ea4ac6b97ae9a9312b2d4301a29580e924ee6761a2520adc46649ffff001d189c4c97");
+        blockHeaders.add("010000008d778fdc15a2d3fb76b7122a3b5582bea4f21f5a0c693537e7a03130000000003f674005103b42f984169c7d008370967e91920a6a5d64fd51282f75bc73a68af1c66649ffff001d39a59c86");
+        blockHeaders.add("010000004494c8cf4154bdcc0720cd4a59d9c9b285e4b146d45f061d2b6c967100000000e3855ed886605b6d4a99d5fa2ef2e9b0b164e63df3c4136bebf2d0dac0f1f7a667c86649ffff001d1c4b5666");
+
+        final MerkleTreeNode<BlockHeader> blockHeaderMerkleTree = new MerkleTreeNode<BlockHeader>();
+        final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
+        for (int i=0; i<blockHeaders.getCount(); i++) {
+            final String header = blockHeaders.get(i);
+            final BlockHeader blockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray(header));
+            blockHeaderMerkleTree.addItem(blockHeader);
+        }
+
+        final MutableList<Sha256Hash> expectedBranch = new MutableList<>();
+        expectedBranch.add(Sha256Hash.fromHexString("000000004ebadb55ee9096c9a2f8880e09da59c0d68b1c228da88e48844a1485"));
+        expectedBranch.add(Sha256Hash.fromHexString("96cbbc84783888e4cc971ae8acf86dd3c1a419370336bb3c634c97695a8c5ac9"));
+        expectedBranch.add(Sha256Hash.fromHexString("965ac94082cebbcffe458075651e9cc33ce703ab0115c72d9e8b1a9906b2b636"));
+        expectedBranch.add(Sha256Hash.fromHexString("89e5daa6950b895190716dd26054432b564ccdc2868188ba1da76de8e1dc7591"));
+
+        final List<Sha256Hash> merkleBranch = blockHeaderMerkleTree.getPartialTree(5); // index 6 = height 5
+        Assert.assertEquals(expectedBranch.getCount(), merkleBranch.getCount());
+        for (int i=0; i<expectedBranch.getCount(); i++) {
+            Assert.assertEquals(expectedBranch.get(i).toString(), merkleBranch.get(i).toString());
+        }
+    }
+
+    @Test
+    public void should_produce_correct_merkle_proof2() {
+        final MutableList<String> blockHeaders = new MutableList<>();
+        blockHeaders.add("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c");
+        blockHeaders.add("010000006fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000982051fd1e4ba744bbbe680e1fee14677ba1a3c3540bf7b1cdb606e857233e0e61bc6649ffff001d01e36299");
+        blockHeaders.add("010000004860eb18bf1b1620e37e9490fc8a427514416fd75159ab86688e9a8300000000d5fdcc541e25de1c7a5addedf24858b8bb665c9f36ef744ee42c316022c90f9bb0bc6649ffff001d08d2bd61");
+        blockHeaders.add("01000000bddd99ccfda39da1b108ce1a5d70038d0a967bacb68b6b63065f626a0000000044f672226090d85db9a9f2fbfe5f0f9609b387af7be5b7fbb7a1767c831c9e995dbe6649ffff001d05e0ed6d");
+        blockHeaders.add("010000004944469562ae1c2c74d9a535e00b6f3e40ffbad4f2fda3895501b582000000007a06ea98cd40ba2e3288262b28638cec5337c1456aaf5eedc8e9e5a20f062bdf8cc16649ffff001d2bfee0a9");
+        //blockHeaders.add("0100000085144a84488ea88d221c8bd6c059da090e88f8a2c99690ee55dbba4e00000000e11c48fecdd9e72510ca84f023370c9a38bf91ac5cae88019bee94d24528526344c36649ffff001d1d03e477");
+        //blockHeaders.add("01000000fc33f596f822a0a1951ffdbf2a897b095636ad871707bf5d3162729b00000000379dfb96a5ea8c81700ea4ac6b97ae9a9312b2d4301a29580e924ee6761a2520adc46649ffff001d189c4c97");
+        //blockHeaders.add("010000008d778fdc15a2d3fb76b7122a3b5582bea4f21f5a0c693537e7a03130000000003f674005103b42f984169c7d008370967e91920a6a5d64fd51282f75bc73a68af1c66649ffff001d39a59c86");
+        //blockHeaders.add("010000004494c8cf4154bdcc0720cd4a59d9c9b285e4b146d45f061d2b6c967100000000e3855ed886605b6d4a99d5fa2ef2e9b0b164e63df3c4136bebf2d0dac0f1f7a667c86649ffff001d1c4b5666");
+
+
+        final MerkleTreeNode<BlockHeader> blockHeaderMerkleTree = new MerkleTreeNode<BlockHeader>();
+        final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
+        for (int i=0; i<blockHeaders.getCount(); i++) {
+            final String header = blockHeaders.get(i);
+            final BlockHeader blockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray(header));
+            blockHeaderMerkleTree.addItem(blockHeader);
+        }
+
+        final MutableList<Sha256Hash> expectedBranch = new MutableList<>();
+        expectedBranch.add(Sha256Hash.fromHexString("000000004ebadb55ee9096c9a2f8880e09da59c0d68b1c228da88e48844a1485"));
+        expectedBranch.add(Sha256Hash.fromHexString("92b9421770580bea765ce97b78f8cf7feb9825bdb47acb5bee51c788890dc7a1"));
+        expectedBranch.add(Sha256Hash.fromHexString("965ac94082cebbcffe458075651e9cc33ce703ab0115c72d9e8b1a9906b2b636"));
+
+        final List<Sha256Hash> merkleBranch = blockHeaderMerkleTree.getPartialTree(4);
+        Assert.assertEquals(expectedBranch.getCount(), merkleBranch.getCount());
+        for (int i=0; i<expectedBranch.getCount(); i++) {
+            Assert.assertEquals(expectedBranch.get(i).toString(), merkleBranch.get(i).toString());
+        }
+    }
+
 }

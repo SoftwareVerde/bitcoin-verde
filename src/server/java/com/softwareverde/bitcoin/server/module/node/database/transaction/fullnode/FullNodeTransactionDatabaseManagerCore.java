@@ -35,6 +35,7 @@ import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.JavaListWrapper;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.ListUtil;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -52,6 +53,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -752,6 +754,74 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         try {
             final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
             databaseConnection.executeSql(new Query("DELETE FROM unconfirmed_transactions"));
+        }
+        finally {
+            TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_WRITE_LOCK.unlock();
+        }
+    }
+
+    @Override
+    public List<Sha256Hash> getUnconfirmedTransactionsInHierarchicalOrder() throws DatabaseException {
+        TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_WRITE_LOCK.lock();
+        try {
+            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+            final java.util.List<Row> rows = databaseConnection.query(
+                new Query("SELECT transactions.hash AS transaction_hash, unconfirmed_transaction_inputs.previous_transaction_hash FROM unconfirmed_transactions INNER JOIN transactions ON transactions.id = unconfirmed_transactions.transaction_id INNER JOIN unconfirmed_transaction_inputs ON unconfirmed_transaction_inputs.transaction_id = unconfirmed_transactions.transaction_id")
+            );
+            final HashMap<Sha256Hash, MutableList<Sha256Hash>> dependencies = new HashMap<>(rows.size());
+            for (final Row row : rows) {
+                final Sha256Hash transactionHash = Sha256Hash.wrap(row.getBytes("transaction_hash"));
+                final Sha256Hash previousTransactionHash = Sha256Hash.wrap(row.getBytes("previous_transaction_hash"));
+
+                MutableList<Sha256Hash> dependencyList = dependencies.get(transactionHash);
+                if (dependencyList == null) {
+                    dependencyList = new MutableList<>();
+                    dependencies.put(transactionHash, dependencyList);
+                }
+                dependencyList.add(previousTransactionHash);
+            }
+
+            final MutableList<Sha256Hash> hierarchicalTransactionIds = new MutableList<>(dependencies.size());
+            while (! dependencies.isEmpty()) {
+                final Iterator<Sha256Hash> iterator = dependencies.keySet().iterator();
+                while (iterator.hasNext()) {
+                    final Sha256Hash transactionHash = iterator.next();
+                    final List<Sha256Hash> dependencyList = dependencies.get(transactionHash);
+                    boolean hasDependencies = false;
+                    for (final Sha256Hash dependentTransactionHash : dependencyList) {
+                        final boolean hasUnconfirmedDependency = dependencies.containsKey(dependentTransactionHash);
+                        if (hasUnconfirmedDependency) {
+                            hasDependencies = true;
+                            break;
+                        }
+                    }
+
+                    if (! hasDependencies) {
+                        iterator.remove();
+                        hierarchicalTransactionIds.add(transactionHash);
+                    }
+                }
+            }
+
+            // Reverse the order of the transactionIds such that the 0th index represents the highest hierarchy (least dependent) transactions...
+            ListUtil.reverse(hierarchicalTransactionIds);
+
+            return hierarchicalTransactionIds;
+
+//        final MutableList<TransactionId> transactionIds = new MutableList<>();
+//            while (true) {
+//                final java.util.List<Row> rows = databaseConnection.query(
+//                    new Query("SELECT unconfirmed_transactions.transaction_id FROM unconfirmed_transactions INNER JOIN transactions ON transactions.id = unconfirmed_transactions.transaction_id WHERE NOT EXISTS (SELECT * FROM unconfirmed_transaction_inputs WHERE unconfirmed_transaction_inputs.previous_transaction_hash = transactions.hash AND transactions.id NOT IN (?)) AND transactions.id NOT IN (?)")
+//                        .setInClauseParameters(transactionIds, ValueExtractor.IDENTIFIER)
+//                        .setInClauseParameters(transactionIds, ValueExtractor.IDENTIFIER)
+//                );
+//                if (rows.isEmpty()) { break; }
+//
+//                for (final Row row : rows) {
+//                    final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
+//                    transactionIds.add(transactionId);
+//                }
+//            }
         }
         finally {
             TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_WRITE_LOCK.unlock();

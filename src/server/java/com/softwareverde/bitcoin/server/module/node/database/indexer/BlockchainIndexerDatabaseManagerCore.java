@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.database.indexer;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.address.TypedAddress;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -34,7 +35,6 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.query.parameter.InClauseParameter;
 import com.softwareverde.database.query.parameter.TypedParameter;
 import com.softwareverde.database.row.Row;
-import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 
@@ -63,7 +63,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
     protected final Set<Tuple<TransactionId, BlockchainSegmentId>> _extractTransactionBlockchainSegmentIds(final java.util.List<Row> rows) throws DatabaseException {
         final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
         final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
-        final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+        final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
         final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
         final HashSet<Tuple<TransactionId, BlockchainSegmentId>> transactionBlockchainSegmentIds = new HashSet<>();
@@ -74,13 +74,20 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
 
             // For pruned+index mode, some outputs will have had their transaction data pruned; if the output is in the UTXO database, then it is on the head blockchain segment.
             if (transactionBlockchainSegmentId == null) {
-                final Integer outputIndex = row.getInteger("output_index");
-                final Sha256Hash transactionHash = transactionDatabaseManager.getTransactionHash(transactionId);
-                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+                final Boolean isUnconfirmedTransaction = transactionDatabaseManager.isUnconfirmedTransaction(transactionId);
+                if (! isUnconfirmedTransaction) {
+                    final java.util.List<String> availableColumns = row.getColumnNames();
+                    final boolean isDebitOutput = availableColumns.contains("output_index"); // Spent previous output rows cannot be in the UTXO set...
+                    if (isDebitOutput) {
+                        final Integer outputIndex = row.getInteger("output_index");
+                        final Sha256Hash transactionHash = transactionDatabaseManager.getTransactionHash(transactionId);
+                        final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
 
-                final Object transactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifier);
-                if (transactionOutput != null) {
-                    tuple.second = headBlockchainSegmentId;
+                        final Object transactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifier);
+                        if (transactionOutput != null) {
+                            tuple.second = headBlockchainSegmentId;
+                        }
+                    }
                 }
             }
 
@@ -136,7 +143,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         return transactionIds;
     }
 
-    protected AddressTransactions _getAddressTransactions(final BlockchainSegmentId blockchainSegmentId, final Address address, final Sha256Hash nullableScriptHash, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
+    protected AddressTransactions _getAddressTransactions(final BlockchainSegmentId blockchainSegmentId, final TypedAddress address, final Sha256Hash nullableScriptHash, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final Sha256Hash scriptHash;
@@ -236,7 +243,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         return new AddressTransactions(blockchainSegmentId, new ImmutableList<>(connectedTransactionIds), previousOutputs, spentOutputs);
     }
 
-    protected Long _getAddressBalance(final BlockchainSegmentId blockchainSegmentId, final Address address, final Sha256Hash scriptHash, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
+    protected Long _getAddressBalance(final BlockchainSegmentId blockchainSegmentId, final TypedAddress address, final Sha256Hash scriptHash, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
         final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
         final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
         final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
@@ -305,7 +312,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
     }
 
     @Override
-    public List<TransactionId> getTransactionIds(final BlockchainSegmentId blockchainSegmentId, final Address address, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
+    public List<TransactionId> getTransactionIds(final BlockchainSegmentId blockchainSegmentId, final TypedAddress address, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
         final AddressTransactions addressTransactions = _getAddressTransactions(blockchainSegmentId, address, null, includeUnconfirmedTransactions);
         return addressTransactions.transactionIds;
     }
@@ -317,7 +324,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
     }
 
     @Override
-    public Long getAddressBalance(final BlockchainSegmentId blockchainSegmentId, final Address address, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
+    public Long getAddressBalance(final BlockchainSegmentId blockchainSegmentId, final TypedAddress address, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
         return _getAddressBalance(blockchainSegmentId, address, null, includeUnconfirmedTransactions);
     }
 
@@ -387,11 +394,16 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id FROM transactions WHERE id > ? ORDER BY id ASC LIMIT " + batchSize)
+            new Query("SELECT transaction_id AS id FROM block_transactions WHERE transaction_id > ? ORDER BY transaction_id ASC LIMIT " + batchSize)
                 .setParameter(firstTransactionId)
         );
 
-        if (rows.isEmpty()) { return new MutableList<>(0); }
+        if (rows.isEmpty()) {
+            rows.addAll(databaseConnection.query(
+                new Query("SELECT transaction_id AS id FROM unconfirmed_transactions WHERE transaction_id > ? ORDER BY transaction_id ASC LIMIT " + batchSize)
+                    .setParameter(firstTransactionId)
+            ));
+        }
 
         final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<>(rows.size());
         for (final Row row : rows) {
@@ -513,7 +525,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
     public void deleteTransactionIndexes() throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        TransactionUtil.startTransaction(databaseConnection);
+        _databaseManager.startTransaction();
 
         databaseConnection.executeSql(
             new Query("DELETE FROM indexed_transaction_outputs")
@@ -526,7 +538,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
                 .setParameter(LAST_INDEXED_TRANSACTION_KEY)
         );
 
-        TransactionUtil.commitTransaction(databaseConnection);
+        _databaseManager.commitTransaction();
     }
 
     @Override

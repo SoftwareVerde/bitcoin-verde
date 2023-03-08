@@ -73,39 +73,39 @@ public class UtxoCommitmentManagerTests extends IntegrationTest {
             );
         }
 
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final UtxoCommitmentDatabaseManager utxoCommitmentDatabaseManager = databaseManager.getUtxoCommitmentDatabaseManager();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                final UtxoCommitmentDatabaseManager utxoCommitmentDatabaseManager = databaseManager.getUtxoCommitmentDatabaseManager();
 
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
                 blockHeaderDatabaseManager.storeBlockHeader(block0);
                 blockHeaderDatabaseManager.storeBlockHeader(block1);
                 blockHeaderDatabaseManager.storeBlockHeader(block2);
-            }
 
-            for (final NodeSpecificUtxoCommitmentBreakdown utxoCommitmentBreakdown : utxoCommitmentBreakdowns) {
-                final UtxoCommitmentMetadata utxoCommitmentMetadata = utxoCommitmentBreakdown.getMetadata();
-                final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(utxoCommitmentMetadata.blockHash);
-                final UtxoCommitmentId utxoCommitmentId = utxoCommitmentDatabaseManager.createUtxoCommitment(blockId);
-                final Sha256Hash multisetHash = UtxoCommitmentDatabaseManager.calculateEcMultisetHash(utxoCommitmentMetadata.publicKey);
-                utxoCommitmentDatabaseManager.setUtxoCommitmentHash(utxoCommitmentId, multisetHash, utxoCommitmentMetadata.publicKey);
+                for (final NodeSpecificUtxoCommitmentBreakdown utxoCommitmentBreakdown : utxoCommitmentBreakdowns) {
+                    final UtxoCommitmentMetadata utxoCommitmentMetadata = utxoCommitmentBreakdown.getMetadata();
+                    final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(utxoCommitmentMetadata.blockHash);
+                    final UtxoCommitmentId utxoCommitmentId = utxoCommitmentDatabaseManager.createUtxoCommitment(blockId);
+                    final Sha256Hash multisetHash = UtxoCommitmentDatabaseManager.calculateEcMultisetHash(utxoCommitmentMetadata.publicKey);
+                    utxoCommitmentDatabaseManager.setUtxoCommitmentHash(utxoCommitmentId, multisetHash, utxoCommitmentMetadata.publicKey);
 
-                int bucketIndex = 0;
-                for (final UtxoCommitmentBucket utxoCommitmentBucket : utxoCommitmentBreakdown.getBuckets()) {
-                    final Long bucketId = utxoCommitmentDatabaseManager.createUtxoCommitmentBucket(utxoCommitmentId, bucketIndex, utxoCommitmentBucket.getPublicKey());
+                    int bucketIndex = 0;
+                    for (final UtxoCommitmentBucket utxoCommitmentBucket : utxoCommitmentBreakdown.getBuckets()) {
+                        final Long bucketId = utxoCommitmentDatabaseManager.createUtxoCommitmentBucket(utxoCommitmentId, bucketIndex, utxoCommitmentBucket.getPublicKey());
 
-                    if (utxoCommitmentBucket.hasSubBuckets()) {
-                        int subBucketIndex = 0;
-                        for (final MultisetBucket utxoCommitmentSubBucket : utxoCommitmentBucket.getSubBuckets()) {
-                            utxoCommitmentDatabaseManager.createUtxoCommitmentFile(bucketId, subBucketIndex, utxoCommitmentSubBucket.getPublicKey(), 415025, utxoCommitmentSubBucket.getByteCount());
-                            subBucketIndex += 1;
+                        if (utxoCommitmentBucket.hasSubBuckets()) {
+                            int subBucketIndex = 0;
+                            for (final MultisetBucket utxoCommitmentSubBucket : utxoCommitmentBucket.getSubBuckets()) {
+                                utxoCommitmentDatabaseManager.createUtxoCommitmentFile(bucketId, subBucketIndex, utxoCommitmentSubBucket.getPublicKey(), 415025, utxoCommitmentSubBucket.getByteCount());
+                                subBucketIndex += 1;
+                            }
                         }
-                    }
-                    else {
-                        utxoCommitmentDatabaseManager.createUtxoCommitmentFile(bucketId, 0, utxoCommitmentBucket.getPublicKey(), 415025, utxoCommitmentBucket.getByteCount());
-                    }
+                        else {
+                            utxoCommitmentDatabaseManager.createUtxoCommitmentFile(bucketId, 0, utxoCommitmentBucket.getPublicKey(), 415025, utxoCommitmentBucket.getByteCount());
+                        }
 
-                    bucketIndex += 1;
+                        bucketIndex += 1;
+                    }
                 }
             }
         }

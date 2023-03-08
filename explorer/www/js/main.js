@@ -109,6 +109,13 @@ $(document).ready(function() {
             blockLink.on("click", Ui._makeNavigateToBlockEvent(blockHeader.hash));
             element.off("click");
         }
+        else if (message.ping) {
+            const pongMessage = {
+                "pong": message.ping
+            };
+
+            webSocket.send(JSON.stringify(pongMessage));
+        }
 
         if (container != null && element != null) {
             const childrenElements = container.children();

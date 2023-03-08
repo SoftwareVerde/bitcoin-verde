@@ -16,10 +16,11 @@ import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorFactory;
+import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
+import com.softwareverde.bitcoin.context.core.MedianBlockTimeContextCore;
 import com.softwareverde.bitcoin.context.core.MutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
-import com.softwareverde.bitcoin.context.lazy.CachingMedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.lazy.LazyBlockValidatorContext;
 import com.softwareverde.bitcoin.context.lazy.LazyDifficultyCalculatorContext;
 import com.softwareverde.bitcoin.context.lazy.LazyUnconfirmedTransactionUtxoSet;
@@ -65,7 +66,6 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.VolatileNetworkTime;
 import com.softwareverde.util.Tuple;
@@ -729,14 +729,13 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     public BlockValidationResult validatePrototypeBlock(final Block block) {
         Logger.info("Validating Prototype Block: " + block.getHash());
 
-        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
-            try {
-                synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                    TransactionUtil.startTransaction(databaseConnection);
+                try {
+                    databaseManager.startTransaction();
 
                     final BlockId blockId = blockDatabaseManager.storeBlock(block);
 
@@ -744,28 +743,28 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                     final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
 
                     final MutableUnspentTransactionOutputSet unspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
-                    final Boolean utxosAreAvailable = unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight);
+                    final Boolean utxosAreAvailable = unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight, _upgradeSchedule);
                     if (! utxosAreAvailable) {
                         final BlockValidationResult blockValidationResult = BlockValidationResult.invalid("Missing UTXOs for block.");
                         Logger.info("Prototype Block: " + block.getHash() + " INVALID " + blockValidationResult.errorMessage);
                         return blockValidationResult;
                     }
 
-                    final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(_masterInflater, blockchainSegmentId, unspentTransactionOutputSet, _difficultyCalculatorFactory, _transactionValidatorFactory, databaseManager, _networkTime, _upgradeSchedule);
+                    final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(blockchainSegmentId, databaseManager, _networkTime, _difficultyCalculatorFactory, _upgradeSchedule, unspentTransactionOutputSet, _transactionValidatorFactory, _masterInflater);
                     final BlockValidator blockValidator = new BlockValidator(blockValidatorContext);
 
                     final BlockValidationResult blockValidationResult = blockValidator.validatePrototypeBlock(block, blockHeight);
                     Logger.info("Prototype Block: " + block.getHash() + " " + (blockValidationResult.isValid ? "VALID" : ("INVALID " + blockValidationResult.errorMessage)));
                     return blockValidationResult;
                 }
+                finally {
+                    databaseManager.rollbackTransaction(); // Never keep the validated block...
+                }
             }
-            finally {
-                TransactionUtil.rollbackTransaction(databaseConnection); // Never keep the validated block...
+            catch (final Exception exception) {
+                Logger.debug("Error validating Prototype Block: " + block.getHash(), exception);
+                return BlockValidationResult.invalid("An internal error occurred.");
             }
-        }
-        catch (final Exception exception) {
-            Logger.debug("Error validating Prototype Block: " + block.getHash(), exception);
-            return BlockValidationResult.invalid("An internal error occurred.");
         }
     }
 
@@ -778,13 +777,13 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-            final CachingMedianBlockTimeContext medianBlockTimeContext = new CachingMedianBlockTimeContext(blockchainSegmentId, databaseManager);
-            final LazyUnconfirmedTransactionUtxoSet unconfirmedTransactionUtxoSet = new LazyUnconfirmedTransactionUtxoSet(databaseManager);
+            final MedianBlockTimeContext medianBlockTimeContext = new MedianBlockTimeContextCore(blockchainSegmentId, databaseManager);
+            final LazyUnconfirmedTransactionUtxoSet unconfirmedTransactionUtxoSet = new LazyUnconfirmedTransactionUtxoSet(databaseManager, _upgradeSchedule);
             final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(_masterInflater, _networkTime, medianBlockTimeContext, unconfirmedTransactionUtxoSet, _upgradeSchedule);
             final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
             try {
-                TransactionUtil.startTransaction(databaseConnection);
+                databaseManager.startTransaction();
                 final BlockId headBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
                 final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
 
@@ -805,7 +804,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                 return transactionValidationResult;
             }
             finally {
-                TransactionUtil.rollbackTransaction(databaseConnection); // Never keep the validated transaction...
+                databaseManager.rollbackTransaction(); // Never keep the validated transaction...
             }
         }
         catch (final Exception exception) {

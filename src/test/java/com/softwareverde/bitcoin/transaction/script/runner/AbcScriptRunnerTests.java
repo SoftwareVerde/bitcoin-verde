@@ -590,16 +590,14 @@ public class AbcScriptRunnerTests extends UnitTest {
             context.setBlockHeight(1L);
             context.setMedianBlockTime(medianBlockTime);
 
-            upgradeSchedule.setAre64BitScriptIntegersEnabled(false);
-            upgradeSchedule.setAreIntrospectionOperationsEnabled(false);
-            upgradeSchedule.setMultiplyOperationEnabled(false);
             upgradeSchedule.setReverseBytesOperationEnabled(true);
+            upgradeSchedule.setCashTokensEnabled(false);
 
             if (testVector.flagsString.contains("MINIMALDATA")) {
                 upgradeSchedule.setMinimalNumberEncodingRequired(true);
             }
             if (testVector.flagsString.contains("P2SH")) {
-                upgradeSchedule.setPayToScriptHashEnabled(true);
+                upgradeSchedule.setLegacyPayToScriptHashEnabled(true);
             }
             if (testVector.flagsString.contains("CHECKSEQUENCEVERIFY")) {
                 upgradeSchedule.setCheckSequenceNumberOperationEnabled(true);
@@ -656,21 +654,21 @@ public class AbcScriptRunnerTests extends UnitTest {
                     System.out.println("Consider Enabling Test: " + testVector.getHash());
                 }
             }
-            else {
+            else if (! skipTest) {
                 // Retry with production values to assess severity...
                 context.setBlockHeight(Long.MAX_VALUE);
                 medianBlockTime.setMedianBlockTime(Long.MAX_VALUE);
+
                 final boolean isValidInProduction = scriptRunner.runScript(lockingScript, unlockingScript, context).isValid;
-                final boolean isPossiblyImportant = ( (! expectedResult) && isValidInProduction);
+                final boolean isPossiblyImportant = (expectedResult ^ isValidInProduction);
 
-                if (! skipTest) {
-                    failCount += 1;
-                    System.out.println("FAILED" + (isPossiblyImportant ? " [WARN]" : "") + ": " + i + " (" + testVector.getHash() + " - " + testVector.flagsString + " - " + testVector.expectedResultString + " - \"" + testVector.comments + "\")");
-                    System.out.println("Expected: " + expectedResult + " Actual: " + wasValid + " (Production: " + isValidInProduction + ")");
+                failCount += 1;
+                System.out.println(testVectorJson);
+                System.out.println("FAILED" + (isPossiblyImportant ? " [WARN]" : "") + ": " + i + " (" + testVector.getHash() + " - " + testVector.flagsString + " - " + testVector.expectedResultString + " - \"" + testVector.comments + "\")");
+                System.out.println("Expected: " + expectedResult + " Actual: " + wasValid + " (Production: " + isValidInProduction + ")");
 
-                    // System.out.println(i + ": " + testVector + "(" + testVector.getHash() + ")");
-                    // break;
-                }
+                // System.out.println(i + ": " + testVector + "(" + testVector.getHash() + ")");
+                // break;
             }
         }
 

@@ -6,8 +6,11 @@ import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.network.p2p.message.type.SynchronizeVersionMessage;
+import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
@@ -38,13 +41,13 @@ public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage imp
     protected Long _currentBlockHeight;
     protected Boolean _transactionRelayIsEnabled = false;
 
-    protected byte[] _getUserAgentBytes() {
-        final byte[] userAgentBytes = _userAgent.getBytes();
-        final byte[] userAgentBytesEncodedLength = ByteUtil.variableLengthIntegerToBytes(userAgentBytes.length);
+    protected ByteArray _getUserAgentBytes() {
+        final ByteArray userAgentBytes = ByteArray.wrap(StringUtil.stringToBytes(_userAgent));
+        final ByteArray userAgentBytesEncodedLength = CompactVariableLengthInteger.variableLengthIntegerToBytes(userAgentBytes.getByteCount());
 
-        final byte[] bytes = new byte[userAgentBytesEncodedLength.length + userAgentBytes.length];
-        ByteUtil.setBytes(bytes, userAgentBytesEncodedLength);
-        ByteUtil.setBytes(bytes, userAgentBytes, userAgentBytesEncodedLength.length);
+        final MutableByteArray bytes = new MutableByteArray(userAgentBytesEncodedLength.getByteCount() + userAgentBytes.getByteCount());
+        bytes.setBytes(0, userAgentBytesEncodedLength);
+        bytes.setBytes(userAgentBytesEncodedLength.getByteCount(), userAgentBytes);
         return bytes;
     }
 
@@ -111,8 +114,8 @@ public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage imp
 
     @Override
     protected ByteArray _getPayload() {
-        final byte[] userAgentBytes = _getUserAgentBytes();
-        final Struct struct = new Struct(userAgentBytes.length);
+        final ByteArray userAgentBytes = _getUserAgentBytes();
+        final Struct struct = new Struct(userAgentBytes.getByteCount());
 
         ByteUtil.setBytes(struct.version, ByteUtil.integerToBytes(_version));
         ByteUtil.setBytes(struct.nodeFeatures, ByteUtil.longToBytes(_nodeFeatures.getFeatureFlags()));
@@ -120,7 +123,7 @@ public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage imp
         ByteUtil.setBytes(struct.remoteAddress, _remoteNodeIpAddress.getBytesWithoutTimestamp());
         ByteUtil.setBytes(struct.localAddress, _localNodeIpAddress.getBytesWithoutTimestamp());
         ByteUtil.setBytes(struct.nonce, ByteUtil.longToBytes(_nonce));
-        ByteUtil.setBytes(struct.userAgent, userAgentBytes);
+        ByteUtil.setBytes(struct.userAgent, userAgentBytes.getBytes());
         ByteUtil.setBytes(struct.currentBlockHeight, ByteUtil.integerToBytes(_currentBlockHeight));
 
         struct.shouldRelayTransactions[0] = (byte) (_transactionRelayIsEnabled ? 0x01 : 0x00);
@@ -140,8 +143,8 @@ public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage imp
 
     @Override
     protected Integer _getPayloadByteCount() {
-        final byte[] userAgentBytes = _getUserAgentBytes();
-        final Struct struct = new Struct(userAgentBytes.length);
+        final ByteArray userAgentBytes = _getUserAgentBytes();
+        final Struct struct = new Struct(userAgentBytes.getByteCount());
 
         return (
             struct.version.length +

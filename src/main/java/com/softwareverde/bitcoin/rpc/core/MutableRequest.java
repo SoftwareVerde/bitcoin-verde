@@ -4,6 +4,7 @@ import com.softwareverde.http.HttpMethod;
 import com.softwareverde.http.form.MultiPartFormData;
 import com.softwareverde.http.querystring.GetParameters;
 import com.softwareverde.http.querystring.PostParameters;
+import com.softwareverde.http.server.servlet.request.HostInformation;
 import com.softwareverde.http.server.servlet.request.Request;
 
 import java.util.ArrayList;
@@ -11,8 +12,12 @@ import java.util.ArrayList;
 public class MutableRequest extends Request {
     public MutableRequest() { }
 
-    protected void setHostname(final HostNameLookup hostname) {
-        _hostname = hostname;
+    protected void setHostname(final HostInformation hostname) {
+        _localHost = hostname;
+    }
+
+    protected void setRemoteHostname(final HostInformation hostname) {
+        _remoteHost = hostname;
     }
 
     protected void setFilePath(final String filePath) {

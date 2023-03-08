@@ -5,7 +5,7 @@ import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
 import com.softwareverde.bitcoin.util.ByteUtil;
@@ -125,32 +125,25 @@ public class BitcoinCashTransactionSignerUtil {
             return Sha256Hash.EMPTY_HASH;
         }
 
+        final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
+
         if (hashType.getMode() == Mode.SIGNATURE_HASH_SINGLE) {
             if (inputIndex >= transactionOutputs.getCount()) {
                 return Sha256Hash.EMPTY_HASH; // NOTE: This is different behavior than Bitcoin (BTC) for this error case...
             }
 
             final TransactionOutput transactionOutput = transactionOutputs.get(inputIndex);
-            final LockingScript transactionOutputScript = transactionOutput.getLockingScript();
-
-            final ByteArrayBuilder serializedTransactionOutput = new ByteArrayBuilder();
-
-            serializedTransactionOutput.appendBytes(ByteUtil.longToBytes(transactionOutput.getAmount()), Endian.LITTLE);
-            serializedTransactionOutput.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionOutputScript.getByteCount()));
-            serializedTransactionOutput.appendBytes(transactionOutputScript.getBytes());
+            final ByteArray serializedTransactionOutput = transactionOutputDeflater.toBytes(transactionOutput);
 
             return HashUtil.doubleSha256(serializedTransactionOutput);
         }
 
-        final ByteArrayBuilder serializedTransactionOutput = new ByteArrayBuilder();
+        final ByteArrayBuilder serializedTransactionOutputs = new ByteArrayBuilder();
         for (final TransactionOutput transactionOutput : transactionOutputs) {
-            final LockingScript transactionOutputScript = transactionOutput.getLockingScript();
-
-            serializedTransactionOutput.appendBytes(ByteUtil.longToBytes(transactionOutput.getAmount()), Endian.LITTLE);
-            serializedTransactionOutput.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionOutputScript.getByteCount()));
-            serializedTransactionOutput.appendBytes(transactionOutputScript.getBytes());
+            final ByteArray serializedTransactionOutput = transactionOutputDeflater.toBytes(transactionOutput);
+            serializedTransactionOutputs.appendBytes(serializedTransactionOutput);
         }
-        return HashUtil.doubleSha256(serializedTransactionOutput);
+        return HashUtil.doubleSha256(serializedTransactionOutputs);
     }
 
     public static ByteArray getTransactionLockTimeBytes(final Transaction transaction) {

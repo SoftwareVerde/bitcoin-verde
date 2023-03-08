@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.context.core;
 
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
@@ -12,13 +13,15 @@ import com.softwareverde.util.type.time.SystemTime;
 public class BlockchainBuilderContext implements BlockchainBuilder.Context {
     protected final BlockInflaters _blockInflaters;
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
+    protected final UpgradeSchedule _upgradeSchedule;
     protected final BitcoinNodeManager _nodeManager;
     protected final SystemTime _systemTime;
     protected final ThreadPool _threadPool;
 
-    public BlockchainBuilderContext(final BlockInflaters blockInflaters, final FullNodeDatabaseManagerFactory databaseManagerFactory, final BitcoinNodeManager bitcoinNodeManager, final SystemTime systemTime, final ThreadPool threadPool) {
+    public BlockchainBuilderContext(final BlockInflaters blockInflaters, final FullNodeDatabaseManagerFactory databaseManagerFactory, final UpgradeSchedule upgradeSchedule, final BitcoinNodeManager bitcoinNodeManager, final SystemTime systemTime, final ThreadPool threadPool) {
         _blockInflaters = blockInflaters;
         _databaseManagerFactory = databaseManagerFactory;
+        _upgradeSchedule = upgradeSchedule;
         _nodeManager = bitcoinNodeManager;
         _threadPool = threadPool;
         _systemTime = systemTime;
@@ -52,5 +55,10 @@ public class BlockchainBuilderContext implements BlockchainBuilder.Context {
     @Override
     public SystemTime getSystemTime() {
         return _systemTime;
+    }
+
+    @Override
+    public UpgradeSchedule getUpgradeSchedule() {
+        return _upgradeSchedule;
     }
 }

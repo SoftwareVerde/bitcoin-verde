@@ -3,8 +3,9 @@ package com.softwareverde.bitcoin.server.message.type.query.header;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
 
 public class RequestBlockHeadersMessageInflater extends BitcoinProtocolMessageInflater {
@@ -20,13 +21,14 @@ public class RequestBlockHeadersMessageInflater extends BitcoinProtocolMessageIn
 
         requestBlockHeadersMessage._version = byteArrayReader.readInteger(4, Endian.LITTLE);
 
-        final int blockHeaderCount = byteArrayReader.readVariableLengthInteger().intValue();
-        if (blockHeaderCount > RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT) { return null; }
+        final CompactVariableLengthInteger blockHeaderCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
+        if (! blockHeaderCount.isCanonical()) { return null; }
+        if (blockHeaderCount.value > RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT) { return null; }
 
-        final Integer bytesRequired = (blockHeaderCount * blockHeaderHashByteCount);
+        final Integer bytesRequired = (blockHeaderCount.intValue() * blockHeaderHashByteCount);
         if (byteArrayReader.remainingByteCount() < bytesRequired) { return null; }
 
-        for (int i = 0; i < blockHeaderCount; ++i) {
+        for (int i = 0; i < blockHeaderCount.value; ++i) {
             final Sha256Hash blockHeaderHashBytes = Sha256Hash.wrap(byteArrayReader.readBytes(32, Endian.LITTLE));
             requestBlockHeadersMessage.addBlockHash(blockHeaderHashBytes);
         }

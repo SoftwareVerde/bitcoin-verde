@@ -2,21 +2,30 @@ package com.softwareverde.bitcoin.server;
 
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactoryFactory;
 
 public class Environment {
     protected final Database _database;
-    protected final DatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseConnectionFactoryFactory _databaseConnectionFactoryFactory;
+    protected DatabaseConnectionFactory _databaseConnectionFactory;
 
-    public Environment(final Database database, final DatabaseConnectionFactory databaseConnectionFactory) {
+    public Environment(final Database database, final DatabaseConnectionFactoryFactory databaseConnectionFactoryFactory) {
         _database = database;
-        _databaseConnectionFactory = databaseConnectionFactory;
+        _databaseConnectionFactoryFactory = databaseConnectionFactoryFactory;
     }
 
     public Database getDatabase() {
         return _database;
     }
 
-    public DatabaseConnectionFactory getDatabaseConnectionFactory() {
+    public synchronized DatabaseConnectionFactory getDatabaseConnectionFactory() {
+        if (_databaseConnectionFactory == null) {
+            _databaseConnectionFactory = _databaseConnectionFactoryFactory.newDatabaseConnectionFactory();
+        }
         return _databaseConnectionFactory;
+    }
+
+    public DatabaseConnectionFactory newDatabaseConnectionFactory() {
+        return _databaseConnectionFactoryFactory.newDatabaseConnectionFactory();
     }
 }

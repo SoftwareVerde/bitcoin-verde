@@ -8,5 +8,6 @@ public interface MasterInflater extends
     MerkleTreeInflaters,
     BloomFilterInflaters,
     InventoryItemInflaters,
-    AddressInflaters
+    AddressInflaters,
+    DoubleSpendProofInflaters
 { }

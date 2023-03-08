@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelation
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.util.map.Visitor;
 
 import java.util.Map;
 
@@ -40,4 +41,7 @@ interface FakeBlockchainDatabaseManager extends BlockchainDatabaseManager {
 
     @Override
     default List<BlockchainSegmentId> getLeafBlockchainSegmentIds() throws DatabaseException { throw new UnsupportedOperationException(); }
+
+    @Override
+    default void visitBlockchainSegments(final Visitor<BlockchainSegmentId> visitor) throws DatabaseException { throw new UnsupportedOperationException(); }
 }

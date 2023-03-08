@@ -24,6 +24,7 @@ public class BitcoinProperties {
     protected List<NodeProperties> _nodeWhitelist;
     protected Boolean _banFilterIsEnabled;
     protected Boolean _pruningModeIsEnabled;
+    protected Boolean _blockchainCacheIsEnabled;
     protected Integer _minPeerCount;
     protected Integer _maxPeerCount;
     protected Integer _maxThreadCount;
@@ -97,6 +98,7 @@ public class BitcoinProperties {
     public NetworkType getNetworkType() {
         switch (_testNet) {
             case 4: return NetworkType.TEST_NET4;
+            case 5: return NetworkType.CHIP_NET;
 
             case 1:
             case 3: return NetworkType.TEST_NET;
@@ -123,4 +125,9 @@ public class BitcoinProperties {
     public Boolean isInvalidSlpTransactionRelayEnabled() { return _shouldRelayInvalidSlpTransactions; }
 
     public Integer getBlockMaxByteCount() { return _blockMaxByteCount; }
+
+    public boolean isBlockchainCacheEnabled() {
+        // return _blockchainCacheIsEnabled;
+        return false; // Currently disabled for 20230515.
+    }
 }

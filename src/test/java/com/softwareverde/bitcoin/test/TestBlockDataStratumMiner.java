@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.test;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.address.ParsedAddress;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
@@ -12,10 +13,11 @@ import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.stratum.message.RequestMessage;
 import com.softwareverde.bitcoin.server.stratum.message.ResponseMessage;
-import com.softwareverde.bitcoin.server.stratum.message.server.MinerSubmitBlockResult;
-import com.softwareverde.bitcoin.server.stratum.socket.StratumServerSocket;
-import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTask;
-import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTaskBuilderCore;
+import com.softwareverde.bitcoin.server.stratum.message.server.MinerSubmitBlockResponseMessage;
+import com.softwareverde.bitcoin.server.stratum.message.server.SetDifficultyMessage;
+import com.softwareverde.bitcoin.stratum.socket.StratumServerSocket;
+import com.softwareverde.bitcoin.stratum.task.StratumMineBlockTask;
+import com.softwareverde.bitcoin.stratum.task.StratumMineBlockTaskBuilderCore;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
@@ -50,7 +52,7 @@ public class TestBlockDataStratumMiner {
 
         final PrivateKey coinbasePrivateKey = PrivateKey.createNewKey();
         Logger.info("Private Key: " + coinbasePrivateKey);
-        Logger.info("Address:     " + addressInflater.fromPrivateKey(coinbasePrivateKey, false).toBase58CheckEncoded());
+        Logger.info("Address:     " + ParsedAddress.toBase58CheckEncoded(addressInflater.fromPrivateKey(coinbasePrivateKey, false)));
 
         final Address address = addressInflater.fromPrivateKey(coinbasePrivateKey, false);
 
@@ -140,7 +142,7 @@ class StratumMiner {
     protected StratumMineBlockTaskBuilderCore _stratumMineBlockTaskBuilder;
     protected StratumMineBlockTask _currentMineBlockTask = null;
 
-    protected Integer _shareDifficulty = 1;
+    protected Long _shareDifficulty = 1L;
 
     protected Thread _mainThread;
 
@@ -194,14 +196,12 @@ class StratumMiner {
     }
 
     protected void _setDifficulty(final JsonSocket socketConnection) {
-        final RequestMessage mineBlockMessage = new RequestMessage(RequestMessage.ServerCommand.SET_DIFFICULTY.getValue());
+        final SetDifficultyMessage setDifficultyMessage = new SetDifficultyMessage();
 
-        final Json parametersJson = new Json(true);
-        parametersJson.add(_shareDifficulty); // Difficulty::getDifficultyRatio
-        mineBlockMessage.setParameters(parametersJson);
+        setDifficultyMessage.setShareDifficulty(_shareDifficulty); // Difficulty::getDifficultyRatio
 
-        Logger.info("Sent: "+ mineBlockMessage);
-        socketConnection.write(new JsonProtocolMessage(mineBlockMessage));
+        Logger.info("Sent: "+ setDifficultyMessage);
+        socketConnection.write(new JsonProtocolMessage(setDifficultyMessage));
     }
 
     protected void _handleSubscribeMessage(final RequestMessage requestMessage, final JsonSocket socketConnection) {
@@ -300,7 +300,7 @@ class StratumMiner {
             }
         }
 
-        final ResponseMessage blockAcceptedMessage = new MinerSubmitBlockResult(requestMessage.getId(), error);
+        final ResponseMessage blockAcceptedMessage = new MinerSubmitBlockResponseMessage(requestMessage.getId(), error);
 
         Logger.info("Sent: "+ blockAcceptedMessage);
         socketConnection.write(new JsonProtocolMessage(blockAcceptedMessage));

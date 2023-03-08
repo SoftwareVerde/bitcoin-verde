@@ -31,8 +31,6 @@ import com.softwareverde.bitcoin.server.message.type.node.pong.BitcoinPongMessag
 import com.softwareverde.bitcoin.server.message.type.node.pong.BitcoinPongMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.RequestDataMessage;
 import com.softwareverde.bitcoin.server.message.type.query.RequestDataMessageInflater;
-import com.softwareverde.bitcoin.server.message.type.query.address.QueryAddressBlocksMessage;
-import com.softwareverde.bitcoin.server.message.type.query.address.QueryAddressBlocksMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessage;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.header.RequestBlockHeadersMessage;
@@ -53,12 +51,9 @@ import com.softwareverde.bitcoin.server.message.type.query.response.transaction.
 import com.softwareverde.bitcoin.server.message.type.query.response.transaction.TransactionMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.response.utxo.UtxoCommitmentMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.utxo.UtxoCommitmentMessageInflater;
-import com.softwareverde.bitcoin.server.message.type.query.slp.QuerySlpStatusMessage;
-import com.softwareverde.bitcoin.server.message.type.query.slp.QuerySlpStatusMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.utxo.QueryUtxoCommitmentsMessage;
 import com.softwareverde.bitcoin.server.message.type.query.utxo.QueryUtxoCommitmentsMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.utxo.UtxoCommitmentsMessageInflater;
-import com.softwareverde.bitcoin.server.message.type.slp.EnableSlpTransactionsMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.thin.block.ExtraThinBlockMessage;
 import com.softwareverde.bitcoin.server.message.type.thin.block.ExtraThinBlockMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.thin.request.block.RequestExtraThinBlockMessage;
@@ -115,9 +110,6 @@ public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory<Bit
         _commandInflaterMap.put(MessageType.CLEAR_TRANSACTION_BLOOM_FILTER, new ClearTransactionBloomFilterMessageInflater());
         _commandInflaterMap.put(MessageType.DOUBLE_SPEND_PROOF, new DoubleSpendProofMessageInflater());
         // Bitcoin Verde Messages
-        _commandInflaterMap.put(MessageType.QUERY_ADDRESS_BLOCKS, new QueryAddressBlocksMessageInflater(_masterInflater));
-        _commandInflaterMap.put(MessageType.ENABLE_SLP_TRANSACTIONS, new EnableSlpTransactionsMessageInflater());
-        _commandInflaterMap.put(MessageType.QUERY_SLP_STATUS, new QuerySlpStatusMessageInflater());
         _commandInflaterMap.put(MessageType.QUERY_UTXO_COMMITMENTS, new QueryUtxoCommitmentsMessageInflater());
         _commandInflaterMap.put(MessageType.UTXO_COMMITMENTS, new UtxoCommitmentsMessageInflater());
         _commandInflaterMap.put(MessageType.UTXO_COMMITMENT, new UtxoCommitmentMessageInflater());
@@ -269,13 +261,5 @@ public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory<Bit
 
     public ClearTransactionBloomFilterMessage newClearTransactionBloomFilterMessage() {
         return new ClearTransactionBloomFilterMessage();
-    }
-
-    public QueryAddressBlocksMessage newQueryAddressBlocksMessage() {
-        return new QueryAddressBlocksMessage();
-    }
-
-    public QuerySlpStatusMessage newQuerySlpStatusMessage() {
-        return new QuerySlpStatusMessage();
     }
 }

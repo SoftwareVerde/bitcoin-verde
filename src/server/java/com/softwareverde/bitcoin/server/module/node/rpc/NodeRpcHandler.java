@@ -3,6 +3,8 @@ package com.softwareverde.bitcoin.server.module.node.rpc;
 import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.address.ParsedAddress;
+import com.softwareverde.bitcoin.address.TypedAddress;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockInflater;
@@ -86,11 +88,11 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     }
 
     public interface QueryAddressHandler {
-        Long getBalance(Address address, Boolean includeUnconfirmedTransactions);
+        Long getBalance(TypedAddress address, Boolean includeUnconfirmedTransactions);
         Long getBalance(Sha256Hash scriptHash, Boolean includeUnconfirmedTransactions);
-        List<Transaction> getAddressTransactions(Address address);
+        List<Transaction> getAddressTransactions(TypedAddress address);
         List<Transaction> getAddressTransactions(Sha256Hash scriptHash);
-        List<Sha256Hash> getAddressTransactionHashes(Address address);
+        List<Sha256Hash> getAddressTransactionHashes(TypedAddress address);
         List<Sha256Hash> getAddressTransactionHashes(Sha256Hash scriptHash);
     }
 
@@ -274,25 +276,6 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     public NodeRpcHandler(final ThreadPool threadPool, final MasterInflater masterInflater) {
         _threadPool = threadPool;
         _masterInflater = masterInflater;
-    }
-
-    protected Json _doubleSpendProofToJson(final DoubleSpendProof doubleSpendProof) {
-        final Sha256Hash doubleSpendProofHash = doubleSpendProof.getHash();
-        final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent = doubleSpendProof.getTransactionOutputIdentifierBeingDoubleSpent();
-
-        final Json transactionOutputIdentifierJson = new Json(false);
-        {
-            final Sha256Hash transactionHash = transactionOutputIdentifierBeingSpent.getTransactionHash();
-            final Integer outputIndex = transactionOutputIdentifierBeingSpent.getOutputIndex();
-            transactionOutputIdentifierJson.put("transactionHash", transactionHash);
-            transactionOutputIdentifierJson.put("outputIndex", outputIndex);
-        }
-
-        final Json doubleSpendProofJson = new Json(false);
-        doubleSpendProofJson.put("hash", doubleSpendProofHash);
-        doubleSpendProofJson.put("transactionOutputIdentifier", transactionOutputIdentifierJson);
-
-        return doubleSpendProofJson;
     }
 
     protected TransactionOutputIdentifier _parseTransactionOutputIdentifier(final String transactionOutputIdentifierString) {
@@ -651,8 +634,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         final Json doubleSpendProofsJson = new Json(true);
         for (final DoubleSpendProof doubleSpendProof : doubleSpendProofs) {
-            final Json doubleSpendProofJson = _doubleSpendProofToJson(doubleSpendProof);
-            doubleSpendProofsJson.add(doubleSpendProofJson);
+            doubleSpendProofsJson.add(doubleSpendProof);
         }
 
         response.put("doubleSpendProofs", doubleSpendProofsJson);
@@ -681,8 +663,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                 return;
             }
 
-            final Json doubleSpendProofJson = _doubleSpendProofToJson(doubleSpendProof);
-            response.put("doubleSpendProof", doubleSpendProofJson);
+            response.put("doubleSpendProof", doubleSpendProof);
             response.put(WAS_SUCCESS_KEY, 1);
             return;
         }
@@ -701,8 +682,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                 response.put("doubleSpendProof", null); // NOTE: Not-found is still considered a success.
             }
             else {
-                final Json doubleSpendProofJson = _doubleSpendProofToJson(doubleSpendProof);
-                response.put("doubleSpendProof", doubleSpendProofJson);
+                response.put("doubleSpendProof", doubleSpendProof);
             }
 
             response.put(WAS_SUCCESS_KEY, 1);
@@ -729,8 +709,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                 final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
                 final DoubleSpendProof doubleSpendProof = _dataHandler.getDoubleSpendProof(transactionOutputIdentifier);
                 if (doubleSpendProof != null) {
-                    final Json doubleSpendProofJson = _doubleSpendProofToJson(doubleSpendProof);
-                    doubleSpendProofsJson.add(doubleSpendProofJson);
+                    doubleSpendProofsJson.add(doubleSpendProof);
                 }
             }
             response.put("doubleSpendProofs", doubleSpendProofsJson);
@@ -1046,7 +1025,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         final String addressString = parameters.getString("address");
         final AddressInflater addressInflater = _masterInflater.getAddressInflater();
-        final Address address = addressInflater.fromBase58Check(addressString);
+        final ParsedAddress address = Util.coalesce(addressInflater.fromBase58Check(addressString), addressInflater.fromBase32Check(addressString));
 
         if (address == null) {
             response.put(ERROR_MESSAGE_KEY, "Invalid address.");
@@ -1067,7 +1046,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         response.put("address", addressJson);
         response.put("balance", balance);
-        response.put("confirmedBalance", balance);
+        response.put("confirmedBalance", confirmedBalance);
 
         response.put(WAS_SUCCESS_KEY, 1);
     }
@@ -1103,11 +1082,11 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         final Long confirmedBalance;
         if (parameters.hasKey("address")) {
             final String addressString = parameters.getString("address");
-            final Address address;
+            final ParsedAddress address;
             {
                 final AddressInflater addressInflater = _masterInflater.getAddressInflater();
-                final Address base58Address = addressInflater.fromBase58Check(addressString);
-                final Address base32Address = addressInflater.fromBase32Check(addressString);
+                final ParsedAddress base58Address = addressInflater.fromBase58Check(addressString);
+                final ParsedAddress base32Address = addressInflater.fromBase32Check(addressString);
                 address = Util.coalesce(base58Address, base32Address);
             }
 
@@ -1464,9 +1443,9 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                 final ImmutableListBuilder<Address> listBuilder = new ImmutableListBuilder<>(itemCount);
                 for (int i = 0; i < itemCount; ++i) {
                     final String addressString = addressFilterJson.getString(i);
-                    final Address address = addressInflater.fromBase58Check(addressString);
+                    final ParsedAddress address = addressInflater.fromBase58Check(addressString);
                     if (address != null) {
-                        listBuilder.add(address);
+                        listBuilder.add(address.getBytes());
                     }
                 }
                 addressFilter = listBuilder.build();
@@ -1482,8 +1461,8 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                     _eventHooks.put(hookEvent, new MutableList<>());
                 }
 
-                final MutableList<HookListener> nodeIpAddresses = _eventHooks.get(hookEvent);
-                nodeIpAddresses.add(new HookListener(connection, shouldReturnRawData, shouldIncludeTransactionFees, addressFilter));
+                final MutableList<HookListener> hookListeners = _eventHooks.get(hookEvent);
+                hookListeners.add(new HookListener(connection, shouldReturnRawData, shouldIncludeTransactionFees, addressFilter));
             }
         }
 
@@ -1878,34 +1857,40 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         final BlockHeader blockHeader = new ImmutableBlockHeader(block);
 
         final LazyProtocolMessage lazyMetadataProtocolMessage = new LazyProtocolMessage() {
+            private Json _objectJson = null;
+
             @Override
             protected ProtocolMessage _createProtocolMessage() {
-                final Json blockJson = blockHeader.toJson();
-                final MetadataHandler metadataHandler = _metadataHandler;
-                if (metadataHandler != null) {
-                    _metadataHandler.applyMetadataToBlockHeader(block.getHash(), blockJson);
+                if (_objectJson == null) {
+                    _objectJson = blockHeader.toJson();
+                    final MetadataHandler metadataHandler = _metadataHandler;
+                    if (metadataHandler != null) {
+                        final Sha256Hash blockHash = block.getHash();
+                        _metadataHandler.applyMetadataToBlockHeader(blockHash, _objectJson);
+                    }
                 }
 
                 final Json json = new Json();
                 json.put("objectType", "BLOCK");
-                json.put("object", blockJson);
+                json.put("object", _objectJson);
 
                 return new JsonProtocolMessage(json);
             }
         };
 
         final LazyProtocolMessage lazyRawDataProtocolMessage = new LazyProtocolMessage() {
+            private ByteArray _blockData = null;
+
             @Override
             protected ProtocolMessage _createProtocolMessage() {
-                final BlockHeaderDeflater blockHeaderDeflater = _masterInflater.getBlockHeaderDeflater();
-                final ByteArray blockData = blockHeaderDeflater.toBytes(blockHeader);
-
-                final Json objectJson = new Json();
-                objectJson.put("data", blockData);
+                if (_blockData == null) {
+                    final BlockHeaderDeflater blockHeaderDeflater = _masterInflater.getBlockHeaderDeflater();
+                    _blockData = blockHeaderDeflater.toBytes(blockHeader);
+                }
 
                 final Json json = new Json();
                 json.put("objectType", "BLOCK");
-                json.put("object", blockData);
+                json.put("object", _blockData);
 
                 return new JsonProtocolMessage(json);
             }
@@ -1945,31 +1930,39 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         final Long transactionFee = transactionWithFee.transactionFee;
 
         final LazyProtocolMessage lazyMetadataProtocolMessage = new LazyProtocolMessage() {
+            private Json _transactionJson = null;
+
             @Override
             protected ProtocolMessage _createProtocolMessage() {
-                final Json transactionJson = transaction.toJson();
-                final MetadataHandler metadataHandler = _metadataHandler;
-                if (metadataHandler != null) {
-                    _metadataHandler.applyMetadataToTransaction(transaction, transactionJson);
+                if (_transactionJson == null) {
+                    _transactionJson = transaction.toJson();
+                    final MetadataHandler metadataHandler = _metadataHandler;
+                    if (metadataHandler != null) {
+                        _metadataHandler.applyMetadataToTransaction(transaction, _transactionJson);
+                    }
                 }
 
                 final Json json = new Json();
                 json.put("objectType", "TRANSACTION");
-                json.put("object", transactionJson);
+                json.put("object", _transactionJson);
 
                 return new JsonProtocolMessage(json);
             }
         };
 
         final LazyProtocolMessage lazyRawProtocolMessage = new LazyProtocolMessage() {
+            private ByteArray _transactionBytes = null;
+
             @Override
             protected ProtocolMessage _createProtocolMessage() {
-                final TransactionDeflater transactionDeflater = _masterInflater.getTransactionDeflater();
-                final ByteArray transactionBytes = transactionDeflater.toBytes(transaction);
+                if (_transactionBytes == null) {
+                    final TransactionDeflater transactionDeflater = _masterInflater.getTransactionDeflater();
+                    _transactionBytes = transactionDeflater.toBytes(transaction);
+                }
 
                 final Json json = new Json();
                 json.put("objectType", "TRANSACTION");
-                json.put("object", transactionBytes);
+                json.put("object", _transactionBytes);
 
                 return new JsonProtocolMessage(json);
             }
@@ -1978,18 +1971,22 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         final LazyProtocolMessage lazyRawProtocolMessageWithFee;
         if (transactionFee != null) {
             lazyRawProtocolMessageWithFee = new LazyProtocolMessage() {
+                private Json _transactionJson = null;
+
                 @Override
                 protected ProtocolMessage _createProtocolMessage() {
-                    final TransactionDeflater transactionDeflater = _masterInflater.getTransactionDeflater();
-                    final ByteArray transactionData = transactionDeflater.toBytes(transaction);
+                    if (_transactionJson == null) {
+                        final TransactionDeflater transactionDeflater = _masterInflater.getTransactionDeflater();
+                        final ByteArray transactionData = transactionDeflater.toBytes(transaction);
 
-                    final Json transactionJson = new Json();
-                    transactionJson.put("transactionData", transactionData);
-                    transactionJson.put("transactionFee", transactionFee);
+                        _transactionJson = new Json();
+                        _transactionJson.put("transactionData", transactionData);
+                        _transactionJson.put("transactionFee", transactionFee);
+                    }
 
                     final Json json = new Json();
                     json.put("objectType", "TRANSACTION_WITH_FEE");
-                    json.put("object", transactionJson);
+                    json.put("object", _transactionJson);
 
                     return new JsonProtocolMessage(json);
                 }
@@ -2038,18 +2035,36 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     }
 
     public void onNewDoubleSpendProof(final DoubleSpendProof doubleSpendProof) {
-        final Sha256Hash doubleSpendProofHash = doubleSpendProof.getHash();
-        final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent = doubleSpendProof.getTransactionOutputIdentifierBeingDoubleSpent();
+        final LazyProtocolMessage lazyMetadataProtocolMessage = new LazyProtocolMessage() {
+            private Json _doubleSpendProofJson = null;
 
-        final LazyProtocolMessage lazyProtocolMessage = new LazyProtocolMessage() {
             @Override
             protected ProtocolMessage _createProtocolMessage() {
+                if (_doubleSpendProofJson == null) {
+                    _doubleSpendProofJson = doubleSpendProof.toJson();
+                }
+
                 final Json json = new Json();
                 json.put("objectType", "DOUBLE_SPEND_PROOF");
 
-                final Json doubleSpendProofJson = _doubleSpendProofToJson(doubleSpendProof);
+                json.put("object", _doubleSpendProofJson);
 
-                json.put("object", doubleSpendProofJson);
+                return new JsonProtocolMessage(json);
+            }
+        };
+
+        final LazyProtocolMessage lazyRawDataProtocolMessage = new LazyProtocolMessage() {
+            private ByteArray _doubleSpendProofBytes = null;
+
+            @Override
+            protected ProtocolMessage _createProtocolMessage() {
+                if (_doubleSpendProofBytes == null) {
+                    _doubleSpendProofBytes = doubleSpendProof.getBytes();
+                }
+
+                final Json json = new Json();
+                json.put("objectType", "DOUBLE_SPEND_PROOF");
+                json.put("object", _doubleSpendProofBytes);
 
                 return new JsonProtocolMessage(json);
             }
@@ -2067,7 +2082,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                         final HookListener hookListener = iterator.next();
                         final JsonSocket jsonSocket = hookListener.socket;
 
-                        final ProtocolMessage protocolMessage = lazyProtocolMessage.getProtocolMessage();
+                        final ProtocolMessage protocolMessage = (hookListener.rawFormat ? lazyRawDataProtocolMessage.getProtocolMessage() : lazyMetadataProtocolMessage.getProtocolMessage());
 
                         jsonSocket.write(protocolMessage);
 
@@ -2084,7 +2099,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     @Override
     public void run(final JsonSocket socketConnection) {
         socketConnection.setMessageReceivedCallback(new Runnable() {
-            protected final JsonConnectionProperties _jsonConnectionProperties = new JsonConnectionProperties();
+            private final JsonConnectionProperties _jsonConnectionProperties = new JsonConnectionProperties();
 
             @Override
             public void run() {

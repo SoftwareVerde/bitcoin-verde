@@ -9,7 +9,7 @@ import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
-import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
@@ -71,7 +71,7 @@ public class ExtraThinBlockMessage extends BitcoinProtocolMessage {
 
         { // Transaction (Short) Hashes...
             final int transactionCount = _transactionShortHashes.getCount();
-            byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionCount));
+            byteArrayBuilder.appendBytes(CompactVariableLengthInteger.variableLengthIntegerToBytes(transactionCount));
             for (final ByteArray byteArray : _transactionShortHashes) {
                 byteArrayBuilder.appendBytes(byteArray, Endian.LITTLE);
             }
@@ -79,7 +79,7 @@ public class ExtraThinBlockMessage extends BitcoinProtocolMessage {
 
         { // Known Missing Transactions...
             final int missingTransactionCount = _missingTransactions.getCount();
-            byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(missingTransactionCount));
+            byteArrayBuilder.appendBytes(CompactVariableLengthInteger.variableLengthIntegerToBytes(missingTransactionCount));
             for (final Transaction transaction : _missingTransactions) {
                 byteArrayBuilder.appendBytes(transactionDeflater.toBytes(transaction));
             }
@@ -91,16 +91,16 @@ public class ExtraThinBlockMessage extends BitcoinProtocolMessage {
     @Override
     protected Integer _getPayloadByteCount() {
         final int transactionCount = _transactionShortHashes.getCount();
-        final byte[] transactionCountBytes = ByteUtil.variableLengthIntegerToBytes(transactionCount);
+        final ByteArray transactionCountBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(transactionCount);
 
         final int missingTransactionCount = _missingTransactions.getCount();
-        final byte[] missingTransactionCountBytes = ByteUtil.variableLengthIntegerToBytes(missingTransactionCount);
+        final ByteArray missingTransactionCountBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(missingTransactionCount);
 
         return (
             BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT +
-            transactionCountBytes.length +
+            transactionCountBytes.getByteCount() +
             (transactionCount * 4) +
-            missingTransactionCountBytes.length +
+            missingTransactionCountBytes.getByteCount() +
             (missingTransactionCount * Sha256Hash.BYTE_COUNT)
         );
     }

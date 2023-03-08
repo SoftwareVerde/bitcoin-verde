@@ -117,11 +117,20 @@ public class BitcoinVerdeDatabase implements Database {
                 upgradedVersion = 10;
             }
 
+            // v10 -> v11 (Replace Staged UTXO Commitment Duplicate UTXO BlockHeights)
+            if ( (upgradedVersion == 10) && (requiredVersion >= 11) ) {
+                Logger.info("[Upgrading DB to v11]");
+                final Boolean wasSuccessful = BitcoinVerdeDatabase.upgradeUtxoCommitmentDuplicateBlockHeight(maintenanceDatabaseConnection);
+                if (! wasSuccessful) { return false; }
+
+                upgradedVersion = 11;
+            }
+
             return (upgradedVersion >= requiredVersion);
         }
     };
     public static BitcoinVerdeDatabase newInstance(final InitFile sqlInitFile, final BitcoinProperties bitcoinProperties, final BitcoinVerdeDatabaseProperties bitcoinVerdeDatabaseProperties) {
-        final long bytesPerConnection = DatabaseConfigurer.getBytesPerDatabaseConnection();
+        final long bytesPerConnection = DatabaseConfiguration.getBytesPerDatabaseConnection();
         final long maxMaxDatabaseConnectionCount = ((bitcoinVerdeDatabaseProperties.getMaxMemoryByteCount() / 2) / bytesPerConnection);
         final int maxDatabaseConnectionCount = (int) Math.min(TARGET_MAX_DATABASE_CONNECTION_COUNT, maxMaxDatabaseConnectionCount);
 
@@ -157,10 +166,11 @@ public class BitcoinVerdeDatabase implements Database {
         try {
             if (databaseProperties.shouldUseEmbeddedDatabase()) {
                 // Initialize the embedded database...
-                final EmbeddedDatabaseProperties embeddedDatabaseProperties = DatabaseConfigurer.configureDatabase(maxDatabaseConnectionCount, databaseProperties);
+                final EmbeddedDatabaseProperties embeddedDatabaseProperties = DatabaseConfiguration.getDatabaseConfiguration(maxDatabaseConnectionCount, databaseProperties);
 
                 Logger.info("[Initializing Database]");
                 final EmbeddedMysqlDatabase embeddedMysqlDatabase = new EmbeddedMysqlDatabase(embeddedDatabaseProperties, databaseInitializer);
+                embeddedMysqlDatabase.setUpgradeTimeout(10L * 60L * 1000L);
                 if (Logger.isDebugEnabled()) {
                     final Version installedVersion = embeddedMysqlDatabase.getInstallationDirectoryVersion();
                     Logger.debug("MariaDb Version: " + Util.coalesce(installedVersion, new Version(0)));
@@ -310,6 +320,24 @@ public class BitcoinVerdeDatabase implements Database {
     protected static Boolean upgradeElectrumSupport(final com.softwareverde.database.DatabaseConnection<Connection> databaseConnection) {
         try {
             final String upgradeScript = IoUtil.getResource("/sql/node/mysql/upgrade/electrum_indexing_v1.sql"); // TODO: Use mysql/sqlite when appropriate...
+            if (Util.isBlank(upgradeScript)) { return false; }
+
+            TransactionUtil.startTransaction(databaseConnection);
+            final SqlScriptRunner scriptRunner = new SqlScriptRunner(databaseConnection.getRawConnection(), false, true);
+            scriptRunner.runScript(new StringReader(upgradeScript));
+            TransactionUtil.commitTransaction(databaseConnection);
+
+            return true;
+        }
+        catch (final Exception exception) {
+            Logger.debug(exception);
+            return false;
+        }
+    }
+
+    protected static Boolean upgradeUtxoCommitmentDuplicateBlockHeight(final com.softwareverde.database.DatabaseConnection<Connection> databaseConnection) {
+        try {
+            final String upgradeScript = IoUtil.getResource("/sql/node/mysql/upgrade/duplicate_utxo_block_height.sql"); // TODO: Use mysql/sqlite when appropriate...
             if (Util.isBlank(upgradeScript)) { return false; }
 
             TransactionUtil.startTransaction(databaseConnection);

@@ -7,10 +7,11 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.configuration.CheckpointConfiguration;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockMetadata;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManagerCore;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.MedianBlockTimeDatabaseManagerUtil;
-import com.softwareverde.bitcoin.server.module.node.database.block.header.fullnode.BlockHeaderDatabaseManagerCore;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
@@ -150,6 +151,16 @@ public interface FakeBlockHeaderDatabaseManager extends BlockHeaderDatabaseManag
     default Map<BlockId, Long> getBlockHeights(List<BlockId> blockIds) throws DatabaseException {
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    default BlockMetadata getBlockMetadata(BlockId blockId) throws DatabaseException {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    default Map<BlockId, Integer> getBlockProcessCounts() throws DatabaseException {
+        throw new UnsupportedOperationException();
+    }
 }
 
 class FakeBlockHeaderDatabaseManagerCore extends BlockHeaderDatabaseManagerCore {
@@ -158,6 +169,6 @@ class FakeBlockHeaderDatabaseManagerCore extends BlockHeaderDatabaseManagerCore 
     }
 
     public FakeBlockHeaderDatabaseManagerCore(final DatabaseManager databaseManager, final CheckpointConfiguration checkpointConfiguration) {
-        super(databaseManager, checkpointConfiguration);
+        super(databaseManager, checkpointConfiguration, null);
     }
 }

@@ -29,6 +29,7 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManagerCore;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.CommitAsyncMode;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UndoLogDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
@@ -37,26 +38,34 @@ import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.test.MockBlockStore;
 import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputContext;
+import com.softwareverde.bitcoin.test.fake.FakeUpgradeSchedule;
+import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
+import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.locktime.LockTime;
+import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.MutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.ControlOperation;
 import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
 import com.softwareverde.bitcoin.transaction.script.runner.context.TransactionContext;
+import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlockingScript;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
@@ -65,6 +74,8 @@ import com.softwareverde.logging.LogLevel;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.util.IoUtil;
+import com.softwareverde.util.Tuple;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.type.time.SystemTime;
 import org.junit.After;
 import org.junit.Assert;
@@ -172,7 +183,7 @@ public class BlockProcessorTests extends IntegrationTest {
         public final BlockInflater blockInflater = _masterInflater.getBlockInflater();
         public final MutableNetworkTime networkTime = new MutableNetworkTime();
         public final FakeUnspentTransactionOutputContext unspentTransactionOutputSet = new FakeUnspentTransactionOutputContext();
-        public final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        public final FakeUpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
 
         public final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(_masterInflater, _masterInflater, _blockStore, _fullNodeDatabaseManagerFactory, this.networkTime, _synchronizationStatus, _difficultyCalculatorFactory, _transactionValidatorFactory, this.upgradeSchedule) {
             @Override
@@ -193,18 +204,24 @@ public class BlockProcessorTests extends IntegrationTest {
         }
 
         public Long processBlock(final Block block) {
-            return this.blockProcessor.processBlock(block, this.unspentTransactionOutputSet).blockHeight;
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                    return this.blockProcessor.processBlock(block, databaseManager, this.unspentTransactionOutputSet).blockHeight;
+                }
+                catch (final DatabaseException exception) {
+                    Logger.debug(exception);
+                    return null;
+                }
+            }
         }
 
         public Long processBlock(final Block block, final Long blockHeight, final FullNodeDatabaseManager databaseManager) throws Exception {
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-                blockHeaderDatabaseManager.storeBlockHeader(block);
-            }
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            blockHeaderDatabaseManager.storeBlockHeader(block);
 
             final MutableUnspentTransactionOutputSet unspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
-            unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight);
-            return this.blockProcessor.processBlock(block, unspentTransactionOutputSet).blockHeight;
+            unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight, upgradeSchedule);
+            return this.blockProcessor.processBlock(block, databaseManager, unspentTransactionOutputSet).blockHeight;
         }
 
         public Block inflateBlock(final String blockData) {
@@ -221,179 +238,187 @@ public class BlockProcessorTests extends IntegrationTest {
         // NOTE: Within the NodeModule, the blockProcessor doesn't process the genesis block, instead it is processed differently by the BlockchainBuilder...
 
         // Setup
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final TestHarness harness = new TestHarness();
-            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final TestHarness harness = new TestHarness();
+                final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
 
-            final Block genesisBlock = harness.inflateBlock(BlockData.MainChain.GENESIS_BLOCK);
+                final Block genesisBlock = harness.inflateBlock(BlockData.MainChain.GENESIS_BLOCK);
 
-            final TransactionOutputIdentifier transactionOutputIdentifier;
-            {
-                final List<Transaction> transactions = genesisBlock.getTransactions();
-                final Transaction transaction = transactions.get(0);
-                transactionOutputIdentifier = new TransactionOutputIdentifier(transaction.getHash(), 0);
+                final TransactionOutputIdentifier transactionOutputIdentifier;
+                {
+                    final List<Transaction> transactions = genesisBlock.getTransactions();
+                    final Transaction transaction = transactions.get(0);
+                    transactionOutputIdentifier = new TransactionOutputIdentifier(transaction.getHash(), 0);
+                }
+
+                // Action
+                final Long blockHeight = harness.processBlock(genesisBlock);
+                final TransactionOutput transactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifier);
+
+                // Assert
+                Assert.assertEquals(Long.valueOf(0L), blockHeight);
+                Assert.assertNull(transactionOutput); // Outputs created by the genesis are not spendable...
             }
-
-            // Action
-            final Long blockHeight = harness.processBlock(genesisBlock);
-            final TransactionOutput transactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifier);
-
-            // Assert
-            Assert.assertEquals(Long.valueOf(0L), blockHeight);
-            Assert.assertNull(transactionOutput); // Outputs created by the genesis are not spendable...
         }
     }
 
     @Test
     public void should_process_blocks_with_utxos() throws Exception {
         // Setup
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final TestHarness harness = new TestHarness();
-            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final TestHarness harness = new TestHarness();
+                final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
 
-            final Block genesisBlock = harness.inflateBlock(BlockData.MainChain.GENESIS_BLOCK);
-            final Block block01 = harness.inflateBlock(BlockData.MainChain.BLOCK_1);
+                final Block genesisBlock = harness.inflateBlock(BlockData.MainChain.GENESIS_BLOCK);
+                final Block block01 = harness.inflateBlock(BlockData.MainChain.BLOCK_1);
 
-            final TransactionOutput expectedTransactionOutput;
-            final TransactionOutputIdentifier transactionOutputIdentifier;
-            {
-                final List<Transaction> transactions = block01.getTransactions();
-                final Transaction transaction = transactions.get(0);
-                final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+                final TransactionOutput expectedTransactionOutput;
+                final TransactionOutputIdentifier transactionOutputIdentifier;
+                {
+                    final List<Transaction> transactions = block01.getTransactions();
+                    final Transaction transaction = transactions.get(0);
+                    final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
 
-                expectedTransactionOutput = transactionOutputs.get(0);
-                transactionOutputIdentifier = new TransactionOutputIdentifier(transaction.getHash(), 0);
+                    expectedTransactionOutput = transactionOutputs.get(0);
+                    transactionOutputIdentifier = new TransactionOutputIdentifier(transaction.getHash(), 0);
+                }
+
+                // Action
+                harness.processBlock(genesisBlock);
+                final Long blockHeight = harness.processBlock(block01);
+                final TransactionOutput transactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifier);
+
+                // Assert
+                Assert.assertEquals(Long.valueOf(1L), blockHeight);
+                Assert.assertEquals(expectedTransactionOutput, transactionOutput);
             }
-
-            // Action
-            harness.processBlock(genesisBlock);
-            final Long blockHeight = harness.processBlock(block01);
-            final TransactionOutput transactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifier);
-
-            // Assert
-            Assert.assertEquals(Long.valueOf(1L), blockHeight);
-            Assert.assertEquals(expectedTransactionOutput, transactionOutput);
         }
     }
 
     @Test
     public void should_handle_reorg_fork() throws Exception {
         // Setup
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final TestHarness harness = new TestHarness();
-            final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final TestHarness harness = new TestHarness();
+                final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+                final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+                final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
 
-            // Load Order: genesisBlock -> forkChainBlock01 -> mainChainBlock01 -> mainChainBlock02
-            final Block genesisBlock = harness.inflateBlock(BlockData.MainChain.GENESIS_BLOCK); // 000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F
-            final Block forkChainBlock01 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_1); // 0000000001BE52D653305F7D80ED373837E61CC26AE586AFD343A3C2E64E64A2
-            final Block mainChainBlock01 = harness.inflateBlock(BlockData.MainChain.BLOCK_1); // 00000000839A8E6886AB5951D76F411475428AFC90947EE320161BBF18EB6048
-            final Block mainChainBlock02 = harness.inflateBlock(BlockData.MainChain.BLOCK_2); // 000000006A625F06636B8BB6AC7B960A8D03705D1ACE08B1A19DA3FDCC99DDBD
+                // Load Order: genesisBlock -> forkChainBlock01 -> mainChainBlock01 -> mainChainBlock02
+                final Block genesisBlock = harness.inflateBlock(BlockData.MainChain.GENESIS_BLOCK); // 000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F
+                final Block forkChainBlock01 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_1); // 0000000001BE52D653305F7D80ED373837E61CC26AE586AFD343A3C2E64E64A2
+                final Block mainChainBlock01 = harness.inflateBlock(BlockData.MainChain.BLOCK_1); // 00000000839A8E6886AB5951D76F411475428AFC90947EE320161BBF18EB6048
+                final Block mainChainBlock02 = harness.inflateBlock(BlockData.MainChain.BLOCK_2); // 000000006A625F06636B8BB6AC7B960A8D03705D1ACE08B1A19DA3FDCC99DDBD
 
-            final TransactionOutputIdentifier invalidTransactionOutputIdentifier;
-            {
-                final List<Transaction> transactions = forkChainBlock01.getTransactions();
-                final Transaction transaction = transactions.get(0);
-                invalidTransactionOutputIdentifier = new TransactionOutputIdentifier(transaction.getHash(), 0);
+                final TransactionOutputIdentifier invalidTransactionOutputIdentifier;
+                {
+                    final List<Transaction> transactions = forkChainBlock01.getTransactions();
+                    final Transaction transaction = transactions.get(0);
+                    invalidTransactionOutputIdentifier = new TransactionOutputIdentifier(transaction.getHash(), 0);
+                }
+
+                final Transaction transaction;
+                { // Inflate transaction that spends the coinbase of the ForkChain2.BLOCK_1...
+                    final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
+                    transaction = transactionInflater.fromBytes(ByteArray.fromHexString("0200000001F2857FE43B7FE710900C50F38DEFFDEF0304D05F0911BBA7CAC9859BD0797D0E000000008B483045022100AFC23C6CB284C4897BA7EFAF867B45D0A80D60EA13B4EE97394A66A9A9DCE863022049B91D579050DC5BB3CB5767A3D0A0AB2A8E7D77B0A7C4B96C7F2EDEAD0DDB78414104369319023063307A8209C518C0E07CC27AA2502113907BEECA66DEFA0669DEA00D995BEC5AB5964368769C4A772F3B04C9DFA002A14BE8B27BD0E3A57CEBFDA9FFFFFFFF0100F2052A010000001976A91410DB8BE45C9035835DD8B31E811143166D9907EA88AC00000000"));
+                }
+
+                // Action
+                final Long blockHeightStep0 = harness.processBlock(genesisBlock);
+                Assert.assertEquals(genesisBlock.getHash(), blockDatabaseManager.getHeadBlockHash());
+                System.out.println();
+
+                final Long blockHeightStep1 = harness.processBlock(forkChainBlock01);
+                Assert.assertEquals(forkChainBlock01.getHash(), blockDatabaseManager.getHeadBlockHash());
+                final TransactionId transactionId = transactionDatabaseManager.storeUnconfirmedTransaction(transaction);
+                transactionDatabaseManager.addToUnconfirmedTransactions(transactionId);
+                System.out.println();
+
+                final Long blockHeightStep2 = harness.processBlock(mainChainBlock01);
+                Assert.assertEquals(forkChainBlock01.getHash(), blockDatabaseManager.getHeadBlockHash());
+                System.out.println();
+
+                final Long blockHeightStep3 = harness.processBlock(mainChainBlock02);
+                Assert.assertEquals(mainChainBlock02.getHash(), blockDatabaseManager.getHeadBlockHash());
+                System.out.println();
+
+                // Assert
+                Assert.assertEquals(Long.valueOf(2L), blockHeightStep3);
+
+                // The output generated by the old chain should no longer be a UTXO...
+                final TransactionOutput oldTransactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(invalidTransactionOutputIdentifier);
+                Assert.assertNull(oldTransactionOutput);
+
+                // The transaction spending the fork chain's UTXO should no longer be in the mempool...
+                final List<TransactionId> unconfirmedTransactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
+                Assert.assertFalse(unconfirmedTransactionIds.contains(transactionId));
             }
-
-            final Transaction transaction;
-            { // Inflate transaction that spends the coinbase of the ForkChain2.BLOCK_1...
-                final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
-                transaction = transactionInflater.fromBytes(ByteArray.fromHexString("0200000001F2857FE43B7FE710900C50F38DEFFDEF0304D05F0911BBA7CAC9859BD0797D0E000000008B483045022100AFC23C6CB284C4897BA7EFAF867B45D0A80D60EA13B4EE97394A66A9A9DCE863022049B91D579050DC5BB3CB5767A3D0A0AB2A8E7D77B0A7C4B96C7F2EDEAD0DDB78414104369319023063307A8209C518C0E07CC27AA2502113907BEECA66DEFA0669DEA00D995BEC5AB5964368769C4A772F3B04C9DFA002A14BE8B27BD0E3A57CEBFDA9FFFFFFFF0100F2052A010000001976A91410DB8BE45C9035835DD8B31E811143166D9907EA88AC00000000"));
-            }
-
-            // Action
-            final Long blockHeightStep0 = harness.processBlock(genesisBlock);
-            Assert.assertEquals(genesisBlock.getHash(), blockDatabaseManager.getHeadBlockHash());
-            System.out.println();
-
-            final Long blockHeightStep1 = harness.processBlock(forkChainBlock01);
-            Assert.assertEquals(forkChainBlock01.getHash(), blockDatabaseManager.getHeadBlockHash());
-            final TransactionId transactionId = transactionDatabaseManager.storeUnconfirmedTransaction(transaction);
-            transactionDatabaseManager.addToUnconfirmedTransactions(transactionId);
-            System.out.println();
-
-            final Long blockHeightStep2 = harness.processBlock(mainChainBlock01);
-            Assert.assertEquals(forkChainBlock01.getHash(), blockDatabaseManager.getHeadBlockHash());
-            System.out.println();
-
-            final Long blockHeightStep3 = harness.processBlock(mainChainBlock02);
-            Assert.assertEquals(mainChainBlock02.getHash(), blockDatabaseManager.getHeadBlockHash());
-            System.out.println();
-
-            // Assert
-            Assert.assertEquals(Long.valueOf(2L), blockHeightStep3);
-
-            // The output generated by the old chain should no longer be a UTXO...
-            final TransactionOutput oldTransactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(invalidTransactionOutputIdentifier);
-            Assert.assertNull(oldTransactionOutput);
-
-            // The transaction spending the fork chain's UTXO should no longer be in the mempool...
-            final List<TransactionId> unconfirmedTransactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
-            Assert.assertFalse(unconfirmedTransactionIds.contains(transactionId));
         }
     }
 
     @Test
     public void should_handle_reorg_fork_with_utxo_committed() throws Exception {
         // Setup
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
-            final TestHarness harness = new TestHarness();
-            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+                final TestHarness harness = new TestHarness();
+                final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+                final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
 
-            final Block genesisBlock = harness.inflateBlock(BlockData.MainChain.GENESIS_BLOCK);
-            final Block mainChainBlock01 = harness.inflateBlock(BlockData.MainChain.BLOCK_1);
-            final Block mainChainBlock02 = harness.inflateBlock(BlockData.MainChain.BLOCK_2);
-            final Block forkChainBlock01 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_1);
+                final Block genesisBlock = harness.inflateBlock(BlockData.MainChain.GENESIS_BLOCK);
+                final Block mainChainBlock01 = harness.inflateBlock(BlockData.MainChain.BLOCK_1);
+                final Block mainChainBlock02 = harness.inflateBlock(BlockData.MainChain.BLOCK_2);
+                final Block forkChainBlock01 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_1);
 
-            final TransactionOutputIdentifier invalidTransactionOutputIdentifier;
-            {
-                final List<Transaction> transactions = forkChainBlock01.getTransactions();
-                final Transaction transaction = transactions.get(0);
-                invalidTransactionOutputIdentifier = new TransactionOutputIdentifier(transaction.getHash(), 0);
+                final TransactionOutputIdentifier invalidTransactionOutputIdentifier;
+                {
+                    final List<Transaction> transactions = forkChainBlock01.getTransactions();
+                    final Transaction transaction = transactions.get(0);
+                    invalidTransactionOutputIdentifier = new TransactionOutputIdentifier(transaction.getHash(), 0);
+                }
+
+                final Transaction forkChainCoinbaseTransaction = forkChainBlock01.getCoinbaseTransaction();
+
+                final Transaction transaction;
+                { // Inflate transaction that spends the coinbase of the ForkChain2.BLOCK_1...
+                    final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
+                    transaction = transactionInflater.fromBytes(ByteArray.fromHexString("0200000001F2857FE43B7FE710900C50F38DEFFDEF0304D05F0911BBA7CAC9859BD0797D0E000000008B483045022100AFC23C6CB284C4897BA7EFAF867B45D0A80D60EA13B4EE97394A66A9A9DCE863022049B91D579050DC5BB3CB5767A3D0A0AB2A8E7D77B0A7C4B96C7F2EDEAD0DDB78414104369319023063307A8209C518C0E07CC27AA2502113907BEECA66DEFA0669DEA00D995BEC5AB5964368769C4A772F3B04C9DFA002A14BE8B27BD0E3A57CEBFDA9FFFFFFFF0100F2052A010000001976A91410DB8BE45C9035835DD8B31E811143166D9907EA88AC00000000"));
+                }
+
+                // Action
+                harness.processBlock(genesisBlock);
+
+                final Long blockHeightStep1 = harness.processBlock(forkChainBlock01);
+                final TransactionId transactionId = transactionDatabaseManager.storeUnconfirmedTransaction(transaction);
+                transactionDatabaseManager.addToUnconfirmedTransactions(transactionId);
+                unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE); // Commit the UTXO set with outputs that will then be invalidated during a reorg...
+                Assert.assertTrue(BlockProcessorTests.utxoExistsInCommittedUtxoSet(forkChainCoinbaseTransaction, databaseConnection)); // Ensure the UTXO was actually committed...
+
+                final Long blockHeightStep2 = harness.processBlock(mainChainBlock01);
+                final Long blockHeightStep3 = harness.processBlock(mainChainBlock02);
+
+                // Assert
+                Assert.assertEquals(Long.valueOf(2L), blockHeightStep3);
+
+                // The output generated by the old chain should no longer be a UTXO...
+                final TransactionOutput oldTransactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(invalidTransactionOutputIdentifier);
+                Assert.assertNull(oldTransactionOutput);
+
+                unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
+
+                // Ensure the invalid UTXO isn't left within the on-disk UTXO set...
+                Assert.assertFalse(BlockProcessorTests.utxoExistsInCommittedUtxoSet(forkChainCoinbaseTransaction, databaseConnection));
+                Assert.assertFalse(BlockProcessorTests.utxoExistsInCommittedUtxoSet(transaction, databaseConnection));
+
+                // The transaction spending the fork chain's UTXO should no longer be in the mempool...
+                final List<TransactionId> unconfirmedTransactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
+                Assert.assertFalse(unconfirmedTransactionIds.contains(transactionId));
             }
-
-            final Transaction forkChainCoinbaseTransaction = forkChainBlock01.getCoinbaseTransaction();
-
-            final Transaction transaction;
-            { // Inflate transaction that spends the coinbase of the ForkChain2.BLOCK_1...
-                final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
-                transaction = transactionInflater.fromBytes(ByteArray.fromHexString("0200000001F2857FE43B7FE710900C50F38DEFFDEF0304D05F0911BBA7CAC9859BD0797D0E000000008B483045022100AFC23C6CB284C4897BA7EFAF867B45D0A80D60EA13B4EE97394A66A9A9DCE863022049B91D579050DC5BB3CB5767A3D0A0AB2A8E7D77B0A7C4B96C7F2EDEAD0DDB78414104369319023063307A8209C518C0E07CC27AA2502113907BEECA66DEFA0669DEA00D995BEC5AB5964368769C4A772F3B04C9DFA002A14BE8B27BD0E3A57CEBFDA9FFFFFFFF0100F2052A010000001976A91410DB8BE45C9035835DD8B31E811143166D9907EA88AC00000000"));
-            }
-
-            // Action
-            harness.processBlock(genesisBlock);
-
-            final Long blockHeightStep1 = harness.processBlock(forkChainBlock01);
-            final TransactionId transactionId = transactionDatabaseManager.storeUnconfirmedTransaction(transaction);
-            transactionDatabaseManager.addToUnconfirmedTransactions(transactionId);
-            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE); // Commit the UTXO set with outputs that will then be invalidated during a reorg...
-            Assert.assertTrue(BlockProcessorTests.utxoExistsInCommittedUtxoSet(forkChainCoinbaseTransaction, databaseConnection)); // Ensure the UTXO was actually committed...
-
-            final Long blockHeightStep2 = harness.processBlock(mainChainBlock01);
-            final Long blockHeightStep3 = harness.processBlock(mainChainBlock02);
-
-            // Assert
-            Assert.assertEquals(Long.valueOf(2L), blockHeightStep3);
-
-            // The output generated by the old chain should no longer be a UTXO...
-            final TransactionOutput oldTransactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(invalidTransactionOutputIdentifier);
-            Assert.assertNull(oldTransactionOutput);
-
-            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
-
-            // Ensure the invalid UTXO isn't left within the on-disk UTXO set...
-            Assert.assertFalse(BlockProcessorTests.utxoExistsInCommittedUtxoSet(forkChainCoinbaseTransaction, databaseConnection));
-            Assert.assertFalse(BlockProcessorTests.utxoExistsInCommittedUtxoSet(transaction, databaseConnection));
-
-            // The transaction spending the fork chain's UTXO should no longer be in the mempool...
-            final List<TransactionId> unconfirmedTransactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
-            Assert.assertFalse(unconfirmedTransactionIds.contains(transactionId));
         }
     }
 
@@ -407,127 +432,131 @@ public class BlockProcessorTests extends IntegrationTest {
     @Test
     public void should_handle_contentious_reorg_fork_with_shared_utxos() throws Exception {
         // Setup
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final TestHarness harness = new TestHarness();
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final TestHarness harness = new TestHarness();
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
-            // 0:   MainChain Blocks
-            final Block genesisBlock = harness.inflateBlock(BlockData.MainChain.GENESIS_BLOCK); // 000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F
-            // 1-2: ForkChain2 Blocks
-            final Block forkChain2Block01 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_1); // 0000000001BE52D653305F7D80ED373837E61CC26AE586AFD343A3C2E64E64A2
-            final Block forkChain2Block02 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_2); // 00000000314E669144E0781C432EB33F2079834D406E46393291E94199F433EE
-            // 3':  ForkChain4 Blocks
-            final Block forkChain4Block03 = harness.inflateBlock(BlockData.ForkChain4.BLOCK_3); // 00000000C77EFC229BD4EF49BBC08C17AB26B7AC242C10B0105179EFA1A2D0D6
-            // 3-4: ForkChain2 Blocks
-            final Block forkChain2Block03 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_3); // 00000000EC006D368F4610AAEA50986B4E71450C81E8A2E1D947A2BF93F0BCB7
-            final Block forkChain2Block04 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_4); // 000000009F1339E2BBC655346F47CC72075ECCE61E84DF3544A54F5623BED0FE
+                // 0:   MainChain Blocks
+                final Block genesisBlock = harness.inflateBlock(BlockData.MainChain.GENESIS_BLOCK); // 000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F
+                // 1-2: ForkChain2 Blocks
+                final Block forkChain2Block01 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_1); // 0000000001BE52D653305F7D80ED373837E61CC26AE586AFD343A3C2E64E64A2
+                final Block forkChain2Block02 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_2); // 00000000314E669144E0781C432EB33F2079834D406E46393291E94199F433EE
+                // 3':  ForkChain4 Blocks
+                final Block forkChain4Block03 = harness.inflateBlock(BlockData.ForkChain4.BLOCK_3); // 00000000C77EFC229BD4EF49BBC08C17AB26B7AC242C10B0105179EFA1A2D0D6
+                // 3-4: ForkChain2 Blocks
+                final Block forkChain2Block03 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_3); // 00000000EC006D368F4610AAEA50986B4E71450C81E8A2E1D947A2BF93F0BCB7
+                final Block forkChain2Block04 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_4); // 000000009F1339E2BBC655346F47CC72075ECCE61E84DF3544A54F5623BED0FE
 
-            // Action
-            final Long blockHeightStep0 = harness.processBlock(genesisBlock, 0L, databaseManager);
-            Assert.assertEquals(Long.valueOf(0L), blockHeightStep0);
-            Assert.assertEquals(genesisBlock.getHash(), blockHeaderDatabaseManager.getHeadBlockHeaderHash());
+                // Action
+                final Long blockHeightStep0 = harness.processBlock(genesisBlock, 0L, databaseManager);
+                Assert.assertEquals(Long.valueOf(0L), blockHeightStep0);
+                Assert.assertEquals(genesisBlock.getHash(), blockHeaderDatabaseManager.getHeadBlockHeaderHash());
 
-            // Load Order: Genesis -> Fork2#1 -> Fork2#2 -> Fork4#3 -> Fork2#3 -> Fork2#4
+                // Load Order: Genesis -> Fork2#1 -> Fork2#2 -> Fork4#3 -> Fork2#3 -> Fork2#4
 
-            final Long blockHeightStep1 = harness.processBlock(forkChain2Block01, 1L, databaseManager);
-            Assert.assertEquals(Long.valueOf(1L), blockHeightStep1);
-            Assert.assertEquals(forkChain2Block01.getHash(), blockHeaderDatabaseManager.getHeadBlockHeaderHash());
+                final Long blockHeightStep1 = harness.processBlock(forkChain2Block01, 1L, databaseManager);
+                Assert.assertEquals(Long.valueOf(1L), blockHeightStep1);
+                Assert.assertEquals(forkChain2Block01.getHash(), blockHeaderDatabaseManager.getHeadBlockHeaderHash());
 
-            final Long blockHeightStep2 = harness.processBlock(forkChain2Block02, 2L, databaseManager);
-            Assert.assertEquals(Long.valueOf(2L), blockHeightStep2);
-            Assert.assertEquals(forkChain2Block02.getHash(), blockHeaderDatabaseManager.getHeadBlockHeaderHash());
+                final Long blockHeightStep2 = harness.processBlock(forkChain2Block02, 2L, databaseManager);
+                Assert.assertEquals(Long.valueOf(2L), blockHeightStep2);
+                Assert.assertEquals(forkChain2Block02.getHash(), blockHeaderDatabaseManager.getHeadBlockHeaderHash());
 
-            final Long blockHeightStep3 = harness.processBlock(forkChain4Block03, 3L, databaseManager);
-            Assert.assertEquals(Long.valueOf(3L), blockHeightStep3);
-            Assert.assertEquals(forkChain4Block03.getHash(), blockHeaderDatabaseManager.getHeadBlockHeaderHash());
+                final Long blockHeightStep3 = harness.processBlock(forkChain4Block03, 3L, databaseManager);
+                Assert.assertEquals(Long.valueOf(3L), blockHeightStep3);
+                Assert.assertEquals(forkChain4Block03.getHash(), blockHeaderDatabaseManager.getHeadBlockHeaderHash());
 
-            final Long blockHeightStep4 = harness.processBlock(forkChain2Block03, 3L, databaseManager);
-            Assert.assertEquals(Long.valueOf(3L), blockHeightStep4);
-            Assert.assertEquals(forkChain4Block03.getHash(), blockHeaderDatabaseManager.getHeadBlockHeaderHash());
+                final Long blockHeightStep4 = harness.processBlock(forkChain2Block03, 3L, databaseManager);
+                Assert.assertEquals(Long.valueOf(3L), blockHeightStep4);
+                Assert.assertEquals(forkChain4Block03.getHash(), blockHeaderDatabaseManager.getHeadBlockHeaderHash());
 
-            final Long blockHeightStep5 = harness.processBlock(forkChain2Block04, 4L, databaseManager);
-            Assert.assertEquals(Long.valueOf(4L), blockHeightStep5);
-            Assert.assertEquals(forkChain2Block04.getHash(), blockHeaderDatabaseManager.getHeadBlockHeaderHash());
+                final Long blockHeightStep5 = harness.processBlock(forkChain2Block04, 4L, databaseManager);
+                Assert.assertEquals(Long.valueOf(4L), blockHeightStep5);
+                Assert.assertEquals(forkChain2Block04.getHash(), blockHeaderDatabaseManager.getHeadBlockHeaderHash());
+            }
         }
     }
 
     @Test
     public void should_update_the_committed_utxo_set_after_reorg() throws Exception {
         // Setup
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final TestHarness harness = new TestHarness();
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final TestHarness harness = new TestHarness();
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
 
-            // 0:   MainChain Blocks
-            final Block genesisBlock = harness.inflateBlock(BlockData.MainChain.GENESIS_BLOCK); // 000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F
-            // 1-2: ForkChain2 Blocks
-            final Block forkChain2Block01 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_1); // 0000000001BE52D653305F7D80ED373837E61CC26AE586AFD343A3C2E64E64A2
-            final Block forkChain2Block02 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_2); // 00000000314E669144E0781C432EB33F2079834D406E46393291E94199F433EE
-            // 3':  ForkChain4 Blocks
-            final Block forkChain4Block03 = harness.inflateBlock(BlockData.ForkChain4.BLOCK_3); // 00000000C77EFC229BD4EF49BBC08C17AB26B7AC242C10B0105179EFA1A2D0D6
-            // 3-4: ForkChain2 Blocks
-            final Block forkChain2Block03 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_3); // 00000000EC006D368F4610AAEA50986B4E71450C81E8A2E1D947A2BF93F0BCB7
-            final Block forkChain2Block04 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_4); // 000000009F1339E2BBC655346F47CC72075ECCE61E84DF3544A54F5623BED0FE
+                // 0:   MainChain Blocks
+                final Block genesisBlock = harness.inflateBlock(BlockData.MainChain.GENESIS_BLOCK); // 000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F
+                // 1-2: ForkChain2 Blocks
+                final Block forkChain2Block01 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_1); // 0000000001BE52D653305F7D80ED373837E61CC26AE586AFD343A3C2E64E64A2
+                final Block forkChain2Block02 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_2); // 00000000314E669144E0781C432EB33F2079834D406E46393291E94199F433EE
+                // 3':  ForkChain4 Blocks
+                final Block forkChain4Block03 = harness.inflateBlock(BlockData.ForkChain4.BLOCK_3); // 00000000C77EFC229BD4EF49BBC08C17AB26B7AC242C10B0105179EFA1A2D0D6
+                // 3-4: ForkChain2 Blocks
+                final Block forkChain2Block03 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_3); // 00000000EC006D368F4610AAEA50986B4E71450C81E8A2E1D947A2BF93F0BCB7
+                final Block forkChain2Block04 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_4); // 000000009F1339E2BBC655346F47CC72075ECCE61E84DF3544A54F5623BED0FE
 
-            final TransactionOutputIdentifier culledTransactionOutputIdentifier;
-            {
-                final List<Transaction> transactions = forkChain4Block03.getTransactions();
-                final Transaction transaction = transactions.get(1);
-                final Sha256Hash transactionHash = transaction.getHash();
-                culledTransactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, 0);
-            }
+                final TransactionOutputIdentifier culledTransactionOutputIdentifier;
+                {
+                    final List<Transaction> transactions = forkChain4Block03.getTransactions();
+                    final Transaction transaction = transactions.get(1);
+                    final Sha256Hash transactionHash = transaction.getHash();
+                    culledTransactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, 0);
+                }
 
-            // Action
-            harness.processBlock(genesisBlock, 0L, databaseManager);
+                // Action
+                harness.processBlock(genesisBlock, 0L, databaseManager);
 
-            // Load Order: Genesis -> Fork2#1 -> Fork2#2 -> Fork4#3 -> Fork2#3 -> Fork2#4
-            final Long blockHeightStep1 = harness.processBlock(forkChain2Block01, 1L, databaseManager);
-            Assert.assertNotNull(blockHeightStep1);
-            Assert.assertEquals(forkChain2Block01.getHash(), blockHeaderDatabaseManager.getHeadBlockHeaderHash());
-            final Long blockHeightStep2 = harness.processBlock(forkChain2Block02, 2L, databaseManager);
-            Assert.assertNotNull(blockHeightStep2);
-            Assert.assertEquals(forkChain2Block02.getHash(), blockHeaderDatabaseManager.getHeadBlockHeaderHash());
-            final Long blockHeightStep3 = harness.processBlock(forkChain4Block03, 3L, databaseManager);
-            Assert.assertNotNull(blockHeightStep3);
-            Assert.assertEquals(forkChain4Block03.getHash(), blockHeaderDatabaseManager.getHeadBlockHeaderHash());
+                // Load Order: Genesis -> Fork2#1 -> Fork2#2 -> Fork4#3 -> Fork2#3 -> Fork2#4
+                final Long blockHeightStep1 = harness.processBlock(forkChain2Block01, 1L, databaseManager);
+                Assert.assertNotNull(blockHeightStep1);
+                Assert.assertEquals(forkChain2Block01.getHash(), blockHeaderDatabaseManager.getHeadBlockHeaderHash());
+                final Long blockHeightStep2 = harness.processBlock(forkChain2Block02, 2L, databaseManager);
+                Assert.assertNotNull(blockHeightStep2);
+                Assert.assertEquals(forkChain2Block02.getHash(), blockHeaderDatabaseManager.getHeadBlockHeaderHash());
+                final Long blockHeightStep3 = harness.processBlock(forkChain4Block03, 3L, databaseManager);
+                Assert.assertNotNull(blockHeightStep3);
+                Assert.assertEquals(forkChain4Block03.getHash(), blockHeaderDatabaseManager.getHeadBlockHeaderHash());
 
-            { // Ensure the UTXO (that will later be removed) exists within the UTXO set...
+                { // Ensure the UTXO (that will later be removed) exists within the UTXO set...
+                    final TransactionOutput culledTransactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(culledTransactionOutputIdentifier);
+                    Assert.assertNotNull(culledTransactionOutput);
+                }
+
+                // Commit the UTXO Set
+                unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
+
+                { // Ensure the UTXO (that will later be removed) exists within the UTXO set...
+                    final TransactionOutput culledTransactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(culledTransactionOutputIdentifier);
+                    Assert.assertNotNull(culledTransactionOutput);
+                }
+
+                final Long blockHeightStep4 = harness.processBlock(forkChain2Block03, 3L, databaseManager);
+                Assert.assertNotNull(blockHeightStep4);
+                Assert.assertEquals(forkChain4Block03.getHash(), blockHeaderDatabaseManager.getHeadBlockHeaderHash()); // NOTE: Should remain the original chain.
+                final Long blockHeightStep5 = harness.processBlock(forkChain2Block04, 4L, databaseManager);
+                Assert.assertNotNull(blockHeightStep5);
+                Assert.assertEquals(forkChain2Block04.getHash(), blockHeaderDatabaseManager.getHeadBlockHeaderHash());
+
+                // Re-Commit the UTXO set after the reorg
+                unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
+
+                // Assert
+                Assert.assertEquals(Long.valueOf(1L), blockHeightStep1);
+                Assert.assertEquals(Long.valueOf(2L), blockHeightStep2);
+                Assert.assertEquals(Long.valueOf(3L), blockHeightStep3);
+                Assert.assertEquals(Long.valueOf(3L), blockHeightStep4);
+                Assert.assertEquals(Long.valueOf(4L), blockHeightStep5);
+
+                final Sha256Hash headBlockHash = blockHeaderDatabaseManager.getHeadBlockHeaderHash();
+                Assert.assertEquals(forkChain2Block04.getHash(), headBlockHash);
+
+                // Ensure the UTXO from the abandoned block does not exist in the UTXO set...
                 final TransactionOutput culledTransactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(culledTransactionOutputIdentifier);
-                Assert.assertNotNull(culledTransactionOutput);
+                Assert.assertNull(culledTransactionOutput);
             }
-
-            // Commit the UTXO Set
-            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
-
-            { // Ensure the UTXO (that will later be removed) exists within the UTXO set...
-                final TransactionOutput culledTransactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(culledTransactionOutputIdentifier);
-                Assert.assertNotNull(culledTransactionOutput);
-            }
-
-            final Long blockHeightStep4 = harness.processBlock(forkChain2Block03, 3L, databaseManager);
-            Assert.assertNotNull(blockHeightStep4);
-            Assert.assertEquals(forkChain4Block03.getHash(), blockHeaderDatabaseManager.getHeadBlockHeaderHash()); // NOTE: Should remain the original chain.
-            final Long blockHeightStep5 = harness.processBlock(forkChain2Block04, 4L, databaseManager);
-            Assert.assertNotNull(blockHeightStep5);
-            Assert.assertEquals(forkChain2Block04.getHash(), blockHeaderDatabaseManager.getHeadBlockHeaderHash());
-
-            // Re-Commit the UTXO set after the reorg
-            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
-
-            // Assert
-            Assert.assertEquals(Long.valueOf(1L), blockHeightStep1);
-            Assert.assertEquals(Long.valueOf(2L), blockHeightStep2);
-            Assert.assertEquals(Long.valueOf(3L), blockHeightStep3);
-            Assert.assertEquals(Long.valueOf(3L), blockHeightStep4);
-            Assert.assertEquals(Long.valueOf(4L), blockHeightStep5);
-
-            final Sha256Hash headBlockHash = blockHeaderDatabaseManager.getHeadBlockHeaderHash();
-            Assert.assertEquals(forkChain2Block04.getHash(), headBlockHash);
-
-            // Ensure the UTXO from the abandoned block does not exist in the UTXO set...
-            final TransactionOutput culledTransactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(culledTransactionOutputIdentifier);
-            Assert.assertNull(culledTransactionOutput);
         }
     }
 
@@ -554,62 +583,64 @@ public class BlockProcessorTests extends IntegrationTest {
      */
     @Test
     public void should_maintain_correct_blockchain_segment_after_invalid_contentious_block() throws Exception {
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            // Setup
-            final TestHarness harness = new TestHarness();
-            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                // Setup
+                final TestHarness harness = new TestHarness();
+                final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
-            final Block genesisBlock = harness.inflateBlock(BlockData.MainChain.GENESIS_BLOCK);
-            final Block block01 = harness.inflateBlock(BlockData.MainChain.BLOCK_1);
-            final Block block02 = harness.inflateBlock(BlockData.MainChain.BLOCK_2);
-            final Block block03 = harness.inflateBlock(BlockData.MainChain.BLOCK_3);
-            final Block invalidBlock01Prime = harness.inflateBlock("010000006FE28C0AB6F1B372C1A6A246AE63F74F931E8365E15A089C68D619000000000073387C6C752B492D7D6DA0CA48715EE10394683D4421B602E80B754657B2E0A79130D05DFFFF001DE339AB7E0201000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF0704FFFF001D0104FFFFFFFF0100F2052A0100000043410496B538E853519C726A2C91E61EC11600AE1390813A627C66FB8BE7947BE63C52DA7589379515D4E0A604F8141781E62294721166BF621E73A82CBF2342C858EEAC0000000002000000013BA3EDFD7A7B12B27AC72C3E67768F617FC81BC3888A51323A9FB8AA4B1E5E4A0000000000FFFFFFFF0100F2052A0100000043410496B538E853519C726A2C91E61EC11600AE1390813A627C66FB8BE7947BE63C52DA7589379515D4E0A604F8141781E62294721166BF621E73A82CBF2342C858EEAC00000000");
+                final Block genesisBlock = harness.inflateBlock(BlockData.MainChain.GENESIS_BLOCK);
+                final Block block01 = harness.inflateBlock(BlockData.MainChain.BLOCK_1);
+                final Block block02 = harness.inflateBlock(BlockData.MainChain.BLOCK_2);
+                final Block block03 = harness.inflateBlock(BlockData.MainChain.BLOCK_3);
+                final Block invalidBlock01Prime = harness.inflateBlock("010000006FE28C0AB6F1B372C1A6A246AE63F74F931E8365E15A089C68D619000000000073387C6C752B492D7D6DA0CA48715EE10394683D4421B602E80B754657B2E0A79130D05DFFFF001DE339AB7E0201000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF0704FFFF001D0104FFFFFFFF0100F2052A0100000043410496B538E853519C726A2C91E61EC11600AE1390813A627C66FB8BE7947BE63C52DA7589379515D4E0A604F8141781E62294721166BF621E73A82CBF2342C858EEAC0000000002000000013BA3EDFD7A7B12B27AC72C3E67768F617FC81BC3888A51323A9FB8AA4B1E5E4A0000000000FFFFFFFF0100F2052A0100000043410496B538E853519C726A2C91E61EC11600AE1390813A627C66FB8BE7947BE63C52DA7589379515D4E0A604F8141781E62294721166BF621E73A82CBF2342C858EEAC00000000");
 
-            // Action
-            harness.processBlock(genesisBlock, 0L, databaseManager);
-            final BlockId genesisBlockId = blockHeaderDatabaseManager.getBlockHeaderId(genesisBlock.getHash());
+                // Action
+                harness.processBlock(genesisBlock, 0L, databaseManager);
+                final BlockId genesisBlockId = blockHeaderDatabaseManager.getBlockHeaderId(genesisBlock.getHash());
 
-            harness.processBlock(block01, 1L, databaseManager);
-            final BlockId block01BlockId = blockHeaderDatabaseManager.getBlockHeaderId(block01.getHash());
+                harness.processBlock(block01, 1L, databaseManager);
+                final BlockId block01BlockId = blockHeaderDatabaseManager.getBlockHeaderId(block01.getHash());
 
-            harness.processBlock(block02, 2L, databaseManager);
-            final BlockId block02BlockId = blockHeaderDatabaseManager.getBlockHeaderId(block02.getHash());
+                harness.processBlock(block02, 2L, databaseManager);
+                final BlockId block02BlockId = blockHeaderDatabaseManager.getBlockHeaderId(block02.getHash());
 
-            harness.processBlock(invalidBlock01Prime, 1L, databaseManager);
-            final BlockId invalidBlock01PrimeBlockId = blockHeaderDatabaseManager.getBlockHeaderId(invalidBlock01Prime.getHash());
+                harness.processBlock(invalidBlock01Prime, 1L, databaseManager);
+                final BlockId invalidBlock01PrimeBlockId = blockHeaderDatabaseManager.getBlockHeaderId(invalidBlock01Prime.getHash());
 
-            harness.processBlock(block03, 3L, databaseManager);
-            final BlockId block03BlockId = blockHeaderDatabaseManager.getBlockHeaderId(block03.getHash());
+                harness.processBlock(block03, 3L, databaseManager);
+                final BlockId block03BlockId = blockHeaderDatabaseManager.getBlockHeaderId(block03.getHash());
 
-            // Assert
-            final BlockchainSegmentId genesisBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(genesisBlockId);
-            final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-            final BlockId headBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
-            final Sha256Hash headBlockHash = blockHeaderDatabaseManager.getHeadBlockHeaderHash();
-            Assert.assertEquals(block03.getHash(), headBlockHash);
-            Assert.assertEquals(block03BlockId, headBlockId);
+                // Assert
+                final BlockchainSegmentId genesisBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(genesisBlockId);
+                final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+                final BlockId headBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
+                final Sha256Hash headBlockHash = blockHeaderDatabaseManager.getHeadBlockHeaderHash();
+                Assert.assertEquals(block03.getHash(), headBlockHash);
+                Assert.assertEquals(block03BlockId, headBlockId);
 
-            final BlockchainSegmentId invalidBlockBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(invalidBlock01PrimeBlockId);
-            final Boolean forkChainsIsConnectedToGenesis = blockchainDatabaseManager.areBlockchainSegmentsConnected(invalidBlockBlockchainSegmentId, genesisBlockchainSegmentId, BlockRelationship.ANY);
-            final Boolean forkChainsAreConnected = blockchainDatabaseManager.areBlockchainSegmentsConnected(headBlockchainSegmentId, invalidBlockBlockchainSegmentId, BlockRelationship.ANY);
-            Assert.assertTrue(forkChainsIsConnectedToGenesis);
-            Assert.assertNotEquals(headBlockchainSegmentId, invalidBlockBlockchainSegmentId);
-            Assert.assertFalse(forkChainsAreConnected);
+                final BlockchainSegmentId invalidBlockBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(invalidBlock01PrimeBlockId);
+                final Boolean forkChainsIsConnectedToGenesis = blockchainDatabaseManager.areBlockchainSegmentsConnected(invalidBlockBlockchainSegmentId, genesisBlockchainSegmentId, BlockRelationship.ANY);
+                final Boolean forkChainsAreConnected = blockchainDatabaseManager.areBlockchainSegmentsConnected(headBlockchainSegmentId, invalidBlockBlockchainSegmentId, BlockRelationship.ANY);
+                Assert.assertTrue(forkChainsIsConnectedToGenesis);
+                Assert.assertNotEquals(headBlockchainSegmentId, invalidBlockBlockchainSegmentId);
+                Assert.assertFalse(forkChainsAreConnected);
 
-            final BlockchainSegmentId block01BlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(block01BlockId);
-            final BlockchainSegmentId block02BlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(block02BlockId);
-            final BlockchainSegmentId block03BlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(block03BlockId);
-            final Boolean genesisAndBlock01AreConnected = blockchainDatabaseManager.areBlockchainSegmentsConnected(genesisBlockchainSegmentId, block01BlockchainSegmentId, BlockRelationship.ANY);
-            final Boolean block01AndBlock02AreConnected = blockchainDatabaseManager.areBlockchainSegmentsConnected(block01BlockchainSegmentId, block02BlockchainSegmentId, BlockRelationship.ANY);
-            final Boolean block02AndBlock03AreConnected = blockchainDatabaseManager.areBlockchainSegmentsConnected(block02BlockchainSegmentId, block03BlockchainSegmentId, BlockRelationship.ANY);
-            final Boolean block03AndHeadBlockAreConnected = blockchainDatabaseManager.areBlockchainSegmentsConnected(block03BlockchainSegmentId, headBlockchainSegmentId, BlockRelationship.ANY);
-            final Boolean genesisAndHeadChainIsConnected = blockchainDatabaseManager.areBlockchainSegmentsConnected(genesisBlockchainSegmentId, headBlockchainSegmentId, BlockRelationship.ANY);
-            Assert.assertTrue(genesisAndBlock01AreConnected);
-            Assert.assertTrue(block01AndBlock02AreConnected);
-            Assert.assertTrue(block02AndBlock03AreConnected);
-            Assert.assertTrue(block03AndHeadBlockAreConnected);
-            Assert.assertTrue(genesisAndHeadChainIsConnected);
+                final BlockchainSegmentId block01BlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(block01BlockId);
+                final BlockchainSegmentId block02BlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(block02BlockId);
+                final BlockchainSegmentId block03BlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(block03BlockId);
+                final Boolean genesisAndBlock01AreConnected = blockchainDatabaseManager.areBlockchainSegmentsConnected(genesisBlockchainSegmentId, block01BlockchainSegmentId, BlockRelationship.ANY);
+                final Boolean block01AndBlock02AreConnected = blockchainDatabaseManager.areBlockchainSegmentsConnected(block01BlockchainSegmentId, block02BlockchainSegmentId, BlockRelationship.ANY);
+                final Boolean block02AndBlock03AreConnected = blockchainDatabaseManager.areBlockchainSegmentsConnected(block02BlockchainSegmentId, block03BlockchainSegmentId, BlockRelationship.ANY);
+                final Boolean block03AndHeadBlockAreConnected = blockchainDatabaseManager.areBlockchainSegmentsConnected(block03BlockchainSegmentId, headBlockchainSegmentId, BlockRelationship.ANY);
+                final Boolean genesisAndHeadChainIsConnected = blockchainDatabaseManager.areBlockchainSegmentsConnected(genesisBlockchainSegmentId, headBlockchainSegmentId, BlockRelationship.ANY);
+                Assert.assertTrue(genesisAndBlock01AreConnected);
+                Assert.assertTrue(block01AndBlock02AreConnected);
+                Assert.assertTrue(block02AndBlock03AreConnected);
+                Assert.assertTrue(block03AndHeadBlockAreConnected);
+                Assert.assertTrue(genesisAndHeadChainIsConnected);
+            }
         }
     }
 
@@ -667,8 +698,7 @@ public class BlockProcessorTests extends IntegrationTest {
         }
     }
 
-    @Test
-    public void should_handle_replicated_delayed_deep_reorg_with_synced_headers_with_semi_real_blocks() throws Exception {
+    protected void _run_deep_reorg_with_synced_headers_with_semi_real_blocks(final Boolean shouldCommitUtxosBeforeReorg) throws Exception {
         // This test should attempt to setup the scenario encountered on 2020-11-29 where the node fell behind
         //  syncing, during which time a reorg occurred having the node's headBlock on a different blockchain then the
         //  head blockHeader with multiple blocks (and headers) available after the reorg (2+).
@@ -687,18 +717,38 @@ public class BlockProcessorTests extends IntegrationTest {
             { // Init Anonymous Class...
                 final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
                 final String resourceData = IoUtil.getResource("/transactions/block663750_utxos");
-                for (final String transactionData : resourceData.split("\n")) {
-                    final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString(transactionData));
-                    final TransactionId transactionId = TransactionId.wrap(_transactionIds.size() + 1L);
-                    _transactionIds.put(transaction.getHash(), transactionId);
-                    _transactions.put(transactionId, transaction);
-                    try (final DatabaseConnection databaseConnection = _database.newConnection()) {
+                try (final DatabaseConnection databaseConnection = _database.newConnection()) {
+                    for (final String transactionData : resourceData.split("\n")) {
+                        final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString(transactionData));
+                        final TransactionId transactionId = TransactionId.wrap(_transactionIds.size() + 1L);
+                        final Sha256Hash transactionHash = transaction.getHash();
+                        final Integer transactionByteCount = transaction.getByteCount();
+
+                        _transactionIds.put(transaction.getHash(), transactionId);
+                        _transactions.put(transactionId, transaction);
                         databaseConnection.executeSql(
                             new Query("INSERT INTO transactions (id, hash, byte_count) VALUES (?, ?, ?)")
                                 .setParameter(transactionId)
-                                .setParameter(transaction.getHash())
-                                .setParameter(transaction.getByteCount())
+                                .setParameter(transactionHash)
+                                .setParameter(transactionByteCount)
                         );
+
+                        final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
+                        // Add the Transaction's Outputs to the pruned_previous_transaction_outputs since this test (semi-)emulates a pruned node.
+                        for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
+                            final Integer outputIndex = transactionOutput.getIndex();
+                            final ByteArray legacyLockingScriptBytes = transactionOutputDeflater.toLegacyScriptBytes(transactionOutput);
+
+                            databaseConnection.executeSql(
+                                new Query("INSERT INTO pruned_previous_transaction_outputs (transaction_hash, `index`, block_height, amount, locking_script, expires_after_block_height) VALUES (?, ?, ?, ?, ?, ?)")
+                                    .setParameter(transactionHash)
+                                    .setParameter(outputIndex)
+                                    .setParameter(663749L)
+                                    .setParameter(transactionOutput.getAmount())
+                                    .setParameter(legacyLockingScriptBytes)
+                                    .setParameter(663749L + UndoLogDatabaseManager.MAX_REORG_DEPTH)
+                            );
+                        }
                     }
                 }
             }
@@ -706,7 +756,7 @@ public class BlockProcessorTests extends IntegrationTest {
             @Override
             public FullNodeDatabaseManager newDatabaseManager() throws DatabaseException {
                 final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection();
-                return new FullNodeDatabaseManager(databaseConnection, _maxQueryBatchSize, _propertiesStore, _blockStore, _utxoCommitmentStore, _masterInflater, _checkpointConfiguration, _maxUtxoCount, _utxoPurgePercent) {{
+                return new FullNodeDatabaseManager(databaseConnection, _maxQueryBatchSize, _propertiesStore, _blockStore, _utxoCommitmentStore, _masterInflater, _checkpointConfiguration, _maxUtxoCount, _utxoPurgePercent, _blockchainCache) {{
                     _transactionDatabaseManager = new FullNodeTransactionDatabaseManagerCore(this, _blockStore, _masterInflater) {
                         @Override
                         public TransactionId getTransactionId(final Sha256Hash transactionHash) throws DatabaseException {
@@ -825,15 +875,15 @@ public class BlockProcessorTests extends IntegrationTest {
                 };
             }
         };
-        final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, databaseManagerFactory, bitcoinNodeManager, systemTime, _threadPool);
+        final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, databaseManagerFactory, upgradeSchedule, bitcoinNodeManager, systemTime, _threadPool);
 
         final BlockProcessor blockProcessor = new BlockProcessor(blockProcessorContext);
         blockProcessor.setMaxThreadCount(8);
 
-        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
                 blockHeaderDatabaseManager.storeBlockHeader(genesisBlock);
                 blockHeaderDatabaseManager.storeBlockHeader(asertAnchorShimBlock);
                 blockHeaderDatabaseManager.storeBlockHeader(asertAnchorBlock);
@@ -844,98 +894,238 @@ public class BlockProcessorTests extends IntegrationTest {
                 blockHeaderDatabaseManager.storeBlockHeader(block663750_B);
                 blockHeaderDatabaseManager.storeBlockHeader(block663751_B);
                 blockHeaderDatabaseManager.storeBlockHeader(block663752_B);
-            }
 
-            synchronized (BlockHeaderDatabaseManager.MUTEX) { // Skip validation for the setup blocks...
-                final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-                for (final Block block : new Block[]{ genesisBlock, asertAnchorShimBlock, asertAnchorBlock, block663749ShimBlock, block663749 }) {
-                    blockDatabaseManager.storeBlock(block);
+                { // Skip validation for the setup blocks...
+                    final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+                    for (final Block block : new Block[]{ genesisBlock, asertAnchorShimBlock, asertAnchorBlock, block663749ShimBlock, block663749 }) {
+                        blockDatabaseManager.storeBlock(block);
+                    }
                 }
-            }
 
-            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-            _setBlockHeight(databaseConnection, asertAnchorShimBlock.getHash(), 661646L);
-            _setBlockHeight(databaseConnection, asertAnchorBlock.getHash(), 661647L);
-            _setBlockHeight(databaseConnection, block663749Shim.getHash(), 663748L);
-            _setBlockHeight(databaseConnection, block663749.getHash(), 663749L);
-            _setBlockHeight(databaseConnection, block663750_A.getHash(), 663750L);
-            _setBlockHeight(databaseConnection, block663750_B.getHash(), 663750L);
-            _setBlockHeight(databaseConnection, blockHeader663751_A.getHash(), 663751L);
-            _setBlockHeight(databaseConnection, block663751_B.getHash(), 663751L);
-            _setBlockHeight(databaseConnection, block663752_B.getHash(), 663752L);
+                final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+                _setBlockHeight(databaseConnection, asertAnchorShimBlock.getHash(), 661646L);
+                _setBlockHeight(databaseConnection, asertAnchorBlock.getHash(), 661647L);
+                _setBlockHeight(databaseConnection, block663749Shim.getHash(), 663748L);
+                _setBlockHeight(databaseConnection, block663749.getHash(), 663749L);
+                _setBlockHeight(databaseConnection, block663750_A.getHash(), 663750L);
+                _setBlockHeight(databaseConnection, block663750_B.getHash(), 663750L);
+                _setBlockHeight(databaseConnection, blockHeader663751_A.getHash(), 663751L);
+                _setBlockHeight(databaseConnection, block663751_B.getHash(), 663751L);
+                _setBlockHeight(databaseConnection, block663752_B.getHash(), 663752L);
 
-            final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(1L);
-            final BlockchainSegmentId blockchainSegmentIdA = BlockchainSegmentId.wrap(2L);
-            final BlockchainSegmentId blockchainSegmentIdB = BlockchainSegmentId.wrap(3L);
-            Assert.assertEquals(blockchainSegmentId, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(genesisBlock.getHash())));
-            Assert.assertEquals(blockchainSegmentId, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(asertAnchorShimBlock.getHash())));
-            Assert.assertEquals(blockchainSegmentId, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(asertAnchorBlock.getHash())));
-            Assert.assertEquals(blockchainSegmentId, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(block663749Shim.getHash())));
-            Assert.assertEquals(blockchainSegmentId, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(block663749.getHash())));
-            Assert.assertEquals(blockchainSegmentIdA, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(block663750_A.getHash())));
-            Assert.assertEquals(blockchainSegmentIdB, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(block663750_B.getHash())));
-            Assert.assertEquals(blockchainSegmentIdA, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(blockHeader663751_A.getHash())));
-            Assert.assertEquals(blockchainSegmentIdB, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(block663751_B.getHash())));
-            Assert.assertEquals(blockchainSegmentIdB, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(block663752_B.getHash())));
+                final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(1L);
+                final BlockchainSegmentId blockchainSegmentIdA = BlockchainSegmentId.wrap(2L);
+                final BlockchainSegmentId blockchainSegmentIdB = BlockchainSegmentId.wrap(3L);
+                Assert.assertEquals(blockchainSegmentId, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(genesisBlock.getHash())));
+                Assert.assertEquals(blockchainSegmentId, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(asertAnchorShimBlock.getHash())));
+                Assert.assertEquals(blockchainSegmentId, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(asertAnchorBlock.getHash())));
+                Assert.assertEquals(blockchainSegmentId, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(block663749Shim.getHash())));
+                Assert.assertEquals(blockchainSegmentId, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(block663749.getHash())));
+                Assert.assertEquals(blockchainSegmentIdA, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(block663750_A.getHash())));
+                Assert.assertEquals(blockchainSegmentIdB, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(block663750_B.getHash())));
+                Assert.assertEquals(blockchainSegmentIdA, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(blockHeader663751_A.getHash())));
+                Assert.assertEquals(blockchainSegmentIdB, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(block663751_B.getHash())));
+                Assert.assertEquals(blockchainSegmentIdB, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(block663752_B.getHash())));
 
-            { // Populate the required UTXOs for validation...
-                final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
-                final MutableList<TransactionOutputIdentifier> requiredTransactionOutputIdentifiers = new MutableList<>();
-                final MutableList<TransactionOutput> requiredTransactionOutputs = new MutableList<>();
+                { // Populate the required UTXOs for validation...
+                    final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+                    final MutableList<TransactionOutputIdentifier> requiredTransactionOutputIdentifiers = new MutableList<>();
+                    final MutableList<TransactionOutput> requiredTransactionOutputs = new MutableList<>();
 
-                // UTXOs that are required are processed in reverse-order so that UTXOs generated by the respective blocks are only made available once that block has been processed.
-                _addRequiredUtxos(block663752_B, requiredTransactionOutputIdentifiers, requiredTransactionOutputs, false);
-                _addRequiredUtxos(block663751_B, requiredTransactionOutputIdentifiers, requiredTransactionOutputs, true);
-                _addRequiredUtxos(block663750_B, requiredTransactionOutputIdentifiers, requiredTransactionOutputs, true);
-                _addRequiredUtxos(block663750_A, requiredTransactionOutputIdentifiers, requiredTransactionOutputs, false);
+                    // UTXOs that are required are processed in reverse-order so that UTXOs generated by the respective blocks are only made available once that block has been processed.
+                    _addRequiredUtxos(block663752_B, requiredTransactionOutputIdentifiers, requiredTransactionOutputs, false);
+                    _addRequiredUtxos(block663751_B, requiredTransactionOutputIdentifiers, requiredTransactionOutputs, true);
+                    _addRequiredUtxos(block663750_B, requiredTransactionOutputIdentifiers, requiredTransactionOutputs, true);
+                    _addRequiredUtxos(block663750_A, requiredTransactionOutputIdentifiers, requiredTransactionOutputs, false);
 
-                unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(requiredTransactionOutputIdentifiers, requiredTransactionOutputs, 663749L, null);
-                unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(663749L);
-                unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory, CommitAsyncMode.BLOCK_IF_BUSY);
+                    unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(requiredTransactionOutputIdentifiers, requiredTransactionOutputs, 663749L, null);
+                    unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(663749L);
+                    unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory, CommitAsyncMode.BLOCK_IF_BUSY);
+                }
             }
         }
 
-        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-            final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+        final BlockchainBuilder blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, blockStore, BlockchainBuilderTests.FAKE_DOWNLOAD_STATUS_MONITOR);
 
-            final BlockchainBuilder blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, blockStore, BlockchainBuilderTests.FAKE_DOWNLOAD_STATUS_MONITOR);
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
-            for (final Block block : new Block[]{ block663750_A }) {
-                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                for (final Block block : new Block[]{ block663750_A }) {
                     blockHeaderDatabaseManager.storeBlockHeader(block);
+                    blockStore.storePendingBlock(block);
                 }
-                blockStore.storePendingBlock(block);
             }
+        }
 
-            { // Process 750A normally.
+        { // Process 750A normally.
+            try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
                 // Temporarily mark the main chain as invalid so the blockchainBuilder is forced to process the shorter chain...
                 blockHeaderDatabaseManager.markBlockAsInvalid(block663750_B.getHash(), BlockHeaderDatabaseManager.INVALID_PROCESS_THRESHOLD);
+            }
 
-                // Process 750A normally.
-                _runBlockchainBuilder(blockchainBuilder);
+            // Process 750A normally.
+            _runBlockchainBuilder(blockchainBuilder);
+
+            try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+
                 Assert.assertTrue(blockDatabaseManager.hasTransactions(block663750_A.getHash()));
 
                 // Unmark the main chain as invalid...
                 blockHeaderDatabaseManager.clearBlockAsInvalid(block663750_B.getHash(), Integer.MAX_VALUE);
             }
+        }
 
-            // Action
+        // Action
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
 
-            // Make 750B, 751B, 752B available for processing.
-            for (final Block block : new Block[]{ block663750_B, block663751_B, block663752_B }) {
-                blockStore.storePendingBlock(block);
+                if (shouldCommitUtxosBeforeReorg) {
+                    final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+                    unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
+                }
+
+                // Make 750B, 751B, 752B available for processing.
+                for (final Block block : new Block[]{ block663750_B, block663751_B, block663752_B }) {
+                    blockStore.storePendingBlock(block);
+                }
             }
+        }
 
-            // Process 750B, 751B, and 752B normally.
-            _runBlockchainBuilder(blockchainBuilder);
+        // Process 750B, 751B, and 752B normally.
+        _runBlockchainBuilder(blockchainBuilder);
 
-            // Assert
+        // Assert
+        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+            final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+
             Assert.assertTrue(blockDatabaseManager.hasTransactions(block663750_B.getHash()));
             Assert.assertTrue(blockDatabaseManager.hasTransactions(block663751_B.getHash()));
             Assert.assertTrue(blockDatabaseManager.hasTransactions(block663752_B.getHash()));
         }
     }
 
-    // TODO: Create a test that attempts to spend an output that does not exist, and ensure that output is not added to the mempool (i.e. that block was "unApplied" to the mempool).
+    @Test
+    public void should_handle_replicated_delayed_deep_reorg_with_synced_headers_with_semi_real_blocks() throws Exception {
+        _run_deep_reorg_with_synced_headers_with_semi_real_blocks(false);
+    }
+
+    @Test
+    public void should_handle_replicated_delayed_deep_reorg_with_synced_headers_with_semi_real_blocks_and_commit_utxos_before_reorg() throws Exception {
+        _run_deep_reorg_with_synced_headers_with_semi_real_blocks(true);
+    }
+
+    protected Tuple<Block, TransactionId> _setup_should_remove_transaction_from_mempool_that_is_no_longer_valid_due_to_upgrade(final TestHarness harness) throws Exception {
+        final TransactionOutputIdentifier utxoIdentifierToSpend = new TransactionOutputIdentifier(Sha256Hash.EMPTY_HASH, 0);
+        final TransactionOutput utxoToSpend;
+        {
+            final LockingScript lockingScript = new ImmutableLockingScript(ByteArray.fromHexString("AA205DF6E0E2761359D30A8275058E299FCC0381534545F55CF43E41983F5D4C945687"));
+
+            final MutableTransactionOutput mutableTransactionOutput = new MutableTransactionOutput();
+            mutableTransactionOutput.setAmount(50L * Transaction.SATOSHIS_PER_BITCOIN);
+            mutableTransactionOutput.setIndex(0);
+            mutableTransactionOutput.setLockingScript(lockingScript);
+            utxoToSpend = mutableTransactionOutput;
+        }
+
+        final Transaction transaction;
+        {
+            final UnlockingScript unlockingScript = new ImmutableUnlockingScript(ByteArray.fromHexString("4C00"));
+            final MutableTransaction mutableTransaction = new MutableTransaction();
+            mutableTransaction.setVersion(Transaction.VERSION);
+            mutableTransaction.setLockTime(LockTime.MAX_TIMESTAMP);
+
+            final MutableTransactionInput transactionInput = new MutableTransactionInput();
+            transactionInput.setPreviousOutputTransactionHash(utxoIdentifierToSpend.getTransactionHash());
+            transactionInput.setPreviousOutputIndex(utxoIdentifierToSpend.getOutputIndex());
+            transactionInput.setSequenceNumber(SequenceNumber.MAX_SEQUENCE_NUMBER);
+            transactionInput.setUnlockingScript(unlockingScript);
+            mutableTransaction.addTransactionInput(transactionInput);
+
+            final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
+            transactionOutput.setAmount(1000L);
+            transactionOutput.setIndex(0);
+            transactionOutput.setLockingScript(LockingScript.EMPTY_SCRIPT);
+            mutableTransaction.addTransactionOutput(transactionOutput);
+
+            transaction = mutableTransaction;
+        }
+
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+                final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+
+                // Store the UTXO to be spend; this UTXO is locked via a Sha256 P2SH...
+                unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(
+                    new ImmutableList<>(utxoIdentifierToSpend),
+                    new ImmutableList<>(utxoToSpend),
+                    765000L,
+                    null
+                );
+
+                // The UtxoToSpend Transaction hash must be registered so its coinbase-status lookup succeeds.
+                transactionDatabaseManager.storeTransactionHash(utxoIdentifierToSpend.getTransactionHash(), 0);
+
+                harness.upgradeSchedule.setSha256PayToScriptHashEnabled(false);
+
+                final Block genesisBlock = harness.inflateBlock(BlockData.MainChain.GENESIS_BLOCK);
+                final Block block01 = harness.inflateBlock(BlockData.MainChain.BLOCK_1);
+                final Block block02 = harness.inflateBlock(BlockData.MainChain.BLOCK_2);
+
+                harness.processBlock(genesisBlock);
+                harness.processBlock(block01);
+
+                databaseManager.startTransaction();
+                final TransactionId transactionId = transactionDatabaseManager.storeUnconfirmedTransaction(transaction);
+                transactionDatabaseManager.addToUnconfirmedTransactions(transactionId);
+                databaseManager.commitTransaction();
+
+                Assert.assertTrue(transactionDatabaseManager.isUnconfirmedTransaction(transactionId));
+
+                return new Tuple<>(block02, transactionId);
+            }
+        }
+    }
+
+    @Test
+    public void should_remove_transaction_from_mempool_that_is_no_longer_valid_due_to_upgrade() throws Exception {
+        // Setup
+        final TestHarness harness = new TestHarness();
+        final Tuple<Block, TransactionId> block02AndUnconfirmedTransactionId = _setup_should_remove_transaction_from_mempool_that_is_no_longer_valid_due_to_upgrade(harness);
+
+        // Action
+        harness.upgradeSchedule.setLegacyPayToScriptHashEnabled(true); // Not strictly necessary...
+        harness.upgradeSchedule.setSha256PayToScriptHashEnabled(true); // NOTE: Test must fail with this disabled.
+        harness.upgradeSchedule.setDidUpgradeActivate(true);
+        harness.processBlock(block02AndUnconfirmedTransactionId.first);
+
+        // Assert
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+            Assert.assertFalse(transactionDatabaseManager.isUnconfirmedTransaction(block02AndUnconfirmedTransactionId.second));
+        }
+    }
+
+    @Test
+    public void should_not_remove_transaction_from_mempool_that_is_still_valid_due_to_upgrade() throws Exception {
+        // Setup
+        final TestHarness harness = new TestHarness();
+        final Tuple<Block, TransactionId> block02AndUnconfirmedTransactionId = _setup_should_remove_transaction_from_mempool_that_is_no_longer_valid_due_to_upgrade(harness);
+
+        // Action
+        harness.upgradeSchedule.setLegacyPayToScriptHashEnabled(false); // Not strictly necessary...
+        harness.upgradeSchedule.setSha256PayToScriptHashEnabled(false); // NOTE: Test must fail with this disabled.
+        harness.upgradeSchedule.setDidUpgradeActivate(true);
+        harness.processBlock(block02AndUnconfirmedTransactionId.first);
+
+        // Assert
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+            Assert.assertTrue(transactionDatabaseManager.isUnconfirmedTransaction(block02AndUnconfirmedTransactionId.second));
+        }
+    }
 }

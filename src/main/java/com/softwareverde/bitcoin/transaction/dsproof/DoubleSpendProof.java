@@ -26,15 +26,17 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.util.HashUtil;
+import com.softwareverde.json.Json;
+import com.softwareverde.json.Jsonable;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
-public class DoubleSpendProof implements Hashable, Const {
+public class DoubleSpendProof implements Jsonable, Hashable, Const {
     public static final List<HashType> SUPPORTED_HASH_TYPES = new ImmutableList<>(
-        new HashType(Mode.SIGNATURE_HASH_ALL, true, false),     // HashType: 0x01
-        new HashType(Mode.SIGNATURE_HASH_SINGLE, true, false)   // HashType: 0x03
+        new HashType(Mode.SIGNATURE_HASH_ALL, true, false, false),     // HashType: 0x01
+        new HashType(Mode.SIGNATURE_HASH_SINGLE, true, false, false)   // HashType: 0x03
     );
 
     public static Boolean arePreimagesInCanonicalOrder(final DoubleSpendProofPreimage doubleSpendProofPreimage0, final DoubleSpendProofPreimage doubleSpendProofPreimage1) {
@@ -128,7 +130,7 @@ public class DoubleSpendProof implements Hashable, Const {
             else {
                 // For non-P2PKH scripts, the DSProof always includes the more complicated digest even if it is
                 //  overwritten during signature validation by an empty hash.
-                hashType = new HashType(Mode.SIGNATURE_HASH_ALL, true, true);
+                hashType = new HashType(Mode.SIGNATURE_HASH_ALL, true, false, true);
             }
 
             final Sha256Hash previousOutputsDigest = BitcoinCashTransactionSignerUtil.getPreviousOutputIdentifiersHash(transaction, hashType);
@@ -143,7 +145,7 @@ public class DoubleSpendProof implements Hashable, Const {
             else {
                 // HashType Modes of SINGLE/ANYONECANPAY/NONE result in the preimage using an empty Sha256Hash, and non-P2PKH
                 //  DoubleSpendProofs always relay the more complicated digest, even if it is not used.
-                hashType = new HashType(Mode.SIGNATURE_HASH_ALL, true, true);
+                hashType = new HashType(Mode.SIGNATURE_HASH_ALL, true, false, true);
             }
             final Sha256Hash sequenceNumbersDigest = BitcoinCashTransactionSignerUtil.getTransactionInputsSequenceNumbersHash(transaction, hashType);
             doubleSpendProofPreimage.setSequenceNumbersDigest(sequenceNumbersDigest);
@@ -213,6 +215,18 @@ public class DoubleSpendProof implements Hashable, Const {
     protected final DoubleSpendProofPreimage _doubleSpendProofPreimage0;
     protected final DoubleSpendProofPreimage _doubleSpendProofPreimage1;
 
+    protected Sha256Hash _getHash() {
+        if (_cachedHash == null) {
+            if (_cachedBytes == null) {
+                _cachedBytes = _getBytes();
+            }
+
+            _cachedHash = HashUtil.doubleSha256(_cachedBytes).toReversedEndian();
+        }
+
+        return _cachedHash;
+    }
+
     protected ByteArray _cachedBytes = null;
     protected Sha256Hash _cachedHash = null;
 
@@ -276,18 +290,33 @@ public class DoubleSpendProof implements Hashable, Const {
 
     @Override
     public Sha256Hash getHash() {
-        if (_cachedHash == null) {
-            if (_cachedBytes == null) {
-                _cachedBytes = _getBytes();
-            }
-
-            _cachedHash = HashUtil.doubleSha256(_cachedBytes).toReversedEndian();
-        }
-
-        return _cachedHash;
+        return _getHash();
     }
 
     public Boolean usesExtendedFormat() {
         return _doubleSpendProofPreimage0.usesExtendedFormat() || _doubleSpendProofPreimage1.usesExtendedFormat();
+    }
+
+    @Override
+    public Json toJson() {
+        final Json json = new Json(false);
+
+        final Sha256Hash hash = _getHash();
+        json.put("hash", hash);
+
+        final Json transactionOutputIdentifierJson = new Json(false);
+        {
+            final Sha256Hash previousOutputTransactionHash = _transactionOutputIdentifierBeingDoubleSpent.getTransactionHash();
+            final Integer previousOutputIndex = _transactionOutputIdentifierBeingDoubleSpent.getOutputIndex();
+
+            transactionOutputIdentifierJson.put("transactionHash", previousOutputTransactionHash);
+            transactionOutputIdentifierJson.put("outputIndex", previousOutputIndex);
+        }
+        json.put("transactionOutputIdentifier", transactionOutputIdentifierJson);
+
+        json.put("doubleSpendProofPreImage0", _doubleSpendProofPreimage0);
+        json.put("doubleSpendProofPreImage1", _doubleSpendProofPreimage1);
+
+        return json;
     }
 }

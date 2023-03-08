@@ -98,7 +98,7 @@ public class UtxoCommitmentDatabaseManager {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, hash utxo_commitments WHERE id = ?")
+            new Query("SELECT id, hash FROM utxo_commitments WHERE id = ?")
                 .setParameter(utxoCommitmentId)
         );
         if (rows.isEmpty()) { return null; }

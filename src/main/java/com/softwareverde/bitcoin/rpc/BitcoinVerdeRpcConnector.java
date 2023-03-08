@@ -244,6 +244,16 @@ public class BitcoinVerdeRpcConnector implements BitcoinMiningRpcConnector {
                 final RpcNotification rpcNotification = new RpcNotification(RpcNotificationType.TRANSACTION_HASH, transactionHash);
                 notificationCallback.onNewNotification(rpcNotification);
             }
+
+            @Override
+            public void onNewDoubleSpendProof(final Json json) {
+                final String doubleSpendProofHashString = json.getString("hash");
+                final Sha256Hash doubleSpendProofHash = Sha256Hash.fromHexString(doubleSpendProofHashString);
+                Logger.trace("Double Spend Proof: " + doubleSpendProofHash + " from " + _toString());
+
+                final RpcNotification rpcNotification = new RpcNotification(RpcNotificationType.DOUBLE_SPEND_PROOF, doubleSpendProofHash);
+                notificationCallback.onNewNotification(rpcNotification);
+            }
         });
         _socketConnection = nodeJsonRpcConnection.getJsonSocket();
     }
@@ -260,6 +270,10 @@ public class BitcoinVerdeRpcConnector implements BitcoinMiningRpcConnector {
 
     @Override
     public void close() {
+        if (_socketConnection != null) {
+            _socketConnection.close();
+        }
+
         _threadPool.stop();
     }
 }

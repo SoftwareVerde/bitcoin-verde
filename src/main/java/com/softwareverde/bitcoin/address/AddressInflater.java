@@ -13,134 +13,6 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 
 public class AddressInflater {
-    public static final Integer BYTE_COUNT = Address.BYTE_COUNT;
-
-    protected byte[] _hashPublicKey(final PublicKey publicKey) {
-        return HashUtil.ripemd160(HashUtil.sha256(publicKey.getBytes()));
-    }
-
-    protected Address _fromPublicKey(final PublicKey publicKey, final Boolean asCompressed) {
-        if (asCompressed) {
-            final byte[] rawBitcoinAddress = _hashPublicKey(publicKey.compress());
-            return new Address(Address.Type.P2PKH, rawBitcoinAddress, true);
-        }
-        else {
-            final byte[] rawBitcoinAddress = _hashPublicKey(publicKey.decompress());
-            return new Address(Address.Type.P2PKH, rawBitcoinAddress, false);
-        }
-    }
-
-    protected Address _fromPrivateKey(final PrivateKey privateKey, final Boolean asCompressed) {
-        final PublicKey publicKey = privateKey.getPublicKey();
-
-        if (asCompressed) {
-            final PublicKey compressedPublicKey = publicKey.compress();
-            final byte[] rawBitcoinAddress = _hashPublicKey(compressedPublicKey);
-            return new Address(Address.Type.P2PKH, rawBitcoinAddress, true);
-        }
-        else {
-            final PublicKey uncompressedPublicKey = publicKey.decompress();
-            final byte[] rawBitcoinAddress = _hashPublicKey(uncompressedPublicKey);
-            return new Address(Address.Type.P2PKH, rawBitcoinAddress, false);
-        }
-    }
-
-    protected Address _fromBase58Check(final String base58CheckString, final Boolean isCompressed) {
-        final byte[] bytesWithPrefixWithChecksum;
-
-        try {
-            bytesWithPrefixWithChecksum = BitcoinUtil.base58StringToBytes(base58CheckString);
-        }
-        catch (final Exception exception) {
-            return null;
-        }
-
-        if (bytesWithPrefixWithChecksum.length < (Address.PREFIX_BYTE_COUNT + Address.CHECKSUM_BYTE_COUNT)) { return null; }
-
-        final byte[] bytesWithoutPrefixAndWithoutChecksum = ByteUtil.copyBytes(bytesWithPrefixWithChecksum, Address.PREFIX_BYTE_COUNT, bytesWithPrefixWithChecksum.length - Address.CHECKSUM_BYTE_COUNT - Address.PREFIX_BYTE_COUNT);
-
-        final byte prefix = bytesWithPrefixWithChecksum[0];
-
-        final byte[] checksum = ByteUtil.copyBytes(bytesWithPrefixWithChecksum, bytesWithPrefixWithChecksum.length - Address.CHECKSUM_BYTE_COUNT, Address.CHECKSUM_BYTE_COUNT);
-
-        final byte[] calculatedChecksum = Address._calculateChecksum(prefix, bytesWithoutPrefixAndWithoutChecksum);
-
-        final Boolean checksumIsValid = (ByteUtil.areEqual(calculatedChecksum, checksum));
-        if (! checksumIsValid) { return null; }
-
-        final Address.Type addressType = Address.Type.fromBase58Prefix(prefix);
-        if (addressType == null) {
-            Logger.info("Unknown Address Prefix: 0x"+ HexUtil.toHexString(new byte[] { prefix }));
-            return null;
-        }
-
-        return new Address(addressType, bytesWithoutPrefixAndWithoutChecksum, isCompressed);
-    }
-
-    protected Address _fromBase32Check(final String base32String, final Boolean isCompressed) {
-        { // Check for mixed-casing...
-            boolean hasUpperCase = false;
-            boolean hasLowerCase = false;
-            for (int i = 0; i < base32String.length(); ++i) {
-                final char c = base32String.charAt(i);
-                if (Character.isAlphabetic(c)) {
-                    if (Character.isUpperCase(c)) {
-                        hasUpperCase = true;
-                    }
-                    else {
-                        hasLowerCase = true;
-                    }
-                }
-            }
-            if (hasUpperCase && hasLowerCase) { return null; }
-        }
-
-        final String prefix;
-        final String base32WithoutPrefix;
-        if (base32String.contains(":")) {
-            final int separatorIndex = base32String.indexOf(':');
-            prefix = base32String.substring(0, separatorIndex).toLowerCase();
-            base32WithoutPrefix = base32String.substring(separatorIndex + 1).toLowerCase();
-        }
-        else {
-            prefix = "bitcoincash";
-            base32WithoutPrefix = base32String.toLowerCase();
-        }
-
-        final int checksumBitCount = 40;
-        final int checksumCharacterCount = (checksumBitCount / 5);
-
-        final ByteArray payloadBytes;
-        final ByteArray checksum;
-        {
-            if (base32WithoutPrefix.length() < checksumCharacterCount) { return null; }
-
-            final int checksumStartCharacterIndex = (base32WithoutPrefix.length() - checksumCharacterCount);
-            payloadBytes = MutableByteArray.wrap(BitcoinUtil.base32StringToBytes(base32WithoutPrefix.substring(0, checksumStartCharacterIndex)));
-            checksum = MutableByteArray.wrap(BitcoinUtil.base32StringToBytes(base32WithoutPrefix.substring(checksumStartCharacterIndex)));
-        }
-        if (payloadBytes == null) { return null; }
-        if (checksum == null) { return null; }
-
-        final byte version = payloadBytes.getByte(0);
-        if ((version & 0x80) != 0x00) { return null; } // The version byte's most significant bit must be 0...
-        final byte addressTypeByte = (byte) ((version >> 3) & 0x0F);
-        final int hashByteCount = (20 + ((version & 0x07) * 4));
-
-        if (payloadBytes.getByteCount() < (hashByteCount + 1)) { return null; }
-        final byte[] hashBytes = payloadBytes.getBytes(1, hashByteCount);
-
-        final ByteArray checksumPayload = AddressInflater.buildBase32ChecksumPreImage(prefix, version, MutableByteArray.wrap(hashBytes));
-
-        final ByteArray calculatedChecksum = AddressInflater.calculateBase32Checksum(checksumPayload);
-        if (! Util.areEqual(calculatedChecksum, checksum)) { return null; }
-
-        final Address.Type addressType = Address.Type.fromBase32Prefix(addressTypeByte);
-        if (addressType == null) { return null; }
-
-        return new Address(addressType, hashBytes, isCompressed);
-    }
-
     /**
      * Returns the preImage for the provided prefix/version/hash provided.
      *  The preImage is returned as an array of 5-bit integers.
@@ -216,6 +88,137 @@ public class AddressInflater {
         return checksumByteArray;
     }
 
+    protected byte[] _hashPublicKey(final PublicKey publicKey) {
+        return HashUtil.ripemd160(HashUtil.sha256(publicKey.getBytes()));
+    }
+
+    protected Address _fromPublicKey(final PublicKey publicKey, final Boolean asCompressed) {
+        final byte[] rawBitcoinAddress = _hashPublicKey(asCompressed ? publicKey.compress() : publicKey.decompress());
+        return new Address(rawBitcoinAddress);
+    }
+
+    protected Address _fromPrivateKey(final PrivateKey privateKey, final Boolean asCompressed) {
+        final PublicKey publicKey = privateKey.getPublicKey();
+        return _fromPublicKey(publicKey, asCompressed);
+    }
+
+    protected ParsedAddress _fromBase58Check(final String base58CheckString) {
+        final ByteArray bytesWithPrefixWithChecksum;
+
+        try {
+            bytesWithPrefixWithChecksum = BitcoinUtil.base58StringToBytes(base58CheckString);
+        }
+        catch (final Exception exception) { return null; }
+
+        if (bytesWithPrefixWithChecksum.getByteCount() < (ParsedAddress.PREFIX_BYTE_COUNT + ParsedAddress.CHECKSUM_BYTE_COUNT)) { return null; }
+
+        final int byteCount = (bytesWithPrefixWithChecksum.getByteCount() - ParsedAddress.CHECKSUM_BYTE_COUNT - ParsedAddress.PREFIX_BYTE_COUNT);
+        if (byteCount <= 0) { return null; }
+
+        final Address bytesWithoutPrefixAndWithoutChecksum = new Address(bytesWithPrefixWithChecksum.getBytes(ParsedAddress.PREFIX_BYTE_COUNT, byteCount));
+
+        final byte prefixByte = bytesWithPrefixWithChecksum.getByte(0);
+
+        final int checksumStartIndex = (bytesWithPrefixWithChecksum.getByteCount() - ParsedAddress.CHECKSUM_BYTE_COUNT);
+        final ByteArray checksum = ByteArray.wrap(ByteUtil.copyBytes(bytesWithPrefixWithChecksum, checksumStartIndex, ParsedAddress.CHECKSUM_BYTE_COUNT));
+
+        final ByteArray calculatedChecksum = ParsedAddress.calculateChecksum(prefixByte, bytesWithoutPrefixAndWithoutChecksum);
+
+        final Boolean checksumIsValid = ByteUtil.areEqual(calculatedChecksum, checksum);
+        if (! checksumIsValid) { return null; }
+
+        final AddressType addressType = AddressType.fromBase58Prefix(prefixByte);
+        if (addressType == null) {
+            Logger.info("Unknown Address Prefix: 0x"+ HexUtil.toHexString(new byte[] { prefixByte }));
+            return null;
+        }
+
+        final boolean isTokenAware = AddressType.P2PKH.isTokenAware(prefixByte);
+        return new ParsedAddress(addressType, isTokenAware, bytesWithoutPrefixAndWithoutChecksum);
+    }
+
+    protected ParsedAddress _fromBase32Check(final String base32String) {
+        { // Check for mixed-casing...
+            boolean hasUpperCase = false;
+            boolean hasLowerCase = false;
+            for (int i = 0; i < base32String.length(); ++i) {
+                final char c = base32String.charAt(i);
+                if (Character.isAlphabetic(c)) {
+                    if (Character.isUpperCase(c)) {
+                        hasUpperCase = true;
+                    }
+                    else {
+                        hasLowerCase = true;
+                    }
+                }
+            }
+            if (hasUpperCase && hasLowerCase) { return null; }
+        }
+
+        final boolean hadPrefix;
+        final String prefix;
+        final String base32WithoutPrefix;
+        if (base32String.contains(":")) {
+            final int separatorIndex = base32String.indexOf(':');
+            prefix = base32String.substring(0, separatorIndex).toLowerCase();
+            base32WithoutPrefix = base32String.substring(separatorIndex + 1).toLowerCase();
+            hadPrefix = true;
+        }
+        else {
+            prefix = "bitcoincash";
+            base32WithoutPrefix = base32String.toLowerCase();
+            hadPrefix = false;
+        }
+
+        final int checksumBitCount = 40;
+        final int checksumCharacterCount = (checksumBitCount / 5);
+
+        final ByteArray payloadBytes;
+        final ByteArray checksum;
+        {
+            if (base32WithoutPrefix.length() < checksumCharacterCount) { return null; }
+
+            final int checksumStartCharacterIndex = (base32WithoutPrefix.length() - checksumCharacterCount);
+            payloadBytes = BitcoinUtil.base32StringToBytes(base32WithoutPrefix.substring(0, checksumStartCharacterIndex));
+            checksum = BitcoinUtil.base32StringToBytes(base32WithoutPrefix.substring(checksumStartCharacterIndex));
+        }
+        if (payloadBytes == null) { return null; }
+        if (checksum == null) { return null; }
+
+        final byte version = payloadBytes.getByte(0);
+        if ((version & 0x80) != 0x00) { return null; } // The version byte's most significant bit must be 0...
+        final byte addressTypeByte = (byte) ((version >> 3) & 0x0F);
+
+        final int hashByteCount;
+        {
+            final int sizeIndex = (version & 0x07);
+            if (sizeIndex < 4) {
+                // 0=20; 1=24; 2=28; 3=32
+                 hashByteCount = (20 + (sizeIndex * 4));
+            }
+            else {
+                // 4=40; 5=48; 6=56; 7=64
+                hashByteCount = ((sizeIndex + 1) * 8);
+            }
+        }
+
+
+        if (payloadBytes.getByteCount() < (hashByteCount + 1)) { return null; }
+        final Address hashBytes = new Address(payloadBytes.getBytes(1, hashByteCount));
+
+        final ByteArray checksumPayload = AddressInflater.buildBase32ChecksumPreImage(prefix, version, hashBytes);
+
+        final ByteArray calculatedChecksum = AddressInflater.calculateBase32Checksum(checksumPayload);
+        if (! Util.areEqual(calculatedChecksum, checksum)) { return null; }
+
+        final AddressType addressType = AddressType.fromBase32Prefix(addressTypeByte);
+        // if (addressType == null) { return null; }
+
+        final boolean isTokenAware = AddressType.P2SH.isTokenAware(addressTypeByte);
+
+        return new ParsedAddress(addressType, isTokenAware, hashBytes, AddressFormat.BASE_32, (hadPrefix ? prefix : null));
+    }
+
     public Address fromPrivateKey(final PrivateKey privateKey) {
         return _fromPrivateKey(privateKey, false);
     }
@@ -224,9 +227,9 @@ public class AddressInflater {
         return _fromPrivateKey(privateKey, asCompressed);
     }
 
-    public Address fromBytes(final Address.Type addressType, final ByteArray bytes, final Boolean isCompressed) {
-        if (bytes.getByteCount() != Address.BYTE_COUNT) { return null; }
-        return new Address(addressType, bytes.getBytes(), isCompressed);
+    public Address fromBytes(final ByteArray bytes) {
+        if (! Address.isValidByteCount(bytes)) { return null; }
+        return new Address(bytes);
     }
 
     public Address fromPublicKey(final PublicKey publicKey) {
@@ -239,24 +242,11 @@ public class AddressInflater {
         return _fromPublicKey(publicKey, asCompressed);
     }
 
-    public Address fromBase58Check(final String base58CheckString) {
-        return _fromBase58Check(base58CheckString, false);
+    public ParsedAddress fromBase58Check(final String base58CheckString) {
+        return _fromBase58Check(base58CheckString);
     }
 
-    /**
-     * Returns a CompressedAddress from the base58CheckString.
-     *  NOTE: Validation that the string is actually derived from a compressed PublicKey is impossible,
-     *  therefore, only use this function if the sourced string is definitely a compressed PublicKey.
-     */
-    public Address fromBase58Check(final String base58CheckString, final Boolean isCompressed) {
-        return _fromBase58Check(base58CheckString, isCompressed);
-    }
-
-    public Address fromBase32Check(final String base32String) {
-        return _fromBase32Check(base32String, false);
-    }
-
-    public Address fromBase32Check(final String base32String, final Boolean isCompressed) {
-        return _fromBase32Check(base32String, isCompressed);
+    public ParsedAddress fromBase32Check(final String base32String) {
+        return _fromBase32Check(base32String);
     }
 }

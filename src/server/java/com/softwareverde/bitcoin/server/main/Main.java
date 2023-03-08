@@ -10,10 +10,10 @@ import com.softwareverde.bitcoin.server.configuration.NodeProperties;
 import com.softwareverde.bitcoin.server.configuration.ProxyProperties;
 import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.configuration.WalletProperties;
-import com.softwareverde.bitcoin.server.database.pool.ApacheCommonsDatabaseConnectionPool;
-import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactoryFactory;
+import com.softwareverde.bitcoin.server.database.pool.MariaDbConnectionPool;
 import com.softwareverde.bitcoin.server.module.AddressModule;
-import com.softwareverde.bitcoin.server.module.ChainValidationModule;
 import com.softwareverde.bitcoin.server.module.ConfigurationModule;
 import com.softwareverde.bitcoin.server.module.DatabaseModule;
 import com.softwareverde.bitcoin.server.module.EciesModule;
@@ -60,10 +60,8 @@ public class Main {
         Logger.setLogLevel("com.softwareverde.network", LogLevel.INFO);
         Logger.setLogLevel("com.softwareverde.async.lock", LogLevel.WARN);
         Logger.setLogLevel("org.apache.commons", LogLevel.WARN);
-        Logger.setLogLevel("com.zaxxer.hikari", LogLevel.WARN);
-        Logger.setLogLevel("ch.vorburger.exec", LogLevel.WARN);
-        Logger.setLogLevel("ch.vorburger.mariadb4j", LogLevel.WARN);
         Logger.setLogLevel("com.softwareverde.cryptography.secp256k1.Secp256k1", LogLevel.WARN);
+        Logger.setLogLevel("org.mariadb.jdbc", LogLevel.WARN);
 
         final Main application = new Main(commandLineArguments);
         application.run();
@@ -110,17 +108,6 @@ public class Main {
         _printError("\t\tThe explorer does not synchronize with the network, therefore NODE should be executed beforehand or in parallel.");
         _printError("\tArgument Description: <Configuration File>");
         _printError("\t\tThe path and filename of the configuration file for running the node.  Ex: conf/server.conf");
-        _printError("\t----------------");
-        _printError("");
-
-        _printError("\tModule: VALIDATE");
-        _printError("\tArguments: <Configuration File> [<Starting Block Hash>]");
-        _printError("\tDescription: Iterates through the entire block chain and identifies any invalid/corrupted blocks.");
-        _printError("\tArgument Description: <Configuration File>");
-        _printError("\t\tThe path and filename of the configuration file for running the node.  Ex: conf/server.conf");
-        _printError("\tArgument Description: <Starting Block Hash>");
-        _printError("\t\tThe first block that should be validated; used to skip validation of early sections of the chain, or to resume.");
-        _printError("\t\tEx: 000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F");
         _printError("\t----------------");
         _printError("");
 
@@ -309,10 +296,13 @@ public class Main {
                 }
                 Logger.info("[Database Online]");
 
-                final DatabaseConnectionPool databaseConnectionFactory = new ApacheCommonsDatabaseConnectionPool(databaseProperties, database.getMaxDatabaseConnectionCount());
-                // final DatabaseConnectionPool databaseConnectionFactory = new SimpleDatabaseConnectionPool(database, 8);
-
-                final Environment environment = new Environment(database, databaseConnectionFactory);
+                final Environment environment = new Environment(database, new DatabaseConnectionFactoryFactory() {
+                    @Override
+                    public DatabaseConnectionFactory newDatabaseConnectionFactory() {
+                        // return new SimpleDatabaseConnectionPool(database, 8);
+                        return new MariaDbConnectionPool(databaseProperties, database.getMaxDatabaseConnectionCount());
+                    }
+                });
 
                 nodeModuleContainer.value = new NodeModule(bitcoinProperties, environment);
                 nodeModuleContainer.value.loop();
@@ -363,10 +353,12 @@ public class Main {
                 }
                 Logger.info("[Database Online]");
 
-                final DatabaseConnectionPool databaseConnectionFactory = new ApacheCommonsDatabaseConnectionPool(databaseProperties, database.getMaxDatabaseConnectionCount());
-                // final DatabaseConnectionPool databaseConnectionFactory = new SimpleDatabaseConnectionPool(database, databaseConnectionCacheCount);
-
-                final Environment environment = new Environment(database, databaseConnectionFactory);
+                final Environment environment = new Environment(database, new DatabaseConnectionFactoryFactory() {
+                    @Override
+                    public DatabaseConnectionFactory newDatabaseConnectionFactory() {
+                        return new MariaDbConnectionPool(databaseProperties, database.getMaxDatabaseConnectionCount());
+                    }
+                });
 
                 final List<NodeProperties> seedNodes = bitcoinProperties.getSeedNodeProperties();
                 final Boolean isTestNet = bitcoinProperties.isTestNet();
@@ -426,38 +418,6 @@ public class Main {
                 Logger.flush();
             } break;
 
-            case "VALIDATE": {
-                if (_arguments.length < 2) {
-                    _printUsage();
-                    BitcoinUtil.exitFailure();
-                    break;
-                }
-
-                final String configurationFilename = _arguments[1];
-                final String startingBlockHash = (_arguments.length > 2 ? _arguments[2] : "");
-
-                final Configuration configuration = _loadConfigurationFile(configurationFilename);
-                final BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
-                final BitcoinVerdeDatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
-
-                final BitcoinVerdeDatabase database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, bitcoinProperties, databaseProperties);
-                if (database == null) {
-                    Logger.error("Error initializing database.");
-                    BitcoinUtil.exitFailure();
-                    throw new RuntimeException("");
-                }
-                Logger.info("[Database Online]");
-
-                final DatabaseConnectionPool databaseConnectionPool = new ApacheCommonsDatabaseConnectionPool(databaseProperties, database.getMaxDatabaseConnectionCount());
-                // final DatabaseConnectionPool databaseConnectionPool = new SimpleDatabaseConnectionPool(database, databaseConnectionCacheCount);
-
-                final Environment environment = new Environment(database, databaseConnectionPool);
-
-                final ChainValidationModule chainValidationModule = new ChainValidationModule(bitcoinProperties, environment, startingBlockHash);
-                chainValidationModule.run();
-                Logger.flush();
-            } break;
-
             case "STRATUM": {
                 if (_arguments.length != 2) {
                     _printUsage();
@@ -482,8 +442,12 @@ public class Main {
                 }
                 Logger.info("[Database Online]");
 
-                final DatabaseConnectionPool databaseConnectionPool = new ApacheCommonsDatabaseConnectionPool(databaseProperties, database.getMaxDatabaseConnectionCount());
-                final Environment environment = new Environment(database, databaseConnectionPool);
+                final Environment environment = new Environment(database, new DatabaseConnectionFactoryFactory() {
+                    @Override
+                    public DatabaseConnectionFactory newDatabaseConnectionFactory() {
+                        return new MariaDbConnectionPool(databaseProperties, database.getMaxDatabaseConnectionCount());
+                    }
+                });
 
                 final StratumModule stratumModule = new StratumModule(stratumProperties, environment, false);
                 stratumModule.loop();
@@ -552,8 +516,13 @@ public class Main {
                 }
                 Logger.info("[Database Online]");
 
-                final DatabaseConnectionPool databaseConnectionPool = new ApacheCommonsDatabaseConnectionPool(databaseProperties, database.getMaxDatabaseConnectionCount());
-                final Environment environment = new Environment(database, databaseConnectionPool);
+                final Environment environment = new Environment(database, new DatabaseConnectionFactoryFactory() {
+                    @Override
+                    public DatabaseConnectionFactory newDatabaseConnectionFactory() {
+                        return new MariaDbConnectionPool(databaseProperties, database.getMaxDatabaseConnectionCount());
+                    }
+                });
+
                 final DatabaseModule databaseModule = new DatabaseModule(environment);
                 databaseModule.loop();
                 Logger.flush();

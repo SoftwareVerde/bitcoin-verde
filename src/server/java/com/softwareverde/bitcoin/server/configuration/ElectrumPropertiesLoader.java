@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.configuration;
 
-import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.address.ParsedAddress;
 import com.softwareverde.logging.LogLevel;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
@@ -21,7 +21,7 @@ public class ElectrumPropertiesLoader {
         final File dataDirectory = new File(properties.getProperty("electrum.dataDirectory", "data/electrum"));
         final Integer testNet = Util.parseInt(properties.getProperty("electrum.testNet", "0"));
 
-        final Address donationAddress;
+        final ParsedAddress donationAddress;
         {
             final AddressInflater addressInflater = new AddressInflater();
             final String donationAddressString = Util.coalesce(properties.getProperty("electrum.donationAddress"));
