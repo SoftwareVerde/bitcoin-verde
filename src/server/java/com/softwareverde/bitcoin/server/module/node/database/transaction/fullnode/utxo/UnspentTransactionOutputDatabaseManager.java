@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo;
 
+import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.list.List;
@@ -19,18 +19,8 @@ public interface UnspentTransactionOutputDatabaseManager {
     Float DEFAULT_PURGE_PERCENT = 0.5F;
     Long BYTES_PER_UTXO = 128L; // NOTE: This value is larger than the actual size.  // TODO: Research a more accurate UTXO byte count.
 
-    void markTransactionOutputsAsSpent(List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers) throws DatabaseException;
-    void insertUnspentTransactionOutputs(List<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers, List<TransactionOutput> transactionOutputs, Long blockHeight, Sha256Hash coinbaseTransactionHash) throws DatabaseException;
-
-    /**
-     * Marks the provided UTXOs as spent, logically removing them from the UTXO set, and forces the outputs to be synchronized to disk on the next UTXO commit.
-     */
-    void undoCreationOfTransactionOutputs(List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException;
-
-    /**
-     * Re-inserts the provided UTXOs into the UTXO set and looks up their original associated blockHeight.  These UTXOs will be synchronized to disk during the next UTXO commit.
-     */
-    void undoSpendingOfTransactionOutputs(List<TransactionOutputIdentifier> transactionOutputIdentifiers, BlockchainSegmentId blockchainSegmentId) throws DatabaseException;
+    void applyBlock(Block block, Long blockHeight) throws DatabaseException;
+    void undoBlock(Block block, Long blockHeight) throws DatabaseException;
 
     UnspentTransactionOutput getUnspentTransactionOutput(TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException;
 
@@ -41,6 +31,7 @@ public interface UnspentTransactionOutputDatabaseManager {
     UnspentTransactionOutput loadUnspentTransactionOutput(TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException;
 
     List<UnspentTransactionOutput> getUnspentTransactionOutputs(List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException;
+    List<UnspentTransactionOutput> getUnspentTransactionOutputs(List<TransactionOutputIdentifier> transactionOutputIdentifiers, Integer maxBucketDepth) throws DatabaseException;
     // List<UnspentTransactionOutput> loadUnspentTransactionOutputs(List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException;
 
     /**

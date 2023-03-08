@@ -284,7 +284,6 @@ public class NodeModule {
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
             final MilliTimer utxoCommitTimer = new MilliTimer();
             utxoCommitTimer.start();
-            Logger.info("Committing UTXO set.");
             unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_databaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
             utxoCommitTimer.stop();
             Logger.debug("Commit Timer: " + utxoCommitTimer.getMillisecondsElapsed() + "ms.");

@@ -348,7 +348,8 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
                 blockDatabaseManager.storeBlock(blockInflater.fromBytes(ByteArray.fromHexString(BlockData.MainChain.BLOCK_5)));
 
                 final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
-                unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(TransactionOutputIdentifier.fromTransactionOutputs(transaction), transaction.getTransactionOutputs(), 6L, Sha256Hash.EMPTY_HASH);
+                Assert.fail();
+                // unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(TransactionOutputIdentifier.fromTransactionOutputs(transaction), transaction.getTransactionOutputs(), 6L, Sha256Hash.EMPTY_HASH);
                 unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
 
                 {
@@ -360,7 +361,8 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
                     Assert.assertTrue(rows.size() > 0);
                 }
 
-                unspentTransactionOutputDatabaseManager.undoCreationOfTransactionOutputs(TransactionOutputIdentifier.fromTransactionOutputs(transaction));
+                Assert.fail();
+                // unspentTransactionOutputDatabaseManager.undoCreationOfTransactionOutputs(TransactionOutputIdentifier.fromTransactionOutputs(transaction));
                 unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
 
                 // NOTE: the UTXO database no longer commits the spent UTXOs as the UtxoValue.SPENT_AMOUNT constant which makes this test obsolete, however is good future-proofing.

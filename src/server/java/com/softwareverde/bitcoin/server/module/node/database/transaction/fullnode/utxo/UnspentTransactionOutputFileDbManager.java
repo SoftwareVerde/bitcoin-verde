@@ -1,5 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo;
 
+import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockUtxoDiff;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.transaction.output.MutableUnspentTransactionOutput;
@@ -10,10 +12,12 @@ import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.token.CashToken;
+import com.softwareverde.bitcoin.util.BlockUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.Visitor;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -22,52 +26,71 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.filedb.EntryInflater;
 import com.softwareverde.filedb.FileDb;
 import com.softwareverde.filedb.Item;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.ByteArrayReader;
+import com.softwareverde.util.timer.NanoTimer;
 
 import java.io.File;
 
 public class UnspentTransactionOutputFileDbManager implements UnspentTransactionOutputDatabaseManager {
-    public final FileDb<TransactionOutputIdentifier, UnspentTransactionOutput> _fileDb;
+    protected final Double _falsePositiveRate = 0.000001D;
+    protected final FileDb<TransactionOutputIdentifier, UnspentTransactionOutput> _fileDb;
 
     public UnspentTransactionOutputFileDbManager(final File dataDirectory) throws Exception {
         if (! FileDb.exists(dataDirectory)) {
-            FileDb.initialize(dataDirectory, 1117902, 2097152, 7);
+            FileDb.initialize(dataDirectory);
         }
 
         _fileDb = new FileDb<>(dataDirectory, new UnspentTransactionOutputEntryInflater());
     }
 
     @Override
-    public void markTransactionOutputsAsSpent(final List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers) throws DatabaseException {
+    public void applyBlock(final Block block, final Long blockHeight) throws DatabaseException {
         try {
-            for (final TransactionOutputIdentifier transactionOutputIdentifier : spentTransactionOutputIdentifiers) {
-                _fileDb.setDeleted(transactionOutputIdentifier, true);
-            }
-        }
-        catch (final Exception exception) {
-            throw new DatabaseException(exception);
-        }
-    }
+            final BlockUtxoDiff blockUtxoDiff = BlockUtil.getBlockUtxoDiff(block);
 
-    @Override
-    public void insertUnspentTransactionOutputs(final List<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers, final List<TransactionOutput> transactionOutputs, final Long blockHeight, final Sha256Hash coinbaseTransactionHash) throws DatabaseException {
-        final int outputCount = unspentTransactionOutputIdentifiers.getCount();
-        if (outputCount != transactionOutputs.getCount()) { throw new RuntimeException("unspentTransactionOutputIdentifiers count mismatch."); }
+            final Sha256Hash coinbaseTransactionHash = blockUtxoDiff.coinbaseTransactionHash;
+            final List<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers = blockUtxoDiff.unspentTransactionOutputIdentifiers;
+            final List<TransactionOutput> transactionOutputs = blockUtxoDiff.unspentTransactionOutputs;
+            final List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers = blockUtxoDiff.spentTransactionOutputIdentifiers;
 
-        try {
+            final int outputCount = unspentTransactionOutputIdentifiers.getCount();
+            final int spentOutputCount = spentTransactionOutputIdentifiers.getCount();
+
+            final NanoTimer nanoTimer = new NanoTimer();
+
+            nanoTimer.start();
+            _fileDb.resizeCapacity(outputCount + spentOutputCount, _falsePositiveRate);
+            nanoTimer.stop();
+            Logger.debug("FileDb::resizeCapacity=" + nanoTimer.getMillisecondsElapsed() + "ms.");
+
+            nanoTimer.start();
             for (int i = 0; i < outputCount; ++i) {
                 final TransactionOutputIdentifier transactionOutputIdentifier = unspentTransactionOutputIdentifiers.get(i);
+                final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
+                final Boolean isCoinbase = Util.areEqual(coinbaseTransactionHash, transactionHash);
+
                 final TransactionOutput transactionOutput = transactionOutputs.get(i);
-
-                final Boolean isCoinbase = Util.areEqual(coinbaseTransactionHash, transactionOutputIdentifier.getTransactionHash());
-
                 final UnspentTransactionOutput unspentTransactionOutput = new MutableUnspentTransactionOutput(transactionOutput, blockHeight, isCoinbase);
-
                 _fileDb.put(transactionOutputIdentifier, unspentTransactionOutput);
             }
+            nanoTimer.stop();
+            Logger.debug("FileDb::put=" + nanoTimer.getMillisecondsElapsed() + "ms.");
+
+            nanoTimer.start();
+            for (final TransactionOutputIdentifier spentTransactionOutputIdentifier : spentTransactionOutputIdentifiers) {
+                _fileDb.putDeleted(spentTransactionOutputIdentifier);
+            }
+            nanoTimer.stop();
+            Logger.debug("FileDb::putDeleted=" + nanoTimer.getMillisecondsElapsed() + "ms.");
+
+            nanoTimer.start();
+            _fileDb.finalizeBucket();
+            nanoTimer.stop();
+            Logger.debug("FileDb::finalizeBucket=" + nanoTimer.getMillisecondsElapsed() + "ms.");
         }
         catch (final Exception exception) {
             throw new DatabaseException(exception);
@@ -75,23 +98,9 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
     }
 
     @Override
-    public void undoCreationOfTransactionOutputs(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException {
+    public void undoBlock(final Block block, final Long blockHeight) throws DatabaseException {
         try {
-            for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
-                _fileDb.setDeleted(transactionOutputIdentifier, true);
-            }
-        }
-        catch (final Exception exception) {
-            throw new DatabaseException(exception);
-        }
-    }
-
-    @Override
-    public void undoSpendingOfTransactionOutputs(final List<TransactionOutputIdentifier> transactionOutputIdentifiers, final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
-        try {
-            for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
-                _fileDb.setDeleted(transactionOutputIdentifier, false);
-            }
+            _fileDb.undoBucket();
         }
         catch (final Exception exception) {
             throw new DatabaseException(exception);
@@ -115,21 +124,22 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
 
     @Override
     public List<UnspentTransactionOutput> getUnspentTransactionOutputs(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException {
-        final MutableList<UnspentTransactionOutput> unspentTransactionOutputs = new MutableArrayList<>(
-            transactionOutputIdentifiers.getCount()
-        );
-
         try {
-            for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
-                final UnspentTransactionOutput unspentTransactionOutput = _fileDb.get(transactionOutputIdentifier);
-                unspentTransactionOutputs.add(unspentTransactionOutput);
-            }
+            return _fileDb.get(transactionOutputIdentifiers);
         }
         catch (final Exception exception) {
             throw new DatabaseException(exception);
         }
+    }
 
-        return unspentTransactionOutputs;
+    @Override
+    public List<UnspentTransactionOutput> getUnspentTransactionOutputs(final List<TransactionOutputIdentifier> transactionOutputIdentifiers, final Integer maxBucketDepth) throws DatabaseException {
+        try {
+            return _fileDb.get(transactionOutputIdentifiers, maxBucketDepth);
+        }
+        catch (final Exception exception) {
+            throw new DatabaseException(exception);
+        }
     }
 
     @Override
@@ -282,6 +292,8 @@ class UnspentTransactionOutputEntryInflater implements EntryInflater<Transaction
 
     @Override
     public UnspentTransactionOutput valueFromBytes(final ByteArray byteArray) {
+        if (byteArray.isEmpty()) { return null; } // Support null values.
+
         final ByteArrayReader byteArrayReader = new ByteArrayReader(byteArray);
 
         final Integer outputIndex = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader).intValue();
@@ -309,6 +321,8 @@ class UnspentTransactionOutputEntryInflater implements EntryInflater<Transaction
 
     @Override
     public ByteArray valueToBytes(final UnspentTransactionOutput unspentTransactionOutput) {
+        if (unspentTransactionOutput == null) { return new MutableByteArray(0); } // Support null values.
+
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(
             CompactVariableLengthInteger.variableLengthIntegerToBytes(
@@ -337,6 +351,8 @@ class UnspentTransactionOutputEntryInflater implements EntryInflater<Transaction
 
     @Override
     public int getValueByteCount(final UnspentTransactionOutput unspentTransactionOutput) {
+        if (unspentTransactionOutput == null) { return 0; } // Support null values.
+
         int byteCount = 0;
 
         byteCount += CompactVariableLengthInteger.variableLengthIntegerToBytes(

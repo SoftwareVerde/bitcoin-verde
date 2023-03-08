@@ -23,7 +23,7 @@ public class MutableBloomFilterTests {
     @Test
     public void should_release_all_locks_after_clear() throws Exception {
         // Setup
-        final MutableBloomFilter mutableBloomFilter = new MutableBloomFilter(new MutableByteArray(512), 1, 0L);
+        final ThreadSafeMutableBloomFilter mutableBloomFilter = new ThreadSafeMutableBloomFilter(new MutableByteArray(512), 1, 0L);
         final int indexLockCount = mutableBloomFilter._indexLockSegmentCount;
         final IndexLock indexLock = mutableBloomFilter._indexLock;
         for (int i = 0; i < indexLockCount; ++i) {

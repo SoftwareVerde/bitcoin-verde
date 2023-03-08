@@ -79,11 +79,11 @@ public class BlockchainBuilderContextPreLoader implements AutoCloseable {
                                 unspentTransactionOutputContext.medianBlockTime = blockHeaderDatabaseManager.getMedianBlockTime(blockId);
                             }
 
-                            unspentTransactionOutputContext.isFullyLoaded = unspentTransactionOutputContext.loadOutputsForBlock(databaseManager, block, blockHeight, _upgradeSchedule);
+                            unspentTransactionOutputContext.isFullyLoaded = unspentTransactionOutputContext.quicklyLoadOutputsForBlock(databaseManager, block, blockHeight, _upgradeSchedule);
 
                             nanoTimer.stop();
-                            if (_log.isTraceEnabled()) {
-                                _log.trace("Preloaded Block " + blockHeight + " in " + nanoTimer.getMillisecondsElapsed() + "ms.");
+                            if (_log.isDebugEnabled()) {
+                                _log.debug("Preloaded Block " + blockHeight + " in " + nanoTimer.getMillisecondsElapsed() + "ms. isFullyLoaded=" + unspentTransactionOutputContext.isFullyLoaded);
                             }
 
                             synchronized (_completedWork) {
@@ -138,11 +138,31 @@ public class BlockchainBuilderContextPreLoader implements AutoCloseable {
 
         // update the preloaded context with the previous block if it was not fully loaded
         if (! completedWork.isFullyLoaded) {
+            final NanoTimer nanoTimer = new NanoTimer();
+            nanoTimer.start();
+
             // if the provided previous block does not match the expected previous block then return null
             if ( (previousBlock == null) || (! Util.areEqual(previousBlock.getHash(), completedWork.block.getPreviousBlockHash())) ) { return null; }
 
             final long previousBlockHeight = (completedWork.blockHeight - 1L);
             completedWork.update(previousBlock, previousBlockHeight, completedWork.medianBlockTime, _upgradeSchedule);
+
+            nanoTimer.stop();
+            Logger.debug("Updated preloaded block " + completedWork.blockHeight + " in " + nanoTimer.getMillisecondsElapsed() + "ms.");
+
+            if (! completedWork.isFullyLoaded) {
+                try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                    nanoTimer.start();
+
+                    completedWork.isFullyLoaded = completedWork.finishLoadingOutputsForBlock(databaseManager, completedWork.block, completedWork.blockHeight, _upgradeSchedule);
+
+                    nanoTimer.stop();
+                    Logger.debug("Finished 2nd pass of preloading block " + completedWork.blockHeight + " in " + nanoTimer.getMillisecondsElapsed() + "ms.");
+                }
+                catch (final DatabaseException exception) {
+                    Logger.debug(exception);
+                }
+            }
         }
 
         // return the preloaded context

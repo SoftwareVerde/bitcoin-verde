@@ -36,6 +36,7 @@ import com.softwareverde.util.timer.MultiTimer;
 import com.softwareverde.util.timer.NanoTimer;
 
 public class MutableUnspentTransactionOutputSet implements UnspentTransactionOutputContext {
+    protected final MutableArrayList<TransactionOutputIdentifier> _missingOutputIdentifiers = new MutableArrayList<>();
     protected final MutableHashMap<TransactionOutputIdentifier, UnspentTransactionOutput> _transactionOutputs = new MutableHashMap<>();
     protected final MutableHashMap<Sha256Hash, Long> _transactionBlockHeights = new MutableHashMap<>();
     protected final MutableHashSet<TransactionOutputIdentifier> _preActivationTokenForgeries = new MutableHashSet<>();
@@ -130,6 +131,7 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
         for (final TransactionOutputIdentifier transactionOutputIdentifier : requiredTransactionOutputs) {
             final UnspentTransactionOutput transactionOutput = utxoUndoLog.getUnspentTransactionOutput(transactionOutputIdentifier);
             if (transactionOutput == null) {
+                _missingOutputIdentifiers.add(transactionOutputIdentifier);
                 if (allOutputsWereFound) {
                     Logger.debug("Missing UTXO: " + transactionOutputIdentifier);
                 }
@@ -181,15 +183,13 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
      *  Outputs may not be found in the case of an invalid block, but also if its predecessor has not been validated yet.
      *  The BlockHeader for the provided Block must have been stored before attempting to load its outputs.
      */
-    public synchronized Boolean loadOutputsForBlock(final FullNodeDatabaseManager databaseManager, final Block block, final Long blockHeight, final UpgradeSchedule upgradeSchedule) throws DatabaseException {
+    public synchronized Boolean quicklyLoadOutputsForBlock(final FullNodeDatabaseManager databaseManager, final Block block, final Long blockHeight, final UpgradeSchedule upgradeSchedule) throws DatabaseException {
         final MultiTimer multiTimer = new MultiTimer();
         multiTimer.start();
 
         final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-        final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
-        final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
         final Sha256Hash blockHash = block.getHash();
         final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
@@ -252,15 +252,52 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
             return _loadOutputsForAlternateBlock(databaseManager, blockId, requiredTransactionOutputs, upgradeSchedule);
         }
 
+        final List<TransactionOutputIdentifier> transactionOutputIdentifiers = new MutableArrayList<>(requiredTransactionOutputs);
+        final List<TransactionOutputIdentifier> missingOutputIdentifiers = _stepTwo(transactionOutputIdentifiers, databaseManager, blockHeight, blockchainSegmentId, upgradeSchedule, multiTimer, true);
+        _missingOutputIdentifiers.addAll(missingOutputIdentifiers);
+
+        return missingOutputIdentifiers.isEmpty();
+    }
+
+    public synchronized Boolean finishLoadingOutputsForBlock(final FullNodeDatabaseManager databaseManager, final Block block, final Long blockHeight, final UpgradeSchedule upgradeSchedule) throws DatabaseException {
+        if (_missingOutputIdentifiers.isEmpty()) { return true; }
+
+        final MultiTimer multiTimer = new MultiTimer();
+        multiTimer.start();
+
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+
+        final Sha256Hash blockHash = block.getHash();
+        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+        final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
+
+        final List<TransactionOutputIdentifier> missingOutputIdentifiers = _stepTwo(_missingOutputIdentifiers, databaseManager, blockHeight, blockchainSegmentId, upgradeSchedule, multiTimer, false);
+        _missingOutputIdentifiers.addAll(missingOutputIdentifiers);
+
+        return missingOutputIdentifiers.isEmpty();
+    }
+
+    public synchronized Boolean loadOutputsForBlock(final FullNodeDatabaseManager databaseManager, final Block block, final Long blockHeight, final UpgradeSchedule upgradeSchedule) throws DatabaseException {
+        this.quicklyLoadOutputsForBlock(databaseManager, block, blockHeight, upgradeSchedule);
+        return this.finishLoadingOutputsForBlock(databaseManager, block, blockHeight, upgradeSchedule);
+    }
+
+    protected List<TransactionOutputIdentifier> _stepTwo(final List<TransactionOutputIdentifier> transactionOutputIdentifiers, final FullNodeDatabaseManager databaseManager, final Long blockHeight, final BlockchainSegmentId blockchainSegmentId, final UpgradeSchedule upgradeSchedule, final MultiTimer multiTimer, final Boolean firstPass) throws DatabaseException {
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+        final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+        final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+
+        final MutableList<TransactionOutputIdentifier> missingOutputIdentifiers = new MutableArrayList<>();
+
         double timeSpentLoadingUnknownPatfoBlockTimes = 0D;
         final MutableHashSet<Sha256Hash> unknownTransactionBlockHeightsSet = new MutableHashSet<>();
         boolean allTransactionOutputsWereLoaded = true;
-        final List<TransactionOutputIdentifier> transactionOutputIdentifiers = new MutableArrayList<>(requiredTransactionOutputs);
-        final List<UnspentTransactionOutput> transactionOutputs = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutputs(transactionOutputIdentifiers);
+        final List<UnspentTransactionOutput> transactionOutputs = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutputs(transactionOutputIdentifiers, (firstPass ? 255 : null));
         for (int i = 0; i < transactionOutputs.getCount(); ++i) {
             final TransactionOutputIdentifier transactionOutputIdentifier = transactionOutputIdentifiers.get(i);
             final UnspentTransactionOutput transactionOutput = transactionOutputs.get(i);
             if (transactionOutput == null) {
+                missingOutputIdentifiers.add(transactionOutputIdentifier);
                 if (allTransactionOutputsWereLoaded) {
                     Logger.debug("Missing UTXO: " + transactionOutputIdentifier);
                 }
@@ -312,12 +349,12 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
 
         multiTimer.stop("blockHeights");
 
-        if (Logger.isTraceEnabled()) {
-            Logger.trace("Load UTXOs MultiTimer: " + multiTimer);
-            Logger.trace("timeSpentLoadingUnknownPatfoBlockTimes=" + timeSpentLoadingUnknownPatfoBlockTimes);
+        if (Logger.isDebugEnabled()) {
+            Logger.debug("Load UTXOs MultiTimer: " + multiTimer);
+            Logger.debug("timeSpentLoadingUnknownPatfoBlockTimes=" + timeSpentLoadingUnknownPatfoBlockTimes);
         }
 
-        return allTransactionOutputsWereLoaded;
+        return missingOutputIdentifiers;
     }
 
     @Override

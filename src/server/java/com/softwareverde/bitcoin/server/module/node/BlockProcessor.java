@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin.server.module.node;
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.block.BlockUtxoDiff;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
 import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
@@ -43,16 +42,11 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.Transac
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UndoLogDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputFileDbManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputVisitor;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
-import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
-import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidationResult;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
-import com.softwareverde.bitcoin.util.BlockUtil;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -209,7 +203,7 @@ public class BlockProcessor {
             Logger.trace("Utxo Reorg - 1/6 complete.");
 
             while (nextBlockId != null) {
-                final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(nextBlockId);
+                // final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(nextBlockId);
                 final Long undoBlockHeight = blockHeaderDatabaseManager.getBlockHeight(nextBlockId);
                 final Block nextBlock = blockDatabaseManager.getBlock(nextBlockId);
                 final List<TransactionId> transactionIds = blockDatabaseManager.getTransactionIds(nextBlockId);
@@ -217,9 +211,10 @@ public class BlockProcessor {
                 { // Remove UTXOs from the UTXO set, and re-add spent UTXOs...
                     Logger.trace("Removing Block from UTXO Set: " + nextBlock.getHash() + " @ " + undoBlockHeight);
 
-                    final BlockUtxoDiff blockUtxoDiff = BlockUtil.getBlockUtxoDiff(nextBlock);
-                    unspentTransactionOutputDatabaseManager.undoSpendingOfTransactionOutputs(blockUtxoDiff.spentTransactionOutputIdentifiers, blockchainSegmentId);
-                    unspentTransactionOutputDatabaseManager.undoCreationOfTransactionOutputs(blockUtxoDiff.unspentTransactionOutputIdentifiers);
+                    unspentTransactionOutputDatabaseManager.undoBlock(nextBlock, undoBlockHeight);
+                    // final BlockUtxoDiff blockUtxoDiff = BlockUtil.getBlockUtxoDiff(nextBlock);
+                    // unspentTransactionOutputDatabaseManager.undoSpendingOfTransactionOutputs(blockUtxoDiff.spentTransactionOutputIdentifiers, blockchainSegmentId);
+                    // unspentTransactionOutputDatabaseManager.undoCreationOfTransactionOutputs(blockUtxoDiff.unspentTransactionOutputIdentifiers);
                 }
 
                 { // Add non-coinbase transactions to the mempool...
@@ -254,9 +249,7 @@ public class BlockProcessor {
 
             { // Add UTXOs to the UTXO set, and remove spent UTXOs...
                 Logger.trace("Applying Block to UTXO Set: " + nextBlock.getHash() + " @ " + nextBlockHeight);
-                final BlockUtxoDiff blockUtxoDiff = BlockUtil.getBlockUtxoDiff(nextBlock);
-                unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(blockUtxoDiff.unspentTransactionOutputIdentifiers, blockUtxoDiff.unspentTransactionOutputs, blockHeight, blockUtxoDiff.coinbaseTransactionHash);
-                unspentTransactionOutputDatabaseManager.markTransactionOutputsAsSpent(blockUtxoDiff.spentTransactionOutputIdentifiers);
+                unspentTransactionOutputDatabaseManager.applyBlock(nextBlock, blockHeight);
             }
 
             { // Remove non-coinbase transactions from the mempool...
@@ -379,15 +372,6 @@ public class BlockProcessor {
                 final MutableUnspentTransactionOutputSet mutableUnspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
                 final Boolean unspentTransactionOutputsExistForBlock = mutableUnspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight, upgradeSchedule); // Ensure the the UTXOs for this block are pre-loaded into the cache...
                 if (! unspentTransactionOutputsExistForBlock) {
-                    System.out.println(((UnspentTransactionOutputFileDbManager) unspentTransactionOutputDatabaseManager)._fileDb._currentFilter.getBytes());
-                    unspentTransactionOutputDatabaseManager.visitUnspentTransactionOutputs(new UnspentTransactionOutputVisitor() {
-                        @Override
-                        public void run(final TransactionOutputIdentifier transactionOutputIdentifier, final UnspentTransactionOutput transactionOutput) throws Exception {
-                            final Object object = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifier);
-                            Logger.debug(transactionOutputIdentifier + " - " + object);
-                        }
-                    });
-
                     databaseManager.rollbackTransaction();
                     Logger.info("Invalid block. Could not find UTXOs for block: " + blockHash);
                     return ProcessBlockResult.invalid(block, blockHeight, "Could not find UTXOs for block.");
@@ -436,9 +420,7 @@ public class BlockProcessor {
             final NanoTimer nanoTimer = new NanoTimer();
             nanoTimer.start();
 
-            final BlockUtxoDiff blockUtxoDiff = BlockUtil.getBlockUtxoDiff(block);
-            unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(blockUtxoDiff.unspentTransactionOutputIdentifiers, blockUtxoDiff.unspentTransactionOutputs, blockHeight, blockUtxoDiff.coinbaseTransactionHash);
-            unspentTransactionOutputDatabaseManager.markTransactionOutputsAsSpent(blockUtxoDiff.spentTransactionOutputIdentifiers);
+            unspentTransactionOutputDatabaseManager.applyBlock(block, blockHeight);
 
             nanoTimer.stop();
             Logger.debug("Applied " + blockHash + " @ " + blockHeight + " to UTXO set in " + nanoTimer.getMillisecondsElapsed() + "ms.");

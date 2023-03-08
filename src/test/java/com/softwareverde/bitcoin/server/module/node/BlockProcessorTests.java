@@ -935,7 +935,8 @@ public class BlockProcessorTests extends IntegrationTest {
                     _addRequiredUtxos(block663750_B, requiredTransactionOutputIdentifiers, requiredTransactionOutputs, true);
                     _addRequiredUtxos(block663750_A, requiredTransactionOutputIdentifiers, requiredTransactionOutputs, false);
 
-                    unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(requiredTransactionOutputIdentifiers, requiredTransactionOutputs, 663749L, null);
+                    Assert.fail();
+                    // unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(requiredTransactionOutputIdentifiers, requiredTransactionOutputs, 663749L, null);
                     unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(663749L);
                     unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory, CommitAsyncMode.BLOCK_IF_BUSY);
                 }
@@ -1057,12 +1058,13 @@ public class BlockProcessorTests extends IntegrationTest {
                 final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
                 // Store the UTXO to be spend; this UTXO is locked via a Sha256 P2SH...
-                unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(
-                    new ImmutableList<>(utxoIdentifierToSpend),
-                    new ImmutableList<>(utxoToSpend),
-                    765000L,
-                    null
-                );
+                Assert.fail();
+                // unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(
+                //     new ImmutableList<>(utxoIdentifierToSpend),
+                //     new ImmutableList<>(utxoToSpend),
+                //     765000L,
+                //     null
+                // );
 
                 // The UtxoToSpend Transaction hash must be registered so its coinbase-status lookup succeeds.
                 transactionDatabaseManager.storeTransactionHash(utxoIdentifierToSpend.getTransactionHash(), 0);

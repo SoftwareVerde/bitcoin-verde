@@ -10,12 +10,12 @@ import com.softwareverde.bitcoin.inflater.BlockHeaderInflaters;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.bitcoin.util.IoUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.ByteBuffer;
+import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.Util;
 
 import java.io.File;
@@ -252,7 +252,7 @@ public class BlockStoreCore implements BlockStore {
 
         if (_blockCompressionIsEnabled) {
             final File file = new File(blockPath);
-            final boolean result = IoUtil.putCompressedFileContents(file, byteArray);
+            final boolean result = IoUtil.putCompressedFileContents(byteArray, file);
             if (result) { return true; }
         }
 
