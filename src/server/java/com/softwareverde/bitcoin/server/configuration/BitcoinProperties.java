@@ -127,6 +127,7 @@ public class BitcoinProperties {
     public Integer getBlockMaxByteCount() { return _blockMaxByteCount; }
 
     public boolean isBlockchainCacheEnabled() {
-        return _blockchainCacheIsEnabled;
+        // return _blockchainCacheIsEnabled;
+        return false; // Currently disabled for 20230515.
     }
 }
