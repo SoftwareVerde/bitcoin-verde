@@ -1,6 +1,18 @@
-# Bitcoin Verde v2.2.0
+# Bitcoin Verde v2.4.0
 
 ## Patch Notes
+
+**v2.4.0**
+- May 2023 Support
+    - Cash Tokens
+    - P2SH32
+    - Transaction Size Rules
+- CHIPNet Support
+- Improved Stability
+- Improved IBD Syncing
+- Improved Pruning Mode
+    - Pruning Mode may now be run with Indexing Mode for limited explorer functionality.
+- Minor bug fixes.
 
 **v2.2.0**
 - Electrum Server
