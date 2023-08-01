@@ -33,10 +33,9 @@ public class NodeConnection {
             }
 
             if (_socketUsedToBeConnected) {
-
                 final Runnable onDisconnectCallback = _onDisconnectCallback;
                 if (onDisconnectCallback != null) {
-                    _threadPool.execute(onDisconnectCallback);
+                    onDisconnectCallback.run();
                 }
                 _socketUsedToBeConnected = false;
 
@@ -73,7 +72,7 @@ public class NodeConnection {
             }
 
             if ( (socket != null) && (socket.isConnected()) ) {
-                _binarySocket = new BinarySocket(socket, _binaryPacketFormat, _threadPool);
+                _binarySocket = new BinarySocket(socket, _binaryPacketFormat);
                 _binarySocket.setOnClosedCallback(new Runnable() {
                     @Override
                     public void run() {
@@ -85,7 +84,7 @@ public class NodeConnection {
             else {
                 final Runnable onConnectFailureCallback = _onConnectFailureCallback;
                 if (onConnectFailureCallback != null) {
-                    _threadPool.execute(onConnectFailureCallback);
+                    onConnectFailureCallback.run();
                 }
             }
         }
@@ -109,8 +108,6 @@ public class NodeConnection {
     protected Runnable _onReconnectCallback;
     protected Runnable _onConnectCallback;
     protected Runnable _onConnectFailureCallback;
-
-    protected final ThreadPool _threadPool;
 
     protected String _toString() {
         String hostString = _host;
@@ -164,7 +161,7 @@ public class NodeConnection {
 
             final Runnable onConnectCallback = _onConnectCallback;
             if (onConnectCallback != null) {
-                _threadPool.execute(onConnectCallback);
+                onConnectCallback.run();
             }
         }
         else {
@@ -173,7 +170,7 @@ public class NodeConnection {
 
             final Runnable onReconnectCallback = _onReconnectCallback;
             if (onReconnectCallback != null) {
-                _threadPool.execute(onReconnectCallback);
+                onReconnectCallback.run();
             }
         }
 
@@ -268,25 +265,23 @@ public class NodeConnection {
         }
     }
 
-    public NodeConnection(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat, final ThreadPool threadPool) {
+    public NodeConnection(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat) {
         _host = host;
         _port = port;
 
         _binaryPacketFormat = binaryPacketFormat;
-        _threadPool = threadPool;
     }
 
     /**
      * Creates a NodeConnection with an already-established BinarySocket.
      *  NodeConnection::connect should still be invoked in order to initiate the ::_onSocketConnected procedure.
      */
-    public NodeConnection(final BinarySocket binarySocket, final ThreadPool threadPool) {
+    public NodeConnection(final BinarySocket binarySocket) {
         final Ip ip = binarySocket.getIp();
         _host = (ip != null ? ip.toString() : binarySocket.getHost());
         _port = binarySocket.getPort();
         _binarySocket = binarySocket;
         _binaryPacketFormat = binarySocket.getBinaryPacketFormat();
-        _threadPool = threadPool;
 
         _binarySocket.setOnClosedCallback(new Runnable() {
             @Override
@@ -352,17 +347,7 @@ public class NodeConnection {
     }
 
     public void queueMessage(final ProtocolMessage message) {
-        // NOTE: Queuing the message into the ThreadPool can cause significant memory usage for large message if the message
-        //  remains in the queue for its duration.
-        //  This could be mitigated by pushing the write to the front of the queue...
         _writeOrQueueMessage(message);
-
-        // _threadPool.execute(new Runnable() {
-        //     @Override
-        //     public void run() {
-        //         _writeOrQueueMessage(message);
-        //     }
-        // });
     }
 
     public void setMessageReceivedCallback(final MessageReceivedCallback messageReceivedCallback) {

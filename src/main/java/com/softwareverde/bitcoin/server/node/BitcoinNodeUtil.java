@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.server.node;
 
-import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.Visitor;
 import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -19,19 +18,14 @@ public class BitcoinNodeUtil {
     /**
      * Returns true iff a callback was executed.
      */
-    public static <T, S extends BitcoinNode.BitcoinNodeCallback> Boolean executeAndClearCallbacks(final ThreadPool threadPool, final MutableMap<T, MutableSet<BitcoinNode.PendingRequest<S>>> callbackMap, final MutableMap<RequestId, FailableRequest> failableRequests, final T key, final BitcoinNode.CallbackExecutor<S> callbackExecutor) {
+    public static <T, S extends BitcoinNode.BitcoinNodeCallback> Boolean executeAndClearCallbacks(final MutableMap<T, MutableSet<BitcoinNode.PendingRequest<S>>> callbackMap, final MutableMap<RequestId, FailableRequest> failableRequests, final T key, final BitcoinNode.CallbackExecutor<S> callbackExecutor) {
         synchronized (callbackMap) {
             final Set<BitcoinNode.PendingRequest<S>> pendingRequests = callbackMap.remove(key);
             if ((pendingRequests == null) || (pendingRequests.isEmpty())) { return false; }
 
             for (final BitcoinNode.PendingRequest<S> pendingRequest : pendingRequests) {
-                threadPool.execute(new Runnable() {
-                    @Override
-                    public void run() {
-                        callbackExecutor.onResult(pendingRequest);
-                    }
-                });
                 failableRequests.remove(pendingRequest.requestId);
+                callbackExecutor.onResult(pendingRequest);
             }
             return true;
         }
@@ -85,27 +79,21 @@ public class BitcoinNodeUtil {
         }
     }
 
-    public static <T, U, S extends BitcoinNode.FailableBitcoinNodeRequestCallback<U, T>> void failPendingRequests(final ThreadPool threadPool, final MutableMap<T, MutableSet<BitcoinNode.PendingRequest<S>>> pendingRequests, final ConcurrentMutableHashMap<RequestId, FailableRequest> failableRequests, final BitcoinNode bitcoinNode) {
+    public static <T, U, S extends BitcoinNode.FailableBitcoinNodeRequestCallback<U, T>> void failPendingRequests(final MutableMap<T, MutableSet<BitcoinNode.PendingRequest<S>>> pendingRequests, final ConcurrentMutableHashMap<RequestId, FailableRequest> failableRequests, final BitcoinNode bitcoinNode) {
         synchronized (pendingRequests) {
             for (final T key : pendingRequests.getKeys()) {
                 for (final BitcoinNode.PendingRequest<S> pendingRequest : pendingRequests.get(key)) {
                     final RequestId requestId = pendingRequest.requestId;
                     final S callback = pendingRequest.callback;
                     failableRequests.remove(requestId);
-
-                    threadPool.execute(new Runnable() {
-                        @Override
-                        public void run() {
-                            callback.onFailure(requestId, bitcoinNode, key);
-                        }
-                    });
+                    callback.onFailure(requestId, bitcoinNode, key);
                 }
             }
             pendingRequests.clear();
         }
     }
 
-    public static <T, U, S extends BitcoinNode.FailableBitcoinNodeRequestCallback<U, Void>> void failPendingVoidRequests(final ThreadPool threadPool, final MutableMap<T, Set<BitcoinNode.PendingRequest<S>>> pendingRequests, final ConcurrentMutableHashMap<RequestId, FailableRequest> failableRequests, final BitcoinNode bitcoinNode) {
+    public static <T, U, S extends BitcoinNode.FailableBitcoinNodeRequestCallback<U, Void>> void failPendingVoidRequests(final MutableMap<T, Set<BitcoinNode.PendingRequest<S>>> pendingRequests, final ConcurrentMutableHashMap<RequestId, FailableRequest> failableRequests, final BitcoinNode bitcoinNode) {
         synchronized (pendingRequests) {
             pendingRequests.visit(new Visitor<>() {
                 @Override
@@ -114,13 +102,7 @@ public class BitcoinNodeUtil {
                         final RequestId requestId = pendingRequest.requestId;
                         final S callback = pendingRequest.callback;
                         failableRequests.remove(requestId);
-
-                        threadPool.execute(new Runnable() {
-                            @Override
-                            public void run() {
-                                callback.onFailure(requestId, bitcoinNode, null);
-                            }
-                        });
+                        callback.onFailure(requestId, bitcoinNode, null);
                     }
 
                     return true;

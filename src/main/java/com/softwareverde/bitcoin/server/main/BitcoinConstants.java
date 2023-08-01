@@ -17,6 +17,7 @@ public class BitcoinConstants {
 
     public static class Default {
         public final String genesisBlockHash;
+        public final String genesisBlockHeader;
         public final Long genesisBlockTimestamp;
         public final Integer defaultNetworkPort;
         public final String netMagicNumber;
@@ -24,8 +25,9 @@ public class BitcoinConstants {
         public final AsertReferenceBlock asertReferenceBlock;
         public final Integer defaultBlockMaxByteCount;
 
-        protected Default(final String genesisBlockHash, final Long genesisBlockTimestamp, final Integer defaultNetworkPort, final String netMagicNumber, final AsertReferenceBlock asertReferenceBlock, final Integer blockMaxByteCount) {
+        protected Default(final String genesisBlockHash, final String genesisBlockHeader, final Long genesisBlockTimestamp, final Integer defaultNetworkPort, final String netMagicNumber, final AsertReferenceBlock asertReferenceBlock, final Integer blockMaxByteCount) {
             this.genesisBlockHash = genesisBlockHash;
+            this.genesisBlockHeader = genesisBlockHeader;
             this.genesisBlockTimestamp = genesisBlockTimestamp;
             this.defaultNetworkPort = defaultNetworkPort;
             this.netMagicNumber = netMagicNumber;
@@ -43,6 +45,7 @@ public class BitcoinConstants {
     private static Boolean LOCKED = false;
 
     protected static String GENESIS_BLOCK_HASH;
+    protected static String GENESIS_BLOCK_HEADER;
     protected static Long GENESIS_BLOCK_TIMESTAMP;
     protected static String NET_MAGIC_NUMBER;
     protected static Integer DEFAULT_NETWORK_PORT;
@@ -84,6 +87,7 @@ public class BitcoinConstants {
 
     public static final Default MainNet = new Default(
         "000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F",
+        "0100000000000000000000000000000000000000000000000000000000000000000000003BA3EDFD7A7B12B27AC72C3E67768F617FC81BC3888A51323A9FB8AA4B1E5E4A29AB5F49FFFF001D1DAC2B7C",
         1231006505L, // In seconds.
         8333,
         "E8F3E1E3",
@@ -93,6 +97,7 @@ public class BitcoinConstants {
 
     public static final Default TestNet = new Default(
         "000000000933EA01AD0EE984209779BAAEC3CED90FA3F408719526F8D77F4943",
+        "",
         1296688602L, // In seconds.
         18333,
         "F4F3E5F4",
@@ -102,6 +107,7 @@ public class BitcoinConstants {
 
     public static final Default TestNet4 = new Default(
         "000000001DD410C49A788668CE26751718CC797474D3152A5FC073DD44FD9F7B",
+        "",
         1597811185L, // In seconds.
         28333,
         "AFDAB7E2",
@@ -111,6 +117,7 @@ public class BitcoinConstants {
 
     public static final Default ChipNet = new Default(
         TestNet4.genesisBlockHash,
+        TestNet4.genesisBlockHeader,
         TestNet4.genesisBlockTimestamp, // In seconds.
         48333,
         "AFDAB7E2",
@@ -132,6 +139,7 @@ public class BitcoinConstants {
             "000000000000000000480527D21EB07089D8390CAEF5008BA2971FD554777FAE,760000,0302B84B38922825D8FE159CF42A9D5141D26240D2C73A7238F063172632C1F50D,5312373328";
 
         GENESIS_BLOCK_HASH = System.getProperty("GENESIS_BLOCK_HASH", MainNet.genesisBlockHash);
+        GENESIS_BLOCK_HEADER = System.getProperty("GENESIS_BLOCK_HEADER", MainNet.genesisBlockHeader);
         GENESIS_BLOCK_TIMESTAMP = Util.parseLong(System.getProperty("GENESIS_BLOCK_TIMESTAMP", String.valueOf(MainNet.genesisBlockTimestamp)));
         DEFAULT_NETWORK_PORT = Util.parseInt(System.getProperty("NETWORK_PORT", String.valueOf(MainNet.defaultNetworkPort)));
         DEFAULT_TEST_NETWORK_PORT = Util.parseInt(System.getProperty("TEST_NETWORK_PORT", String.valueOf(TestNet.defaultNetworkPort)));
@@ -214,6 +222,19 @@ public class BitcoinConstants {
         }
 
         GENESIS_BLOCK_HASH = genesisBlockHash;
+    }
+
+    public static String getGenesisBlockHeader() {
+        LOCKED = true;
+        return GENESIS_BLOCK_HEADER;
+    }
+
+    public static void setGenesisBlockHeader(final String genesisBlockHeader) {
+        if (LOCKED) {
+            throw new RuntimeException(LOCKED_ERROR_MESSAGE);
+        }
+
+        GENESIS_BLOCK_HEADER = genesisBlockHeader;
     }
 
     public static Long getGenesisBlockTimestamp() {

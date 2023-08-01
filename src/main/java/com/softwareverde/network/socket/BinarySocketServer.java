@@ -17,7 +17,7 @@ public class BinarySocketServer extends SocketServer<BinarySocket> {
 
         @Override
         public BinarySocket newSocket(final Socket socket) {
-            return new BinarySocket(socket, _binaryPacketFormat, _threadPool);
+            return new BinarySocket(socket, _binaryPacketFormat);
         }
     }
 

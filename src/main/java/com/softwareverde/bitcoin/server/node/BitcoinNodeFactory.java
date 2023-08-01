@@ -17,11 +17,11 @@ public class BitcoinNodeFactory {
     }
 
     public BitcoinNode newNode(final String host, final Integer port) {
-        return new BitcoinNode(host, port, _binaryPacketFormat, _threadPoolFactory.newThreadPool(), _localNodeFeatures);
+        return new BitcoinNode(host, port, _binaryPacketFormat, _localNodeFeatures);
     }
 
     public BitcoinNode newNode(final BinarySocket binarySocket) {
-        return new BitcoinNode(binarySocket, _threadPoolFactory.newThreadPool(), _localNodeFeatures);
+        return new BitcoinNode(binarySocket, _localNodeFeatures);
     }
 
     public BitcoinBinaryPacketFormat getBinaryPacketFormat() {

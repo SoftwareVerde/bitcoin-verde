@@ -9,16 +9,15 @@ public class BinarySocket extends Socket {
 
     protected final BinaryPacketFormat _binaryPacketFormat;
 
-    public BinarySocket(final java.net.Socket socket, final BinaryPacketFormat binaryPacketFormat, final ThreadPool threadPool) {
-        this(socket, binaryPacketFormat, threadPool, DEFAULT_BUFFER_PAGE_BYTE_COUNT, DEFAULT_MAX_BUFFER_BYTE_COUNT);
+    public BinarySocket(final java.net.Socket socket, final BinaryPacketFormat binaryPacketFormat) {
+        this(socket, binaryPacketFormat, DEFAULT_BUFFER_PAGE_BYTE_COUNT, DEFAULT_MAX_BUFFER_BYTE_COUNT);
     }
 
-    public BinarySocket(final java.net.Socket socket, final BinaryPacketFormat binaryPacketFormat, final ThreadPool threadPool, final Integer bufferPageByteCount, final Integer maxBufferByteCount) {
+    public BinarySocket(final java.net.Socket socket, final BinaryPacketFormat binaryPacketFormat, final Integer bufferPageByteCount, final Integer maxBufferByteCount) {
         super(
             socket,
             new BinarySocketReadThread(bufferPageByteCount, maxBufferByteCount, binaryPacketFormat),
-            new BinarySocketWriteThread(bufferPageByteCount, maxBufferByteCount),
-            threadPool
+            new BinarySocketWriteThread(bufferPageByteCount, maxBufferByteCount)
         );
         _binaryPacketFormat = binaryPacketFormat;
     }

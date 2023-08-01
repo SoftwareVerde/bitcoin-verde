@@ -10,12 +10,12 @@ import com.softwareverde.bitcoin.context.ChainWorkContext;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
 import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.NetworkTimeContext;
+import com.softwareverde.bitcoin.server.module.node.Blockchain;
 import com.softwareverde.network.time.NetworkTime;
+import com.softwareverde.network.time.VolatileNetworkTime;
 import com.softwareverde.util.Util;
 
 public class BlockHeaderValidator {
-    public interface Context extends BlockHeaderContext, ChainWorkContext, MedianBlockTimeContext, NetworkTimeContext, DifficultyCalculatorContext { }
-
     public static class BlockHeaderValidationResult {
         public static BlockHeaderValidationResult valid() {
             return new BlockHeaderValidationResult(true, null);
@@ -34,15 +34,19 @@ public class BlockHeaderValidator {
         }
     }
 
-    protected final Context _context;
+    protected final UpgradeSchedule _upgradeSchedule;
+    protected final DifficultyCalculator _difficultyCalculator;
+    protected final VolatileNetworkTime _networkTime;
+    protected final Blockchain _blockchain;
 
-    public BlockHeaderValidator(final Context context) {
-        _context = context;
+    public BlockHeaderValidator(final UpgradeSchedule upgradeSchedule, final Blockchain blockchain, final VolatileNetworkTime networkTime, final DifficultyCalculator difficultyCalculator) {
+        _upgradeSchedule = upgradeSchedule;
+        _difficultyCalculator = difficultyCalculator;
+        _blockchain = blockchain;
+        _networkTime = networkTime;
     }
 
     public BlockHeaderValidationResult validateBlockHeader(final BlockHeader blockHeader, final Long blockHeight) {
-        final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
-
         if (! blockHeader.isValid()) {
             return BlockHeaderValidationResult.invalid("Block header is invalid.");
         }
@@ -51,17 +55,17 @@ public class BlockHeaderValidator {
             final Long blockTime = blockHeader.getTimestamp();
             final Long minimumTimeInSeconds;
             {
-                if (upgradeSchedule.shouldUseMedianBlockTimeForBlockTimestamp(blockHeight)) {
+                if (_upgradeSchedule.shouldUseMedianBlockTimeForBlockTimestamp(blockHeight)) {
                     final Long previousBlockHeight = (blockHeight - 1L);
-                    final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(previousBlockHeight);
+                    final MedianBlockTime medianBlockTime = _blockchain.getMedianBlockTime(previousBlockHeight);
                     minimumTimeInSeconds = medianBlockTime.getCurrentTimeInSeconds();
                 }
                 else {
                     minimumTimeInSeconds = 0L;
                 }
             }
-            final NetworkTime networkTime = _context.getNetworkTime();
-            final Long currentNetworkTimeInSeconds = networkTime.getCurrentTimeInSeconds();
+
+            final Long currentNetworkTimeInSeconds = _networkTime.getCurrentTimeInSeconds();
             final long secondsInTwoHours = 7200L;
             final long maximumNetworkTime = (currentNetworkTimeInSeconds + secondsInTwoHours);
 
@@ -74,8 +78,7 @@ public class BlockHeaderValidator {
         }
 
         { // Validate block (calculated) difficulty...
-            final DifficultyCalculator difficultyCalculator = _context.newDifficultyCalculator();
-            final Difficulty calculatedRequiredDifficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeight);
+            final Difficulty calculatedRequiredDifficulty = _difficultyCalculator.calculateRequiredDifficulty(blockHeight);
             if (calculatedRequiredDifficulty == null) {
                 return BlockHeaderValidationResult.invalid("Unable to calculate required difficulty for block: " + blockHeader.getHash());
             }
