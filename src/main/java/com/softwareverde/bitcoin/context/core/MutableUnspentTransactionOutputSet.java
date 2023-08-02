@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
+import com.softwareverde.bitcoin.server.module.node.Blockchain;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -25,7 +26,6 @@ import com.softwareverde.bitcoin.transaction.validator.UtxoUndoLog;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.constable.map.Map;
 import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.constable.set.mutable.MutableHashSet;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -41,26 +41,23 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
     protected final MutableHashMap<Sha256Hash, Long> _transactionBlockHeights = new MutableHashMap<>();
     protected final MutableHashSet<TransactionOutputIdentifier> _preActivationTokenForgeries = new MutableHashSet<>();
 
-    protected void _populateUnknownTransactionBlockHeights(final BlockchainSegmentId blockchainSegmentId, final MutableHashSet<Sha256Hash> unknownTransactionBlockHeightsSet, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-        final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-
-        final MutableList<Sha256Hash> transactionsWithUnknownBlockHeight = new MutableArrayList<>();
-        for (final Sha256Hash transactionHash : unknownTransactionBlockHeightsSet) {
-            if (! _transactionBlockHeights.containsKey(transactionHash)) {
-                transactionsWithUnknownBlockHeight.add(transactionHash);
-            }
-        }
-
-        final Map<Sha256Hash, BlockId> transactionBlockIds = transactionDatabaseManager.getBlockIds(blockchainSegmentId, transactionsWithUnknownBlockHeight);
-        final MutableHashSet<BlockId> uniqueBlockIds = new MutableHashSet<>(transactionBlockIds.getValues());
-        final Map<BlockId, Long> blockHeights = blockHeaderDatabaseManager.getBlockHeights(uniqueBlockIds);
-        for (final Sha256Hash transactionHash : transactionBlockIds.getKeys()) {
-            final BlockId transactionBlockId = transactionBlockIds.get(transactionHash);
-            final Long transactionBlockHeight = blockHeights.get(transactionBlockId);
-            _transactionBlockHeights.put(transactionHash, transactionBlockHeight);
-        }
-    }
+//    protected void _populateUnknownTransactionBlockHeights(final MutableHashSet<Sha256Hash> unknownTransactionBlockHeightsSet, final Blockchain blockchain) throws DatabaseException {
+//        final MutableList<Sha256Hash> transactionsWithUnknownBlockHeight = new MutableArrayList<>();
+//        for (final Sha256Hash transactionHash : unknownTransactionBlockHeightsSet) {
+//            if (! _transactionBlockHeights.containsKey(transactionHash)) {
+//                transactionsWithUnknownBlockHeight.add(transactionHash);
+//            }
+//        }
+//
+//        final Map<Sha256Hash, BlockId> transactionBlockIds = transactionDatabaseManager.getBlockIds(blockchainSegmentId, transactionsWithUnknownBlockHeight);
+//        final MutableHashSet<BlockId> uniqueBlockIds = new MutableHashSet<>(transactionBlockIds.getValues());
+//        final Map<BlockId, Long> blockHeights = blockHeaderDatabaseManager.getBlockHeights(uniqueBlockIds);
+//        for (final Sha256Hash transactionHash : transactionBlockIds.getKeys()) {
+//            final BlockId transactionBlockId = transactionBlockIds.get(transactionHash);
+//            final Long transactionBlockHeight = blockHeights.get(transactionBlockId);
+//            _transactionBlockHeights.put(transactionHash, transactionBlockHeight);
+//        }
+//    }
 
     /**
      * Populates _transactionBlockHeights and _transactionOutputs for a block on the provided blockchainSegmentId...
@@ -170,7 +167,7 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
         }
 
         // Load the BlockHeights for the unknown Transactions (the previous Transactions being spent by (and outside of) this block)...
-        _populateUnknownTransactionBlockHeights(blockchainSegmentId, unknownTransactionBlockHeightsSet, databaseManager);
+        // _populateUnknownTransactionBlockHeights(blockchainSegmentId, unknownTransactionBlockHeightsSet, databaseManager); // TODO ?
 
         return allOutputsWereFound;
     }
@@ -183,28 +180,9 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
      *  Outputs may not be found in the case of an invalid block, but also if its predecessor has not been validated yet.
      *  The BlockHeader for the provided Block must have been stored before attempting to load its outputs.
      */
-    public synchronized Boolean quicklyLoadOutputsForBlock(final FullNodeDatabaseManager databaseManager, final Block block, final Long blockHeight, final UpgradeSchedule upgradeSchedule) throws DatabaseException {
+    public synchronized Boolean quicklyLoadOutputsForBlock(final Blockchain blockchain, final Block block, final Long blockHeight, final UpgradeSchedule upgradeSchedule) throws DatabaseException {
         final MultiTimer multiTimer = new MultiTimer();
         multiTimer.start();
-
-        final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-        final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-
-        final Sha256Hash blockHash = block.getHash();
-        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
-        if (blockId == null) { return false; }
-        multiTimer.mark("headerId");
-
-        final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
-        final BlockchainSegmentId utxoSetBlockchainSegmentId;
-        { // The UTXO set is associated to the head block's blockchainSegment, which is not necessarily the head blockHeader's blockchainSegment.
-            // TODO: Write test for this distinction.
-            final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-            utxoSetBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(headBlockId);
-        }
-        final Boolean blockIsOnMainChain = blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, utxoSetBlockchainSegmentId, BlockRelationship.ANY);
-        multiTimer.mark("blockchainSegmentId");
 
         final List<Transaction> transactions = block.getTransactions();
 
@@ -248,50 +226,41 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
         requiredTransactionOutputs.removeAll(newOutputs); // New outputs created by this block are not added to this UTXO set.
         multiTimer.mark("excludeOutputs");
 
-        if (! Util.coalesce(blockIsOnMainChain, true)) {
-            return _loadOutputsForAlternateBlock(databaseManager, blockId, requiredTransactionOutputs, upgradeSchedule);
-        }
+//        if (! Util.coalesce(blockIsOnMainChain, true)) {
+//            return _loadOutputsForAlternateBlock(databaseManager, blockId, requiredTransactionOutputs, upgradeSchedule);
+//        }
 
         final List<TransactionOutputIdentifier> transactionOutputIdentifiers = new MutableArrayList<>(requiredTransactionOutputs);
-        final List<TransactionOutputIdentifier> missingOutputIdentifiers = _stepTwo(transactionOutputIdentifiers, databaseManager, blockHeight, blockchainSegmentId, upgradeSchedule, multiTimer, true);
+        final List<TransactionOutputIdentifier> missingOutputIdentifiers = _stepTwo(transactionOutputIdentifiers, blockchain, blockHeight, upgradeSchedule, multiTimer, true);
         _missingOutputIdentifiers.addAll(missingOutputIdentifiers);
 
         return missingOutputIdentifiers.isEmpty();
     }
 
-    public synchronized Boolean finishLoadingOutputsForBlock(final FullNodeDatabaseManager databaseManager, final Block block, final Long blockHeight, final UpgradeSchedule upgradeSchedule) throws DatabaseException {
+    public synchronized Boolean finishLoadingOutputsForBlock(final Blockchain blockchain, final Block block, final Long blockHeight, final UpgradeSchedule upgradeSchedule) throws DatabaseException {
         if (_missingOutputIdentifiers.isEmpty()) { return true; }
 
         final MultiTimer multiTimer = new MultiTimer();
         multiTimer.start();
 
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-
-        final Sha256Hash blockHash = block.getHash();
-        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
-        final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
-
-        final List<TransactionOutputIdentifier> missingOutputIdentifiers = _stepTwo(_missingOutputIdentifiers, databaseManager, blockHeight, blockchainSegmentId, upgradeSchedule, multiTimer, false);
+        final List<TransactionOutputIdentifier> missingOutputIdentifiers = _stepTwo(_missingOutputIdentifiers, blockchain, blockHeight, upgradeSchedule, multiTimer, false);
         _missingOutputIdentifiers.addAll(missingOutputIdentifiers);
 
         return missingOutputIdentifiers.isEmpty();
     }
 
-    public synchronized Boolean loadOutputsForBlock(final FullNodeDatabaseManager databaseManager, final Block block, final Long blockHeight, final UpgradeSchedule upgradeSchedule) throws DatabaseException {
-        this.quicklyLoadOutputsForBlock(databaseManager, block, blockHeight, upgradeSchedule);
-        return this.finishLoadingOutputsForBlock(databaseManager, block, blockHeight, upgradeSchedule);
+    public synchronized Boolean loadOutputsForBlock(final Blockchain blockchain, final Block block, final Long blockHeight, final UpgradeSchedule upgradeSchedule) throws DatabaseException {
+        this.quicklyLoadOutputsForBlock(blockchain, block, blockHeight, upgradeSchedule);
+        return this.finishLoadingOutputsForBlock(blockchain, block, blockHeight, upgradeSchedule);
     }
 
-    protected List<TransactionOutputIdentifier> _stepTwo(final List<TransactionOutputIdentifier> transactionOutputIdentifiers, final FullNodeDatabaseManager databaseManager, final Long blockHeight, final BlockchainSegmentId blockchainSegmentId, final UpgradeSchedule upgradeSchedule, final MultiTimer multiTimer, final Boolean firstPass) throws DatabaseException {
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-        final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
-        final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-
+    protected List<TransactionOutputIdentifier> _stepTwo(final List<TransactionOutputIdentifier> transactionOutputIdentifiers, final Blockchain blockchain, final Long blockHeight, final UpgradeSchedule upgradeSchedule, final MultiTimer multiTimer, final Boolean firstPass) throws DatabaseException {
         final MutableList<TransactionOutputIdentifier> missingOutputIdentifiers = new MutableArrayList<>();
 
         double timeSpentLoadingUnknownPatfoBlockTimes = 0D;
         final MutableHashSet<Sha256Hash> unknownTransactionBlockHeightsSet = new MutableHashSet<>();
         boolean allTransactionOutputsWereLoaded = true;
+        final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = blockchain.getUnspentTransactionOutputDatabaseManager();
         final List<UnspentTransactionOutput> transactionOutputs = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutputs(transactionOutputIdentifiers, (firstPass ? 255 : null));
         for (int i = 0; i < transactionOutputs.getCount(); ++i) {
             final TransactionOutputIdentifier transactionOutputIdentifier = transactionOutputIdentifiers.get(i);
@@ -318,15 +287,17 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
                     nanoTimer.start();
 
                     // This is highly inefficient if done often, however the times a UTXO's blockHeight is unknown should be very, very rare.
-                    final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
-                    final BlockId transactionOutputBlockId = transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId);
-                    final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.getMedianTimePast(transactionOutputBlockId);
-                    if (! upgradeSchedule.areCashTokensEnabled(medianBlockTime)) {
-                        _preActivationTokenForgeries.add(transactionOutputIdentifier);
-                    }
+                    // final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
+                    // final BlockId transactionOutputBlockId = transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId);
+                    // final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.getMedianTimePast(transactionOutputBlockId);
+                    // if (! upgradeSchedule.areCashTokensEnabled(medianBlockTime)) {
+                    //     _preActivationTokenForgeries.add(transactionOutputIdentifier);
+                    // }
 
                     nanoTimer.stop();
                     timeSpentLoadingUnknownPatfoBlockTimes += nanoTimer.getMillisecondsElapsed();
+
+                    throw new RuntimeException("Unable to find UTXO Block Height."); // TODO
                 }
             }
             else {
@@ -334,8 +305,7 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
 
                 // Check PATFO status...
                 if (transactionOutput.hasCashToken()) {
-                    final BlockId transactionOutputBlockId = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, blockHeight);
-                    final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.getMedianTimePast(transactionOutputBlockId);
+                    final MedianBlockTime medianBlockTime = blockchain.getMedianBlockTime(blockHeight);
                     if (! upgradeSchedule.areCashTokensEnabled(medianBlockTime)) {
                         _preActivationTokenForgeries.add(transactionOutputIdentifier);
                     }
@@ -345,7 +315,7 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
         multiTimer.mark("loadOutputs");
 
         // Load the BlockHeights for the unknown Transactions (the previous Transactions being spent by (and outside of) this block)...
-        _populateUnknownTransactionBlockHeights(blockchainSegmentId, unknownTransactionBlockHeightsSet, databaseManager);
+        // _populateUnknownTransactionBlockHeights(unknownTransactionBlockHeightsSet, blockHeight); // TODO ?
 
         multiTimer.stop("blockHeights");
 

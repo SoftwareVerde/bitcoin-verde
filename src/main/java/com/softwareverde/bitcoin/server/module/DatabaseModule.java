@@ -12,6 +12,8 @@ import com.softwareverde.bitcoin.server.module.node.store.UtxoCommitmentStoreCor
 import com.softwareverde.bitcoin.server.properties.DatabasePropertiesStore;
 import com.softwareverde.logging.Logger;
 
+import java.io.File;
+
 public class DatabaseModule {
     protected final Environment _environment;
 
@@ -20,7 +22,7 @@ public class DatabaseModule {
     }
 
     public void loop() {
-        final String dataDirectory = "data";
+        final File dataDirectory = new File("data");
         final CoreInflater inflater = new CoreInflater();
         final Database database = _environment.getDatabase();
         final DatabaseConnectionFactory databaseConnectionFactory = _environment.getDatabaseConnectionFactory();
@@ -30,7 +32,7 @@ public class DatabaseModule {
             database.getMaxQueryBatchSize(),
             new DatabasePropertiesStore(databaseConnectionFactory),
             new PendingBlockStoreCore(dataDirectory, inflater, inflater, useCompression),
-            new UtxoCommitmentStoreCore(dataDirectory),
+            new UtxoCommitmentStoreCore(dataDirectory.toString()),
             inflater,
             new TestNetCheckpointConfiguration(),
             1073741824L,

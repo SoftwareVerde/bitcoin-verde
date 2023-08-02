@@ -5,14 +5,8 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-import com.softwareverde.bitcoin.context.BlockHeaderContext;
-import com.softwareverde.bitcoin.context.ChainWorkContext;
-import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
-import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
-import com.softwareverde.bitcoin.context.NetworkTimeContext;
 import com.softwareverde.bitcoin.server.module.node.Blockchain;
 import com.softwareverde.network.time.NetworkTime;
-import com.softwareverde.network.time.VolatileNetworkTime;
 import com.softwareverde.util.Util;
 
 public class BlockHeaderValidator {
@@ -36,10 +30,10 @@ public class BlockHeaderValidator {
 
     protected final UpgradeSchedule _upgradeSchedule;
     protected final DifficultyCalculator _difficultyCalculator;
-    protected final VolatileNetworkTime _networkTime;
+    protected final NetworkTime _networkTime;
     protected final Blockchain _blockchain;
 
-    public BlockHeaderValidator(final UpgradeSchedule upgradeSchedule, final Blockchain blockchain, final VolatileNetworkTime networkTime, final DifficultyCalculator difficultyCalculator) {
+    public BlockHeaderValidator(final UpgradeSchedule upgradeSchedule, final Blockchain blockchain, final NetworkTime networkTime, final DifficultyCalculator difficultyCalculator) {
         _upgradeSchedule = upgradeSchedule;
         _difficultyCalculator = difficultyCalculator;
         _blockchain = blockchain;

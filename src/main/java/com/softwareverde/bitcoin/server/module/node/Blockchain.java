@@ -1,5 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node;
 
+import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
@@ -11,6 +13,8 @@ import com.softwareverde.bitcoin.block.validator.difficulty.AsertReferenceBlock;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.mutable.MutableArrayList;
@@ -36,7 +40,10 @@ public class Blockchain {
     protected final MutableList<MedianBlockTime> _medianBlockTimes = new MutableArrayList<>();
     protected final MutableList<ChainWork> _chainWorks = new MutableArrayList<>();
     protected final MutableHashMap<Sha256Hash, BlockHeader> _orphanedHeaders = new MutableHashMap<>();
+    protected final BlockStore _blockStore;
+    protected final UnspentTransactionOutputDatabaseManager _unspentTransactionOutputDatabaseManager;
     protected AsertReferenceBlock _asertReferenceBlock = null;
+    protected Long _headBlockHeight = -1L;
 
     protected void _addBlockHeader(final BlockHeader blockHeader, final Long blockHeight, final MedianBlockTime medianBlockTime, final ChainWork chainWork) {
         final Sha256Hash blockHash = blockHeader.getHash();
@@ -44,6 +51,15 @@ public class Blockchain {
         _medianBlockTimes.add(medianBlockTime);
         _chainWorks.add(chainWork);
         _blockHeights.put(blockHash, blockHeight);
+
+        if (_blockStore.blockExists(blockHash, blockHeight)) {
+            _headBlockHeight = Math.max(_headBlockHeight, blockHeight);
+        }
+    }
+
+    protected void _addBlock(final Block block, final Long blockHeight) {
+        _blockStore.storeBlock(block, blockHeight);
+        _headBlockHeight = Math.max(_headBlockHeight, blockHeight);
     }
 
     protected BlockHeader _getBlockHeader(final Long blockHeight) {
@@ -76,28 +92,38 @@ public class Blockchain {
         return medianBlockTime;
     }
 
-    public Blockchain() { }
+    public Blockchain(final BlockStore blockStore, final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager) {
+        _blockStore = blockStore;
+        _unspentTransactionOutputDatabaseManager = unspentTransactionOutputDatabaseManager;
+    }
 
     public void load(final File file) throws Exception {
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
         if (file.exists()) {
             final MutableChainWork currentChainWork = new MutableChainWork();
-            final int medianBlockTimeByteCount = 8;
+            final int bytesPerInteger = 4;
+            final int bytesPerLong = 8;
             try (final InputStream inputStream = new BufferedInputStream(new FileInputStream(file), 8000)) {
                 final MutableByteArray buffer = new MutableByteArray(BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT);
 
                 long blockHeight = 0L;
                 while (true) {
-                    int byteCount = inputStream.readNBytes(buffer.unwrap(), 0, buffer.getByteCount());
-                    if (byteCount < BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT) { break; }
-                    final BlockHeader blockHeader = blockHeaderInflater.fromBytes(buffer);
-                    if (blockHeader == null) { break; }
+                    final BlockHeader blockHeader;
+                    {
+                        final int byteCount = inputStream.readNBytes(buffer.unwrap(), 0, buffer.getByteCount());
+                        if (byteCount < BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT) { break; }
+                        blockHeader = blockHeaderInflater.fromBytes(buffer);
+                        if (blockHeader == null) { break; }
+                    }
 
-                    byteCount = inputStream.readNBytes(buffer.unwrap(), 0, medianBlockTimeByteCount);
-                    if (byteCount != medianBlockTimeByteCount) { break; }
-                    final Long value = ByteUtil.bytesToLong(buffer.getBytes(0, medianBlockTimeByteCount));
-                    final MedianBlockTime medianBlockTime = MedianBlockTime.fromSeconds(value);
+                    final MedianBlockTime medianBlockTime;
+                    {
+                        final int byteCount = inputStream.readNBytes(buffer.unwrap(), 0, bytesPerLong);
+                        if (byteCount != bytesPerLong) { break; }
+                        final Long value = ByteUtil.bytesToLong(buffer.getBytes(0, bytesPerLong));
+                        medianBlockTime = MedianBlockTime.fromSeconds(value);
+                    }
 
                     final Difficulty difficulty = blockHeader.getDifficulty();
                     final ChainWork chainWork = ChainWork.add(currentChainWork, difficulty.calculateWork());
@@ -109,12 +135,17 @@ public class Blockchain {
         }
 
         if (_blockHeaders.isEmpty()) {
-            final BlockHeader blockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray(BitcoinConstants.getGenesisBlockHeader()));
+            final BlockInflater blockInflater = new BlockInflater();
+            final ByteArray genesisBlockBytes = MutableByteArray.wrap(HexUtil.hexStringToByteArray(BitcoinConstants.getGenesisBlock()));
+            final BlockHeader blockHeader = blockHeaderInflater.fromBytes(genesisBlockBytes);
+            final Block block = blockInflater.fromBytes(genesisBlockBytes);
             final MedianBlockTime medianBlockTime = MedianBlockTime.fromSeconds(blockHeader.getTimestamp());
             final Difficulty difficulty = blockHeader.getDifficulty();
             final ChainWork chainWork = ChainWork.add(new MutableChainWork(), difficulty.calculateWork());
 
             _addBlockHeader(blockHeader, 0L, medianBlockTime, chainWork);
+            _addBlock(block, 0L);
+
             Logger.debug("Added Genesis: " + blockHeader.getHash());
         }
     }
@@ -210,15 +241,35 @@ public class Blockchain {
         return true;
     }
 
-    public Long getHeadBlockHeight() {
+    public Boolean addBlock(final Block block) {
+        final Sha256Hash blockHash = block.getHash();
+        final Long blockHeight = _blockHeights.get(blockHash);
+        if (blockHeight == null) { return false; }
+
+        _addBlock(block, blockHeight);
+        return true;
+    }
+
+    public Long getHeadBlockHeaderHeight() {
         return (_blockHeaders.getCount() - 1L);
     }
 
-    public Sha256Hash getHeadBlockHash() {
+    public Long getHeadBlockHeight() {
+        return (_headBlockHeight < 0L ? null : _headBlockHeight);
+    }
+
+    public Sha256Hash getHeadBlockHeaderHash() {
         if (_blockHeaders.isEmpty()) { return BlockHeader.GENESIS_BLOCK_HASH; }
 
-        final int blockHeight = _blockHeights.getCount();
-        final BlockHeader blockHeader = _blockHeaders.get(blockHeight - 1);
+        final int blockHeaderCount = _blockHeights.getCount();
+        final BlockHeader blockHeader = _blockHeaders.get(blockHeaderCount - 1);
+        return blockHeader.getHash();
+    }
+
+    public Sha256Hash getHeadBlockHash() {
+        if (_headBlockHeight < 0L) { return null; }
+        final int blockIndex = _headBlockHeight.intValue();
+        final BlockHeader blockHeader = _blockHeaders.get(blockIndex);
         return blockHeader.getHash();
     }
 
@@ -228,5 +279,9 @@ public class Blockchain {
 
     public void setAsertReferenceBlock(final AsertReferenceBlock asertReferenceBlock) {
         _asertReferenceBlock = asertReferenceBlock;
+    }
+
+    public UnspentTransactionOutputDatabaseManager getUnspentTransactionOutputDatabaseManager() {
+        return _unspentTransactionOutputDatabaseManager;
     }
 }

@@ -94,6 +94,7 @@ import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class BitcoinNode extends Node {
@@ -309,6 +310,8 @@ public class BitcoinNode extends Node {
 
     protected Long _blockHeight;
 
+    protected AtomicBoolean _isConnected = new AtomicBoolean(false);
+
     protected void _removeCallback(final RequestId requestId) {
         BitcoinNodeUtil.removeValueFromMapSet(_downloadBlockRequests, requestId);
         BitcoinNodeUtil.removeValueFromMapSet(_downloadUtxoCommitmentRequests, requestId);
@@ -446,6 +449,9 @@ public class BitcoinNode extends Node {
 
     @Override
     protected void _disconnect() {
+        final boolean wasConnected = _isConnected.compareAndSet(true, false);
+        if (! wasConnected) { return; }
+
         synchronized (_requestMonitor) {
             final Thread requestMonitorThread = _requestMonitorThread;
             if (requestMonitorThread != null) {
@@ -485,6 +491,9 @@ public class BitcoinNode extends Node {
 
     @Override
     protected void _onConnect() {
+        final boolean wasDisconnected = _isConnected.compareAndSet(false, true);
+        if (! wasDisconnected) { return; }
+
         synchronized (_requestMonitor) {
             final Thread existingRequestMonitorThread = _requestMonitorThread;
             if (existingRequestMonitorThread != null) {

@@ -2,14 +2,10 @@ package com.softwareverde.bitcoin.server.module.node.sync;
 
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.context.core.MutableUnspentTransactionOutputSet;
-import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
-import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.module.node.Blockchain;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.logging.LoggerInstance;
@@ -45,21 +41,20 @@ public class BlockchainBuilderContextPreLoader implements AutoCloseable {
 
     protected final LoggerInstance _log = Logger.getInstance(BlockchainBuilderContextPreLoader.class);
     protected final UpgradeSchedule _upgradeSchedule;
-    protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
+    protected final Blockchain _blockchain;
     protected final Thread _thread;
     protected final AtomicBoolean _threadIsAlive = new AtomicBoolean(false);
 
     protected final SynchronousQueue<BlockHeightTuple> _pendingWork = new SynchronousQueue<>();
     protected final Container<PreLoadedUnspentTransactionOutputSet> _completedWork = new Container<>();
 
-    public BlockchainBuilderContextPreLoader(final FullNodeDatabaseManagerFactory databaseManagerFactory, final UpgradeSchedule upgradeSchedule) {
+    public BlockchainBuilderContextPreLoader(final UpgradeSchedule upgradeSchedule, final Blockchain blockchain) {
         _upgradeSchedule = upgradeSchedule;
-        _databaseManagerFactory = databaseManagerFactory;
+        _blockchain = blockchain;
         _thread = new Thread(new Runnable() {
             @Override
             public void run() {
                 _threadIsAlive.set(true);
-
                 try {
                     while (! _thread.isInterrupted()) {
                         final BlockHeightTuple workToDo = _pendingWork.take();
@@ -68,18 +63,15 @@ public class BlockchainBuilderContextPreLoader implements AutoCloseable {
                         final Block block = workToDo.block;
                         final Long blockHeight = workToDo.blockHeight;
                         final PreLoadedUnspentTransactionOutputSet unspentTransactionOutputContext = new PreLoadedUnspentTransactionOutputSet(block, blockHeight);
-                        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                        {
                             final NanoTimer nanoTimer = new NanoTimer();
                             nanoTimer.start();
 
                             { // Load the Block's MedianBlockTime. TODO: remove after CashToken (20230515) activation.
-                                final Sha256Hash blockHash = block.getHash();
-                                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-                                final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
-                                unspentTransactionOutputContext.medianBlockTime = blockHeaderDatabaseManager.getMedianBlockTime(blockId);
+                                unspentTransactionOutputContext.medianBlockTime = _blockchain.getMedianBlockTime(blockHeight);
                             }
 
-                            unspentTransactionOutputContext.isFullyLoaded = unspentTransactionOutputContext.quicklyLoadOutputsForBlock(databaseManager, block, blockHeight, _upgradeSchedule);
+                            unspentTransactionOutputContext.isFullyLoaded = unspentTransactionOutputContext.quicklyLoadOutputsForBlock(_blockchain, block, blockHeight, _upgradeSchedule);
 
                             nanoTimer.stop();
                             if (_log.isDebugEnabled()) {
@@ -93,10 +85,6 @@ public class BlockchainBuilderContextPreLoader implements AutoCloseable {
                                 }
                                 _completedWork.value = unspentTransactionOutputContext;
                             }
-                        }
-                        catch (final DatabaseException exception) {
-                            Logger.debug(exception);
-                            return;
                         }
                     }
                 }
@@ -115,12 +103,16 @@ public class BlockchainBuilderContextPreLoader implements AutoCloseable {
         _thread.start();
     }
 
+    public UnspentTransactionOutputContext getContext(final Block previousBlock, final Block block) throws InterruptedException {
+        return this.getContext(previousBlock, block, null, null);
+    }
+
     public UnspentTransactionOutputContext getContext(final Block previousBlock, final Block block, final Block nextBlock, final Long nextBlockHeight) throws InterruptedException {
         if (! _threadIsAlive.get()) { return null; }
 
-        // queue the next job if it was provided
-        if (nextBlock != null) {
-            final BlockHeightTuple pendingWork = new BlockHeightTuple(nextBlock, nextBlockHeight);
+        {
+            final Long blockHeight = _blockchain.getBlockHeight(block.getHash());
+            final BlockHeightTuple pendingWork = new BlockHeightTuple(block, blockHeight);
             _pendingWork.put(pendingWork); // blocks until the previous job has completed (if it existed)
         }
 
@@ -130,6 +122,11 @@ public class BlockchainBuilderContextPreLoader implements AutoCloseable {
             completedWork = _completedWork.value;
             _completedWork.value = null;
             _completedWork.notifyAll();
+        }
+
+        if (nextBlock != null) {
+            final BlockHeightTuple pendingWork = new BlockHeightTuple(nextBlock, nextBlockHeight);
+            _pendingWork.put(pendingWork); // blocks until the previous job has completed (if it existed)
         }
 
         // if internal thread died/was not running, return null
@@ -151,10 +148,10 @@ public class BlockchainBuilderContextPreLoader implements AutoCloseable {
             Logger.debug("Updated preloaded block " + completedWork.blockHeight + " in " + nanoTimer.getMillisecondsElapsed() + "ms.");
 
             if (! completedWork.isFullyLoaded) {
-                try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                try {
                     nanoTimer.start();
 
-                    completedWork.isFullyLoaded = completedWork.finishLoadingOutputsForBlock(databaseManager, completedWork.block, completedWork.blockHeight, _upgradeSchedule);
+                    completedWork.isFullyLoaded = completedWork.finishLoadingOutputsForBlock(_blockchain, completedWork.block, completedWork.blockHeight, _upgradeSchedule);
 
                     nanoTimer.stop();
                     Logger.debug("Finished 2nd pass of preloading block " + completedWork.blockHeight + " in " + nanoTimer.getMillisecondsElapsed() + "ms.");

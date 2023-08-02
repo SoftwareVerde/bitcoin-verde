@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.store;
 
 import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.inflater.BlockHeaderInflaters;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
@@ -42,8 +41,8 @@ public class PendingBlockStoreCore extends BlockStoreCore implements PendingBloc
         file.delete();
     }
 
-    public PendingBlockStoreCore(final String dataDirectory, final BlockHeaderInflaters blockHeaderInflaters, final BlockInflaters blockInflaters, final Boolean useCompression) {
-        super(dataDirectory, blockHeaderInflaters, blockInflaters, useCompression);
+    public PendingBlockStoreCore(final File dataDirectory, final BlockHeaderInflaters blockHeaderInflaters, final BlockInflaters blockInflaters, final Boolean useCompression) {
+        super(dataDirectory, useCompression, blockHeaderInflaters, blockInflaters);
         _pendingBlockDataDirectory = (dataDirectory != null ? (dataDirectory + "/" + BitcoinProperties.DATA_DIRECTORY_NAME + "/pending-blocks") : null);
     }
 
@@ -70,8 +69,7 @@ public class PendingBlockStoreCore extends BlockStoreCore implements PendingBloc
             }
         }
 
-        final BlockDeflater blockDeflater = _blockInflaters.getBlockDeflater();
-        final ByteArray byteArray = blockDeflater.toBytes(block);
+        final ByteArray byteArray = _blockDeflater.toBytes(block);
 
         return IoUtil.putFileContents(blockPath, byteArray);
     }

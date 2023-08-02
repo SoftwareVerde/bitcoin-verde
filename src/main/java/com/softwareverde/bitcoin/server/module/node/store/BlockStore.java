@@ -6,6 +6,8 @@ import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
+import java.io.File;
+
 public interface BlockStore {
     Boolean storeBlock(Block block, Long blockHeight);
     void removeBlock(Sha256Hash blockHash, Long blockHeight);
@@ -13,6 +15,6 @@ public interface BlockStore {
     MutableBlock getBlock(Sha256Hash blockHash, Long blockHeight);
     Boolean blockExists(Sha256Hash blockHash, Long blockHeight);
     ByteArray readFromBlock(Sha256Hash blockHash, Long blockHeight, Long diskOffset, Integer byteCount);
-    String getDataDirectory();
-    String getBlockDataDirectory();
+    File getDataDirectory();
+    File getBlockDataDirectory();
 }

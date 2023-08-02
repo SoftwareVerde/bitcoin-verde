@@ -3,7 +3,9 @@ package com.softwareverde.bitcoin.transaction.validator;
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.validator.ValidationResult;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
+import com.softwareverde.bitcoin.server.module.node.Blockchain;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -32,7 +34,10 @@ import com.softwareverde.util.Util;
 import java.util.HashSet;
 
 public class TransactionValidatorCore implements TransactionValidator {
-    protected final Context _context;
+    protected final UpgradeSchedule _upgradeSchedule;
+    protected final Blockchain _blockchain;
+    protected final NetworkTime _networkTime;
+    protected final UnspentTransactionOutputContext _unspentTransactionOutputContext;
     protected final BlockOutputs _blockOutputs;
 
     protected Long _getCoinbaseMaturity() {
@@ -64,7 +69,6 @@ public class TransactionValidatorCore implements TransactionValidator {
         final Integer transactionInputIndex = transactionContext.getTransactionInputIndex();
 
         final MedianBlockTime medianBlockTime = transactionContext.getMedianBlockTime();
-        final NetworkTime networkTime = _context.getNetworkTime();
 
         final Json json = new Json(false);
         json.put("errorMessage", errorMessage);
@@ -78,7 +82,7 @@ public class TransactionValidatorCore implements TransactionValidator {
         json.put("lockingScriptBytes", legacyLockingScriptBytes);
         json.put("unlockingScriptBytes", (unlockingScript != null ? unlockingScript.getBytes() : null));
         json.put("medianBlockTime", (medianBlockTime != null ? medianBlockTime.getCurrentTimeInSeconds() : null));
-        json.put("networkTime", (networkTime != null ? networkTime.getCurrentTimeInSeconds() : null));
+        json.put("networkTime", (_networkTime != null ? _networkTime.getCurrentTimeInSeconds() : null));
         json.put("previousOutputs", previousOutputs);
 
         return json;
@@ -114,8 +118,7 @@ public class TransactionValidatorCore implements TransactionValidator {
                     currentNetworkTime = medianBlockTime.getCurrentTimeInSeconds();
                 }
                 else {
-                    final NetworkTime networkTime = _context.getNetworkTime();
-                    currentNetworkTime = networkTime.getCurrentTimeInSeconds();
+                    currentNetworkTime = _networkTime.getCurrentTimeInSeconds();
                 }
             }
 
@@ -127,7 +130,7 @@ public class TransactionValidatorCore implements TransactionValidator {
 
     protected TransactionOutput _getUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
         {
-            final TransactionOutput transactionOutput = _context.getTransactionOutput(transactionOutputIdentifier);
+            final TransactionOutput transactionOutput = _unspentTransactionOutputContext.getTransactionOutput(transactionOutputIdentifier);
             if (transactionOutput != null) { return transactionOutput; }
         }
 
@@ -140,7 +143,7 @@ public class TransactionValidatorCore implements TransactionValidator {
     }
 
     protected Boolean _isTransactionOutputPreActivationCashToken(final TransactionOutputIdentifier transactionOutputIdentifier, final MedianBlockTime medianBlockTime, final UpgradeSchedule upgradeSchedule) {
-        final Boolean isPatfo = _context.isPreActivationTokenForgery(transactionOutputIdentifier);
+        final Boolean isPatfo = _unspentTransactionOutputContext.isPreActivationTokenForgery(transactionOutputIdentifier);
         if (isPatfo == null) {
             // UTXO must be from this block.
             return (! upgradeSchedule.areCashTokensEnabled(medianBlockTime));
@@ -155,7 +158,7 @@ public class TransactionValidatorCore implements TransactionValidator {
      */
     protected Long _getTransactionOutputBlockHeight(final TransactionOutputIdentifier transactionOutputIdentifier, final Long blockHeight) {
         {
-            final Long transactionOutputBlockHeight = _context.getBlockHeight(transactionOutputIdentifier);
+            final Long transactionOutputBlockHeight = _unspentTransactionOutputContext.getBlockHeight(transactionOutputIdentifier);
             if (transactionOutputBlockHeight != null) { return transactionOutputBlockHeight; }
         }
 
@@ -174,15 +177,15 @@ public class TransactionValidatorCore implements TransactionValidator {
      */
     protected MedianBlockTime _getTransactionOutputMedianBlockTime(final TransactionOutputIdentifier transactionOutputIdentifier, final Long blockHeight) {
         {
-            final Long transactionOutputBlockHeight = _context.getBlockHeight(transactionOutputIdentifier);
-            final MedianBlockTime transactionOutputMedianBlockTime = _context.getMedianBlockTime(transactionOutputBlockHeight - 1L);
+            final Long transactionOutputBlockHeight = _unspentTransactionOutputContext.getBlockHeight(transactionOutputIdentifier);
+            final MedianBlockTime transactionOutputMedianBlockTime = _blockchain.getMedianBlockTime(transactionOutputBlockHeight - 1L);
             if (transactionOutputMedianBlockTime != null) { return transactionOutputMedianBlockTime; }
         }
 
         if (_blockOutputs != null) {
             final TransactionOutput transactionOutput = _blockOutputs.getTransactionOutput(transactionOutputIdentifier);
             if (transactionOutput != null) {
-                return _context.getMedianBlockTime(blockHeight - 1L);
+                return _blockchain.getMedianBlockTime(blockHeight - 1L);
             }
         }
 
@@ -191,7 +194,7 @@ public class TransactionValidatorCore implements TransactionValidator {
 
     protected Boolean _isTransactionOutputCoinbase(final TransactionOutputIdentifier transactionOutputIdentifier) {
         {
-            final Boolean transactionOutputIsCoinbase = _context.isCoinbaseTransactionOutput(transactionOutputIdentifier);
+            final Boolean transactionOutputIsCoinbase = _unspentTransactionOutputContext.isCoinbaseTransactionOutput(transactionOutputIdentifier);
             if (transactionOutputIsCoinbase != null) { return transactionOutputIsCoinbase; }
         }
 
@@ -214,7 +217,7 @@ public class TransactionValidatorCore implements TransactionValidator {
                 final Long requiredSecondsElapsed = sequenceNumber.asSecondsElapsed();
 
                 final Long previousBlockHeight = (blockHeight - 1L);
-                final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(previousBlockHeight);
+                final MedianBlockTime medianBlockTime = _blockchain.getMedianBlockTime(previousBlockHeight);
                 final long secondsElapsed;
                 {
                     final MedianBlockTime medianBlockTimeOfOutputBeingSpent = _getTransactionOutputMedianBlockTime(previousTransactionOutputIdentifier, blockHeight);
@@ -250,26 +253,28 @@ public class TransactionValidatorCore implements TransactionValidator {
         return new ScriptRunner(upgradeSchedule);
     }
 
-    public TransactionValidatorCore(final Context context) {
-        this(null, context);
+    public TransactionValidatorCore(final UpgradeSchedule upgradeSchedule, final Blockchain blockchain, final NetworkTime networkTime, final UnspentTransactionOutputContext unspentTransactionOutputContext) {
+        this(upgradeSchedule, blockchain, networkTime, unspentTransactionOutputContext, null);
     }
 
-    public TransactionValidatorCore(final BlockOutputs blockOutputs, final Context context) {
-        _context = context;
+    public TransactionValidatorCore(final UpgradeSchedule upgradeSchedule, final Blockchain blockchain, final NetworkTime networkTime, final UnspentTransactionOutputContext unspentTransactionOutputContext, final BlockOutputs blockOutputs) {
+        _upgradeSchedule = upgradeSchedule;
+        _blockchain = blockchain;
+        _networkTime = networkTime;
+        _unspentTransactionOutputContext = unspentTransactionOutputContext;
         _blockOutputs = blockOutputs;
     }
 
     @Override
     public TransactionValidationResult validateTransaction(final Long blockHeight, final Transaction transaction) {
-        final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
         final Sha256Hash transactionHash = transaction.getHash();
 
-        final ScriptRunner scriptRunner = _getScriptRunner(upgradeSchedule);
+        final ScriptRunner scriptRunner = _getScriptRunner(_upgradeSchedule);
 
         final Long previousBlockHeight = (blockHeight - 1L);
-        final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(previousBlockHeight);
+        final MedianBlockTime medianBlockTime = _blockchain.getMedianBlockTime(previousBlockHeight);
 
-        final MutableTransactionContext transactionContext = new MutableTransactionContext(upgradeSchedule);
+        final MutableTransactionContext transactionContext = new MutableTransactionContext(_upgradeSchedule);
         transactionContext.setBlockHeight(blockHeight);
         transactionContext.setMedianBlockTime(medianBlockTime);
 
@@ -288,8 +293,8 @@ public class TransactionValidatorCore implements TransactionValidator {
                 }
 
                 if (transactionOutput.hasCashToken()) {
-                    if (upgradeSchedule.areCashTokensEnabled(medianBlockTime)) {
-                        if (_isTransactionOutputPreActivationCashToken(transactionOutputIdentifier, medianBlockTime, upgradeSchedule)) {
+                    if (_upgradeSchedule.areCashTokensEnabled(medianBlockTime)) {
+                        if (_isTransactionOutputPreActivationCashToken(transactionOutputIdentifier, medianBlockTime, _upgradeSchedule)) {
                             final Json errorJson = _createInvalidTransactionReport("Attempted to spend PATFO CashToken.", transaction, transactionContext);
                             return TransactionValidationResult.invalid(errorJson);
                         }
@@ -306,7 +311,7 @@ public class TransactionValidatorCore implements TransactionValidator {
         }
 
         { // Enforce Transaction minimum byte count...
-            if (upgradeSchedule.areTransactionsLessThanSixtyFiveBytesDisallowed(medianBlockTime)) {
+            if (_upgradeSchedule.areTransactionsLessThanSixtyFiveBytesDisallowed(medianBlockTime)) {
                 final Integer transactionByteCount = transaction.getByteCount();
                 final int minByteCount = BitcoinConstants.getTransactionMinByteCount();
                 if (transactionByteCount < minByteCount) {
@@ -314,7 +319,7 @@ public class TransactionValidatorCore implements TransactionValidator {
                     return TransactionValidationResult.invalid(errorJson);
                 }
             }
-            else if (upgradeSchedule.areTransactionsLessThanOneHundredBytesDisallowed(blockHeight)) { // NOTE: This check becomes disabled once HF20230515 activates, thus ELSEIF and not IF. // TODO: Remove after HF20230515.
+            else if (_upgradeSchedule.areTransactionsLessThanOneHundredBytesDisallowed(blockHeight)) { // NOTE: This check becomes disabled once HF20230515 activates, thus ELSEIF and not IF. // TODO: Remove after HF20230515.
                 final Integer transactionByteCount = transaction.getByteCount();
                 final int minByteCount = 100;
                 if (transactionByteCount < minByteCount) {
@@ -325,7 +330,7 @@ public class TransactionValidatorCore implements TransactionValidator {
         }
 
         { // Enforce Transaction versions...
-            if (upgradeSchedule.areTransactionVersionsRestricted(medianBlockTime)) {
+            if (_upgradeSchedule.areTransactionVersionsRestricted(medianBlockTime)) {
                 final Long transactionVersion = transaction.getVersion();
                 if (transactionVersion != 1L && transactionVersion != 2L) {
                     final Json errorJson = _createInvalidTransactionReport("Invalid transaction version. v" + transactionVersion + " " + transactionHash, transaction, transactionContext);
@@ -345,7 +350,7 @@ public class TransactionValidatorCore implements TransactionValidator {
             }
         }
 
-        if (upgradeSchedule.isRelativeLockTimeEnabled(blockHeight)) { // Validate Relative SequenceNumber
+        if (_upgradeSchedule.isRelativeLockTimeEnabled(blockHeight)) { // Validate Relative SequenceNumber
             if (transaction.getVersion() >= 2L) {
                 final ValidationResult sequenceNumbersValidationResult = _validateSequenceNumbers(transaction, blockHeight);
                 if (! sequenceNumbersValidationResult.isValid) {
@@ -449,7 +454,7 @@ public class TransactionValidatorCore implements TransactionValidator {
         }
 
         final Integer transactionSignatureOperationCount = transactionContext.getSignatureOperationCount();
-        if (upgradeSchedule.isSignatureOperationCountingVersionTwoEnabled(medianBlockTime)) { // Enforce maximum Signature operations per Transaction...
+        if (_upgradeSchedule.isSignatureOperationCountingVersionTwoEnabled(medianBlockTime)) { // Enforce maximum Signature operations per Transaction...
             final Integer maximumSignatureOperationCount = _getMaximumSignatureOperations();
             if (transactionSignatureOperationCount > maximumSignatureOperationCount) {
                 final Json errorJson = _createInvalidTransactionReport("Transaction exceeds maximum signature operation count.", transaction, transactionContext);
