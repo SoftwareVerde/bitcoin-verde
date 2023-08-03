@@ -662,6 +662,11 @@ public class BitcoinNode extends Node {
             @Override
             public void run() {
                 _disconnect();
+
+                final NodeConnectedCallback nodeConnectedCallback = _nodeConnectedCallback;
+                if (nodeConnectedCallback != null) {
+                    nodeConnectedCallback.onFailure();
+                }
             }
         });
 

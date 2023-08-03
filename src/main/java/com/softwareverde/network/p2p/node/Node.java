@@ -24,7 +24,10 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public abstract class Node {
     public interface NodeAddressesReceivedCallback { void onNewNodeAddresses(List<NodeIpAddress> nodeIpAddress); }
-    public interface NodeConnectedCallback { void onNodeConnected();}
+    public interface NodeConnectedCallback {
+        void onNodeConnected();
+        default void onFailure() { }
+    }
     public interface HandshakeCompleteCallback { void onHandshakeComplete(); }
     public interface DisconnectedCallback { void onNodeDisconnected(); }
     public interface PingCallback { void onResult(Long latency); }

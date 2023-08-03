@@ -246,6 +246,14 @@ public class Blockchain {
         final Long blockHeight = _blockHeights.get(blockHash);
         if (blockHeight == null) { return false; }
 
+        final BlockHeader headBlockHeader = _getBlockHeader(_headBlockHeight);
+        if (headBlockHeader != null) {
+            final Sha256Hash headBlockHash = headBlockHeader.getHash();
+            if (! Util.areEqual(headBlockHash, block.getPreviousBlockHash())) {
+                return false;
+            }
+        }
+
         _addBlock(block, blockHeight);
         return true;
     }
