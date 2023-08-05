@@ -6,6 +6,7 @@ import com.softwareverde.logging.Logger;
 import com.softwareverde.network.socket.JsonProtocolMessage;
 import com.softwareverde.network.socket.JsonSocket;
 
+import java.net.InetSocketAddress;
 import java.net.Socket;
 
 public class ProxyViaBtcMessageReceivedCallback implements Runnable {
@@ -20,7 +21,11 @@ public class ProxyViaBtcMessageReceivedCallback implements Runnable {
     @Override
     public void run() {
         try {
-            final JsonSocket viaBtcSocket = new JsonSocket(new Socket("bch.viabtc.com", 3333), _threadPool);
+            final Socket socket = new Socket();
+            socket.connect(new InetSocketAddress("bch.viabtc.com", 3333), 3000);
+            if (! socket.isConnected()) { throw new RuntimeException("Unable to connect."); }
+
+            final JsonSocket viaBtcSocket = new JsonSocket(socket, _threadPool);
 
             viaBtcSocket.setMessageReceivedCallback(new Runnable() {
                 @Override

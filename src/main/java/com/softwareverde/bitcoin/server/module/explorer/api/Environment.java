@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.server.module.stratum.rpc.StratumJsonRpcConnect
 import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.logging.Logger;
 
+import java.net.InetSocketAddress;
 import java.net.Socket;
 
 public class Environment implements com.softwareverde.http.server.servlet.routed.Environment {
@@ -30,7 +31,8 @@ public class Environment implements com.softwareverde.http.server.servlet.routed
         final Integer bitcoinRpcPort = _explorerProperties.getBitcoinRpcPort();
 
         try {
-            final Socket socket = new Socket(bitcoinRpcUrl, bitcoinRpcPort);
+            final Socket socket = new Socket();
+            socket.connect(new InetSocketAddress(bitcoinRpcUrl, bitcoinRpcPort), 3000);
             if (socket.isConnected()) {
                 return new NodeJsonRpcConnection(socket, _threadPool);
             }
@@ -47,7 +49,8 @@ public class Environment implements com.softwareverde.http.server.servlet.routed
         final Integer stratumRpcPort = _explorerProperties.getStratumRpcPort();
 
         try {
-            final Socket socket = new Socket(stratumRpcUrl, stratumRpcPort);
+            final Socket socket = new Socket();
+            socket.connect(new InetSocketAddress(stratumRpcUrl, stratumRpcPort), 3000);
             if (socket.isConnected()) {
                 return new StratumJsonRpcConnection(socket, _threadPool);
             }

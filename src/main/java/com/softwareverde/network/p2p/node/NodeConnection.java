@@ -9,6 +9,7 @@ import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.util.Util;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -55,7 +56,8 @@ public class NodeConnection {
 
                 try {
                     attemptCount += 1;
-                    socket = new Socket(_host, _port);
+                    socket = new Socket();
+                    socket.connect(new InetSocketAddress(_host, _port), 3000);
                     if (socket.isConnected()) { break; }
                 }
                 catch (final UnknownHostException exception) {

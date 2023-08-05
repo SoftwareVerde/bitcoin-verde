@@ -39,7 +39,6 @@ public class Blockchain {
     protected final MutableList<BlockHeader> _blockHeaders = new MutableArrayList<>();
     protected final MutableList<MedianBlockTime> _medianBlockTimes = new MutableArrayList<>();
     protected final MutableList<ChainWork> _chainWorks = new MutableArrayList<>();
-    protected final MutableHashMap<Sha256Hash, BlockHeader> _orphanedHeaders = new MutableHashMap<>();
     protected final BlockStore _blockStore;
     protected final UnspentTransactionOutputDatabaseManager _unspentTransactionOutputDatabaseManager;
     protected AsertReferenceBlock _asertReferenceBlock = null;
@@ -104,6 +103,11 @@ public class Blockchain {
             final MutableChainWork currentChainWork = new MutableChainWork();
             final int bytesPerInteger = 4;
             final int bytesPerLong = 8;
+
+            final long totalFileSize = file.length();
+            long totalBytesRead = 0L;
+            int progressReportCount = 0;
+
             try (final InputStream inputStream = new BufferedInputStream(new FileInputStream(file), 8000)) {
                 final MutableByteArray buffer = new MutableByteArray(BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT);
 
@@ -113,6 +117,7 @@ public class Blockchain {
                     {
                         final int byteCount = inputStream.readNBytes(buffer.unwrap(), 0, buffer.getByteCount());
                         if (byteCount < BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT) { break; }
+                        totalBytesRead += byteCount;
                         blockHeader = blockHeaderInflater.fromBytes(buffer);
                         if (blockHeader == null) { break; }
                     }
@@ -121,6 +126,7 @@ public class Blockchain {
                     {
                         final int byteCount = inputStream.readNBytes(buffer.unwrap(), 0, bytesPerLong);
                         if (byteCount != bytesPerLong) { break; }
+                        totalBytesRead += byteCount;
                         final Long value = ByteUtil.bytesToLong(buffer.getBytes(0, bytesPerLong));
                         medianBlockTime = MedianBlockTime.fromSeconds(value);
                     }
@@ -130,6 +136,12 @@ public class Blockchain {
 
                     _addBlockHeader(blockHeader, blockHeight, medianBlockTime, chainWork);
                     blockHeight += 1L;
+
+                    final long readPercent = (totalBytesRead * 100L) / totalFileSize;
+                    if (readPercent >= 10L * (progressReportCount + 1L)) {
+                        progressReportCount += 1;
+                        Logger.debug("Loading Blockchain: " + readPercent + "%");
+                    }
                 }
             }
         }
@@ -225,10 +237,7 @@ public class Blockchain {
         else {
             final BlockHeader headBlockHeader = _blockHeaders.get((int) (blockHeight - 1L));
             final Sha256Hash headBlockHeaderHash = headBlockHeader.getHash();
-            if (! Util.areEqual(headBlockHeaderHash, previousBlockHash)) {
-                _orphanedHeaders.put(blockHash, blockHeader);
-                return false;
-            }
+            if (! Util.areEqual(headBlockHeaderHash, previousBlockHash)) { return false; }
         }
 
         final MedianBlockTime medianBlockTime = _calculateMedianBlockTime(blockHeader, blockHeight);
@@ -256,6 +265,26 @@ public class Blockchain {
 
         _addBlock(block, blockHeight);
         return true;
+    }
+
+    public void undoHeadBlockHeader() {
+        if (_blockHeaders.isEmpty()) { return; }
+
+        final int blockHeaderCount = _blockHeaders.getCount();
+        final int index = blockHeaderCount - 1;
+        final Long blockHeight = (long) index;
+        final BlockHeader headBlock = _blockHeaders.get(index);
+        final Sha256Hash blockHash = headBlock.getHash();
+
+        _blockHeaders.remove(index);
+        _medianBlockTimes.remove(index);
+        _chainWorks.remove(index);
+        _blockHeights.remove(blockHash);
+
+        if (_blockStore.blockExists(blockHash, blockHeight)) {
+            _blockStore.removeBlock(blockHash, blockHeight);
+            _headBlockHeight -= 1;
+        }
     }
 
     public Long getHeadBlockHeaderHeight() {

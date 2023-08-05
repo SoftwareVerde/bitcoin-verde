@@ -45,6 +45,7 @@ import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.network.time.VolatileNetworkTime;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.timer.NanoTimer;
 
 import java.io.File;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -148,35 +149,66 @@ public class NodeModule {
         final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(_upgradeSchedule, _blockchain, _networkTime, _difficultyCalculator);
         final BlockValidator blockValidator = new BlockValidator(_upgradeSchedule, _blockchain, _networkTime, blockHeaderValidator);
 
+        final Object mutex = new Object();
+        final NanoTimer downloadTimer = new NanoTimer();
         final BitcoinNode.DownloadBlockCallback downloadBlockCallback = new BitcoinNode.DownloadBlockCallback() {
             @Override
-            public synchronized void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final Block block) {
+            public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final Block block) {
                 if (_isShuttingDown.get()) { return; }
+                downloadTimer.stop();
 
                 final Sha256Hash blockHash = block.getHash();
                 final Long blockHeight = _blockchain.getBlockHeight(blockHash);
 
-                final BlockHeader nextBlock = _blockchain.getBlockHeader(blockHeight + 1L);
-                if (nextBlock != null) {
-                    final Sha256Hash nextBlockHash = nextBlock.getHash();
-                    bitcoinNode.requestBlock(nextBlockHash, this, RequestPriority.NORMAL);
-                }
+                Logger.debug("Downloaded " + blockHash + " in " + downloadTimer.getMillisecondsElapsed() + "ms.");
 
-                try {
-                    final UnspentTransactionOutputContext unspentTransactionOutputContext = _getUnspentTransactionOutputContext(block);
-                    final BlockValidationResult result = blockValidator.validateBlock(block, unspentTransactionOutputContext);
-                    if (! result.isValid) {
-                        Logger.info(result.errorMessage + " " + block.getHash());
-                        bitcoinNode.disconnect();
-                        return;
+                synchronized (mutex) {
+                    Logger.debug("Processing: " + blockHash);
+                    final NanoTimer utxoTimer = new NanoTimer();
+                    final NanoTimer validationTimer = new NanoTimer();
+                    final NanoTimer addBlockTimer = new NanoTimer();
+                    final NanoTimer applyBlockTimer = new NanoTimer();
+
+                    final BlockHeader nextBlock = _blockchain.getBlockHeader(blockHeight + 1L);
+                    if (nextBlock != null) {
+                        downloadTimer.start();
+                        final Sha256Hash nextBlockHash = nextBlock.getHash();
+                        Logger.debug("Requested: " + nextBlockHash + " from " + bitcoinNode);
+                        bitcoinNode.requestBlock(nextBlockHash, this, RequestPriority.NORMAL);
                     }
 
-                    Logger.info("Valid: " + blockHeight + " " + blockHash);
-                    _blockchain.addBlock(block);
-                    _unspentTransactionOutputDatabaseManager.applyBlock(block, blockHeight);
-                }
-                catch (final Exception exception) {
-                    Logger.debug(exception);
+                    try {
+                        utxoTimer.start();
+                        final UnspentTransactionOutputContext unspentTransactionOutputContext = _getUnspentTransactionOutputContext(block);
+                        utxoTimer.stop();
+                        validationTimer.start();
+                        final BlockValidationResult result = blockValidator.validateBlock(block, unspentTransactionOutputContext);
+                        validationTimer.stop();
+                        if (! result.isValid) {
+                            Logger.info(result.errorMessage + " " + block.getHash());
+                            bitcoinNode.disconnect();
+                            return;
+                        }
+
+                        Logger.info("Valid: " + blockHeight + " " + blockHash);
+                        addBlockTimer.start();
+                        _blockchain.addBlock(block);
+                        addBlockTimer.stop();
+                        applyBlockTimer.start();
+                        _unspentTransactionOutputDatabaseManager.applyBlock(block, blockHeight);
+                        applyBlockTimer.stop();
+                        Logger.debug("Finished: " + blockHash);
+                    }
+                    catch (final Exception exception) {
+                        Logger.debug(exception);
+                    }
+
+                    Logger.debug(blockHash + " " +
+                        "utxoTimer=" + utxoTimer.getMillisecondsElapsed() + " " +
+                        "validationTimer=" + validationTimer.getMillisecondsElapsed() + " " +
+                        "addBlockTimer=" + addBlockTimer.getMillisecondsElapsed() + " " +
+                        "applyBlockTimer=" + applyBlockTimer.getMillisecondsElapsed()
+                    );
                 }
             }
 
@@ -190,7 +222,9 @@ public class NodeModule {
         final Long headBlockHeight = _blockchain.getHeadBlockHeight();
         final BlockHeader blockHeader = _blockchain.getBlockHeader(headBlockHeight + 1L);
         if (blockHeader != null) {
+            downloadTimer.start();
             final Sha256Hash blockHash = blockHeader.getHash();
+            Logger.debug("Requested: " + blockHash + " from " + bitcoinNode);
             bitcoinNode.requestBlock(blockHash, downloadBlockCallback, RequestPriority.NORMAL);
         }
     }
@@ -209,7 +243,7 @@ public class NodeModule {
 
                 for (final Ip ip : seedIps) {
                     Logger.info("ip=" + ip);
-                    // if (Util.areEqual(ip.toString(), "")) { continue; }
+                    if (Util.areEqual(ip.toString(), "")) { continue; }
                     if (nodeIpAddresses.getCount() >= numberOfNodesToAttemptConnectionsTo) { break; }
                     final NodeIpAddress nodeIpAddress = new NodeIpAddress(ip, defaultPort);
 
@@ -331,6 +365,7 @@ public class NodeModule {
         try {
             final File blocksDirectory = _blockStore.getBlockDataDirectory();
             final File utxoDbDirectory = new File(blocksDirectory, "utxo");
+            Logger.info("Loading FileDB");
              _unspentTransactionOutputDatabaseManager = new UnspentTransactionOutputFileDbManager(utxoDbDirectory);
         }
         catch (final Exception exception) {
