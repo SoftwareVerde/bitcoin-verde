@@ -175,19 +175,25 @@ public class NodeModule {
                 final NanoTimer applyBlockTimer = new NanoTimer();
 
                 try {
-                    utxoTimer.start();
-                    final UnspentTransactionOutputContext unspentTransactionOutputContext = _getUnspentTransactionOutputContext(block);
-                    utxoTimer.stop();
-                    validationTimer.start();
-                    final BlockValidationResult result = blockValidator.validateBlock(block, unspentTransactionOutputContext);
-                    validationTimer.stop();
-                    if (! result.isValid) {
-                        Logger.info(result.errorMessage + " " + block.getHash());
-                        bitcoinNode.disconnect();
-                        return;
+                    if (blockHeight > _bitcoinProperties.getTrustedBlockHeight()) {
+                        utxoTimer.start();
+                        final UnspentTransactionOutputContext unspentTransactionOutputContext = _getUnspentTransactionOutputContext(block);
+                        utxoTimer.stop();
+                        validationTimer.start();
+                        final BlockValidationResult result = blockValidator.validateBlock(block, unspentTransactionOutputContext);
+                        validationTimer.stop();
+                        if (!result.isValid) {
+                            Logger.info(result.errorMessage + " " + block.getHash());
+                            bitcoinNode.disconnect();
+                            return;
+                        }
+
+                        Logger.info("Valid: " + blockHeight + " " + blockHash);
+                    }
+                    else {
+                        Logger.info("Assumed Valid: " + blockHeight + " " + blockHash);
                     }
 
-                    Logger.info("Valid: " + blockHeight + " " + blockHash);
                     addBlockTimer.start();
                     _blockchain.addBlock(block);
                     addBlockTimer.stop();
@@ -396,8 +402,6 @@ public class NodeModule {
                 catch (final Throwable ignored) { }
             }
         });
-
-        Logger.setLogLevel("com.softwareverde.network.p2p.node", LogLevel.DEBUG);
 
         final File dataDirectory = new File(bitcoinProperties.getDataDirectory());
         _blockchainFile = new File(dataDirectory, "block-headers.dat");
