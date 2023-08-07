@@ -1,6 +1,5 @@
 package com.softwareverde.network.p2p.node;
 
-import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
@@ -19,7 +18,9 @@ public class NodeConnection {
         void onMessageReceived(ProtocolMessage message);
     }
 
-    protected static final Integer MAX_CONNECTION_ATTEMPTS = 10; // Sanity check for connection attempts...
+    protected static final Integer MAX_CONNECTION_ATTEMPTS = 3; // Sanity check for connection attempts...
+    protected static final long CONNECTION_TIMEOUT_MS = 3000L;
+    protected static final long MS_BETWEEN_RETRIES = 1500L;
 
     protected static Boolean _socketIsConnected(final BinarySocket binarySocket) {
         return ( (binarySocket != null) && (binarySocket.isConnected()) );
@@ -57,7 +58,7 @@ public class NodeConnection {
                 try {
                     attemptCount += 1;
                     socket = new Socket();
-                    socket.connect(new InetSocketAddress(_host, _port), 3000);
+                    socket.connect(new InetSocketAddress(_host, _port), (int) CONNECTION_TIMEOUT_MS);
                     if (socket.isConnected()) { break; }
                 }
                 catch (final UnknownHostException exception) {
@@ -67,7 +68,7 @@ public class NodeConnection {
                 catch (final IOException exception) { }
 
                 if ( (socket == null) || (! socket.isConnected()) ) {
-                    final long timeoutMs = 3000L;
+                    final long timeoutMs = MS_BETWEEN_RETRIES;
                     Logger.debug("Connection failed. Retrying in " + timeoutMs + "ms... (" + _toString() + ")");
                     try { Thread.sleep(timeoutMs); } catch (final Exception exception) { break; }
                 }

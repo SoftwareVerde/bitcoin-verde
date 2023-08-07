@@ -65,7 +65,7 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
             nanoTimer.start();
             _fileDb.resizeCapacity(outputCount + spentOutputCount, _falsePositiveRate);
             nanoTimer.stop();
-            Logger.debug("FileDb::resizeCapacity=" + nanoTimer.getMillisecondsElapsed() + "ms.");
+            // Logger.debug("FileDb::resizeCapacity=" + nanoTimer.getMillisecondsElapsed() + "ms.");
 
             nanoTimer.start();
             for (int i = 0; i < outputCount; ++i) {
@@ -78,19 +78,19 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
                 _fileDb.put(transactionOutputIdentifier, unspentTransactionOutput);
             }
             nanoTimer.stop();
-            Logger.debug("FileDb::put=" + nanoTimer.getMillisecondsElapsed() + "ms.");
+            // Logger.debug("FileDb::put=" + nanoTimer.getMillisecondsElapsed() + "ms.");
 
             nanoTimer.start();
             for (final TransactionOutputIdentifier spentTransactionOutputIdentifier : spentTransactionOutputIdentifiers) {
                 _fileDb.putDeleted(spentTransactionOutputIdentifier);
             }
             nanoTimer.stop();
-            Logger.debug("FileDb::putDeleted=" + nanoTimer.getMillisecondsElapsed() + "ms.");
+            // Logger.debug("FileDb::putDeleted=" + nanoTimer.getMillisecondsElapsed() + "ms.");
 
             nanoTimer.start();
             _fileDb.finalizeBucket();
             nanoTimer.stop();
-            Logger.debug("FileDb::finalizeBucket=" + nanoTimer.getMillisecondsElapsed() + "ms.");
+            // Logger.debug("FileDb::finalizeBucket=" + nanoTimer.getMillisecondsElapsed() + "ms.");
         }
         catch (final Exception exception) {
             throw new DatabaseException(exception);

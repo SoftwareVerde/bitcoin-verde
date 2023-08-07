@@ -297,6 +297,8 @@ public class BitcoinNode extends Node {
 
     protected DownloadBlockCallback _unsolicitedBlockReceivedCallback;
 
+    protected Boolean _peersWereRequested = false;
+
     protected Boolean _announceNewBlocksViaHeadersIsEnabled = false;
     protected Integer _compactBlocksVersion;
 
@@ -763,6 +765,16 @@ public class BitcoinNode extends Node {
         for (final BitcoinNodeObserver observer : _observers) {
             observer.onDataRequested(BitcoinNode.this, messageType);
         }
+    }
+
+    @Override
+    protected void _onNodeAddressesReceived(final NodeIpAddressMessage nodeIpAddressMessage) {
+        if (! _peersWereRequested) {
+            Logger.debug(this + " sent unsolicited peers.");
+            return;
+        }
+
+        super._onNodeAddressesReceived(nodeIpAddressMessage);
     }
 
     protected void _onInventoryMessageReceived(final InventoryMessage inventoryMessage) {
@@ -1548,6 +1560,11 @@ public class BitcoinNode extends Node {
 
     public void requestBlockHashesAfter(final Sha256Hash blockHash) {
         _queryForBlockHashesAfter(blockHash);
+    }
+
+    public void requestNodeAddresses() {
+        _peersWereRequested = true;
+        _queueMessage(new RequestPeersMessage());
     }
 
     public RequestId requestBlock(final Sha256Hash blockHash, final DownloadBlockCallback downloadBlockCallback) {
