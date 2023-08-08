@@ -36,7 +36,6 @@ import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.constable.set.mutable.MutableHashSet;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
-import com.softwareverde.logging.LogLevel;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.Node;

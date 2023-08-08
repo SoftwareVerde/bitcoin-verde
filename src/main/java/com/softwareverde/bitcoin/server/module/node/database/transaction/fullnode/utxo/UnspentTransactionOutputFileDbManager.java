@@ -26,7 +26,6 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.filedb.EntryInflater;
 import com.softwareverde.filedb.FileDb;
 import com.softwareverde.filedb.Item;
-import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
@@ -45,6 +44,9 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
         }
 
         _fileDb = new FileDb<>(dataDirectory, new UnspentTransactionOutputEntryInflater());
+        _fileDb.setTargetBucketMemoryByteCount(0L);
+        _fileDb.setTargetFilterMemoryByteCount(4L * ByteUtil.Unit.Binary.GIBIBYTES);
+        _fileDb.load();
     }
 
     @Override

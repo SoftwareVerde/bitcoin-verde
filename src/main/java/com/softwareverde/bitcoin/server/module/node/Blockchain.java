@@ -132,7 +132,9 @@ public class Blockchain {
                     }
 
                     final Difficulty difficulty = blockHeader.getDifficulty();
-                    final ChainWork chainWork = ChainWork.add(currentChainWork, difficulty.calculateWork());
+                    currentChainWork.add(difficulty.calculateWork());
+
+                    final ChainWork chainWork = currentChainWork.asConst();
 
                     _addBlockHeader(blockHeader, blockHeight, medianBlockTime, chainWork);
                     blockHeight += 1L;
