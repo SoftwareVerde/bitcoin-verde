@@ -31,8 +31,6 @@ public interface UnspentTransactionOutputDatabaseManager {
     UnspentTransactionOutput loadUnspentTransactionOutput(TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException;
 
     List<UnspentTransactionOutput> getUnspentTransactionOutputs(List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException;
-    List<UnspentTransactionOutput> getUnspentTransactionOutputs(List<TransactionOutputIdentifier> transactionOutputIdentifiers, Integer maxBucketDepth) throws DatabaseException;
-    // List<UnspentTransactionOutput> loadUnspentTransactionOutputs(List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException;
 
     /**
      * Searches the Committed UTXO set for TransactionOutputIdentifiers belonging to the provided transactionHash.

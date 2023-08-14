@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction.output;
 
+import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.token.CashToken;
@@ -100,6 +101,7 @@ public class TransactionOutputInflater {
 
         final CompactVariableLengthInteger scriptByteCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
         if (! scriptByteCount.isCanonical()) { return null; }
+        if ( (scriptByteCount.intValue() > Script.MAX_BYTE_COUNT) || (scriptByteCount.intValue() < 0)) { return null; }
 
         final Tuple<LockingScript, CashToken> scriptTuple = _fromLegacyScriptBytes(scriptByteCount.intValue(), byteArrayReader);
         if (scriptTuple == null) { return null; }

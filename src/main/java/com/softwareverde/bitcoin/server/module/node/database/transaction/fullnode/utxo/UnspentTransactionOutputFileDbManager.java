@@ -34,19 +34,21 @@ import com.softwareverde.util.timer.NanoTimer;
 
 import java.io.File;
 
-public class UnspentTransactionOutputFileDbManager implements UnspentTransactionOutputDatabaseManager {
+public class UnspentTransactionOutputFileDbManager implements UnspentTransactionOutputDatabaseManager, AutoCloseable {
     protected final Double _falsePositiveRate = 0.000001D;
     protected final FileDb<TransactionOutputIdentifier, UnspentTransactionOutput> _fileDb;
 
-    public UnspentTransactionOutputFileDbManager(final File dataDirectory) throws Exception {
+    public UnspentTransactionOutputFileDbManager(final File dataDirectory, final Long headBlockHeight) throws Exception {
         if (! FileDb.exists(dataDirectory)) {
             FileDb.initialize(dataDirectory);
         }
 
         _fileDb = new FileDb<>(dataDirectory, new UnspentTransactionOutputEntryInflater());
-        _fileDb.setTargetBucketMemoryByteCount(0L);
+        _fileDb.setHeadBucketIndex(headBlockHeight);
+        _fileDb.setTargetBucketMemoryByteCount(4L * ByteUtil.Unit.Binary.GIBIBYTES);
         _fileDb.setTargetFilterMemoryByteCount(4L * ByteUtil.Unit.Binary.GIBIBYTES);
         _fileDb.load();
+        _fileDb.loadIntoMemory();
     }
 
     @Override
@@ -127,17 +129,7 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
     @Override
     public List<UnspentTransactionOutput> getUnspentTransactionOutputs(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException {
         try {
-            return _fileDb.get(transactionOutputIdentifiers);
-        }
-        catch (final Exception exception) {
-            throw new DatabaseException(exception);
-        }
-    }
-
-    @Override
-    public List<UnspentTransactionOutput> getUnspentTransactionOutputs(final List<TransactionOutputIdentifier> transactionOutputIdentifiers, final Integer maxBucketDepth) throws DatabaseException {
-        try {
-            return _fileDb.get(transactionOutputIdentifiers, maxBucketDepth);
+            return _fileDb.get(transactionOutputIdentifiers, false);
         }
         catch (final Exception exception) {
             throw new DatabaseException(exception);
@@ -265,6 +257,11 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
         catch (final Exception exception) {
             throw new DatabaseException(exception);
         }
+    }
+
+    @Override
+    public void close() throws Exception {
+        _fileDb.close();
     }
 }
 

@@ -12,9 +12,10 @@ import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.util.ByteBuffer;
 import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.Util;
 
@@ -60,7 +61,8 @@ public class BlockStoreCore implements BlockStore {
     }
 
     protected ByteArray _readCompressedInternal(final File inputFile) throws ZipException {
-        final ByteBuffer byteBuffer = new ByteBuffer();
+        int byteCount = 0;
+        MutableList<byte[]> bytes = new MutableArrayList<>(0);
 
         try (
             final InputStream inputStream = new FileInputStream(inputFile);
@@ -72,7 +74,8 @@ public class BlockStoreCore implements BlockStore {
                 final int byteCountRead = gzipInputStream.read(buffer);
                 if (byteCountRead < 0) { break; }
 
-                byteBuffer.appendBytes(buffer, byteCountRead);
+                bytes.add(ByteUtil.copyBytes(buffer, 0, byteCountRead));
+                byteCount += byteCountRead;
             }
         }
         catch (final Exception exception) {
@@ -84,7 +87,13 @@ public class BlockStoreCore implements BlockStore {
             return null;
         }
 
-        return byteBuffer;
+        int index = 0;
+        final MutableByteArray byteArray = new MutableByteArray(byteCount);
+        for (final byte[] b : bytes) {
+            byteArray.setBytes(index, b);
+            index += b.length;
+        }
+        return byteArray;
     }
 
     protected ByteArray _readCompressedChunkInternal(final File inputFile, final Long diskOffset, final Integer byteCount) throws ZipException {

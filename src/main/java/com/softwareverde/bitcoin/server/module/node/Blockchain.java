@@ -21,10 +21,12 @@ import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.filedb.WorkerManager;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.timer.NanoTimer;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -36,9 +38,9 @@ import java.io.OutputStream;
 
 public class Blockchain {
     protected final MutableHashMap<Sha256Hash, Long> _blockHeights = new MutableHashMap<>();
-    protected final MutableList<BlockHeader> _blockHeaders = new MutableArrayList<>();
-    protected final MutableList<MedianBlockTime> _medianBlockTimes = new MutableArrayList<>();
-    protected final MutableList<ChainWork> _chainWorks = new MutableArrayList<>();
+    protected final MutableArrayList<BlockHeader> _blockHeaders = new MutableArrayList<>();
+    protected final MutableArrayList<MedianBlockTime> _medianBlockTimes = new MutableArrayList<>();
+    protected final MutableArrayList<ChainWork> _chainWorks = new MutableArrayList<>();
     protected final BlockStore _blockStore;
     protected final UnspentTransactionOutputDatabaseManager _unspentTransactionOutputDatabaseManager;
     protected AsertReferenceBlock _asertReferenceBlock = null;
@@ -108,43 +110,72 @@ public class Blockchain {
             long totalBytesRead = 0L;
             int progressReportCount = 0;
 
-            try (final InputStream inputStream = new BufferedInputStream(new FileInputStream(file), 8000)) {
+            try (final InputStream inputStream = new BufferedInputStream(new FileInputStream(file), (BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT + bytesPerLong) * 1000)) {
                 final MutableByteArray buffer = new MutableByteArray(BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT);
 
-                long blockHeight = 0L;
-                while (true) {
-                    final BlockHeader blockHeader;
-                    {
-                        final int byteCount = inputStream.readNBytes(buffer.unwrap(), 0, buffer.getByteCount());
-                        if (byteCount < BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT) { break; }
-                        totalBytesRead += byteCount;
-                        blockHeader = blockHeaderInflater.fromBytes(buffer);
-                        if (blockHeader == null) { break; }
+                double blockHeaderTime = 0D;
+                double medianBlockTimeTime = 0D;
+                double chainWorkTime = 0D;
+
+                try (final WorkerManager workerManager = new WorkerManager(1, 1)) {
+                    workerManager.start();
+
+                    long i = 0L;
+                    while (true) {
+                        final long blockHeight = i;
+                        final NanoTimer nanoTimer = new NanoTimer();
+
+                        nanoTimer.start();
+                        final BlockHeader blockHeader;
+                        {
+                            final int byteCount = inputStream.readNBytes(buffer.unwrap(), 0, buffer.getByteCount());
+                            if (byteCount < BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT) { break; }
+                            totalBytesRead += byteCount;
+                            blockHeader = blockHeaderInflater.fromBytes(buffer);
+                            if (blockHeader == null) { break; }
+                        }
+                        nanoTimer.stop();
+                        blockHeaderTime += nanoTimer.getMillisecondsElapsed();
+
+                        nanoTimer.start();
+                        final MedianBlockTime medianBlockTime;
+                        {
+                            final int byteCount = inputStream.readNBytes(buffer.unwrap(), 0, bytesPerLong);
+                            if (byteCount != bytesPerLong) { break; }
+                            totalBytesRead += byteCount;
+                            final Long value = ByteUtil.bytesToLong(buffer.getBytes(0, bytesPerLong));
+                            medianBlockTime = MedianBlockTime.fromSeconds(value);
+                        }
+                        nanoTimer.stop();
+                        medianBlockTimeTime += nanoTimer.getMillisecondsElapsed();
+
+                        // NOTE: WorkerManager's queue must be 1 in order to prevent out-of-order insertion of BlockHeaders.
+                        workerManager.submitTask(new WorkerManager.Task() {
+                            @Override
+                            public void run() {
+                                final Difficulty difficulty = blockHeader.getDifficulty();
+                                currentChainWork.add(difficulty.calculateWork());
+
+                                final ChainWork chainWork = currentChainWork.asConst();
+                                nanoTimer.stop();
+
+                                _addBlockHeader(blockHeader, blockHeight, medianBlockTime, chainWork);
+                            }
+                        });
+
+                        final long readPercent = (totalBytesRead * 100L) / totalFileSize;
+                        if (readPercent >= 10L * (progressReportCount + 1L)) {
+                            progressReportCount += 1;
+                            Logger.debug("Loading Blockchain: " + readPercent + "%");
+                        }
+
+                        i += 1L;
                     }
 
-                    final MedianBlockTime medianBlockTime;
-                    {
-                        final int byteCount = inputStream.readNBytes(buffer.unwrap(), 0, bytesPerLong);
-                        if (byteCount != bytesPerLong) { break; }
-                        totalBytesRead += byteCount;
-                        final Long value = ByteUtil.bytesToLong(buffer.getBytes(0, bytesPerLong));
-                        medianBlockTime = MedianBlockTime.fromSeconds(value);
-                    }
-
-                    final Difficulty difficulty = blockHeader.getDifficulty();
-                    currentChainWork.add(difficulty.calculateWork());
-
-                    final ChainWork chainWork = currentChainWork.asConst();
-
-                    _addBlockHeader(blockHeader, blockHeight, medianBlockTime, chainWork);
-                    blockHeight += 1L;
-
-                    final long readPercent = (totalBytesRead * 100L) / totalFileSize;
-                    if (readPercent >= 10L * (progressReportCount + 1L)) {
-                        progressReportCount += 1;
-                        Logger.debug("Loading Blockchain: " + readPercent + "%");
-                    }
+                    workerManager.waitForCompletion();
                 }
+
+                Logger.debug("blockHeaderTime=" + blockHeaderTime + ", medianBlockTimeTime=" + medianBlockTimeTime + ", chainWorkTime=" + chainWorkTime);
             }
         }
 

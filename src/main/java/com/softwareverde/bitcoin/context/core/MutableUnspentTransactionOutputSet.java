@@ -33,7 +33,6 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MultiTimer;
-import com.softwareverde.util.timer.NanoTimer;
 
 public class MutableUnspentTransactionOutputSet implements UnspentTransactionOutputContext {
     protected final MutableArrayList<TransactionOutputIdentifier> _missingOutputIdentifiers = new MutableArrayList<>();
@@ -183,17 +182,17 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
     public synchronized Boolean quicklyLoadOutputsForBlock(final Blockchain blockchain, final Block block, final Long blockHeight, final UpgradeSchedule upgradeSchedule) throws DatabaseException {
         final MultiTimer multiTimer = new MultiTimer();
 
-        final MutableHashSet<TransactionOutputIdentifier> requiredTransactionOutputs = _stepOne(blockchain, block, blockHeight, upgradeSchedule, multiTimer);
+        final MutableHashSet<TransactionOutputIdentifier> requiredTransactionOutputs = _stepOne(block, blockHeight, multiTimer);
         if (requiredTransactionOutputs == null) { return false; }
 
         final List<TransactionOutputIdentifier> transactionOutputIdentifiers = new MutableArrayList<>(requiredTransactionOutputs);
-        final List<TransactionOutputIdentifier> missingOutputIdentifiers = _stepTwo(transactionOutputIdentifiers, blockchain, blockHeight, upgradeSchedule, multiTimer, true);
+        final List<TransactionOutputIdentifier> missingOutputIdentifiers = _stepTwo(transactionOutputIdentifiers, blockchain, blockHeight, upgradeSchedule, multiTimer);
         _missingOutputIdentifiers.addAll(missingOutputIdentifiers);
 
         return missingOutputIdentifiers.isEmpty();
     }
 
-    protected final MutableHashSet<TransactionOutputIdentifier> _stepOne(final Blockchain blockchain, final Block block, final Long blockHeight, final UpgradeSchedule upgradeSchedule, final MultiTimer multiTimer) throws DatabaseException {
+    protected final MutableHashSet<TransactionOutputIdentifier> _stepOne(final Block block, final Long blockHeight, final MultiTimer multiTimer) throws DatabaseException {
         // final MultiTimer multiTimer = new MultiTimer();
         multiTimer.start();
 
@@ -252,35 +251,32 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
         final MultiTimer multiTimer = new MultiTimer();
         multiTimer.start();
 
-        final List<TransactionOutputIdentifier> missingOutputIdentifiers = _stepTwo(_missingOutputIdentifiers, blockchain, blockHeight, upgradeSchedule, multiTimer, false);
+        final List<TransactionOutputIdentifier> missingOutputIdentifiers = _stepTwo(_missingOutputIdentifiers, blockchain, blockHeight, upgradeSchedule, multiTimer);
         _missingOutputIdentifiers.addAll(missingOutputIdentifiers);
 
         return missingOutputIdentifiers.isEmpty();
     }
 
     public synchronized Boolean loadOutputsForBlock(final Blockchain blockchain, final Block block, final Long blockHeight, final UpgradeSchedule upgradeSchedule) throws DatabaseException {
-//        this.quicklyLoadOutputsForBlock(blockchain, block, blockHeight, upgradeSchedule);
-//        return this.finishLoadingOutputsForBlock(blockchain, block, blockHeight, upgradeSchedule);
-
         final MultiTimer multiTimer = new MultiTimer();
-        final MutableHashSet<TransactionOutputIdentifier> requiredTransactionOutputs = _stepOne(blockchain, block, blockHeight, upgradeSchedule, multiTimer);
+        final MutableHashSet<TransactionOutputIdentifier> requiredTransactionOutputs = _stepOne(block, blockHeight, multiTimer);
         if (requiredTransactionOutputs == null) { return false; }
         _missingOutputIdentifiers.addAll(requiredTransactionOutputs);
 
-        final List<TransactionOutputIdentifier> missingOutputIdentifiers = _stepTwo(_missingOutputIdentifiers, blockchain, blockHeight, upgradeSchedule, multiTimer, false);
+        final List<TransactionOutputIdentifier> missingOutputIdentifiers = _stepTwo(_missingOutputIdentifiers, blockchain, blockHeight, upgradeSchedule, multiTimer);
         _missingOutputIdentifiers.addAll(missingOutputIdentifiers);
 
         return missingOutputIdentifiers.isEmpty();
     }
 
-    protected List<TransactionOutputIdentifier> _stepTwo(final List<TransactionOutputIdentifier> transactionOutputIdentifiers, final Blockchain blockchain, final Long blockHeight, final UpgradeSchedule upgradeSchedule, final MultiTimer multiTimer, final Boolean firstPass) throws DatabaseException {
+    protected List<TransactionOutputIdentifier> _stepTwo(final List<TransactionOutputIdentifier> transactionOutputIdentifiers, final Blockchain blockchain, final Long blockHeight, final UpgradeSchedule upgradeSchedule, final MultiTimer multiTimer) throws DatabaseException {
         final MutableList<TransactionOutputIdentifier> missingOutputIdentifiers = new MutableArrayList<>();
 
-        double timeSpentLoadingUnknownPatfoBlockTimes = 0D;
+        // double timeSpentLoadingUnknownPatfoBlockTimes = 0D;
         final MutableHashSet<Sha256Hash> unknownTransactionBlockHeightsSet = new MutableHashSet<>();
         boolean allTransactionOutputsWereLoaded = true;
         final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = blockchain.getUnspentTransactionOutputDatabaseManager();
-        final List<UnspentTransactionOutput> transactionOutputs = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutputs(transactionOutputIdentifiers, (firstPass ? 255 : null));
+        final List<UnspentTransactionOutput> transactionOutputs = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutputs(transactionOutputIdentifiers);
         for (int i = 0; i < transactionOutputs.getCount(); ++i) {
             final TransactionOutputIdentifier transactionOutputIdentifier = transactionOutputIdentifiers.get(i);
             final UnspentTransactionOutput transactionOutput = transactionOutputs.get(i);
@@ -302,9 +298,9 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
 
                 // Check PATFO status...
                 if (transactionOutput.hasCashToken()) {
-                    final NanoTimer nanoTimer = new NanoTimer();
-                    nanoTimer.start();
-
+                    // final NanoTimer nanoTimer = new NanoTimer();
+                    // nanoTimer.start();
+                    //
                     // This is highly inefficient if done often, however the times a UTXO's blockHeight is unknown should be very, very rare.
                     // final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
                     // final BlockId transactionOutputBlockId = transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId);
@@ -312,9 +308,9 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
                     // if (! upgradeSchedule.areCashTokensEnabled(medianBlockTime)) {
                     //     _preActivationTokenForgeries.add(transactionOutputIdentifier);
                     // }
-
-                    nanoTimer.stop();
-                    timeSpentLoadingUnknownPatfoBlockTimes += nanoTimer.getMillisecondsElapsed();
+                    //
+                    // nanoTimer.stop();
+                    // timeSpentLoadingUnknownPatfoBlockTimes += nanoTimer.getMillisecondsElapsed();
 
                     throw new RuntimeException("Unable to find UTXO Block Height."); // TODO
                 }

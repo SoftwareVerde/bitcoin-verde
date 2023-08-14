@@ -21,14 +21,13 @@ import com.softwareverde.bitcoin.server.main.NetworkType;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.query.header.RequestBlockHeadersMessage;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.CommitAsyncMode;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputFileDbManager;
 import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
 import com.softwareverde.bitcoin.server.module.node.store.BlockStoreCore;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.RequestId;
 import com.softwareverde.bitcoin.server.node.RequestPriority;
+import com.softwareverde.bloomfilter.BloomFilterItem;
 import com.softwareverde.constable.Visitor;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
@@ -60,7 +59,7 @@ public class NodeModule {
     protected final BitcoinProperties _bitcoinProperties;
     protected final File _blockchainFile;
     protected final Blockchain _blockchain;
-    protected final UnspentTransactionOutputDatabaseManager _unspentTransactionOutputDatabaseManager;
+    protected final UnspentTransactionOutputFileDbManager _unspentTransactionOutputDatabaseManager;
     protected final BlockStore _blockStore;
     protected final UpgradeSchedule _upgradeSchedule;
     protected final VolatileNetworkTime _networkTime;
@@ -413,7 +412,7 @@ public class NodeModule {
             final File blocksDirectory = _blockStore.getBlockDataDirectory();
             final File utxoDbDirectory = new File(blocksDirectory, "utxo");
             Logger.info("Loading FileDB");
-             _unspentTransactionOutputDatabaseManager = new UnspentTransactionOutputFileDbManager(utxoDbDirectory);
+            _unspentTransactionOutputDatabaseManager = new UnspentTransactionOutputFileDbManager(utxoDbDirectory, 710057L + 2L);
         }
         catch (final Exception exception) {
             throw new RuntimeException(exception);
@@ -451,23 +450,36 @@ public class NodeModule {
 
         _networkTime = new MutableNetworkTime();
 
-        _addNewNodes(1);
-
-        final Runtime runtime = Runtime.getRuntime();
-        runtime.addShutdownHook(new Thread() {
-            @Override
-            public void run() {
-                _isShuttingDown.set(true);
-
-                try {
-                    _blockchain.save(_blockchainFile);
-                    _unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(null, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
-                }
-                catch (final Exception exception) {
-                    Logger.debug(exception);
-                }
+        if (true) {
+            try {
+                final Block block = _blockStore.getBlock(Sha256Hash.fromHexString("0000000000000000036BE86EDCC1F660988AB81D23455884F919800DC7205F9B"), 710057L);
+                final UnspentTransactionOutputContext unspentTransactionOutputContext = _getUnspentTransactionOutputContext(block);
+                _unspentTransactionOutputDatabaseManager.close();
             }
-        });
+            catch (final Exception exception) {
+                Logger.debug(exception);
+            }
+            Logger.flush();
+            throw new RuntimeException();
+        }
+
+//        _addNewNodes(1);
+//
+//        final Runtime runtime = Runtime.getRuntime();
+//        runtime.addShutdownHook(new Thread() {
+//            @Override
+//            public void run() {
+//                _isShuttingDown.set(true);
+//
+//                try {
+//                    _blockchain.save(_blockchainFile);
+//                    _unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(null, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
+//                }
+//                catch (final Exception exception) {
+//                    Logger.debug(exception);
+//                }
+//            }
+//        });
     }
 
     public void loop() {
