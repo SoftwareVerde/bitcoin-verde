@@ -35,6 +35,7 @@ import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.constable.set.mutable.MutableHashSet;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.filedb.WorkerManager;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.Node;
@@ -60,10 +61,12 @@ public class NodeModule {
     protected final File _blockchainFile;
     protected final Blockchain _blockchain;
     protected final UnspentTransactionOutputFileDbManager _unspentTransactionOutputDatabaseManager;
+    protected final TransactionIndexer _transactionIndexer;
     protected final BlockStore _blockStore;
     protected final UpgradeSchedule _upgradeSchedule;
     protected final VolatileNetworkTime _networkTime;
     protected final DifficultyCalculator _difficultyCalculator;
+    protected final WorkerManager _transactionIndexWorker;
 
     protected final MutableList<BitcoinNode> _bitcoinNodes = new MutableArrayList<>();
     protected final MutableHashSet<NodeIpAddress> _availablePeers = new MutableHashSet<>();
@@ -180,7 +183,7 @@ public class NodeModule {
                         validationTimer.start();
                         final BlockValidationResult result = blockValidator.validateBlock(block, unspentTransactionOutputContext);
                         validationTimer.stop();
-                        if (!result.isValid) {
+                        if (! result.isValid) {
                             Logger.info(result.errorMessage + " " + block.getHash());
                             bitcoinNode.disconnect();
                             return;
@@ -198,10 +201,31 @@ public class NodeModule {
                     applyBlockTimer.start();
                     _unspentTransactionOutputDatabaseManager.applyBlock(block, blockHeight);
                     applyBlockTimer.stop();
+
+                    if (_transactionIndexer != null) {
+                        _transactionIndexWorker.submitTask(new WorkerManager.Task() {
+                            @Override
+                            public void run() {
+                                final NanoTimer indexTimer = new NanoTimer();
+                                indexTimer.start();
+                                try {
+                                    _transactionIndexer.indexTransactions(block, blockHeight);
+                                }
+                                catch (final Exception exception) {
+                                    Logger.debug(exception);
+                                }
+                                indexTimer.stop();
+                                Logger.debug("Indexed " + blockHash + " in " + indexTimer.getMillisecondsElapsed() + "ms.");
+                            }
+                        });
+                    }
+
                     Logger.debug("Finished: " + blockHash);
                 }
                 catch (final Exception exception) {
                     Logger.debug(exception);
+                    bitcoinNode.disconnect();
+                    return;
                 }
 
                 Logger.debug(blockHash + " " +
@@ -418,6 +442,19 @@ public class NodeModule {
             throw new RuntimeException(exception);
         }
 
+        try {
+            final File blocksDirectory = _blockStore.getBlockDataDirectory();
+            final File transactionIndexDbDirectory = new File(blocksDirectory, "txindex");
+            Logger.info("Loading Transaction Index");
+            _transactionIndexer = new TransactionIndexer(transactionIndexDbDirectory);
+        }
+        catch (final Exception exception) {
+            throw new RuntimeException(exception);
+        }
+
+        _transactionIndexWorker = new WorkerManager(1, 128);
+        _transactionIndexWorker.start();
+
         _blockchain = new Blockchain(_blockStore, _unspentTransactionOutputDatabaseManager);
         try {
             _blockchain.load(_blockchainFile);
@@ -495,6 +532,14 @@ public class NodeModule {
                 break;
             }
             Logger.flush();
+        }
+
+        try {
+            _unspentTransactionOutputDatabaseManager.close();
+            _transactionIndexWorker.close();
+        }
+        catch (final Exception exception) {
+            Logger.debug(exception);
         }
     }
 }
