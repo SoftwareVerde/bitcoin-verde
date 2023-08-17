@@ -261,11 +261,14 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
         final MultiTimer multiTimer = new MultiTimer();
         final MutableHashSet<TransactionOutputIdentifier> requiredTransactionOutputs = _stepOne(block, blockHeight, multiTimer);
         if (requiredTransactionOutputs == null) { return false; }
+
+        final int outputCount = requiredTransactionOutputs.getCount();
         _missingOutputIdentifiers.addAll(requiredTransactionOutputs);
 
         final List<TransactionOutputIdentifier> missingOutputIdentifiers = _stepTwo(_missingOutputIdentifiers, blockchain, blockHeight, upgradeSchedule, multiTimer);
         _missingOutputIdentifiers.addAll(missingOutputIdentifiers);
 
+        Logger.debug("Failed to load " + missingOutputIdentifiers.getCount() + "/" + outputCount + " outputs.");
         return missingOutputIdentifiers.isEmpty();
     }
 

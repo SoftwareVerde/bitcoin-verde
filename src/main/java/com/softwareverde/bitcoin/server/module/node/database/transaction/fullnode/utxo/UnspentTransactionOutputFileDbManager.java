@@ -26,6 +26,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.filedb.EntryInflater;
 import com.softwareverde.filedb.FileDb;
 import com.softwareverde.filedb.Item;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
@@ -38,17 +39,26 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
     protected final Double _falsePositiveRate = 0.000001D;
     protected final FileDb<TransactionOutputIdentifier, UnspentTransactionOutput> _fileDb;
 
-    public UnspentTransactionOutputFileDbManager(final File dataDirectory, final Long headBlockHeight) throws Exception {
+    public UnspentTransactionOutputFileDbManager(final File dataDirectory) throws Exception {
         if (! FileDb.exists(dataDirectory)) {
             FileDb.initialize(dataDirectory);
         }
 
         _fileDb = new FileDb<>(dataDirectory, new UnspentTransactionOutputEntryInflater());
-        _fileDb.setHeadBucketIndex(headBlockHeight);
-        _fileDb.setTargetBucketMemoryByteCount(4L * ByteUtil.Unit.Binary.GIBIBYTES);
-        _fileDb.setTargetFilterMemoryByteCount(4L * ByteUtil.Unit.Binary.GIBIBYTES);
+        _fileDb.setTargetBucketMemoryByteCount(0L);
+        _fileDb.setTargetFilterMemoryByteCount(ByteUtil.Unit.Binary.GIBIBYTES);
         _fileDb.load();
         _fileDb.loadIntoMemory();
+        // _fileDb.createBloomFilters(_falsePositiveRate);
+        _fileDb.createMetaFilters();
+    }
+
+    public void stashBlocks(final Long count) {
+        _fileDb.stashBuckets(count);
+    }
+
+    public void applyStashedBlocks() {
+        _fileDb.applyStashedBuckets();
     }
 
     @Override
@@ -95,6 +105,10 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
             _fileDb.finalizeBucket();
             nanoTimer.stop();
             // Logger.debug("FileDb::finalizeBucket=" + nanoTimer.getMillisecondsElapsed() + "ms.");
+
+            if (blockHeight % 1024L == 0L) {
+                _fileDb.createMetaFilters();
+            }
         }
         catch (final Exception exception) {
             throw new DatabaseException(exception);
