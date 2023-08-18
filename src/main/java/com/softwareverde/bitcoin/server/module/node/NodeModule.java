@@ -34,6 +34,7 @@ import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.constable.set.mutable.MutableHashSet;
+import com.softwareverde.constable.set.mutable.MutableSet;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.filedb.WorkerManager;
 import com.softwareverde.logging.Logger;
@@ -44,6 +45,7 @@ import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.network.time.VolatileNetworkTime;
 import com.softwareverde.util.Container;
+import com.softwareverde.util.Promise;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 
@@ -74,6 +76,7 @@ public class NodeModule {
     protected final MutableHashSet<NodeIpAddress> _availablePeers = new MutableHashSet<>();
     protected int _attemptsWithEmptyIps = 0;
     protected final MutableHashSet<Ip> _previouslyConnectedIps = new MutableHashSet<>();
+    protected final PendingBlockQueue _downloadedBlocks = new PendingBlockQueue(10);
 
     protected final AtomicBoolean _isShuttingDown = new AtomicBoolean(false);
 
@@ -152,8 +155,22 @@ public class NodeModule {
         return transactionOutputSet;
     }
 
-    protected WorkerManager.Promise<Block> _downloadBlock(final BitcoinNode bitcoinNode, final Sha256Hash blockHash) {
-        final WorkerManager.Promise<Block> promise = new WorkerManager.Promise<>();
+    protected Promise<Block> _downloadBlock(final BitcoinNode bitcoinNode, final Sha256Hash blockHash) {
+        final Promise<Block> promise = new Promise<>();
+
+        final Long blockHeight = _blockchain.getBlockHeight(blockHash);
+        if (blockHeight != null) {
+            final Promise<Block> existingPromise = _downloadedBlocks.getBlock(blockHeight);
+            if (existingPromise != null) {
+                final Block block = existingPromise.pollResult();
+                if (block != null) {
+                    return existingPromise;
+                }
+            }
+
+            _downloadedBlocks.addBlock(blockHeight, promise);
+        }
+
         _blockDownloadWorker.submitTask(new WorkerManager.Task() {
             @Override
             public void run() {
@@ -192,12 +209,39 @@ public class NodeModule {
         return promise;
     }
 
+    protected Promise<Block> _downloadBlocks(final BitcoinNode bitcoinNode, final Sha256Hash blockHash) {
+        final Promise<Block> requestedPromise = _downloadBlock(bitcoinNode, blockHash);
+
+        final Long blockHeight = _blockchain.getBlockHeight(blockHash);
+        if (blockHeight != null) {
+            final int queueSize = 10;
+            for (int i = 0; i < queueSize; ++i) {
+                final long nextBlockHeight = blockHeight + i;
+                if (_downloadedBlocks.containsBlock(nextBlockHeight)) { continue; }
+
+                final BlockHeader nextBlockHeader = _blockchain.getBlockHeader(nextBlockHeight);
+                if (nextBlockHeader == null) { break; }
+
+                final Sha256Hash nextBlockHash = nextBlockHeader.getHash();
+
+                // TODO: Need to remove race condition...
+                final int nodeCount = _bitcoinNodes.getCount();
+                final BitcoinNode concurrentBitcoinNode = _bitcoinNodes.get(i % nodeCount);
+
+                _downloadBlock(concurrentBitcoinNode, nextBlockHash);
+            }
+        }
+
+        return requestedPromise;
+    }
+
     protected void _syncBlocks(final BitcoinNode bitcoinNode) {
         _syncWorker.offerTask(new WorkerManager.Task() {
             @Override
             public void run() {
                 Logger.info("Syncing blocks.");
 
+                final long trustedBlockHeight = _bitcoinProperties.getTrustedBlockHeight();
                 final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(_upgradeSchedule, _blockchain, _networkTime, _difficultyCalculator);
                 final BlockValidator blockValidator = new BlockValidator(_upgradeSchedule, _blockchain, _networkTime, blockHeaderValidator);
 
@@ -206,7 +250,7 @@ public class NodeModule {
 
                 while (blockHeader != null) {
                     final Sha256Hash blockHash = blockHeader.getHash();
-                    final WorkerManager.Promise<Block> promise = _downloadBlock(bitcoinNode, blockHash);
+                    final Promise<Block> promise = _downloadBlocks(bitcoinNode, blockHash);
 
                     try {
                         final Block block = promise.getResult();
@@ -218,7 +262,7 @@ public class NodeModule {
                         final NanoTimer addBlockTimer = new NanoTimer();
                         final NanoTimer applyBlockTimer = new NanoTimer();
 
-                        if (blockHeight > _bitcoinProperties.getTrustedBlockHeight()) {
+                        if (blockHeight > trustedBlockHeight) {
                             utxoTimer.start();
                             final UnspentTransactionOutputContext unspentTransactionOutputContext = _getUnspentTransactionOutputContext(block);
                             utxoTimer.stop();
@@ -334,97 +378,100 @@ public class NodeModule {
             }
         }
 
-        int newPeerCount = 0;
-        for (final NodeIpAddress nodeIpAddress : _availablePeers) {
-            final Ip ip = nodeIpAddress.getIp();
-            if (ip == null) { continue; }
+        final Container<Integer> newPeerCount = new Container<>(0);
+        _availablePeers.mutableVisit(new MutableSet.MutableVisitor<>() {
+            @Override
+            public boolean run(final Container<NodeIpAddress> container) {
+                final NodeIpAddress nodeIpAddress = container.value;
 
-            _previouslyConnectedIps.add(ip);
+                final Ip ip = nodeIpAddress.getIp();
+                if (ip == null) { return true; }
 
-            final String host = ip.toString();
-            final Integer port = nodeIpAddress.getPort();
-            final BitcoinNode bitcoinNode = new BitcoinNode(host, port, new LocalNodeFeatures() {
-                @Override
-                public NodeFeatures getNodeFeatures() {
-                    final NodeFeatures nodeFeatures = new NodeFeatures();
-                    nodeFeatures.enableFeature(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
-                    nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
-                    nodeFeatures.enableFeature(NodeFeatures.Feature.BLOOM_CONNECTIONS_ENABLED);
-                    nodeFeatures.enableFeature(NodeFeatures.Feature.MINIMUM_OF_TWO_DAYS_BLOCKCHAIN_ENABLED);
-                    return nodeFeatures;
-                }
-            });
-            bitcoinNode.setNodeConnectedCallback(new Node.NodeConnectedCallback() {
-                @Override
-                public void onNodeConnected() {
-                    Logger.info("Connected to: " + host + ":" + port);
-                }
+                _previouslyConnectedIps.add(ip);
 
-                @Override
-                public void onFailure() {
-                    _removeBitcoinNode(bitcoinNode);
-                    _addNewNodes(1);
-                }
-            });
+                final String host = ip.toString();
+                final Integer port = nodeIpAddress.getPort();
+                final BitcoinNode bitcoinNode = new BitcoinNode(host, port, new LocalNodeFeatures() {
+                    @Override
+                    public NodeFeatures getNodeFeatures() {
+                        final NodeFeatures nodeFeatures = new NodeFeatures();
+                        nodeFeatures.enableFeature(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
+                        nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
+                        nodeFeatures.enableFeature(NodeFeatures.Feature.BLOOM_CONNECTIONS_ENABLED);
+                        nodeFeatures.enableFeature(NodeFeatures.Feature.MINIMUM_OF_TWO_DAYS_BLOCKCHAIN_ENABLED);
+                        return nodeFeatures;
+                    }
+                });
+                bitcoinNode.setNodeConnectedCallback(new Node.NodeConnectedCallback() {
+                    @Override
+                    public void onNodeConnected() {
+                        Logger.info("Connected to: " + host + ":" + port);
+                    }
 
-            bitcoinNode.setDisconnectedCallback(new Node.DisconnectedCallback() {
-                @Override
-                public void onNodeDisconnected() {
-                    _removeBitcoinNode(bitcoinNode);
-
-                    if (_bitcoinNodes.isEmpty()) {
+                    @Override
+                    public void onFailure() {
+                        _removeBitcoinNode(bitcoinNode);
                         _addNewNodes(1);
                     }
-                    else {
-                        _bitcoinNodes.visit(new Visitor<>() {
+                });
+
+                bitcoinNode.setDisconnectedCallback(new Node.DisconnectedCallback() {
+                    @Override
+                    public void onNodeDisconnected() {
+                        _removeBitcoinNode(bitcoinNode);
+
+                        if (_bitcoinNodes.isEmpty()) {
+                            _addNewNodes(1);
+                        }
+                        else {
+                            _bitcoinNodes.visit(new Visitor<>() {
+                                @Override
+                                public boolean run(final BitcoinNode bitcoinNode) {
+                                    Logger.debug("_bitcoinNodes: " + bitcoinNode);
+                                    return true;
+                                }
+                            });
+                        }
+                    }
+                });
+
+                bitcoinNode.setHandshakeCompleteCallback(new Node.HandshakeCompleteCallback() {
+                    @Override
+                    public void onHandshakeComplete() {
+                        final NodeFeatures nodeFeatures = bitcoinNode.getNodeFeatures();
+
+                        if (bitcoinNode.getBlockHeight() < _blockchain.getHeadBlockHeaderHeight()) {
+                            Logger.debug("Disconnecting from behind peer.");
+                            bitcoinNode.disconnect();
+                            return;
+                        }
+
+                        bitcoinNode.setNodeAddressesReceivedCallback(new Node.NodeAddressesReceivedCallback() {
                             @Override
-                            public boolean run(final BitcoinNode bitcoinNode) {
-                                Logger.debug("_bitcoinNodes: " + bitcoinNode);
-                                return true;
+                            public void onNewNodeAddresses(final List<NodeIpAddress> nodeIpAddresses) {
+                                for (final NodeIpAddress nodeIpAddress : nodeIpAddresses) {
+                                    if (_previouslyConnectedIps.contains(nodeIpAddress.getIp())) { continue; }
+                                    if (! Util.areEqual(BitcoinConstants.getDefaultNetworkPort(), nodeIpAddress.getPort())) { continue; }
+                                    _availablePeers.add(nodeIpAddress);
+                                }
                             }
                         });
+                        bitcoinNode.requestNodeAddresses();
+
+                        _syncBlockHeaders(bitcoinNode);
                     }
-                }
-            });
+                });
 
-            bitcoinNode.setHandshakeCompleteCallback(new Node.HandshakeCompleteCallback() {
-                @Override
-                public void onHandshakeComplete() {
-                    final NodeFeatures nodeFeatures = bitcoinNode.getNodeFeatures();
+                Logger.info("Connecting to: " + host + ":" + port);
+                bitcoinNode.connect();
 
-                    if (bitcoinNode.getBlockHeight() < _blockchain.getHeadBlockHeaderHeight()) {
-                        Logger.debug("Disconnecting from behind peer.");
-                        bitcoinNode.disconnect();
-                        return;
-                    }
+                _bitcoinNodes.add(bitcoinNode);
+                container.value = null; // _availablePeers.remove(nodeIpAddress);
 
-                    bitcoinNode.setNodeAddressesReceivedCallback(new Node.NodeAddressesReceivedCallback() {
-                        @Override
-                        public void onNewNodeAddresses(final List<NodeIpAddress> nodeIpAddresses) {
-                            for (final NodeIpAddress nodeIpAddress : nodeIpAddresses) {
-                                if (_previouslyConnectedIps.contains(nodeIpAddress.getIp())) { continue; }
-                                if (! Util.areEqual(BitcoinConstants.getDefaultNetworkPort(), nodeIpAddress.getPort())) { continue; }
-                                _availablePeers.add(nodeIpAddress);
-                            }
-                        }
-                    });
-                    bitcoinNode.requestNodeAddresses();
-
-                    _syncBlockHeaders(bitcoinNode);
-                }
-            });
-
-            Logger.info("Connecting to: " + host + ":" + port);
-            bitcoinNode.connect();
-
-            _bitcoinNodes.add(bitcoinNode);
-            _availablePeers.remove(nodeIpAddress);
-
-            newPeerCount += 1;
-            if (newPeerCount >= numberOfNodesToAttemptConnectionsTo) {
-                break;
+                newPeerCount.value += 1;
+                return (newPeerCount.value < numberOfNodesToAttemptConnectionsTo);
             }
-        }
+        });
     }
 
     public NodeModule(final BitcoinProperties bitcoinProperties) {
@@ -510,7 +557,7 @@ public class NodeModule {
 
         _networkTime = new MutableNetworkTime();
 
-        _addNewNodes(1);
+        _addNewNodes(3);
 
         final Runtime runtime = Runtime.getRuntime();
         runtime.addShutdownHook(new Thread() {
