@@ -46,6 +46,10 @@ public class TransactionIndexer implements AutoCloseable {
         }
     }
 
+    public void undoBlock() throws Exception {
+        _fileDb.undoBucket();
+    }
+
     public Long getTransactionBlockHeight(final Sha256Hash transactionHash) throws Exception {
         final Integer blockHeightInt = _fileDb.get(transactionHash);
         if (blockHeightInt == null) { return null; }

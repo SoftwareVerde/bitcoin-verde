@@ -67,6 +67,8 @@ public class NodeModule {
     protected final VolatileNetworkTime _networkTime;
     protected final DifficultyCalculator _difficultyCalculator;
     protected final WorkerManager _transactionIndexWorker;
+    protected final WorkerManager _blockDownloadWorker;
+    protected final WorkerManager _syncWorker;
 
     protected final MutableList<BitcoinNode> _bitcoinNodes = new MutableArrayList<>();
     protected final MutableHashSet<NodeIpAddress> _availablePeers = new MutableHashSet<>();
@@ -150,121 +152,136 @@ public class NodeModule {
         return transactionOutputSet;
     }
 
-    protected void _syncBlocks(final BitcoinNode bitcoinNode) {
-        Logger.info("Syncing blocks.");
-        final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(_upgradeSchedule, _blockchain, _networkTime, _difficultyCalculator);
-        final BlockValidator blockValidator = new BlockValidator(_upgradeSchedule, _blockchain, _networkTime, blockHeaderValidator);
-
-        final Container<Integer> failCountContainer = new Container<>(0);
-        final NanoTimer downloadTimer = new NanoTimer();
-        final BitcoinNode.DownloadBlockCallback downloadBlockCallback = new BitcoinNode.DownloadBlockCallback() {
+    protected WorkerManager.Promise<Block> _downloadBlock(final BitcoinNode bitcoinNode, final Sha256Hash blockHash) {
+        final WorkerManager.Promise<Block> promise = new WorkerManager.Promise<>();
+        _blockDownloadWorker.submitTask(new WorkerManager.Task() {
             @Override
-            public synchronized void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final Block block) {
-                if (_isShuttingDown.get()) { return; }
-                downloadTimer.stop();
+            public void run() {
+                final Container<Integer> failCountContainer = new Container<>(0);
+                final NanoTimer downloadTimer = new NanoTimer();
+                downloadTimer.start();
+                bitcoinNode.requestBlock(blockHash, new BitcoinNode.DownloadBlockCallback() {
+                    @Override
+                    public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final Block block) {
+                        if (_isShuttingDown.get()) { return; }
+                        downloadTimer.stop();
 
-                final Sha256Hash blockHash = block.getHash();
-                final Long blockHeight = _blockchain.getBlockHeight(blockHash);
+                        Logger.debug("Downloaded " + blockHash + " in " + downloadTimer.getMillisecondsElapsed() + "ms.");
+                        failCountContainer.value = 0;
 
-                Logger.debug("Downloaded " + blockHash + " in " + downloadTimer.getMillisecondsElapsed() + "ms.");
-                failCountContainer.value = 0;
+                        promise.setResult(block);
+                    }
 
-                Logger.debug("Processing: " + blockHash);
-                final NanoTimer utxoTimer = new NanoTimer();
-                final NanoTimer validationTimer = new NanoTimer();
-                final NanoTimer addBlockTimer = new NanoTimer();
-                final NanoTimer applyBlockTimer = new NanoTimer();
-
-                try {
-                    if (blockHeight > _bitcoinProperties.getTrustedBlockHeight()) {
-                        utxoTimer.start();
-                        final UnspentTransactionOutputContext unspentTransactionOutputContext = _getUnspentTransactionOutputContext(block);
-                        utxoTimer.stop();
-                        validationTimer.start();
-                        final BlockValidationResult result = blockValidator.validateBlock(block, unspentTransactionOutputContext);
-                        validationTimer.stop();
-                        if (! result.isValid) {
-                            Logger.info(result.errorMessage + " " + block.getHash());
+                    @Override
+                    public void onFailure(final RequestId requestId, final BitcoinNode bitcoinNode, final Sha256Hash blockHash) {
+                        Logger.info("Failed to receive Block: " + blockHash + " " + bitcoinNode);
+                        failCountContainer.value += 1;
+                        if (failCountContainer.value > 1) {
                             bitcoinNode.disconnect();
-                            return;
+                            promise.setResult(null);
+                        }
+                        else {
+                            bitcoinNode.requestBlock(blockHash, this, RequestPriority.NORMAL);
+                            Logger.debug("Re-requested: " + blockHash + " from " + bitcoinNode);
+                        }
+                    }
+                }, RequestPriority.NORMAL);
+                Logger.debug("Requested: " + blockHash + " from " + bitcoinNode);
+            }
+        });
+        return promise;
+    }
+
+    protected void _syncBlocks(final BitcoinNode bitcoinNode) {
+        _syncWorker.offerTask(new WorkerManager.Task() {
+            @Override
+            public void run() {
+                Logger.info("Syncing blocks.");
+
+                final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(_upgradeSchedule, _blockchain, _networkTime, _difficultyCalculator);
+                final BlockValidator blockValidator = new BlockValidator(_upgradeSchedule, _blockchain, _networkTime, blockHeaderValidator);
+
+                long blockHeight = _blockchain.getHeadBlockHeight() + 1L;
+                BlockHeader blockHeader = _blockchain.getBlockHeader(blockHeight);
+
+                while (blockHeader != null) {
+                    final Sha256Hash blockHash = blockHeader.getHash();
+                    final WorkerManager.Promise<Block> promise = _downloadBlock(bitcoinNode, blockHash);
+
+                    try {
+                        final Block block = promise.getResult();
+                        if (block == null) { break; }
+
+                        Logger.debug("Processing: " + blockHash);
+                        final NanoTimer utxoTimer = new NanoTimer();
+                        final NanoTimer validationTimer = new NanoTimer();
+                        final NanoTimer addBlockTimer = new NanoTimer();
+                        final NanoTimer applyBlockTimer = new NanoTimer();
+
+                        if (blockHeight > _bitcoinProperties.getTrustedBlockHeight()) {
+                            utxoTimer.start();
+                            final UnspentTransactionOutputContext unspentTransactionOutputContext = _getUnspentTransactionOutputContext(block);
+                            utxoTimer.stop();
+                            validationTimer.start();
+                            final BlockValidationResult result = blockValidator.validateBlock(block, unspentTransactionOutputContext);
+                            validationTimer.stop();
+                            if (! result.isValid) {
+                                Logger.info(result.errorMessage + " " + block.getHash());
+                                bitcoinNode.disconnect();
+                                break;
+                            }
+
+                            Logger.info("Valid: " + blockHeight + " " + blockHash);
+                        }
+                        else {
+                            Logger.info("Assumed Valid: " + blockHeight + " " + blockHash);
                         }
 
-                        Logger.info("Valid: " + blockHeight + " " + blockHash);
-                    }
-                    else {
-                        Logger.info("Assumed Valid: " + blockHeight + " " + blockHash);
-                    }
+                        addBlockTimer.start();
+                        _blockchain.addBlock(block);
+                        addBlockTimer.stop();
 
-                    addBlockTimer.start();
-                    _blockchain.addBlock(block);
-                    addBlockTimer.stop();
-                    applyBlockTimer.start();
-                    _unspentTransactionOutputDatabaseManager.applyBlock(block, blockHeight);
-                    applyBlockTimer.stop();
+                        applyBlockTimer.start();
+                        _unspentTransactionOutputDatabaseManager.applyBlock(block, blockHeight);
+                        applyBlockTimer.stop();
 
-                    if (_transactionIndexer != null) {
-                        _transactionIndexWorker.submitTask(new WorkerManager.Task() {
-                            @Override
-                            public void run() {
-                                final NanoTimer indexTimer = new NanoTimer();
-                                indexTimer.start();
-                                try {
-                                    _transactionIndexer.indexTransactions(block, blockHeight);
+                        if (_transactionIndexer != null) {
+                            final Long indexBlockHeight = blockHeight;
+                            _transactionIndexWorker.submitTask(new WorkerManager.Task() {
+                                @Override
+                                public void run() {
+                                    final NanoTimer indexTimer = new NanoTimer();
+                                    indexTimer.start();
+                                    try {
+                                        _transactionIndexer.indexTransactions(block, indexBlockHeight);
+                                    }
+                                    catch (final Exception exception) {
+                                        Logger.debug(exception);
+                                    }
+                                    indexTimer.stop();
+                                    Logger.debug("Indexed " + blockHash + " in " + indexTimer.getMillisecondsElapsed() + "ms.");
                                 }
-                                catch (final Exception exception) {
-                                    Logger.debug(exception);
-                                }
-                                indexTimer.stop();
-                                Logger.debug("Indexed " + blockHash + " in " + indexTimer.getMillisecondsElapsed() + "ms.");
-                            }
-                        });
+                            });
+                        }
+
+                        Logger.debug("Finished: " + blockHash + " " +
+                            "utxoTimer=" + utxoTimer.getMillisecondsElapsed() + " " +
+                            "validationTimer=" + validationTimer.getMillisecondsElapsed() + " " +
+                            "addBlockTimer=" + addBlockTimer.getMillisecondsElapsed() + " " +
+                            "applyBlockTimer=" + applyBlockTimer.getMillisecondsElapsed()
+                        );
+                    }
+                    catch (final Exception exception) {
+                        Logger.debug(exception);
+                        bitcoinNode.disconnect();
+                        return;
                     }
 
-                    Logger.debug("Finished: " + blockHash);
-                }
-                catch (final Exception exception) {
-                    Logger.debug(exception);
-                    bitcoinNode.disconnect();
-                    return;
-                }
-
-                Logger.debug(blockHash + " " +
-                    "utxoTimer=" + utxoTimer.getMillisecondsElapsed() + " " +
-                    "validationTimer=" + validationTimer.getMillisecondsElapsed() + " " +
-                    "addBlockTimer=" + addBlockTimer.getMillisecondsElapsed() + " " +
-                    "applyBlockTimer=" + applyBlockTimer.getMillisecondsElapsed()
-                );
-
-                final BlockHeader nextBlock = _blockchain.getBlockHeader(blockHeight + 1L);
-                if (nextBlock != null) {
-                    downloadTimer.start();
-                    final Sha256Hash nextBlockHash = nextBlock.getHash();
-                    Logger.debug("Requested: " + nextBlockHash + " from " + bitcoinNode);
-                    bitcoinNode.requestBlock(nextBlockHash, this, RequestPriority.NORMAL);
+                    blockHeight += 1;
+                    blockHeader = _blockchain.getBlockHeader(blockHeight);
                 }
             }
-
-            @Override
-            public void onFailure(final RequestId requestId, final BitcoinNode bitcoinNode, final Sha256Hash blockHash) {
-                Logger.info("Failed to receive Block: " + blockHash + " " + bitcoinNode);
-                failCountContainer.value += 1;
-                if (failCountContainer.value > 1) {
-                    bitcoinNode.disconnect();
-                }
-                else {
-                    bitcoinNode.requestBlock(blockHash, this, RequestPriority.NORMAL);
-                }
-            }
-        };
-
-        final Long headBlockHeight = _blockchain.getHeadBlockHeight();
-        final BlockHeader blockHeader = _blockchain.getBlockHeader(headBlockHeight + 1L);
-        if (blockHeader != null) {
-            downloadTimer.start();
-            final Sha256Hash blockHash = blockHeader.getHash();
-            Logger.debug("Requested: " + blockHash + " from " + bitcoinNode);
-            bitcoinNode.requestBlock(blockHash, downloadBlockCallback, RequestPriority.NORMAL);
-        }
+        });
     }
 
     protected void _removeBitcoinNode(final BitcoinNode bitcoinNode) {
@@ -455,6 +472,12 @@ public class NodeModule {
         _transactionIndexWorker = new WorkerManager(1, 128);
         _transactionIndexWorker.start();
 
+        _syncWorker = new WorkerManager(1, 1);
+        _syncWorker.start();
+
+        _blockDownloadWorker = new WorkerManager(1, 4);
+        _blockDownloadWorker.start();
+
         _blockchain = new Blockchain(_blockStore, _unspentTransactionOutputDatabaseManager);
         try {
             _blockchain.load(_blockchainFile);
@@ -487,23 +510,6 @@ public class NodeModule {
 
         _networkTime = new MutableNetworkTime();
 
-//        if (true) {
-//            try {
-//
-//                final Long headBlockHeight = _blockchain.getHeadBlockHeight();
-//                final Long blockHeight = 710057L; // RESUME: Corrupted manifest, so its bucket count is only 709096.
-//                _unspentTransactionOutputDatabaseManager.stashBlocks(headBlockHeight - blockHeight); // 710057L + 2L
-//                final Block block = _blockStore.getBlock(Sha256Hash.fromHexString("0000000000000000036BE86EDCC1F660988AB81D23455884F919800DC7205F9B"), 710057L);
-//                final UnspentTransactionOutputContext unspentTransactionOutputContext = _getUnspentTransactionOutputContext(block);
-//                _unspentTransactionOutputDatabaseManager.close();
-//            }
-//            catch (final Exception exception) {
-//                Logger.debug(exception);
-//            }
-//            Logger.flush();
-//            throw new RuntimeException();
-//        }
-
         _addNewNodes(1);
 
         final Runtime runtime = Runtime.getRuntime();
@@ -535,6 +541,8 @@ public class NodeModule {
         }
 
         try {
+            _blockDownloadWorker.close();
+            _syncWorker.close();
             _unspentTransactionOutputDatabaseManager.close();
             _transactionIndexWorker.close();
         }
