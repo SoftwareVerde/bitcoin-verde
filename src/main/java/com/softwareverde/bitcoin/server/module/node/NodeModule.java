@@ -548,25 +548,6 @@ public class NodeModule {
             throw new RuntimeException(exception);
         }
 
-        try {
-            final File blocksDirectory = _blockStore.getBlockDataDirectory();
-            final File transactionIndexDbDirectory = new File(blocksDirectory, "txindex");
-            Logger.info("Loading Transaction Index");
-            _transactionIndexer = new TransactionIndexer(transactionIndexDbDirectory);
-        }
-        catch (final Exception exception) {
-            throw new RuntimeException(exception);
-        }
-
-        _transactionIndexWorker = new WorkerManager(1, 128);
-        _transactionIndexWorker.start();
-
-        _syncWorker = new WorkerManager(1, 1);
-        _syncWorker.start();
-
-        _blockDownloadWorker = new WorkerManager(1, 4);
-        _blockDownloadWorker.start();
-
         _blockchain = new Blockchain(_blockStore, _unspentTransactionOutputDatabaseManager);
         try {
             _blockchain.load(_blockchainFile);
@@ -596,6 +577,25 @@ public class NodeModule {
 
         final AsertReferenceBlock asertReferenceBlock = BitcoinConstants.getAsertReferenceBlock();
         _blockchain.setAsertReferenceBlock(asertReferenceBlock);
+
+        try {
+            final File blocksDirectory = _blockStore.getBlockDataDirectory();
+            final File transactionIndexDbDirectory = new File(blocksDirectory, "index");
+            Logger.info("Loading Transaction Index");
+            _transactionIndexer = new TransactionIndexer(transactionIndexDbDirectory, _blockchain);
+        }
+        catch (final Exception exception) {
+            throw new RuntimeException(exception);
+        }
+
+        _transactionIndexWorker = new WorkerManager(1, 128);
+        _transactionIndexWorker.start();
+
+        _syncWorker = new WorkerManager(1, 1);
+        _syncWorker.start();
+
+        _blockDownloadWorker = new WorkerManager(1, 4);
+        _blockDownloadWorker.start();
 
         _networkTime = new MutableNetworkTime();
 
