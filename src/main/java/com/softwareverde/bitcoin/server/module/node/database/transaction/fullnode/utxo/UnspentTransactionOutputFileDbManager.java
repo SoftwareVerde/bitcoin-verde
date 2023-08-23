@@ -34,6 +34,7 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
         }
 
         _fileDb = new FileDb<>(dataDirectory, new UnspentTransactionOutputEntryInflater());
+        _fileDb.setName("UtxoDb");
         _fileDb.setTargetBucketMemoryByteCount(0L);
         _fileDb.setTargetFilterMemoryByteCount(ByteUtil.Unit.Binary.GIBIBYTES);
         _fileDb.load();

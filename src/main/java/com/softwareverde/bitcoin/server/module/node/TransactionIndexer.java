@@ -1,111 +1,159 @@
 package com.softwareverde.bitcoin.server.module.node;
 
+import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
+import com.softwareverde.bitcoin.server.module.node.utxo.IndexedAddressEntryInflater;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
+import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
+import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
+import com.softwareverde.btreedb.BucketDb;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.mutable.MutableArrayList;
-import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
-import com.softwareverde.filedb.EntryInflater;
 import com.softwareverde.filedb.FileDb;
 
 import java.io.File;
 
 public class TransactionIndexer implements AutoCloseable {
+    protected final Blockchain _blockchain;
+    protected final FileDb<Sha256Hash, IndexedTransaction> _transactionDb;
+    protected final BucketDb<Sha256Hash, IndexedAddress> _addressDb;
     protected final Double _falsePositiveRate = 0.000001D;
-    protected final FileDb<Sha256Hash, Integer> _fileDb;
 
-    public TransactionIndexer(final File dataDirectory) throws Exception {
-        if (! FileDb.exists(dataDirectory)) {
-            FileDb.initialize(dataDirectory);
+    public TransactionIndexer(final File dataDirectory, final Blockchain blockchain) throws Exception {
+        _blockchain = blockchain;
+
+        final File transactionDbDirectory = new File(dataDirectory, "tx");
+        if (! transactionDbDirectory.exists()) {
+            transactionDbDirectory.mkdirs();
         }
 
-        _fileDb = new FileDb<>(dataDirectory, new TransactionIndexEntryInflater());
-        _fileDb.setTargetBucketMemoryByteCount(0L);
-        _fileDb.setTargetFilterMemoryByteCount(ByteUtil.Unit.Binary.GIBIBYTES);
-        _fileDb.load();
-        _fileDb.loadIntoMemory();
-        _fileDb.createMetaFilters();
+        final File addressDbDirectory = new File(dataDirectory, "address");
+        if (! addressDbDirectory.exists()) {
+            addressDbDirectory.mkdirs();
+        }
+
+        if (! FileDb.exists(transactionDbDirectory)) {
+            FileDb.initialize(transactionDbDirectory);
+        }
+
+        _transactionDb = new FileDb<>(transactionDbDirectory, new IndexedTransactionEntryInflater());
+        _transactionDb.setName("TransactionIndexerDb");
+        _transactionDb.setTargetBucketMemoryByteCount(0L);
+        _transactionDb.setTargetFilterMemoryByteCount(ByteUtil.Unit.Binary.GIBIBYTES);
+        _transactionDb.load();
+        _transactionDb.loadIntoMemory();
+        _transactionDb.createMetaFilters();
+
+        _addressDb = new BucketDb<>(new IndexedAddressEntryInflater(), addressDbDirectory);
+        _addressDb.open();
     }
 
     public void indexTransactions(final Block block, final Long blockHeight) throws Exception {
-        final Integer blockHeightInt = blockHeight.intValue();
+        final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
+
         final List<Transaction> transactions = block.getTransactions();
-        _fileDb.resizeCapacity(transactions.getCount(), _falsePositiveRate);
+        final int transactionCount = transactions.getCount();
+        _transactionDb.resizeCapacity(transactionCount, _falsePositiveRate);
+
+        long diskOffset = BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT;
+        diskOffset += CompactVariableLengthInteger.variableLengthIntegerToBytes(transactionCount).getByteCount();
+
+        final MutableHashMap<Sha256Hash, IndexedAddress> stagedScriptHashes = new MutableHashMap<>();
+
         for (final Transaction transaction : transactions) {
             final Sha256Hash transactionHash = transaction.getHash();
-            _fileDb.put(transactionHash, blockHeightInt);
+            final int transactionByteCount = transaction.getByteCount();
+            final IndexedTransaction indexedTransaction = new IndexedTransaction(blockHeight, diskOffset, transactionByteCount);
+            _transactionDb.put(transactionHash, indexedTransaction);
+            diskOffset += transactionByteCount;
+
+            for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
+                final LockingScript lockingScript = transactionOutput.getLockingScript();
+                final Sha256Hash scriptHash = ScriptBuilder.computeScriptHash(lockingScript);
+
+                IndexedAddress indexedAddress = stagedScriptHashes.get(scriptHash);
+                if (indexedAddress == null) {
+                    final Address address = scriptPatternMatcher.extractAddress(lockingScript);
+                    indexedAddress = new IndexedAddress(address);
+                    stagedScriptHashes.put(scriptHash, indexedAddress);
+                }
+
+                indexedAddress.addTransactionOutput(transactionHash, transactionOutput);
+
+                // Do addresses really need the full output in the IndexedAddress?  I think they just need the output identifier and can grab the rest from disk.
+            }
+
+            for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+                final Sha256Hash previousTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+                final IndexedTransaction previousIndexedTransaction = _transactionDb.get(previousTransactionHash);
+                if (previousIndexedTransaction == null) { continue; }
+                final Transaction previousTransaction = _blockchain.getTransaction(previousIndexedTransaction);
+                if (previousTransaction == null) { continue; }
+
+                // Get the TransactionInput's prevout's Address and attach the TransactionInput to that Address's sentInputs.
+
+                final Integer outputIndex = transactionInput.getPreviousOutputIndex();
+                final TransactionOutput transactionOutput = previousTransaction.getTransactionOutput(outputIndex);
+                if (transactionOutput == null) { continue; }
+
+                final LockingScript lockingScript = transactionOutput.getLockingScript();
+                final Sha256Hash scriptHash = ScriptBuilder.computeScriptHash(lockingScript);
+
+                IndexedAddress indexedAddress = stagedScriptHashes.get(scriptHash);
+                if (indexedAddress == null) {
+                    final Address address = scriptPatternMatcher.extractAddress(lockingScript);
+                    indexedAddress = new IndexedAddress(address);
+                    stagedScriptHashes.put(scriptHash, indexedAddress);
+                }
+
+                indexedAddress.addTransactionInput(transactionHash, transactionInput);
+            }
         }
-        _fileDb.finalizeBucket();
+
+        for (final Sha256Hash scriptHash : stagedScriptHashes.getKeys()) {
+            final IndexedAddress stagedIndexedAddress = stagedScriptHashes.get(scriptHash);
+
+            IndexedAddress indexedAddress = _addressDb.get(scriptHash);
+            if (indexedAddress == null) {
+                indexedAddress = stagedIndexedAddress;
+            }
+            else {
+                indexedAddress.add(stagedIndexedAddress);
+            }
+            _addressDb.put(scriptHash, indexedAddress);
+        }
+
+        _transactionDb.finalizeBucket();
 
         if (blockHeight % 1024L == 0L) {
-            _fileDb.createMetaFilters();
+            _transactionDb.createMetaFilters();
         }
+
+        _addressDb.commit();
     }
 
     public void undoBlock() throws Exception {
-        _fileDb.undoBucket();
+        _transactionDb.undoBucket();
     }
 
-    public Long getTransactionBlockHeight(final Sha256Hash transactionHash) throws Exception {
-        final Integer blockHeightInt = _fileDb.get(transactionHash);
-        if (blockHeightInt == null) { return null; }
-
-        return blockHeightInt.longValue();
+    public IndexedTransaction getIndexedTransaction(final Sha256Hash transactionHash) throws Exception {
+        return _transactionDb.get(transactionHash);
     }
 
-    public List<Long> getTransactionBlockHeights(final List<Sha256Hash> transactionHashes) throws Exception {
-        final List<Integer> blockHeightInts = _fileDb.get(transactionHashes, false);
-        if (blockHeightInts == null) { return null; }
-
-        final MutableList<Long> blockHeights = new MutableArrayList<>(transactionHashes.getCount());
-        for (final Integer blockHeight : blockHeightInts) {
-            blockHeights.add(blockHeight.longValue());
-        }
-        return blockHeights;
+    public List<IndexedTransaction> getIndexedTransactions(final List<Sha256Hash> transactionHashes) throws Exception {
+        return _transactionDb.get(transactionHashes, false);
     }
 
     @Override
     public void close() throws Exception {
-        _fileDb.close();
-    }
-}
-
-class TransactionIndexEntryInflater implements EntryInflater<Sha256Hash, Integer> {
-    @Override
-    public Sha256Hash keyFromBytes(final ByteArray byteArray) {
-        return Sha256Hash.wrap(byteArray.getBytes(0, Sha256Hash.BYTE_COUNT));
-    }
-
-    @Override
-    public ByteArray keyToBytes(final Sha256Hash transactionHash) {
-        return transactionHash;
-    }
-
-    @Override
-    public int getKeyByteCount() {
-        return Sha256Hash.BYTE_COUNT;
-    }
-
-    @Override
-    public Integer valueFromBytes(final ByteArray byteArray) {
-        if (byteArray.isEmpty()) { return null; } // Support null values.
-        return ByteUtil.bytesToInteger(byteArray);
-    }
-
-    @Override
-    public ByteArray valueToBytes(final Integer value) {
-        if (value == null) { return new MutableByteArray(0); } // Support null values.
-
-        return MutableByteArray.wrap(ByteUtil.integerToBytes(value));
-    }
-
-    @Override
-    public int getValueByteCount(final Integer value) {
-        if (value == null) { return 0; } // Support null values.
-        return 4;
+        _addressDb.close();
+        _transactionDb.close();
     }
 }

@@ -15,11 +15,15 @@ import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
+import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.filedb.WorkerManager;
 import com.softwareverde.logging.Logger;
@@ -35,8 +39,13 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Comparator;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class Blockchain {
+    protected final ReentrantReadWriteLock.WriteLock _writeLock;
+    protected final ReentrantReadWriteLock.ReadLock _readLock;
+
     protected final MutableHashMap<Sha256Hash, Long> _blockHeights = new MutableHashMap<>();
     protected final MutableArrayList<BlockHeader> _blockHeaders = new MutableArrayList<>();
     protected final MutableArrayList<MedianBlockTime> _medianBlockTimes = new MutableArrayList<>();
@@ -93,12 +102,7 @@ public class Blockchain {
         return medianBlockTime;
     }
 
-    public Blockchain(final BlockStore blockStore, final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager) {
-        _blockStore = blockStore;
-        _unspentTransactionOutputDatabaseManager = unspentTransactionOutputDatabaseManager;
-    }
-
-    public void load(final File file) throws Exception {
+    protected void _load(final File file) throws Exception {
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
         if (file.exists()) {
@@ -195,7 +199,7 @@ public class Blockchain {
         }
     }
 
-    public void save(final File file) throws Exception {
+    protected void _save(final File file) throws Exception {
         if (file.exists()) {
             file.delete();
         }
@@ -215,143 +219,327 @@ public class Blockchain {
         }
     }
 
+    public Blockchain(final BlockStore blockStore, final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager) {
+        _blockStore = blockStore;
+        _unspentTransactionOutputDatabaseManager = unspentTransactionOutputDatabaseManager;
+
+        final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
+        _readLock = readWriteLock.readLock();
+        _writeLock = readWriteLock.writeLock();
+    }
+
+    public void load(final File file) throws Exception {
+        _writeLock.lock();
+        try {
+            _load(file);
+        }
+        finally {
+            _writeLock.unlock();
+        }
+    }
+
+    public void save(final File file) throws Exception {
+        _writeLock.lock();
+        try {
+            _save(file);
+        }
+        finally {
+            _writeLock.unlock();
+        }
+    }
+
     public MedianBlockTime getMedianBlockTime(final Long blockHeight) {
-        if (blockHeight >= _medianBlockTimes.getCount()) { return null; }
-        return _medianBlockTimes.get(blockHeight.intValue());
+        _readLock.lock();
+        try {
+            if (blockHeight >= _medianBlockTimes.getCount()) { return null; }
+            return _medianBlockTimes.get(blockHeight.intValue());
+        }
+        finally {
+            _readLock.unlock();
+        }
     }
 
     public ChainWork getChainWork(final Long blockHeight) {
-        if (blockHeight >= _chainWorks.getCount()) { return null; }
-        return _chainWorks.get(blockHeight.intValue());
+        _readLock.lock();
+        try {
+            if (blockHeight >= _chainWorks.getCount()) { return null; }
+            return _chainWorks.get(blockHeight.intValue());
+        }
+        finally {
+            _readLock.unlock();
+        }
     }
 
     public BlockHeader getBlockHeader(final Long blockHeight) {
-        return _getBlockHeader(blockHeight);
+        _readLock.lock();
+        try {
+            return _getBlockHeader(blockHeight);
+        }
+        finally {
+            _readLock.unlock();
+        }
     }
 
     public BlockHeader getBlockHeader(final Sha256Hash blockHash) {
-        final Long blockHeight = _blockHeights.get(blockHash);
+        _readLock.lock();
+        try {
+            final Long blockHeight = _blockHeights.get(blockHash);
 
-        if (blockHeight >= _blockHeaders.getCount()) { return null; }
-        return _blockHeaders.get(blockHeight.intValue());
+            if (blockHeight >= _blockHeaders.getCount()) { return null; }
+            return _blockHeaders.get(blockHeight.intValue());
+        }
+        finally {
+            _readLock.unlock();
+        }
     }
 
     public Long getBlockHeight(final Sha256Hash blockHash) {
-        return _blockHeights.get(blockHash);
+        _readLock.lock();
+        try {
+            return _blockHeights.get(blockHash);
+        }
+        finally {
+            _readLock.unlock();
+        }
     }
 
     public BlockHeader getParentBlockHeader(final Sha256Hash blockHash, final int parentCount) {
-        final Long blockHeight = _blockHeights.get(blockHash);
-        if (blockHeight == null) { return null; }
+        _readLock.lock();
+        try {
+            final Long blockHeight = _blockHeights.get(blockHash);
+            if (blockHeight == null) { return null; }
 
-        final int parentBlockHeight = (int) (blockHeight - parentCount);
-        if (parentBlockHeight < 0) { return null; }
+            final int parentBlockHeight = (int) (blockHeight - parentCount);
+            if (parentBlockHeight < 0) { return null; }
 
-        if (blockHeight >= _blockHeaders.getCount()) { return null; }
-        return _blockHeaders.get(parentBlockHeight);
+            if (blockHeight >= _blockHeaders.getCount()) { return null; }
+            return _blockHeaders.get(parentBlockHeight);
+        }
+        finally {
+            _readLock.unlock();
+        }
     }
 
     public BlockHeader getChildBlockHeader(final Sha256Hash blockHash, final int childCount) {
-        final Long blockHeight = _blockHeights.get(blockHash);
-        if (blockHeight == null) { return null; }
+        _readLock.lock();
+        try {
+            final Long blockHeight = _blockHeights.get(blockHash);
+            if (blockHeight == null) { return null; }
 
-        final int childBlockHeight = (int) (blockHeight + childCount);
-        if (blockHeight >= _blockHeaders.getCount()) { return null; }
-        return _blockHeaders.get(childBlockHeight);
+            final int childBlockHeight = (int) (blockHeight + childCount);
+            if (blockHeight >= _blockHeaders.getCount()) { return null; }
+            return _blockHeaders.get(childBlockHeight);
+        }
+        finally {
+            _readLock.unlock();
+        }
     }
 
     public Boolean addBlockHeader(final BlockHeader blockHeader) {
-        final Sha256Hash blockHash = blockHeader.getHash();
-        final Sha256Hash previousBlockHash = blockHeader.getPreviousBlockHash();
-        final long blockHeight = _blockHeaders.getCount();
-        if (blockHeight == 0L) {
-            if (! Util.areEqual(BlockHeader.GENESIS_BLOCK_HASH, blockHash)) { return false; }
-        }
-        else {
-            final BlockHeader headBlockHeader = _blockHeaders.get((int) (blockHeight - 1L));
-            final Sha256Hash headBlockHeaderHash = headBlockHeader.getHash();
-            if (! Util.areEqual(headBlockHeaderHash, previousBlockHash)) { return false; }
-        }
+        _writeLock.lock();
+        try {
+            final Sha256Hash blockHash = blockHeader.getHash();
+            final Sha256Hash previousBlockHash = blockHeader.getPreviousBlockHash();
+            final long blockHeight = _blockHeaders.getCount();
+            if (blockHeight == 0L) {
+                if (!Util.areEqual(BlockHeader.GENESIS_BLOCK_HASH, blockHash)) { return false; }
+            }
+            else {
+                final BlockHeader headBlockHeader = _blockHeaders.get((int) (blockHeight - 1L));
+                final Sha256Hash headBlockHeaderHash = headBlockHeader.getHash();
+                if (!Util.areEqual(headBlockHeaderHash, previousBlockHash)) { return false; }
+            }
 
-        final MedianBlockTime medianBlockTime = _calculateMedianBlockTime(blockHeader, blockHeight);
-        final ChainWork currentChainWork = (blockHeight > 0L ? _chainWorks.get((int) (blockHeight - 1L)) : new MutableChainWork());
-        final Difficulty difficulty = blockHeader.getDifficulty();
-        final BlockWork blockWork = difficulty.calculateWork();
-        final ChainWork newChainWork = ChainWork.add(currentChainWork, blockWork);
+            final MedianBlockTime medianBlockTime = _calculateMedianBlockTime(blockHeader, blockHeight);
+            final ChainWork currentChainWork = (blockHeight > 0L ? _chainWorks.get((int) (blockHeight - 1L)) : new MutableChainWork());
+            final Difficulty difficulty = blockHeader.getDifficulty();
+            final BlockWork blockWork = difficulty.calculateWork();
+            final ChainWork newChainWork = ChainWork.add(currentChainWork, blockWork);
 
-        _addBlockHeader(blockHeader, blockHeight, medianBlockTime, newChainWork);
-        return true;
+            _addBlockHeader(blockHeader, blockHeight, medianBlockTime, newChainWork);
+            return true;
+        }
+        finally {
+            _writeLock.unlock();
+        }
     }
 
     public Boolean addBlock(final Block block) {
-        final Sha256Hash blockHash = block.getHash();
-        final Long blockHeight = _blockHeights.get(blockHash);
-        if (blockHeight == null) { return false; }
+        _writeLock.lock();
+        try {
+            final Sha256Hash blockHash = block.getHash();
+            final Long blockHeight = _blockHeights.get(blockHash);
+            if (blockHeight == null) { return false; }
 
-        final BlockHeader headBlockHeader = _getBlockHeader(_headBlockHeight);
-        if (headBlockHeader != null) {
-            final Sha256Hash headBlockHash = headBlockHeader.getHash();
-            if (! Util.areEqual(headBlockHash, block.getPreviousBlockHash())) {
-                return false;
+            final BlockHeader headBlockHeader = _getBlockHeader(_headBlockHeight);
+            if (headBlockHeader != null) {
+                final Sha256Hash headBlockHash = headBlockHeader.getHash();
+                if (!Util.areEqual(headBlockHash, block.getPreviousBlockHash())) {
+                    return false;
+                }
             }
-        }
 
-        _addBlock(block, blockHeight);
-        return true;
+            _addBlock(block, blockHeight);
+            return true;
+        }
+        finally {
+            _writeLock.unlock();
+        }
     }
 
     public void undoHeadBlockHeader() {
-        if (_blockHeaders.isEmpty()) { return; }
+        _writeLock.lock();
+        try {
+            if (_blockHeaders.isEmpty()) { return; }
 
-        final int blockHeaderCount = _blockHeaders.getCount();
-        final int index = blockHeaderCount - 1;
-        final Long blockHeight = (long) index;
-        final BlockHeader headBlock = _blockHeaders.get(index);
-        final Sha256Hash blockHash = headBlock.getHash();
+            final int blockHeaderCount = _blockHeaders.getCount();
+            final int index = blockHeaderCount - 1;
+            final Long blockHeight = (long) index;
+            final BlockHeader headBlock = _blockHeaders.get(index);
+            final Sha256Hash blockHash = headBlock.getHash();
 
-        _blockHeaders.remove(index);
-        _medianBlockTimes.remove(index);
-        _chainWorks.remove(index);
-        _blockHeights.remove(blockHash);
+            _blockHeaders.remove(index);
+            _medianBlockTimes.remove(index);
+            _chainWorks.remove(index);
+            _blockHeights.remove(blockHash);
 
-        if (_blockStore.blockExists(blockHash, blockHeight)) {
-            _blockStore.removeBlock(blockHash, blockHeight);
-            _headBlockHeight -= 1;
+            if (_blockStore.blockExists(blockHash, blockHeight)) {
+                _blockStore.removeBlock(blockHash, blockHeight);
+                _headBlockHeight -= 1;
+            }
+        }
+        finally {
+            _writeLock.unlock();
         }
     }
 
     public Long getHeadBlockHeaderHeight() {
-        return (_blockHeaders.getCount() - 1L);
+        _readLock.lock();
+        try {
+            return (_blockHeaders.getCount() - 1L);
+        }
+        finally {
+            _readLock.unlock();
+        }
     }
 
     public Long getHeadBlockHeight() {
-        return (_headBlockHeight < 0L ? null : _headBlockHeight);
+        _readLock.lock();
+        try {
+            return (_headBlockHeight < 0L ? null : _headBlockHeight);
+        }
+        finally {
+            _readLock.unlock();
+        }
     }
 
     public Sha256Hash getHeadBlockHeaderHash() {
-        if (_blockHeaders.isEmpty()) { return BlockHeader.GENESIS_BLOCK_HASH; }
+        _readLock.lock();
+        try {
+            if (_blockHeaders.isEmpty()) { return BlockHeader.GENESIS_BLOCK_HASH; }
 
-        final int blockHeaderCount = _blockHeights.getCount();
-        final BlockHeader blockHeader = _blockHeaders.get(blockHeaderCount - 1);
-        return blockHeader.getHash();
+            final int blockHeaderCount = _blockHeights.getCount();
+            final BlockHeader blockHeader = _blockHeaders.get(blockHeaderCount - 1);
+            return blockHeader.getHash();
+        }
+        finally {
+            _readLock.unlock();
+        }
     }
 
     public Sha256Hash getHeadBlockHash() {
-        if (_headBlockHeight < 0L) { return null; }
-        final int blockIndex = _headBlockHeight.intValue();
-        final BlockHeader blockHeader = _blockHeaders.get(blockIndex);
-        return blockHeader.getHash();
+        _readLock.lock();
+        try {
+            if (_headBlockHeight < 0L) { return null; }
+            final int blockIndex = _headBlockHeight.intValue();
+            final BlockHeader blockHeader = _blockHeaders.get(blockIndex);
+            return blockHeader.getHash();
+        }
+        finally {
+            _readLock.unlock();
+        }
     }
 
     public AsertReferenceBlock getAsertReferenceBlock() {
-        return _asertReferenceBlock;
+        _readLock.lock();
+        try {
+            return _asertReferenceBlock;
+        }
+        finally {
+            _readLock.unlock();
+        }
     }
 
     public void setAsertReferenceBlock(final AsertReferenceBlock asertReferenceBlock) {
-        _asertReferenceBlock = asertReferenceBlock;
+        _writeLock.lock();
+        try {
+            _asertReferenceBlock = asertReferenceBlock;
+        }
+        finally {
+            _writeLock.unlock();
+        }
     }
 
     public UnspentTransactionOutputDatabaseManager getUnspentTransactionOutputDatabaseManager() {
         return _unspentTransactionOutputDatabaseManager;
+    }
+
+    public Transaction getTransaction(final IndexedTransaction indexedTransaction) {
+        final TransactionInflater transactionInflater = new TransactionInflater();
+
+        final int blockHeaderIndex = indexedTransaction.blockHeight.intValue();
+        if (blockHeaderIndex >= _blockHeaders.getCount()) { return null; }
+
+        final BlockHeader blockHeader = _blockHeaders.get(blockHeaderIndex);
+        final Sha256Hash blockHash = blockHeader.getHash();
+
+        final ByteArray transactionBytes = _blockStore.readFromBlock(blockHash, indexedTransaction.blockHeight, indexedTransaction.diskOffset, indexedTransaction.byteCount);
+        return transactionInflater.fromBytes(transactionBytes);
+    }
+
+    public List<Transaction> getTransactions(final List<IndexedTransaction> indexedTransactions) {
+        final int transactionCount = indexedTransactions.getCount();
+        final TransactionInflater transactionInflater = new TransactionInflater();
+        final MutableHashMap<Sha256Hash, MutableList<IndexedTransaction>> blockTransactions = new MutableHashMap<>();
+
+        for (final IndexedTransaction indexedTransaction : indexedTransactions) {
+            final int blockHeaderIndex = indexedTransaction.blockHeight.intValue();
+            if (blockHeaderIndex >= _blockHeaders.getCount()) { return null; }
+
+            final BlockHeader blockHeader = _blockHeaders.get(blockHeaderIndex);
+            final Sha256Hash blockHash = blockHeader.getHash();
+
+            MutableList<IndexedTransaction> queuedTransactions = blockTransactions.get(blockHash);
+            if (queuedTransactions == null) {
+                queuedTransactions = new MutableArrayList<>();
+                blockTransactions.put(blockHash, queuedTransactions);
+            }
+            queuedTransactions.add(indexedTransaction);
+        }
+
+        final MutableMap<IndexedTransaction, Transaction> loadedTransactions = new MutableHashMap<>(transactionCount);
+        for (final Sha256Hash blockHash : blockTransactions.getKeys()) {
+            final MutableList<IndexedTransaction> transactions = blockTransactions.get(blockHash);
+            transactions.sort(new Comparator<>() {
+                @Override
+                public int compare(final IndexedTransaction indexedTransaction0, final IndexedTransaction indexedTransaction1) {
+                    return indexedTransaction0.diskOffset.compareTo(indexedTransaction1.diskOffset);
+                }
+            });
+
+            for (final IndexedTransaction indexedTransaction : transactions) {
+                // TODO: optimize BlockStore to read from multiple section of the same block without opening the file each time.
+                final ByteArray transactionBytes = _blockStore.readFromBlock(blockHash, indexedTransaction.blockHeight, indexedTransaction.diskOffset, indexedTransaction.byteCount);
+                final Transaction transaction = transactionInflater.fromBytes(transactionBytes);
+                loadedTransactions.put(indexedTransaction, transaction);
+            }
+        }
+
+        final MutableList<Transaction> transactions = new MutableArrayList<>(transactionCount);
+        for (final IndexedTransaction indexedTransaction : indexedTransactions) {
+            final Transaction transaction = loadedTransactions.get(indexedTransaction);
+            transactions.add(transaction);
+        }
+        return transactions;
     }
 }

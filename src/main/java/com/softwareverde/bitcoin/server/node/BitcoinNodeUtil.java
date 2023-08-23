@@ -80,20 +80,29 @@ public class BitcoinNodeUtil {
     }
 
     public static <T, U, S extends BitcoinNode.FailableBitcoinNodeRequestCallback<U, T>> void failPendingRequests(final MutableMap<T, MutableSet<BitcoinNode.PendingRequest<S>>> pendingRequests, final ConcurrentMutableHashMap<RequestId, FailableRequest> failableRequests, final BitcoinNode bitcoinNode) {
+        final MutableArrayList<Tuple<S, Tuple<RequestId, T>>> failureCallbacks = new MutableArrayList<>();
+
         synchronized (pendingRequests) {
             for (final T key : pendingRequests.getKeys()) {
                 for (final BitcoinNode.PendingRequest<S> pendingRequest : pendingRequests.get(key)) {
                     final RequestId requestId = pendingRequest.requestId;
                     final S callback = pendingRequest.callback;
                     failableRequests.remove(requestId);
-                    callback.onFailure(requestId, bitcoinNode, key);
+                    failureCallbacks.add(new Tuple<>(callback, new Tuple<>(requestId, key)));
                 }
             }
             pendingRequests.clear();
         }
+
+        // Execute all failure callbacks after the requests have been cleared to terminate cyclic executions.
+        for (final Tuple<S, Tuple<RequestId, T>> failureCallback : failureCallbacks) {
+            failureCallback.first.onFailure(failureCallback.second.first, bitcoinNode, failureCallback.second.second);
+        }
     }
 
     public static <T, U, S extends BitcoinNode.FailableBitcoinNodeRequestCallback<U, Void>> void failPendingVoidRequests(final MutableMap<T, Set<BitcoinNode.PendingRequest<S>>> pendingRequests, final ConcurrentMutableHashMap<RequestId, FailableRequest> failableRequests, final BitcoinNode bitcoinNode) {
+        final MutableArrayList<Tuple<S, RequestId>> failureCallbacks = new MutableArrayList<>();
+
         synchronized (pendingRequests) {
             pendingRequests.visit(new Visitor<>() {
                 @Override
@@ -102,7 +111,7 @@ public class BitcoinNodeUtil {
                         final RequestId requestId = pendingRequest.requestId;
                         final S callback = pendingRequest.callback;
                         failableRequests.remove(requestId);
-                        callback.onFailure(requestId, bitcoinNode, null);
+                        failureCallbacks.add(new Tuple<>(callback, requestId));
                     }
 
                     return true;
@@ -110,6 +119,11 @@ public class BitcoinNodeUtil {
             });
 
             pendingRequests.clear();
+        }
+
+        // Execute all failure callbacks after the requests have been cleared to terminate cyclic executions.
+        for (final Tuple<S, RequestId> failureCallback : failureCallbacks) {
+            failureCallback.first.onFailure(failureCallback.second, bitcoinNode, null);
         }
     }
 }

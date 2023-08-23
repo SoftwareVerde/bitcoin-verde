@@ -18,9 +18,9 @@ public class NodeConnection {
         void onMessageReceived(ProtocolMessage message);
     }
 
-    protected static final Integer MAX_CONNECTION_ATTEMPTS = 3; // Sanity check for connection attempts...
-    protected static final long CONNECTION_TIMEOUT_MS = 3000L;
-    protected static final long MS_BETWEEN_RETRIES = 1500L;
+    protected static final Integer MAX_CONNECTION_ATTEMPTS = 2; // Sanity check for connection attempts...
+    protected static final long CONNECTION_TIMEOUT_MS = 2500L;
+    protected static final long MS_BETWEEN_RETRIES = 750L;
 
     protected static Boolean _socketIsConnected(final BinarySocket binarySocket) {
         return ( (binarySocket != null) && (binarySocket.isConnected()) );

@@ -28,7 +28,6 @@ import com.softwareverde.bitcoin.server.module.node.store.BlockStoreCore;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.RequestId;
 import com.softwareverde.bitcoin.server.node.RequestPriority;
-import com.softwareverde.constable.Visitor;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableArrayList;
@@ -59,6 +58,7 @@ public class NodeModule {
         return (ip + ":" + port);
     }
 
+    protected final Long _maxTimeoutMs = 30000L;
     protected final BitcoinProperties _bitcoinProperties;
     protected final File _blockchainFile;
     protected final Blockchain _blockchain;
@@ -80,7 +80,7 @@ public class NodeModule {
 
     protected final AtomicBoolean _isShuttingDown = new AtomicBoolean(false);
 
-    protected void _syncBlockHeaders(final BitcoinNode bitcoinNode) {
+    protected void _syncBlockHeaders() {
         final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(_upgradeSchedule, _blockchain, _networkTime, _difficultyCalculator);
 
         final BitcoinNode.DownloadBlockHeadersCallback downloadBlockHeadersCallback = new BitcoinNode.DownloadBlockHeadersCallback() {
@@ -129,7 +129,7 @@ public class NodeModule {
                         catch (final Exception exception) {
                             Logger.debug(exception);
                         }
-                        _syncBlocks(bitcoinNode);
+                        _syncBlocks();
                     }
                     else {
                         bitcoinNode.requestBlockHeadersAfter(new ImmutableList<Sha256Hash>(headBlockHash), this, RequestPriority.NORMAL);
@@ -139,12 +139,23 @@ public class NodeModule {
 
             @Override
             public void onFailure(final RequestId requestId, final BitcoinNode bitcoinNode, final Sha256Hash blockHash) {
-                _syncBlocks(bitcoinNode);
+                _syncBlocks();
             }
         };
 
-        final Sha256Hash headBlockHash = _blockchain.getHeadBlockHeaderHash();
-        bitcoinNode.requestBlockHeadersAfter(new ImmutableList<Sha256Hash>(headBlockHash), downloadBlockHeadersCallback, RequestPriority.NORMAL);
+        final BitcoinNode bitcoinNode;
+        synchronized (_bitcoinNodes) {
+            if (_bitcoinNodes.isEmpty()) { return; }
+            bitcoinNode = _bitcoinNodes.get(0);
+        }
+
+        _syncWorker.offerTask(new WorkerManager.Task() {
+            @Override
+            public void run() {
+                final Sha256Hash headBlockHash = _blockchain.getHeadBlockHeaderHash();
+                bitcoinNode.requestBlockHeadersAfter(new ImmutableList<Sha256Hash>(headBlockHash), downloadBlockHeadersCallback, RequestPriority.NORMAL);
+            }
+        });
     }
 
     protected UnspentTransactionOutputContext _getUnspentTransactionOutputContext(final Block block) throws Exception {
@@ -194,8 +205,8 @@ public class NodeModule {
                         Logger.info("Failed to receive Block: " + blockHash + " " + bitcoinNode);
                         failCountContainer.value += 1;
                         if (failCountContainer.value > 1) {
-                            bitcoinNode.disconnect();
                             promise.setResult(null);
+                            bitcoinNode.disconnect();
                         }
                         else {
                             bitcoinNode.requestBlock(blockHash, this, RequestPriority.NORMAL);
@@ -224,9 +235,13 @@ public class NodeModule {
 
                 final Sha256Hash nextBlockHash = nextBlockHeader.getHash();
 
-                // TODO: Need to remove race condition...
-                final int nodeCount = _bitcoinNodes.getCount();
-                final BitcoinNode concurrentBitcoinNode = _bitcoinNodes.get(i % nodeCount);
+                final BitcoinNode concurrentBitcoinNode;
+                synchronized (_bitcoinNodes) {
+                    final int nodeCount = _bitcoinNodes.getCount();
+                    if (nodeCount == 0) { break; }
+
+                    concurrentBitcoinNode = _bitcoinNodes.get(i % nodeCount);
+                }
 
                 _downloadBlock(concurrentBitcoinNode, nextBlockHash);
             }
@@ -235,7 +250,13 @@ public class NodeModule {
         return requestedPromise;
     }
 
-    protected void _syncBlocks(final BitcoinNode bitcoinNode) {
+    protected void _syncBlocks() {
+        final BitcoinNode bitcoinNode;
+        synchronized (_bitcoinNodes) {
+            if (_bitcoinNodes.isEmpty()) { return; }
+            bitcoinNode = _bitcoinNodes.get(0);
+        }
+
         _syncWorker.offerTask(new WorkerManager.Task() {
             @Override
             public void run() {
@@ -253,7 +274,7 @@ public class NodeModule {
                     final Promise<Block> promise = _downloadBlocks(bitcoinNode, blockHash);
 
                     try {
-                        final Block block = promise.getResult();
+                        final Block block = promise.getResult(_maxTimeoutMs);
                         if (block == null) { break; }
 
                         Logger.debug("Processing: " + blockHash);
@@ -330,15 +351,17 @@ public class NodeModule {
 
     protected void _removeBitcoinNode(final BitcoinNode bitcoinNode) {
         final NodeId nodeId = bitcoinNode.getId();
-        _bitcoinNodes.mutableVisit(new MutableList.MutableVisitor<>() {
-            @Override
-            public boolean run(final Container<BitcoinNode> bitcoinNodeContainer) {
-                if (! Util.areEqual(nodeId, bitcoinNodeContainer.value.getId())) { return true; }
+        synchronized (_bitcoinNodes) {
+            _bitcoinNodes.mutableVisit(new MutableList.MutableVisitor<>() {
+                @Override
+                public boolean run(final Container<BitcoinNode> bitcoinNodeContainer) {
+                    if (!Util.areEqual(nodeId, bitcoinNodeContainer.value.getId())) { return true; }
 
-                bitcoinNodeContainer.value = null;
-                return false;
-            }
-        });
+                    bitcoinNodeContainer.value = null;
+                    return false;
+                }
+            });
+        }
     }
 
     protected void _addNewNodes(final int numberOfNodesToAttemptConnectionsTo) {
@@ -420,18 +443,7 @@ public class NodeModule {
                     public void onNodeDisconnected() {
                         _removeBitcoinNode(bitcoinNode);
 
-                        if (_bitcoinNodes.isEmpty()) {
-                            _addNewNodes(1);
-                        }
-                        else {
-                            _bitcoinNodes.visit(new Visitor<>() {
-                                @Override
-                                public boolean run(final BitcoinNode bitcoinNode) {
-                                    Logger.debug("_bitcoinNodes: " + bitcoinNode);
-                                    return true;
-                                }
-                            });
-                        }
+                        _addNewNodes(1);
                     }
                 });
 
@@ -456,16 +468,46 @@ public class NodeModule {
                                 }
                             }
                         });
-                        bitcoinNode.requestNodeAddresses();
+                        // bitcoinNode.requestNodeAddresses();
 
-                        _syncBlockHeaders(bitcoinNode);
+                        _syncBlockHeaders();
+                    }
+                });
+                bitcoinNode.setUnsolicitedBlockReceivedCallback(new BitcoinNode.DownloadBlockCallback() {
+                    @Override
+                    public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final Block block) {
+                        final Sha256Hash blockHash = block.getHash();
+                        final Long headBlockHeight = _blockchain.getHeadBlockHeight();
+                        final Long blockHeight = _blockchain.getBlockHeight(blockHash);
+                        if (blockHeight == null) {
+                            final Sha256Hash headBlockHeaderHash = _blockchain.getHeadBlockHeaderHash();
+                            if (! Util.areEqual(headBlockHeaderHash, block.getPreviousBlockHash())) {
+                                Logger.debug("Received unknown, unrequested Block: " + blockHash + " from " + bitcoinNode.toString() + "; disconnecting.");
+                                bitcoinNode.disconnect();
+                                return;
+                            }
+                            else {
+                                // TODO: Add header.
+                            }
+                        }
+
+                        if (Math.abs(blockHeight - headBlockHeight) > 10) {
+                            Logger.debug("Received unsolicited, irrelevant Block: " + blockHash + " from " + bitcoinNode.toString() + "; disconnecting.");
+                            bitcoinNode.disconnect();
+                            return;
+                        }
+
+                        Logger.debug("Received unsolicited Block: " + blockHash + " from " + bitcoinNode.toString());
+                        _downloadedBlocks.addBlock(blockHeight, new Promise<>(block));
                     }
                 });
 
                 Logger.info("Connecting to: " + host + ":" + port);
                 bitcoinNode.connect();
 
-                _bitcoinNodes.add(bitcoinNode);
+                synchronized (_bitcoinNodes) {
+                    _bitcoinNodes.add(bitcoinNode);
+                }
                 container.value = null; // _availablePeers.remove(nodeIpAddress);
 
                 newPeerCount.value += 1;
