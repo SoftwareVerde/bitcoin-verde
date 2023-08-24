@@ -609,7 +609,7 @@ public class NodeModule {
 
                 try {
                     _blockchain.save(_blockchainFile);
-                    _unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(null, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
+                    // _unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(null, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
                 }
                 catch (final Exception exception) {
                     Logger.debug(exception);

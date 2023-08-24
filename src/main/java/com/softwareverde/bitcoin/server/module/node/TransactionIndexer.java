@@ -10,21 +10,18 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
-import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.btreedb.BucketDb;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
-import com.softwareverde.filedb.FileDb;
 
 import java.io.File;
 
 public class TransactionIndexer implements AutoCloseable {
     protected final Blockchain _blockchain;
-    protected final FileDb<Sha256Hash, IndexedTransaction> _transactionDb;
+    protected final BucketDb<Sha256Hash, IndexedTransaction> _transactionDb;
     protected final BucketDb<Sha256Hash, IndexedAddress> _addressDb;
-    protected final Double _falsePositiveRate = 0.000001D;
 
     public TransactionIndexer(final File dataDirectory, final Blockchain blockchain) throws Exception {
         _blockchain = blockchain;
@@ -39,19 +36,10 @@ public class TransactionIndexer implements AutoCloseable {
             addressDbDirectory.mkdirs();
         }
 
-        if (! FileDb.exists(transactionDbDirectory)) {
-            FileDb.initialize(transactionDbDirectory);
-        }
+        _transactionDb = new BucketDb<>(transactionDbDirectory, new IndexedTransactionEntryInflater());
+        _transactionDb.open();
 
-        _transactionDb = new FileDb<>(transactionDbDirectory, new IndexedTransactionEntryInflater());
-        _transactionDb.setName("TransactionIndexerDb");
-        _transactionDb.setTargetBucketMemoryByteCount(0L);
-        _transactionDb.setTargetFilterMemoryByteCount(ByteUtil.Unit.Binary.GIBIBYTES);
-        _transactionDb.load();
-        _transactionDb.loadIntoMemory();
-        _transactionDb.createMetaFilters();
-
-        _addressDb = new BucketDb<>(new IndexedAddressEntryInflater(), addressDbDirectory);
+        _addressDb = new BucketDb<>(addressDbDirectory, new IndexedAddressEntryInflater());
         _addressDb.open();
     }
 
@@ -60,7 +48,7 @@ public class TransactionIndexer implements AutoCloseable {
 
         final List<Transaction> transactions = block.getTransactions();
         final int transactionCount = transactions.getCount();
-        _transactionDb.resizeCapacity(transactionCount, _falsePositiveRate);
+        // _transactionDb.resizeCapacity(transactionCount, _falsePositiveRate);
 
         long diskOffset = BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT;
         diskOffset += CompactVariableLengthInteger.variableLengthIntegerToBytes(transactionCount).getByteCount();
@@ -130,25 +118,12 @@ public class TransactionIndexer implements AutoCloseable {
             _addressDb.put(scriptHash, indexedAddress);
         }
 
-        _transactionDb.finalizeBucket();
-
-        if (blockHeight % 1024L == 0L) {
-            _transactionDb.createMetaFilters();
-        }
-
+        _transactionDb.commit();
         _addressDb.commit();
-    }
-
-    public void undoBlock() throws Exception {
-        _transactionDb.undoBucket();
     }
 
     public IndexedTransaction getIndexedTransaction(final Sha256Hash transactionHash) throws Exception {
         return _transactionDb.get(transactionHash);
-    }
-
-    public List<IndexedTransaction> getIndexedTransactions(final List<Sha256Hash> transactionHashes) throws Exception {
-        return _transactionDb.get(transactionHashes, false);
     }
 
     @Override

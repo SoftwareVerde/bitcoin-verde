@@ -9,46 +9,28 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.util.BlockUtil;
-import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.constable.Visitor;
+import com.softwareverde.btreedb.BucketDb;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.filedb.FileDb;
-import com.softwareverde.filedb.Item;
-import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 
 import java.io.File;
 
 public class UnspentTransactionOutputFileDbManager implements UnspentTransactionOutputDatabaseManager, AutoCloseable {
-    protected final Double _falsePositiveRate = 0.000001D;
-    protected final FileDb<TransactionOutputIdentifier, UnspentTransactionOutput> _fileDb;
+    protected final BucketDb<TransactionOutputIdentifier, UnspentTransactionOutput> _utxoDb;
 
     public UnspentTransactionOutputFileDbManager(final File dataDirectory) throws Exception {
         if (! FileDb.exists(dataDirectory)) {
             FileDb.initialize(dataDirectory);
         }
 
-        _fileDb = new FileDb<>(dataDirectory, new UnspentTransactionOutputEntryInflater());
-        _fileDb.setName("UtxoDb");
-        _fileDb.setTargetBucketMemoryByteCount(0L);
-        _fileDb.setTargetFilterMemoryByteCount(ByteUtil.Unit.Binary.GIBIBYTES);
-        _fileDb.load();
-        _fileDb.loadIntoMemory();
-        // _fileDb.createBloomFilters(_falsePositiveRate);
-        _fileDb.createMetaFilters();
-    }
-
-    public void stashBlocks(final Long count) {
-        _fileDb.stashBuckets(count);
-    }
-
-    public void applyStashedBlocks() {
-        _fileDb.applyStashedBuckets();
+        _utxoDb = new BucketDb<>(dataDirectory, new UnspentTransactionOutputEntryInflater(), 17);
+        _utxoDb.open();
     }
 
     @Override
@@ -66,9 +48,6 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
 
             final NanoTimer nanoTimer = new NanoTimer();
 
-            nanoTimer.start();
-            _fileDb.resizeCapacity(outputCount + spentOutputCount, _falsePositiveRate);
-            nanoTimer.stop();
             // Logger.debug("FileDb::resizeCapacity=" + nanoTimer.getMillisecondsElapsed() + "ms.");
 
             nanoTimer.start();
@@ -79,26 +58,22 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
 
                 final TransactionOutput transactionOutput = transactionOutputs.get(i);
                 final UnspentTransactionOutput unspentTransactionOutput = new MutableUnspentTransactionOutput(transactionOutput, blockHeight, isCoinbase);
-                _fileDb.put(transactionOutputIdentifier, unspentTransactionOutput);
+                _utxoDb.put(transactionOutputIdentifier, unspentTransactionOutput);
             }
             nanoTimer.stop();
             // Logger.debug("FileDb::put=" + nanoTimer.getMillisecondsElapsed() + "ms.");
 
             nanoTimer.start();
             for (final TransactionOutputIdentifier spentTransactionOutputIdentifier : spentTransactionOutputIdentifiers) {
-                _fileDb.putDeleted(spentTransactionOutputIdentifier);
+                _utxoDb.delete(spentTransactionOutputIdentifier);
             }
             nanoTimer.stop();
             // Logger.debug("FileDb::putDeleted=" + nanoTimer.getMillisecondsElapsed() + "ms.");
 
             nanoTimer.start();
-            _fileDb.finalizeBucket();
+            _utxoDb.commit();
             nanoTimer.stop();
             // Logger.debug("FileDb::finalizeBucket=" + nanoTimer.getMillisecondsElapsed() + "ms.");
-
-            if (blockHeight % 1024L == 0L) {
-                _fileDb.createMetaFilters();
-            }
         }
         catch (final Exception exception) {
             throw new DatabaseException(exception);
@@ -107,18 +82,13 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
 
     @Override
     public void undoBlock(final Block block, final Long blockHeight) throws DatabaseException {
-        try {
-            _fileDb.undoBucket();
-        }
-        catch (final Exception exception) {
-            throw new DatabaseException(exception);
-        }
+        // TODO
     }
 
     @Override
     public UnspentTransactionOutput getUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
         try {
-            return _fileDb.get(transactionOutputIdentifier);
+            return _utxoDb.get(transactionOutputIdentifier);
         }
         catch (final Exception exception) {
             throw new DatabaseException(exception);
@@ -133,7 +103,13 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
     @Override
     public List<UnspentTransactionOutput> getUnspentTransactionOutputs(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException {
         try {
-            return _fileDb.get(transactionOutputIdentifiers, false);
+            final int outputCount = transactionOutputIdentifiers.getCount();
+            final MutableList<UnspentTransactionOutput> transactionOutputs = new MutableArrayList<>(outputCount);
+            for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
+                final UnspentTransactionOutput transactionOutput = _utxoDb.get(transactionOutputIdentifier);
+                transactionOutputs.add(transactionOutput);
+            }
+            return transactionOutputs;
         }
         catch (final Exception exception) {
             throw new DatabaseException(exception);
@@ -148,7 +124,7 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
             int outputIndex = 0;
             while (true) {
                 final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
-                final UnspentTransactionOutput unspentTransactionOutput = _fileDb.get(transactionOutputIdentifier, true);
+                final UnspentTransactionOutput unspentTransactionOutput = _utxoDb.get(transactionOutputIdentifier); // TODO: _utxoDb.get(transactionOutputIdentifier, true)?
                 if (unspentTransactionOutput == null) { break; }
 
                 unspentTransactionOutputs.add(transactionOutputIdentifier);
@@ -164,13 +140,7 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
 
     @Override
     public Boolean commitUnspentTransactionOutputs(final DatabaseManagerFactory databaseManagerFactory, final CommitAsyncMode commitAsyncMode) throws DatabaseException {
-        try {
-            _fileDb.flush();
-            return true;
-        }
-        catch (final Exception exception) {
-            throw new DatabaseException(exception);
-        }
+        return true;
     }
 
     @Override
@@ -212,7 +182,7 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
     @Override
     public void clearCommittedUtxoSet() throws DatabaseException {
         try {
-            _fileDb.destroy();
+            _utxoDb.destroy();
         }
         catch (final Exception exception) {
             throw new DatabaseException(exception);
@@ -232,7 +202,7 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
     @Override
     public UnspentTransactionOutput findOutputData(final TransactionOutputIdentifier transactionOutputIdentifier, final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
         try {
-            return _fileDb.get(transactionOutputIdentifier, true);
+            return _utxoDb.get(transactionOutputIdentifier); // TODO
         }
         catch (final Exception exception) {
             throw new DatabaseException(exception);
@@ -242,21 +212,22 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
     @Override
     public void visitUnspentTransactionOutputs(final UnspentTransactionOutputVisitor visitor) throws DatabaseException {
         try {
-            _fileDb.visitEntries(new Visitor<>() {
-                @Override
-                public boolean run(final Tuple<TransactionOutputIdentifier, Item<UnspentTransactionOutput>> entry) {
-                    try {
-                        if (entry.second.isDeleted()) { return true; }
-
-                        visitor.run(entry.first, entry.second.getValue());
-
-                        return true;
-                    }
-                    catch (final Exception exception) {
-                        return false;
-                    }
-                }
-            });
+//            _utxoDb.visitEntries(new Visitor<>() {
+//                @Override
+//                public boolean run(final Tuple<TransactionOutputIdentifier, Item<UnspentTransactionOutput>> entry) {
+//                    try {
+//                        if (entry.second.isDeleted()) { return true; }
+//
+//                        visitor.run(entry.first, entry.second.getValue());
+//
+//                        return true;
+//                    }
+//                    catch (final Exception exception) {
+//                        return false;
+//                    }
+//                }
+//            });
+            // TODO
         }
         catch (final Exception exception) {
             throw new DatabaseException(exception);
@@ -265,6 +236,6 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
 
     @Override
     public void close() throws Exception {
-        _fileDb.close();
+        _utxoDb.close();
     }
 }

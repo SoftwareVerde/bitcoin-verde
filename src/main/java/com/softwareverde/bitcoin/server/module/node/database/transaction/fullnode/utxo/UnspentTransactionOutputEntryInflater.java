@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.token.CashToken;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
+import com.softwareverde.btreedb.BucketDb;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -17,7 +18,7 @@ import com.softwareverde.util.Tuple;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 
-public class UnspentTransactionOutputEntryInflater implements EntryInflater<TransactionOutputIdentifier, UnspentTransactionOutput> {
+public class UnspentTransactionOutputEntryInflater implements BucketDb.BucketEntryInflater<TransactionOutputIdentifier, UnspentTransactionOutput> {
     protected final TransactionOutputInflater _transactionOutputInflater = new TransactionOutputInflater();
     protected final TransactionOutputDeflater _transactionOutputDeflater = new TransactionOutputDeflater();
 
@@ -123,5 +124,10 @@ public class UnspentTransactionOutputEntryInflater implements EntryInflater<Tran
         byteCount += _transactionOutputDeflater.getLegacyScriptByteCount(unspentTransactionOutput);
 
         return byteCount;
+    }
+
+    @Override
+    public Sha256Hash getHash(final TransactionOutputIdentifier transactionOutputIdentifier) {
+        return transactionOutputIdentifier.getTransactionHash();
     }
 }
