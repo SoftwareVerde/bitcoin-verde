@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.bip.TestNet4UpgradeSchedule;
 import com.softwareverde.bitcoin.bip.TestNetUpgradeSchedule;
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
 import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
@@ -21,13 +22,13 @@ import com.softwareverde.bitcoin.server.main.NetworkType;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.query.header.RequestBlockHeadersMessage;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.CommitAsyncMode;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputFileDbManager;
-import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
-import com.softwareverde.bitcoin.server.module.node.store.BlockStoreCore;
+import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStoreCore;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.RequestId;
 import com.softwareverde.bitcoin.server.node.RequestPriority;
+import com.softwareverde.concurrent.Pin;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableArrayList;
@@ -64,7 +65,7 @@ public class NodeModule {
     protected final Blockchain _blockchain;
     protected final UnspentTransactionOutputFileDbManager _unspentTransactionOutputDatabaseManager;
     protected final TransactionIndexer _transactionIndexer;
-    protected final BlockStore _blockStore;
+    protected final PendingBlockStoreCore _blockStore;
     protected final UpgradeSchedule _upgradeSchedule;
     protected final VolatileNetworkTime _networkTime;
     protected final DifficultyCalculator _difficultyCalculator;
@@ -78,9 +79,10 @@ public class NodeModule {
     protected final MutableHashSet<Ip> _previouslyConnectedIps = new MutableHashSet<>();
     protected final PendingBlockQueue _downloadedBlocks = new PendingBlockQueue(10);
 
+    protected final Pin _shutdownPin = new Pin();
     protected final AtomicBoolean _isShuttingDown = new AtomicBoolean(false);
 
-    protected void _syncBlockHeaders() {
+    protected void _syncHeaders() {
         final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(_upgradeSchedule, _blockchain, _networkTime, _difficultyCalculator);
 
         final BitcoinNode.DownloadBlockHeadersCallback downloadBlockHeadersCallback = new BitcoinNode.DownloadBlockHeadersCallback() {
@@ -91,30 +93,38 @@ public class NodeModule {
                 int count = 0;
                 boolean hadInvalid = false;
                 for (final BlockHeader blockHeader : response) {
-                    final Long blockHeight = _blockchain.getHeadBlockHeaderHeight();
                     final Sha256Hash blockHash = blockHeader.getHash();
-                    if (blockHeight > 0L) {
-                        final BlockHeaderValidator.BlockHeaderValidationResult validationResult = blockHeaderValidator.validateBlockHeader(blockHeader, blockHeight + 1L);
-                        if (! validationResult.isValid) {
+                    final Long blockHeight = _blockchain.getHeadBlockHeaderHeight();
+
+                    final Long existingBlockHeight = _blockchain.getBlockHeight(blockHash);
+                    if (existingBlockHeight == null) {
+                        if (blockHeight > 0L) {
+                            final BlockHeaderValidator.BlockHeaderValidationResult validationResult = blockHeaderValidator.validateBlockHeader(blockHeader, blockHeight + 1L);
+                            if (! validationResult.isValid) {
+                                bitcoinNode.disconnect();
+                                Logger.debug(validationResult.errorMessage + " " + blockHash);
+                                hadInvalid = true;
+                                break;
+                            }
+                        }
+
+                        final Boolean result = _blockchain.addBlockHeader(blockHeader);
+                        if (! result) {
                             bitcoinNode.disconnect();
-                            Logger.debug(validationResult.errorMessage + " " + blockHash);
+                            Logger.debug("Rejected: " + blockHash);
                             hadInvalid = true;
                             break;
                         }
+
+                        count += 1;
+
+                        final Long nodeBlockHeight = bitcoinNode.getBlockHeight();
+                        bitcoinNode.setBlockHeight(Math.max(blockHeight, nodeBlockHeight));
                     }
-
-                    final Boolean result = _blockchain.addBlockHeader(blockHeader);
-                    if (! result) {
-                        bitcoinNode.disconnect();
-                        Logger.debug("Rejected: " + blockHash);
-                        hadInvalid = true;
-                        break;
+                    else { // BlockHeader is already known.
+                        final Long nodeBlockHeight = bitcoinNode.getBlockHeight();
+                        bitcoinNode.setBlockHeight(Math.max(existingBlockHeight, nodeBlockHeight));
                     }
-
-                    count += 1;
-
-                    final Long nodeBlockHeight = bitcoinNode.getBlockHeight();
-                    bitcoinNode.setBlockHeight(Math.max(blockHeight, nodeBlockHeight));
                 }
 
                 final Sha256Hash headBlockHash = _blockchain.getHeadBlockHeaderHash();
@@ -185,6 +195,16 @@ public class NodeModule {
         _blockDownloadWorker.submitTask(new WorkerManager.Task() {
             @Override
             public void run() {
+                if (_blockStore.pendingBlockExists(blockHash)) {
+                    final ByteArray byteArray = _blockStore.getPendingBlockData(blockHash);
+                    final Block block = (new BlockInflater()).fromBytes(byteArray);
+                    if (block != null) {
+                        Logger.debug("Pending block exists: " + blockHash);
+                        promise.setResult(block);
+                        return;
+                    }
+                }
+
                 final Container<Integer> failCountContainer = new Container<>(0);
                 final NanoTimer downloadTimer = new NanoTimer();
                 downloadTimer.start();
@@ -291,7 +311,7 @@ public class NodeModule {
                             final BlockValidationResult result = blockValidator.validateBlock(block, unspentTransactionOutputContext);
                             validationTimer.stop();
                             if (! result.isValid) {
-                                Logger.info(result.errorMessage + " " + block.getHash());
+                                Logger.info(result.errorMessage + " " + block.getHash() + " " + result.invalidTransactions.get(0) + " (" + result.invalidTransactions.getCount() + ")");
                                 bitcoinNode.disconnect();
                                 break;
                             }
@@ -329,7 +349,7 @@ public class NodeModule {
                             });
                         }
 
-                        Logger.debug("Finished: " + blockHash + " " +
+                        Logger.debug("Finished: " + blockHeight + " " + blockHash + " " +
                             "utxoTimer=" + utxoTimer.getMillisecondsElapsed() + " " +
                             "validationTimer=" + validationTimer.getMillisecondsElapsed() + " " +
                             "addBlockTimer=" + addBlockTimer.getMillisecondsElapsed() + " " +
@@ -470,7 +490,7 @@ public class NodeModule {
                         });
                         // bitcoinNode.requestNodeAddresses();
 
-                        _syncBlockHeaders();
+                        _syncHeaders();
                     }
                 });
                 bitcoinNode.setUnsolicitedBlockReceivedCallback(new BitcoinNode.DownloadBlockCallback() {
@@ -537,10 +557,9 @@ public class NodeModule {
         final NetworkType networkType = bitcoinProperties.getNetworkType();
         BitcoinConstants.configureForNetwork(networkType);
 
-        _blockStore = new BlockStoreCore(dataDirectory, true);
+        _blockStore = new PendingBlockStoreCore(dataDirectory, true);
         try {
-            final File blocksDirectory = _blockStore.getBlockDataDirectory();
-            final File utxoDbDirectory = new File(blocksDirectory, "utxo");
+            final File utxoDbDirectory = new File(dataDirectory, "utxo");
             Logger.info("Loading FileDB");
             _unspentTransactionOutputDatabaseManager = new UnspentTransactionOutputFileDbManager(utxoDbDirectory);
         }
@@ -579,8 +598,7 @@ public class NodeModule {
         _blockchain.setAsertReferenceBlock(asertReferenceBlock);
 
         try {
-            final File blocksDirectory = _blockStore.getBlockDataDirectory();
-            final File transactionIndexDbDirectory = new File(blocksDirectory, "index");
+            final File transactionIndexDbDirectory = new File(dataDirectory, "index");
             Logger.info("Loading Transaction Index");
             _transactionIndexer = new TransactionIndexer(transactionIndexDbDirectory, _blockchain);
         }
@@ -589,37 +607,41 @@ public class NodeModule {
         }
 
         _transactionIndexWorker = new WorkerManager(1, 128);
+        _transactionIndexWorker.setName("Blockchain Indexer");
         _transactionIndexWorker.start();
 
         _syncWorker = new WorkerManager(1, 1);
+        _syncWorker.setName("Blockchain Sync");
         _syncWorker.start();
 
         _blockDownloadWorker = new WorkerManager(1, 4);
+        _blockDownloadWorker.setName("Blockchain Downloader");
         _blockDownloadWorker.start();
 
         _networkTime = new MutableNetworkTime();
 
         _addNewNodes(3);
 
-        final Runtime runtime = Runtime.getRuntime();
-        runtime.addShutdownHook(new Thread() {
+        final Thread shutdownThread = new Thread() {
             @Override
             public void run() {
-                _isShuttingDown.set(true);
-
                 try {
-                    _blockchain.save(_blockchainFile);
-                    // _unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(null, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
+                    NodeModule.this.close();
+                    _shutdownPin.waitForRelease();
                 }
                 catch (final Exception exception) {
-                    Logger.debug(exception);
+                    exception.printStackTrace();
                 }
             }
-        });
+        };
+        shutdownThread.setName("Shutdown Thread");
+
+        final Runtime runtime = Runtime.getRuntime();
+        runtime.addShutdownHook(shutdownThread);
     }
 
     public void loop() {
-        while (true) {
+        while (! _isShuttingDown.get()) {
             try {
                 Thread.sleep(1000L);
             }
@@ -630,13 +652,36 @@ public class NodeModule {
         }
 
         try {
-            _blockDownloadWorker.close();
-            _syncWorker.close();
-            _unspentTransactionOutputDatabaseManager.close();
-            _transactionIndexWorker.close();
+            this.close();
         }
         catch (final Exception exception) {
             Logger.debug(exception);
         }
+    }
+
+    public void close() throws Exception {
+        if (! _isShuttingDown.compareAndSet(false, true)) { return; }
+
+        try {
+            for (final BitcoinNode bitcoinNode : _bitcoinNodes) {
+                bitcoinNode.disconnect();
+            }
+        }
+        catch (final Exception exception) {
+            Logger.debug(exception);
+        }
+
+        try {
+            _blockDownloadWorker.close();
+            _syncWorker.close();
+            _unspentTransactionOutputDatabaseManager.close();
+            _transactionIndexWorker.close();
+            _transactionIndexer.close();
+            _blockchain.save(_blockchainFile);
+        }
+        finally {
+            _shutdownPin.release();
+        }
+        Logger.debug("Shutdown complete.");
     }
 }

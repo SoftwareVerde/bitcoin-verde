@@ -13,6 +13,10 @@ import com.softwareverde.util.IoUtil;
 import java.io.File;
 
 public class PendingBlockStoreCore extends BlockStoreCore implements PendingBlockStore {
+    public static String getPendingBlockDataDirectory(final File dataDirectory) {
+        return (dataDirectory != null ? (dataDirectory + "/" + BitcoinProperties.DATA_DIRECTORY_NAME + "/pending-blocks") : null);
+    }
+
     protected final String _pendingBlockDataDirectory;
 
     protected String _getPendingBlockDataDirectory(final Sha256Hash blockHash) {
@@ -41,9 +45,14 @@ public class PendingBlockStoreCore extends BlockStoreCore implements PendingBloc
         file.delete();
     }
 
+    public PendingBlockStoreCore(final File dataDirectory, final Boolean useCompression) {
+        super(dataDirectory, useCompression);
+        _pendingBlockDataDirectory = PendingBlockStoreCore.getPendingBlockDataDirectory(dataDirectory);
+    }
+
     public PendingBlockStoreCore(final File dataDirectory, final BlockHeaderInflaters blockHeaderInflaters, final BlockInflaters blockInflaters, final Boolean useCompression) {
         super(dataDirectory, useCompression, blockHeaderInflaters, blockInflaters);
-        _pendingBlockDataDirectory = (dataDirectory != null ? (dataDirectory + "/" + BitcoinProperties.DATA_DIRECTORY_NAME + "/pending-blocks") : null);
+        _pendingBlockDataDirectory = PendingBlockStoreCore.getPendingBlockDataDirectory(dataDirectory);
     }
 
     @Override
@@ -96,11 +105,16 @@ public class PendingBlockStoreCore extends BlockStoreCore implements PendingBloc
             return null;
         }
 
-        if (! IoUtil.fileExists(blockPath)) {
+        final File file = new File(blockPath);
+        if (! file.exists()) {
             Logger.trace("Block file does not exist: " + blockPath);
             return null;
         }
-        return MutableByteArray.wrap(IoUtil.getFileContents(blockPath));
+
+        final ByteArray bytes = IoUtil.getCompressedFileContents(file);
+        if (bytes != null) { return bytes; }
+
+        return MutableByteArray.wrap(IoUtil.getFileContents(file));
     }
 
     @Override

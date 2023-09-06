@@ -62,8 +62,10 @@ public class Blockchain {
         _chainWorks.add(chainWork);
         _blockHeights.put(blockHash, blockHeight);
 
-        if (_blockStore.blockExists(blockHash, blockHeight)) {
-            _headBlockHeight = Math.max(_headBlockHeight, blockHeight);
+        if ( _headBlockHeight == (blockHeight - 1L) ) {
+            if (_blockStore.blockExists(blockHash, blockHeight)) {
+                _headBlockHeight = Math.max(_headBlockHeight, blockHeight);
+            }
         }
     }
 
@@ -180,22 +182,29 @@ public class Blockchain {
                 }
 
                 Logger.debug("blockHeaderTime=" + blockHeaderTime + ", medianBlockTimeTime=" + medianBlockTimeTime + ", chainWorkTime=" + chainWorkTime);
+                Logger.debug("headBlockHeight=" + _headBlockHeight);
             }
         }
 
-        if (_blockHeaders.isEmpty()) {
+        if (_blockHeaders.isEmpty() || _headBlockHeight < 0L) {
             final BlockInflater blockInflater = new BlockInflater();
             final ByteArray genesisBlockBytes = MutableByteArray.wrap(HexUtil.hexStringToByteArray(BitcoinConstants.getGenesisBlock()));
-            final BlockHeader blockHeader = blockHeaderInflater.fromBytes(genesisBlockBytes);
-            final Block block = blockInflater.fromBytes(genesisBlockBytes);
-            final MedianBlockTime medianBlockTime = MedianBlockTime.fromSeconds(blockHeader.getTimestamp());
-            final Difficulty difficulty = blockHeader.getDifficulty();
-            final ChainWork chainWork = ChainWork.add(new MutableChainWork(), difficulty.calculateWork());
 
-            _addBlockHeader(blockHeader, 0L, medianBlockTime, chainWork);
-            _addBlock(block, 0L);
+            if (_blockHeaders.isEmpty()) {
+                final BlockHeader blockHeader = blockHeaderInflater.fromBytes(genesisBlockBytes);
+                final MedianBlockTime medianBlockTime = MedianBlockTime.fromSeconds(blockHeader.getTimestamp());
+                final Difficulty difficulty = blockHeader.getDifficulty();
+                final ChainWork chainWork = ChainWork.add(new MutableChainWork(), difficulty.calculateWork());
 
-            Logger.debug("Added Genesis: " + blockHeader.getHash());
+                _addBlockHeader(blockHeader, 0L, medianBlockTime, chainWork);
+                Logger.debug("Added Genesis Header: " + blockHeader.getHash());
+            }
+
+            if (_headBlockHeight < 0L) {
+                final Block block = blockInflater.fromBytes(genesisBlockBytes);
+                _addBlock(block, 0L);
+                Logger.debug("Added Genesis Block: " + block.getHash());
+            }
         }
     }
 
