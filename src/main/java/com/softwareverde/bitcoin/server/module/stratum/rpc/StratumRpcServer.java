@@ -18,7 +18,6 @@ public class StratumRpcServer {
     protected static final String WAS_SUCCESS_KEY = "wasSuccess";
 
     protected final JsonSocketServer _jsonRpcSocketServer;
-    protected final ThreadPool _rpcThreadPool;
     protected final StratumDataHandler _stratumDataHandler;
     protected final BlockInflaters _blockInflaters;
 
@@ -48,23 +47,21 @@ public class StratumRpcServer {
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
-    public StratumRpcServer(final StratumProperties stratumProperties, final StratumDataHandler stratumDataHandler, final ThreadPool rpcThreadPool) {
+    public StratumRpcServer(final StratumProperties stratumProperties, final StratumDataHandler stratumDataHandler) {
         this(
             stratumProperties,
             stratumDataHandler,
-            rpcThreadPool,
             new CoreInflater()
         );
     }
 
-    public StratumRpcServer(final StratumProperties stratumProperties, final StratumDataHandler stratumDataHandler, final ThreadPool rpcThreadPool, final BlockInflaters blockInflaters) {
-        _rpcThreadPool = rpcThreadPool;
+    public StratumRpcServer(final StratumProperties stratumProperties, final StratumDataHandler stratumDataHandler, final BlockInflaters blockInflaters) {
         _stratumDataHandler = stratumDataHandler;
         _blockInflaters = blockInflaters;
 
         final Integer rpcPort = stratumProperties.getRpcPort();
         if (rpcPort > 0) {
-            final JsonSocketServer jsonRpcSocketServer = new JsonSocketServer(rpcPort, _rpcThreadPool);
+            final JsonSocketServer jsonRpcSocketServer = new JsonSocketServer(rpcPort);
             jsonRpcSocketServer.setSocketConnectedCallback(new JsonSocketServer.SocketConnectedCallback() {
                 @Override
                 public void run(final JsonSocket socketConnection) {

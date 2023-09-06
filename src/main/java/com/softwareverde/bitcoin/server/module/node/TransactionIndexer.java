@@ -3,10 +3,13 @@ package com.softwareverde.bitcoin.server.module.node;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputEntryInflater;
 import com.softwareverde.bitcoin.server.module.node.utxo.IndexedAddressEntryInflater;
+import com.softwareverde.bitcoin.server.module.node.utxo.IndexedSpentOutputsInflater;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
@@ -15,6 +18,7 @@ import com.softwareverde.btreedb.BucketDb;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.logging.Logger;
 
 import java.io.File;
 
@@ -22,6 +26,7 @@ public class TransactionIndexer implements AutoCloseable {
     protected final Blockchain _blockchain;
     protected final BucketDb<Sha256Hash, IndexedTransaction> _transactionDb;
     protected final BucketDb<Sha256Hash, IndexedAddress> _addressDb;
+    protected final BucketDb<TransactionOutputIdentifier, Sha256Hash> _spentOutputsDb;
 
     public TransactionIndexer(final File dataDirectory, final Blockchain blockchain) throws Exception {
         _blockchain = blockchain;
@@ -36,19 +41,26 @@ public class TransactionIndexer implements AutoCloseable {
             addressDbDirectory.mkdirs();
         }
 
-        _transactionDb = new BucketDb<>(transactionDbDirectory, new IndexedTransactionEntryInflater());
+        final File spendOutputsDbDirectory = new File(dataDirectory, "outputs");
+        if (! spendOutputsDbDirectory.exists()) {
+            spendOutputsDbDirectory.mkdirs();
+        }
+
+        _transactionDb = new BucketDb<>(transactionDbDirectory, new IndexedTransactionEntryInflater(), 16, 1024 * 1024, 8, true);
         _transactionDb.open();
 
-        _addressDb = new BucketDb<>(addressDbDirectory, new IndexedAddressEntryInflater());
+        _addressDb = new BucketDb<>(addressDbDirectory, new IndexedAddressEntryInflater(), 16, 1024 * 1024, 16, true);
         _addressDb.open();
+
+        _spentOutputsDb = new BucketDb<>(spendOutputsDbDirectory, new IndexedSpentOutputsInflater(), 17, 1024 * 12, 16, true);
+        _spentOutputsDb.open();
     }
 
-    public void indexTransactions(final Block block, final Long blockHeight) throws Exception {
+    public synchronized void indexTransactions(final Block block, final Long blockHeight) throws Exception {
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
         final List<Transaction> transactions = block.getTransactions();
         final int transactionCount = transactions.getCount();
-        // _transactionDb.resizeCapacity(transactionCount, _falsePositiveRate);
 
         long diskOffset = BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT;
         diskOffset += CompactVariableLengthInteger.variableLengthIntegerToBytes(transactionCount).getByteCount();
@@ -63,6 +75,7 @@ public class TransactionIndexer implements AutoCloseable {
             diskOffset += transactionByteCount;
 
             for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
+                final Integer outputIndex = transactionOutput.getIndex();
                 final LockingScript lockingScript = transactionOutput.getLockingScript();
                 final Sha256Hash scriptHash = ScriptBuilder.computeScriptHash(lockingScript);
 
@@ -73,35 +86,15 @@ public class TransactionIndexer implements AutoCloseable {
                     stagedScriptHashes.put(scriptHash, indexedAddress);
                 }
 
-                indexedAddress.addTransactionOutput(transactionHash, transactionOutput);
-
-                // Do addresses really need the full output in the IndexedAddress?  I think they just need the output identifier and can grab the rest from disk.
+                // Add the TransactionOutputIdentifier to the address's list of received outputs.
+                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+                indexedAddress.addTransactionOutput(transactionOutputIdentifier);
             }
 
             for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-                final Sha256Hash previousTransactionHash = transactionInput.getPreviousOutputTransactionHash();
-                final IndexedTransaction previousIndexedTransaction = _transactionDb.get(previousTransactionHash);
-                if (previousIndexedTransaction == null) { continue; }
-                final Transaction previousTransaction = _blockchain.getTransaction(previousIndexedTransaction);
-                if (previousTransaction == null) { continue; }
-
-                // Get the TransactionInput's prevout's Address and attach the TransactionInput to that Address's sentInputs.
-
-                final Integer outputIndex = transactionInput.getPreviousOutputIndex();
-                final TransactionOutput transactionOutput = previousTransaction.getTransactionOutput(outputIndex);
-                if (transactionOutput == null) { continue; }
-
-                final LockingScript lockingScript = transactionOutput.getLockingScript();
-                final Sha256Hash scriptHash = ScriptBuilder.computeScriptHash(lockingScript);
-
-                IndexedAddress indexedAddress = stagedScriptHashes.get(scriptHash);
-                if (indexedAddress == null) {
-                    final Address address = scriptPatternMatcher.extractAddress(lockingScript);
-                    indexedAddress = new IndexedAddress(address);
-                    stagedScriptHashes.put(scriptHash, indexedAddress);
-                }
-
-                indexedAddress.addTransactionInput(transactionHash, transactionInput);
+                // Index which Transaction the prevout was spent by.
+                final TransactionOutputIdentifier previousOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+                _spentOutputsDb.put(previousOutputIdentifier, transactionHash);
             }
         }
 
@@ -120,15 +113,29 @@ public class TransactionIndexer implements AutoCloseable {
 
         _transactionDb.commit();
         _addressDb.commit();
+        _spentOutputsDb.commit();
     }
 
     public IndexedTransaction getIndexedTransaction(final Sha256Hash transactionHash) throws Exception {
+        if (! _transactionDb.isOpen()) { return null; }
         return _transactionDb.get(transactionHash);
     }
 
+    public Sha256Hash getSpendingTransactionHash(final TransactionOutputIdentifier transactionOutputIdentifier) throws Exception {
+        return _spentOutputsDb.get(transactionOutputIdentifier);
+    }
+
+    public IndexedAddress getIndexedAddress(final Sha256Hash scriptHash) throws Exception {
+        return _addressDb.get(scriptHash);
+    }
+
     @Override
-    public void close() throws Exception {
+    public synchronized void close() throws Exception {
+        Logger.debug("Closing AddressDb.");
         _addressDb.close();
+        Logger.debug("Closing TransactionDb.");
         _transactionDb.close();
+        Logger.debug("Closing SpentOutputsDb.");
+        _spentOutputsDb.close();
     }
 }

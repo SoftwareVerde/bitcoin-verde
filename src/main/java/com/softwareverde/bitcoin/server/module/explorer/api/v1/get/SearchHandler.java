@@ -129,7 +129,12 @@ public class SearchHandler implements RequestHandler<Environment> {
                                     }
 
                                     final Json queryBlockTransactionsJson = secondNodeJsonRpcConnection.getBlockTransactions(blockHeight, 32, 0);
-                                    blockTransactionsJson = queryBlockTransactionsJson.get("transactions");
+                                    if (queryBlockTransactionsJson != null) {
+                                        blockTransactionsJson = queryBlockTransactionsJson.get("transactions");
+                                    }
+                                    else {
+                                        blockTransactionsJson = null;
+                                    }
                                 }
 
                                 final Json blockJson = queryBlockResponseJson.get("block");

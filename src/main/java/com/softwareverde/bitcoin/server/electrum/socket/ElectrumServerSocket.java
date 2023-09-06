@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.server.electrum.socket;
 
-import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.http.tls.TlsCertificate;
@@ -27,7 +26,7 @@ public class ElectrumServerSocket {
                 try {
                     int acceptCount = 0;
                     while (! thread.isInterrupted()) {
-                        final JsonSocket connection = new JsonSocket(serverSocket.accept(), _threadPool);
+                        final JsonSocket connection = new JsonSocket(serverSocket.accept());
                         acceptCount += 1;
 
                         final boolean shouldPurgeConnections = (acceptCount % _purgeEveryCount == 0L);
@@ -62,8 +61,6 @@ public class ElectrumServerSocket {
 
     protected SocketEventCallback _socketEventCallback = null;
 
-    protected final ThreadPool _threadPool;
-
     protected static final Long _purgeEveryCount = 20L;
     protected void _purgeDisconnectedConnections() {
         synchronized (_connections) {
@@ -85,32 +82,21 @@ public class ElectrumServerSocket {
     protected void _onConnect(final JsonSocket socketConnection) {
         final SocketEventCallback socketEventCallback = _socketEventCallback;
         if (socketEventCallback != null) {
-            _threadPool.execute(new Runnable() {
-                @Override
-                public void run() {
-                    socketEventCallback.onConnect(socketConnection);
-                }
-            });
+            socketEventCallback.onConnect(socketConnection);
         }
     }
 
     protected void _onDisconnect(final JsonSocket socketConnection) {
         final SocketEventCallback socketEventCallback = _socketEventCallback;
         if (socketEventCallback != null) {
-            _threadPool.execute(new Runnable() {
-                @Override
-                public void run() {
-                    socketEventCallback.onDisconnect(socketConnection);
-                }
-            });
+            socketEventCallback.onDisconnect(socketConnection);
         }
     }
 
-    public ElectrumServerSocket(final Integer port, final Integer tlsPort, final TlsCertificate tlsCertificate, final ThreadPool threadPool) {
+    public ElectrumServerSocket(final Integer port, final Integer tlsPort, final TlsCertificate tlsCertificate) {
         _port = port;
         _tlsPort = tlsPort;
         _tlsCertificate = tlsCertificate;
-        _threadPool = threadPool;
     }
 
     public void setSocketEventCallback(final SocketEventCallback socketEventCallback) {

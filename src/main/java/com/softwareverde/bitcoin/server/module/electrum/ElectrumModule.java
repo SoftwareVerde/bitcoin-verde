@@ -53,7 +53,6 @@ import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.socket.JsonProtocolMessage;
 import com.softwareverde.network.socket.JsonSocket;
-import com.softwareverde.util.Container;
 import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Tuple;
@@ -103,7 +102,6 @@ public class ElectrumModule {
 
     protected final ElectrumProperties _electrumProperties;
     protected final Boolean _tlsIsEnabled;
-    protected final CachedThreadPool _threadPool;
     protected final ElectrumServerSocket _electrumServerSocket;
     protected final ConcurrentMutableHashMap<Long, JsonSocket> _connections = new ConcurrentMutableHashMap<>();
     protected final MutableMap<AddressSubscriptionKey, MutableLinkedList<ConnectionAddress>> _connectionAddresses = new MutableHashMap<>();
@@ -180,7 +178,7 @@ public class ElectrumModule {
 
         final String nodeHost = _electrumProperties.getBitcoinRpcUrl();
         final Integer nodePort = _electrumProperties.getBitcoinRpcPort();
-        final CachedNodeJsonRpcConnection nodeConnection = new CachedNodeJsonRpcConnection(nodeHost, nodePort, _threadPool);
+        final CachedNodeJsonRpcConnection nodeConnection = new CachedNodeJsonRpcConnection(nodeHost, nodePort);
         nodeConnection.enableKeepAlive(true);
         nodeConnection.setOnCloseCallback(new Runnable() {
             @Override
@@ -2068,7 +2066,6 @@ public class ElectrumModule {
 
     public ElectrumModule(final ElectrumProperties electrumProperties) {
         _electrumProperties = electrumProperties;
-        _threadPool = new CachedThreadPool(1024, 30000L);
 
         {
             final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
@@ -2088,7 +2085,7 @@ public class ElectrumModule {
         }
 
         _tlsIsEnabled = ((tlsCertificate != null) && (tlsPort != null));
-        _electrumServerSocket = new ElectrumServerSocket(port, tlsPort, tlsCertificate, _threadPool);
+        _electrumServerSocket = new ElectrumServerSocket(port, tlsPort, tlsCertificate);
         _electrumServerSocket.setSocketEventCallback(new ElectrumServerSocket.SocketEventCallback() {
             @Override
             public void onConnect(final JsonSocket socketConnection) {
@@ -2192,7 +2189,6 @@ public class ElectrumModule {
             }
         }
 
-        _threadPool.start();
         _requestBooster.start();
 
         _cacheBlockHeaders();
@@ -2231,7 +2227,6 @@ public class ElectrumModule {
             _nodeNotificationConnection = null;
         }
 
-        _threadPool.stop();
         _requestBooster.stop();
     }
 }

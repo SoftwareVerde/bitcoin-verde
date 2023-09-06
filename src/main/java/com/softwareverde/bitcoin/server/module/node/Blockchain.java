@@ -17,6 +17,7 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
+import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
@@ -30,6 +31,7 @@ import com.softwareverde.logging.Logger;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.timer.NanoTimer;
 
 import java.io.BufferedInputStream;
@@ -261,6 +263,7 @@ public class Blockchain {
         _readLock.lock();
         try {
             if (blockHeight >= _medianBlockTimes.getCount()) { return null; }
+            if (blockHeight < 0L) { return null; }
             return _medianBlockTimes.get(blockHeight.intValue());
         }
         finally {
@@ -272,6 +275,7 @@ public class Blockchain {
         _readLock.lock();
         try {
             if (blockHeight >= _chainWorks.getCount()) { return null; }
+            if (blockHeight < 0L) { return null; }
             return _chainWorks.get(blockHeight.intValue());
         }
         finally {
@@ -293,8 +297,8 @@ public class Blockchain {
         _readLock.lock();
         try {
             final Long blockHeight = _blockHeights.get(blockHash);
-
             if (blockHeight >= _blockHeaders.getCount()) { return null; }
+            if (blockHeight < 0L) { return null; }
             return _blockHeaders.get(blockHeight.intValue());
         }
         finally {
@@ -319,9 +323,8 @@ public class Blockchain {
             if (blockHeight == null) { return null; }
 
             final int parentBlockHeight = (int) (blockHeight - parentCount);
-            if (parentBlockHeight < 0) { return null; }
-
-            if (blockHeight >= _blockHeaders.getCount()) { return null; }
+            if (parentBlockHeight >= _blockHeaders.getCount()) { return null; }
+            if (parentBlockHeight < 0L) { return null; }
             return _blockHeaders.get(parentBlockHeight);
         }
         finally {
@@ -336,8 +339,44 @@ public class Blockchain {
             if (blockHeight == null) { return null; }
 
             final int childBlockHeight = (int) (blockHeight + childCount);
-            if (blockHeight >= _blockHeaders.getCount()) { return null; }
+            if (childBlockHeight >= _blockHeaders.getCount()) { return null; }
+            if (childBlockHeight < 0L) { return null; }
             return _blockHeaders.get(childBlockHeight);
+        }
+        finally {
+            _readLock.unlock();
+        }
+    }
+
+    public Integer getTransactionCount(final Long blockHeight) {
+        _readLock.lock();
+        try {
+            if (blockHeight >= _blockHeaders.getCount()) { return null; }
+            if (blockHeight < 0L) { return null; }
+            final BlockHeader blockHeader = _blockHeaders.get(blockHeight.intValue());
+            if (blockHeader == null) { return null; }
+
+            final Sha256Hash blockHash = blockHeader.getHash();
+            final long diskOffset = BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT;
+            final ByteArray transactionCountBytes = _blockStore.readFromBlock(blockHash, blockHeight, diskOffset, CompactVariableLengthInteger.MAX_BYTE_COUNT);
+            final CompactVariableLengthInteger compactVariableLengthInteger = CompactVariableLengthInteger.readVariableLengthInteger(new ByteArrayReader(transactionCountBytes));
+            return compactVariableLengthInteger.intValue();
+        }
+        finally {
+            _readLock.unlock();
+        }
+    }
+
+    public Long getBlockByteCount(final Long blockHeight) {
+        _readLock.lock();
+        try {
+            if (blockHeight >= _blockHeaders.getCount()) { return null; }
+            if (blockHeight < 0L) { return null; }
+            final BlockHeader blockHeader = _blockHeaders.get(blockHeight.intValue());
+            if (blockHeader == null) { return null; }
+
+            final Sha256Hash blockHash = blockHeader.getHash();
+            return _blockStore.getBlockByteCount(blockHash, blockHeight);
         }
         finally {
             _readLock.unlock();

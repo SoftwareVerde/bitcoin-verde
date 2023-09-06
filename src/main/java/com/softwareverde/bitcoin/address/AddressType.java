@@ -19,7 +19,8 @@ public enum AddressType {
 
     public static AddressType fromScriptType(final ScriptType scriptType) {
         if (scriptType == ScriptType.PAY_TO_PUBLIC_KEY_HASH) { return P2PKH; }
-        if (scriptType == ScriptType.PAY_TO_SCRIPT_HASH) { return P2PKH; }
+        if (scriptType == ScriptType.PAY_TO_SCRIPT_HASH) { return P2SH; }
+        if (scriptType == ScriptType.PAY_TO_PUBLIC_KEY) { return P2PKH; }
         return null;
     }
 

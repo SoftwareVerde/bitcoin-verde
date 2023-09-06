@@ -11,19 +11,13 @@ import java.net.Socket;
 
 public class Environment implements com.softwareverde.http.server.servlet.routed.Environment {
     protected final ExplorerProperties _explorerProperties;
-    protected final ThreadPool _threadPool;
 
-    public Environment(final ExplorerProperties explorerProperties, final ThreadPool threadPool) {
+    public Environment(final ExplorerProperties explorerProperties) {
         _explorerProperties = explorerProperties;
-        _threadPool = threadPool;
     }
 
     public ExplorerProperties getExplorerProperties() {
         return _explorerProperties;
-    }
-
-    public ThreadPool getThreadPool() {
-        return _threadPool;
     }
 
     public NodeJsonRpcConnection getNodeJsonRpcConnection() {
@@ -34,7 +28,7 @@ public class Environment implements com.softwareverde.http.server.servlet.routed
             final Socket socket = new Socket();
             socket.connect(new InetSocketAddress(bitcoinRpcUrl, bitcoinRpcPort), 3000);
             if (socket.isConnected()) {
-                return new NodeJsonRpcConnection(socket, _threadPool);
+                return new NodeJsonRpcConnection(socket);
             }
         }
         catch (final Exception exception) {
@@ -52,7 +46,7 @@ public class Environment implements com.softwareverde.http.server.servlet.routed
             final Socket socket = new Socket();
             socket.connect(new InetSocketAddress(stratumRpcUrl, stratumRpcPort), 3000);
             if (socket.isConnected()) {
-                return new StratumJsonRpcConnection(socket, _threadPool);
+                return new StratumJsonRpcConnection(socket);
             }
         }
         catch (final Exception exception) {

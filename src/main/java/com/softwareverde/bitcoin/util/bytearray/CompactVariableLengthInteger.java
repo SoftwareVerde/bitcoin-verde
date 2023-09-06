@@ -7,6 +7,9 @@ import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 
 public class CompactVariableLengthInteger {
+    public static final int MIN_BYTE_COUNT = 1;
+    public static final int MAX_BYTE_COUNT = 9;
+
     public static ByteArray variableLengthIntegerToBytes(final long value) {
         final byte[] bytes = ByteUtil.longToBytes(value);
 

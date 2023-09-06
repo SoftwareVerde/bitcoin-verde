@@ -254,7 +254,6 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     }
 
     protected final MasterInflater _masterInflater;
-    protected final ThreadPool _threadPool;
 
     protected final MutableMap<HookEvent, MutableList<HookListener>> _eventHooks = new MutableHashMap<>();
 
@@ -272,12 +271,11 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     protected LogLevelSetter _logLevelSetter;
     protected IndexerHandler _indexerHandler;
 
-    public NodeRpcHandler(final ThreadPool threadPool) {
-        this(threadPool, new CoreInflater());
+    public NodeRpcHandler() {
+        this(new CoreInflater());
     }
 
-    public NodeRpcHandler(final ThreadPool threadPool, final MasterInflater masterInflater) {
-        _threadPool = threadPool;
+    public NodeRpcHandler(final MasterInflater masterInflater) {
         _masterInflater = masterInflater;
     }
 
@@ -1899,29 +1897,25 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             }
         };
 
-        _threadPool.execute(new Runnable() {
-            @Override
-            public void run() {
-                synchronized (_eventHooks) {
-                    final MutableList<HookListener> sockets = _eventHooks.get(HookEvent.NEW_BLOCK);
-                    if (sockets == null) { return; }
+        synchronized (_eventHooks) {
+            final MutableList<HookListener> sockets = _eventHooks.get(HookEvent.NEW_BLOCK);
+            if (sockets == null) { return; }
 
-                    final Iterator<HookListener> mutableIterator = sockets.mutableIterator();
-                    while (mutableIterator.hasNext()) {
-                        final HookListener hookListener = mutableIterator.next();
-                        final JsonSocket jsonSocket = hookListener.socket;
+            final Iterator<HookListener> mutableIterator = sockets.mutableIterator();
+            while (mutableIterator.hasNext()) {
+                final HookListener hookListener = mutableIterator.next();
+                final JsonSocket jsonSocket = hookListener.socket;
 
-                        final ProtocolMessage protocolMessage = (hookListener.rawFormat ? lazyRawDataProtocolMessage.getProtocolMessage() : lazyMetadataProtocolMessage.getProtocolMessage());
-                        jsonSocket.write(protocolMessage);
+                final ProtocolMessage protocolMessage = (hookListener.rawFormat ? lazyRawDataProtocolMessage.getProtocolMessage() : lazyMetadataProtocolMessage.getProtocolMessage());
+                jsonSocket.write(protocolMessage);
 
-                        if (! jsonSocket.isConnected()) {
-                            mutableIterator.remove();
-                            Logger.debug("Dropping HookEvent: " + HookEvent.NEW_BLOCK + " " + jsonSocket);
-                        }
-                    }
+                if (! jsonSocket.isConnected()) {
+                    mutableIterator.remove();
+                    Logger.debug("Dropping HookEvent: " + HookEvent.NEW_BLOCK + " " + jsonSocket);
                 }
             }
-        });
+        }
+
     }
 
     /**
@@ -1999,42 +1993,38 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             lazyRawProtocolMessageWithFee = lazyRawProtocolMessage;
         }
 
-        _threadPool.execute(new Runnable() {
-            @Override
-            public void run() {
-                synchronized (_eventHooks) {
-                    final MutableList<HookListener> sockets = _eventHooks.get(HookEvent.NEW_TRANSACTION);
-                    if (sockets == null) { return; }
 
-                    final Iterator<HookListener> mutableIterator = sockets.mutableIterator();
-                    while (mutableIterator.hasNext()) {
-                        final HookListener hookListener = mutableIterator.next();
-                        final JsonSocket jsonSocket = hookListener.socket;
+        synchronized (_eventHooks) {
+            final MutableList<HookListener> sockets = _eventHooks.get(HookEvent.NEW_TRANSACTION);
+            if (sockets == null) { return; }
 
-                        final BloomFilter addressFilter = hookListener.addressFilter;
-                        if (addressFilter != null) {
-                            if (! transaction.matches(addressFilter)) {
-                                continue;
-                            }
-                        }
+            final Iterator<HookListener> mutableIterator = sockets.mutableIterator();
+            while (mutableIterator.hasNext()) {
+                final HookListener hookListener = mutableIterator.next();
+                final JsonSocket jsonSocket = hookListener.socket;
 
-                        final ProtocolMessage protocolMessage;
-                        if (hookListener.rawFormat) {
-                            protocolMessage = (hookListener.includeTransactionFees ? lazyRawProtocolMessageWithFee.getProtocolMessage() : lazyRawProtocolMessage.getProtocolMessage());
-                        }
-                        else {
-                            protocolMessage = lazyMetadataProtocolMessage.getProtocolMessage();
-                        }
-                        jsonSocket.write(protocolMessage);
-
-                        if (! jsonSocket.isConnected()) {
-                            mutableIterator.remove();
-                            Logger.debug("Dropping HookEvent: " + HookEvent.NEW_TRANSACTION + " " + jsonSocket);
-                        }
+                final BloomFilter addressFilter = hookListener.addressFilter;
+                if (addressFilter != null) {
+                    if (! transaction.matches(addressFilter)) {
+                        continue;
                     }
                 }
+
+                final ProtocolMessage protocolMessage;
+                if (hookListener.rawFormat) {
+                    protocolMessage = (hookListener.includeTransactionFees ? lazyRawProtocolMessageWithFee.getProtocolMessage() : lazyRawProtocolMessage.getProtocolMessage());
+                }
+                else {
+                    protocolMessage = lazyMetadataProtocolMessage.getProtocolMessage();
+                }
+                jsonSocket.write(protocolMessage);
+
+                if (! jsonSocket.isConnected()) {
+                    mutableIterator.remove();
+                    Logger.debug("Dropping HookEvent: " + HookEvent.NEW_TRANSACTION + " " + jsonSocket);
+                }
             }
-        });
+        }
     }
 
     public void onNewDoubleSpendProof(final DoubleSpendProof doubleSpendProof) {
@@ -2073,30 +2063,25 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             }
         };
 
-        _threadPool.execute(new Runnable() {
-            @Override
-            public void run() {
-                synchronized (_eventHooks) {
-                    final MutableList<HookListener> sockets = _eventHooks.get(HookEvent.NEW_DOUBLE_SPEND_PROOF);
-                    if (sockets == null) { return; }
+        synchronized (_eventHooks) {
+            final MutableList<HookListener> sockets = _eventHooks.get(HookEvent.NEW_DOUBLE_SPEND_PROOF);
+            if (sockets == null) { return; }
 
-                    final Iterator<HookListener> mutableIterator = sockets.mutableIterator();
-                    while (mutableIterator.hasNext()) {
-                        final HookListener hookListener = mutableIterator.next();
-                        final JsonSocket jsonSocket = hookListener.socket;
+            final Iterator<HookListener> mutableIterator = sockets.mutableIterator();
+            while (mutableIterator.hasNext()) {
+                final HookListener hookListener = mutableIterator.next();
+                final JsonSocket jsonSocket = hookListener.socket;
 
-                        final ProtocolMessage protocolMessage = (hookListener.rawFormat ? lazyRawDataProtocolMessage.getProtocolMessage() : lazyMetadataProtocolMessage.getProtocolMessage());
+                final ProtocolMessage protocolMessage = (hookListener.rawFormat ? lazyRawDataProtocolMessage.getProtocolMessage() : lazyMetadataProtocolMessage.getProtocolMessage());
 
-                        jsonSocket.write(protocolMessage);
+                jsonSocket.write(protocolMessage);
 
-                        if (! jsonSocket.isConnected()) {
-                            mutableIterator.remove();
-                            Logger.debug("Dropping HookEvent: " + HookEvent.NEW_DOUBLE_SPEND_PROOF + " " + jsonSocket);
-                        }
-                    }
+                if (! jsonSocket.isConnected()) {
+                    mutableIterator.remove();
+                    Logger.debug("Dropping HookEvent: " + HookEvent.NEW_DOUBLE_SPEND_PROOF + " " + jsonSocket);
                 }
             }
-        });
+        }
     }
 
     @Override

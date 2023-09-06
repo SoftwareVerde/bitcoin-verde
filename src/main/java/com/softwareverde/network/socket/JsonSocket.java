@@ -7,10 +7,6 @@ public class JsonSocket extends Socket {
         super(socket, new JsonSocketReadThread(), new JsonSocketWriteThread());
     }
 
-    public JsonSocket(final java.net.Socket socket, final ThreadPool threadPool) {
-        super(socket, new JsonSocketReadThread(), new JsonSocketWriteThread());
-    }
-
     @Override
     public JsonProtocolMessage popMessage() {
         return (JsonProtocolMessage) super.popMessage();

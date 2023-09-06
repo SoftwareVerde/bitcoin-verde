@@ -3,11 +3,13 @@ package com.softwareverde.bitcoin.server.main;
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.server.configuration.BitcoinVerdeDatabaseProperties;
 import com.softwareverde.bitcoin.server.configuration.Configuration;
+import com.softwareverde.bitcoin.server.configuration.ExplorerProperties;
 import com.softwareverde.bitcoin.server.module.AddressModule;
 import com.softwareverde.bitcoin.server.module.ConfigurationModule;
 import com.softwareverde.bitcoin.server.module.EciesModule;
 import com.softwareverde.bitcoin.server.module.MinerModule;
 import com.softwareverde.bitcoin.server.module.SignatureModule;
+import com.softwareverde.bitcoin.server.module.explorer.ExplorerModule;
 import com.softwareverde.bitcoin.server.module.node.NodeModule;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.logging.LineNumberAnnotatedLog;
@@ -205,6 +207,16 @@ public class Main {
         return thread;
     }
 
+    protected void _addLoggerShutdownHook() {
+        final Runtime runtime = Runtime.getRuntime();
+        runtime.addShutdownHook(new Thread(new Runnable() {
+            @Override
+            public void run() {
+                Logger.close();
+            }
+        }));
+    }
+
     public Main(final String[] arguments) {
         _arguments = arguments;
 
@@ -236,14 +248,6 @@ public class Main {
                         final String logDirectory = bitcoinProperties.getLogDirectory();
                         final Log log = AnnotatedFileLog.newInstance(logDirectory, "node");
                         Logger.setLog(log);
-
-                        final Runtime runtime = Runtime.getRuntime();
-                        runtime.addShutdownHook(new Thread(new Runnable() {
-                            @Override
-                            public void run() {
-                                Logger.close();
-                            }
-                        }));
                     }
                     catch (final IOException exception) {
                         Logger.warn("Unable to initialize file logger.", exception);
@@ -282,6 +286,7 @@ public class Main {
             } break;
 
             case "SPV": {
+//                _addLoggerShutdownHook();
 //                if (_arguments.length != 2) {
 //                    _printUsage();
 //                    BitcoinUtil.exitFailure();
@@ -350,23 +355,27 @@ public class Main {
             } break;
 
             case "EXPLORER": {
-//                if (_arguments.length != 2) {
-//                    _printUsage();
-//                    BitcoinUtil.exitFailure();
-//                    break;
-//                }
-//
-//                final String configurationFilename = _arguments[1];
-//                final Configuration configuration = _loadConfigurationFile(configurationFilename);
-//                final ExplorerProperties explorerProperties = configuration.getExplorerProperties();
-//                final ExplorerModule explorerModule = new ExplorerModule(explorerProperties);
-//
-//                explorerModule.start();
-//                explorerModule.loop();
-//                explorerModule.stop();
+                _addLoggerShutdownHook();
+
+                if (_arguments.length != 2) {
+                    _printUsage();
+                    BitcoinUtil.exitFailure();
+                    break;
+                }
+
+                final String configurationFilename = _arguments[1];
+                final Configuration configuration = _loadConfigurationFile(configurationFilename);
+                final ExplorerProperties explorerProperties = configuration.getExplorerProperties();
+                final ExplorerModule explorerModule = new ExplorerModule(explorerProperties);
+
+                explorerModule.start();
+                explorerModule.loop();
+                explorerModule.stop();
             } break;
 
             case "WALLET": {
+//                _addLoggerShutdownHook();
+//
 //                if (_arguments.length != 2) {
 //                    _printUsage();
 //                    BitcoinUtil.exitFailure();
@@ -384,6 +393,8 @@ public class Main {
             } break;
 
             case "STRATUM": {
+//                _addLoggerShutdownHook();
+//
 //                if (_arguments.length != 2) {
 //                    _printUsage();
 //                    BitcoinUtil.exitFailure();
@@ -420,6 +431,8 @@ public class Main {
             } break;
 
             case "ELECTRUM": {
+//                _addLoggerShutdownHook();
+//
 //                if (_arguments.length != 2) {
 //                    _printUsage();
 //                    BitcoinUtil.exitFailure();
@@ -442,6 +455,8 @@ public class Main {
             } break;
 
             case "PROXY": {
+//                _addLoggerShutdownHook();
+//
 //                if (_arguments.length != 2) {
 //                    _printUsage();
 //                    BitcoinUtil.exitFailure();
@@ -459,6 +474,8 @@ public class Main {
             } break;
 
             case "DATABASE": {
+//                _addLoggerShutdownHook();
+//
 //                if (_arguments.length != 2) {
 //                    _printUsage();
 //                    BitcoinUtil.exitFailure();
@@ -494,6 +511,7 @@ public class Main {
             } break;
 
             case "ADDRESS": {
+                _addLoggerShutdownHook();
                 final String desiredAddressPrefix = (_arguments.length > 1 ? _arguments[1] : "");
                 final Boolean ignoreCase = (_arguments.length > 2 ? Util.parseBool(_arguments[2]) : false);
                 AddressModule.execute(desiredAddressPrefix, ignoreCase);
@@ -501,6 +519,7 @@ public class Main {
             } break;
 
             case "SIGNATURE": {
+                _addLoggerShutdownHook();
                 Logger.setLog(SystemLog.getInstance());
                 Logger.setLogLevel(LogLevel.WARN);
 
@@ -535,6 +554,7 @@ public class Main {
             } break;
 
             case "ECIES": {
+                _addLoggerShutdownHook();
                 Logger.setLog(SystemLog.getInstance());
                 Logger.setLogLevel(LogLevel.WARN);
 
@@ -564,6 +584,8 @@ public class Main {
             } break;
 
             case "MINER": {
+                _addLoggerShutdownHook();
+
                 if (_arguments.length != 3) {
                     _printUsage();
                     BitcoinUtil.exitFailure();
@@ -579,6 +601,8 @@ public class Main {
 
 
             case "CONFIGURATION" : {
+                _addLoggerShutdownHook();
+
                 if (_arguments.length != 2) {
                     _printUsage();
                     BitcoinUtil.exitFailure();

@@ -7,6 +7,9 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.server.module.node.Blockchain;
+import com.softwareverde.bitcoin.server.module.node.IndexedTransaction;
+import com.softwareverde.bitcoin.server.module.node.TransactionIndexer;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -17,6 +20,7 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.Transac
 import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.dsproof.DoubleSpendProofStore;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
+import com.softwareverde.bitcoin.server.module.node.sync.BlockchainIndexer;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.slp.SlpUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -53,26 +57,53 @@ import java.math.BigInteger;
 
 public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
 
-    protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
+    protected final Blockchain _blockchain;
+    protected final TransactionIndexer _transactionIndexer;
     protected final DoubleSpendProofStore _doubleSpendProofStore;
 
-    protected static void _addMetadataForBlockHeaderToJson(final Sha256Hash blockHash, final Json blockJson, final DatabaseManager databaseConnection) throws DatabaseException {
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseConnection.getBlockHeaderDatabaseManager();
-        final BlockDatabaseManager blockDatabaseManager = databaseConnection.getBlockDatabaseManager();
+    protected IndexedTransaction _getIndexedTransaction(final Sha256Hash transactionHash) {
+        try {
+            return _transactionIndexer.getIndexedTransaction(transactionHash);
+        }
+        catch (final Exception exception) {
+            Logger.debug(exception);
+            return null;
+        }
+    }
 
-        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+    protected Sha256Hash _getSpendingTransactionHash(final Sha256Hash transactionHash, final Integer outputIndex) {
+        try {
+            final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+            return _transactionIndexer.getSpendingTransactionHash(transactionOutputIdentifier);
+        }
+        catch (final Exception exception) {
+            Logger.debug(exception);
+            return null;
+        }
+    }
 
-        final MedianBlockTime medianTimePast = blockHeaderDatabaseManager.getMedianTimePast(blockId);
-        final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.getMedianBlockTime(blockId);
+    public MetadataHandler(final Blockchain blockchain, final TransactionIndexer transactionIndexer, final DoubleSpendProofStore doubleSpendProofStore) {
+        _blockchain = blockchain;
+        _transactionIndexer = transactionIndexer;
+        _doubleSpendProofStore = doubleSpendProofStore;
+    }
+
+    @Override
+    public void applyMetadataToBlockHeader(final Sha256Hash blockHash, final Json blockJson) {
+        final Long blockHeight = _blockchain.getBlockHeight(blockHash);
+        if (blockHeight == null) { return; }
+
+        final MedianBlockTime medianTimePast = _blockchain.getMedianBlockTime(blockHeight - 1L);
+        final MedianBlockTime medianBlockTime = _blockchain.getMedianBlockTime(blockHeight);
 
         { // Include Extra Block Metadata...
-            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
-            final Integer transactionCount = blockDatabaseManager.getTransactionCount(blockId);
-            final ChainWork chainWork = blockHeaderDatabaseManager.getChainWork(blockId);
+            final Integer transactionCount = _blockchain.getTransactionCount(blockHeight);
+            final ChainWork chainWork = _blockchain.getChainWork(blockHeight);
+            final Long byteCount = _blockchain.getBlockByteCount(blockHeight);
 
             blockJson.put("height", blockHeight);
             blockJson.put("reward", BlockHeader.calculateBlockReward(blockHeight));
-            blockJson.put("byteCount", blockHeaderDatabaseManager.getBlockByteCount(blockId));
+            blockJson.put("byteCount", byteCount);
             blockJson.put("transactionCount", transactionCount);
             blockJson.put("medianBlockTime", medianBlockTime.getCurrentTimeInSeconds());
             blockJson.put("medianTimePast", medianTimePast.getCurrentTimeInSeconds());
@@ -80,13 +111,10 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
         }
     }
 
-    protected static void _addMetadataForTransactionToJson(final Transaction transaction, final Json transactionJson, final FullNodeDatabaseManager databaseManager, final DoubleSpendProofStore doubleSpendProofStore) throws DatabaseException {
+    @Override
+    public void applyMetadataToTransaction(final Transaction transaction, final Json transactionJson) {
         final Sha256Hash transactionHash = transaction.getHash();
 
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-        final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-        final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = databaseManager.getBlockchainIndexerDatabaseManager();
-        final SlpTransactionDatabaseManager slpTransactionDatabaseManager = databaseManager.getSlpTransactionDatabaseManager();
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
         final MemoScriptInflater memoScriptInflater = new MemoScriptInflater();
 
@@ -94,56 +122,41 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
         final ByteArray transactionData = transactionDeflater.toBytes(transaction);
         transactionJson.put("byteCount", transactionData.getByteCount());
 
-        final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
-        final SlpTokenId slpTokenId = blockchainIndexerDatabaseManager.getSlpTokenId(transactionId);
+        final SlpTokenId slpTokenId = null; // TODO
         final boolean hasSlpData = (slpTokenId != null);
         final Boolean isSlpValid;
         if (hasSlpData) {
-            isSlpValid = slpTransactionDatabaseManager.getSlpTransactionValidationResult(transactionId);
+            isSlpValid = false; // TODO
         }
         else {
             isSlpValid = null;
         }
 
-        final List<Sha256Hash> spendingTransactionHashes;
-        {
-            final Map<Integer, TransactionId> spendingTransactionIds = blockchainIndexerDatabaseManager.getTransactionsSpendingOutputsOf(transactionId);
-            final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
-            final int transactionOutputCount = transactionOutputs.getCount();
-            final ImmutableListBuilder<Sha256Hash> listBuilder = new ImmutableListBuilder<>(transactionOutputCount);
-            for (int outputIndex = 0; outputIndex < transactionOutputCount; ++outputIndex) {
-                final TransactionId spendingTransactionId = spendingTransactionIds.get(outputIndex);
-                if (spendingTransactionId == null) {
-                    listBuilder.add(null);
-                    continue;
-                }
-
-                final Sha256Hash spendingTransactionHash = transactionDatabaseManager.getTransactionHash(spendingTransactionId);
-                listBuilder.add(spendingTransactionHash);
-            }
-
-            spendingTransactionHashes = listBuilder.build();
-        }
-
         Long transactionFee = 0L;
+
+        final IndexedTransaction indexedTransaction = _getIndexedTransaction(transactionHash);
 
         final boolean isUnconfirmed;
         { // Include Block hashes which include this transaction...
+            isUnconfirmed = (indexedTransaction.blockHeight != null);
+
             final Json blockHashesJson = new Json(true);
-            final List<BlockId> blockIds = transactionDatabaseManager.getBlockIds(transactionHash);
-            for (final BlockId blockId : blockIds) {
-                final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
-                blockHashesJson.add(blockHash);
+            if (indexedTransaction.blockHeight != null) {
+                final BlockHeader blockHeader = _blockchain.getBlockHeader(indexedTransaction.blockHeight);
+                if (blockHeader != null) {
+                    final Sha256Hash blockHash = blockHeader.getHash();
+                    blockHashesJson.add(blockHash);
+                }
             }
+
             transactionJson.put("blocks", blockHashesJson);
-            isUnconfirmed = blockIds.isEmpty();
         }
 
-        if ( isUnconfirmed && (doubleSpendProofStore != null) ) {
+        if ( isUnconfirmed && (_doubleSpendProofStore != null) ) {
             boolean hasActiveDoubleSpend = false;
             for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
                 final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-                final DoubleSpendProof doubleSpendProof = doubleSpendProofStore.getDoubleSpendProof(transactionOutputIdentifier);
+                final DoubleSpendProof doubleSpendProof = _doubleSpendProofStore.getDoubleSpendProof(transactionOutputIdentifier);
                 if (doubleSpendProof != null) {
                     hasActiveDoubleSpend = true;
                     break;
@@ -168,8 +181,8 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
                         previousTransaction = cachedTransaction;
                     }
                     else {
-                        final TransactionId previousOutputTransactionId = transactionDatabaseManager.getTransactionId(previousOutputTransactionHash);
-                        previousTransaction = (previousOutputTransactionId != null ? transactionDatabaseManager.getTransaction(previousOutputTransactionId) : null);
+                        final IndexedTransaction previousOutputIndexedTransaction = _getIndexedTransaction(previousOutputTransactionHash);
+                        previousTransaction = (previousOutputIndexedTransaction != null ? _blockchain.getTransaction(previousOutputIndexedTransaction) : null);
                         cachedTransactions.put(previousOutputTransactionHash, previousTransaction);
                     }
                 }
@@ -271,7 +284,7 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
                         scriptHash = ScriptBuilder.computeScriptHash(lockingScript);
                     }
 
-                    final Sha256Hash spendingTransactionHash = spendingTransactionHashes.get(transactionOutputIndex);
+                    final Sha256Hash spendingTransactionHash = _getSpendingTransactionHash(transactionHash, transactionOutputIndex);
 
                     final Json transactionOutputJson = transactionJson.get("outputs").get(transactionOutputIndex);
                     transactionOutputJson.put("address", addressString);
@@ -316,8 +329,8 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
 
         final Json slpJson;
         if (hasSlpData) {
-            final TransactionId slpGenesisTransactionId = transactionDatabaseManager.getTransactionId(slpTokenId);
-            final Transaction slpGenesisTransaction = transactionDatabaseManager.getTransaction(slpGenesisTransactionId);
+            final IndexedTransaction slpGenesisIndexedTransaction = _getIndexedTransaction(slpTokenId);
+            final Transaction slpGenesisTransaction = _blockchain.getTransaction(slpGenesisIndexedTransaction);
 
             final SlpGenesisScript slpGenesisScript;
             {
@@ -349,30 +362,5 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
             slpJson = null;
         }
         transactionJson.put("slp", slpJson);
-    }
-
-    public MetadataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final DoubleSpendProofStore doubleSpendProofStore) {
-        _databaseManagerFactory = databaseManagerFactory;
-        _doubleSpendProofStore = doubleSpendProofStore;
-    }
-
-    @Override
-    public void applyMetadataToBlockHeader(final Sha256Hash blockHash, final Json blockJson) {
-        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            _addMetadataForBlockHeaderToJson(blockHash, blockJson, databaseManager);
-        }
-        catch (final DatabaseException exception) {
-            Logger.warn(exception);
-        }
-    }
-
-    @Override
-    public void applyMetadataToTransaction(final Transaction transaction, final Json transactionJson) {
-        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            _addMetadataForTransactionToJson(transaction, transactionJson, databaseManager, _doubleSpendProofStore);
-        }
-        catch (final DatabaseException exception) {
-            Logger.warn(exception);
-        }
     }
 }

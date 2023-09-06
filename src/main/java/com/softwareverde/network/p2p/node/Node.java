@@ -189,20 +189,22 @@ public abstract class Node {
         _connection.disconnect();
 
         if (nodeDisconnectedCallback != null) {
-            // Intentionally not using the thread pool since it has been shutdown...
-            final Thread thread = new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    nodeDisconnectedCallback.onNodeDisconnected();
-                }
-            });
-            thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
-                @Override
-                public void uncaughtException(final Thread thread, final Throwable exception) {
-                    Logger.error("Uncaught exception in Thread.", exception);
-                }
-            });
-            thread.start();
+            nodeDisconnectedCallback.onNodeDisconnected();
+
+//            // Intentionally not using the thread pool since it has been shutdown...
+//            final Thread thread = new Thread(new Runnable() {
+//                @Override
+//                public void run() {
+//                    nodeDisconnectedCallback.onNodeDisconnected();
+//                }
+//            });
+//            thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+//                @Override
+//                public void uncaughtException(final Thread thread, final Throwable exception) {
+//                    Logger.error("Uncaught exception in Thread.", exception);
+//                }
+//            });
+//            thread.start();
         }
     }
 

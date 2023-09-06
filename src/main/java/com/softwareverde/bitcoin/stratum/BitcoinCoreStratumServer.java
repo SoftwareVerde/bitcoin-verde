@@ -30,7 +30,6 @@ import com.softwareverde.bitcoin.stratum.task.StratumMineBlockTaskBuilderCore;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
-import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
@@ -54,7 +53,6 @@ public class BitcoinCoreStratumServer implements StratumServer {
 
     protected final MasterInflater _masterInflater;
     protected final StratumServerSocket _stratumServerSocket;
-    protected final ThreadPool _threadPool;
     protected final BitcoinMiningRpcConnectorFactory _rpcConnectionFactory;
 
     protected final Boolean _blockTemplateValidationIsEnabled = true;
@@ -449,7 +447,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
 
                 final Runnable messageReceivedCallback;
                 if (PROXY_VIABTC) {
-                    messageReceivedCallback = new ProxyViaBtcMessageReceivedCallback(jsonSocket, _threadPool);
+                    messageReceivedCallback = new ProxyViaBtcMessageReceivedCallback(jsonSocket);
                 }
                 else {
                     messageReceivedCallback = new Runnable() {
@@ -503,26 +501,25 @@ public class BitcoinCoreStratumServer implements StratumServer {
         };
     }
 
-    public BitcoinCoreStratumServer(final BitcoinMiningRpcConnectorFactory rpcConnectionFactory, final Integer stratumPort, final ThreadPool threadPool, final MasterInflater masterInflater, final SystemTime systemTime) {
-        this(rpcConnectionFactory, new StratumServerSocket(stratumPort, threadPool), threadPool, masterInflater, systemTime);
+    public BitcoinCoreStratumServer(final BitcoinMiningRpcConnectorFactory rpcConnectionFactory, final Integer stratumPort, final MasterInflater masterInflater, final SystemTime systemTime) {
+        this(rpcConnectionFactory, new StratumServerSocket(stratumPort), masterInflater, systemTime);
     }
 
-    public BitcoinCoreStratumServer(final BitcoinMiningRpcConnectorFactory rpcConnectionFactory, final Integer stratumPort, final ThreadPool threadPool, final MasterInflater masterInflater) {
-        this(rpcConnectionFactory, new StratumServerSocket(stratumPort, threadPool), threadPool, masterInflater, new SystemTime());
+    public BitcoinCoreStratumServer(final BitcoinMiningRpcConnectorFactory rpcConnectionFactory, final Integer stratumPort, final MasterInflater masterInflater) {
+        this(rpcConnectionFactory, new StratumServerSocket(stratumPort), masterInflater, new SystemTime());
     }
 
-    public BitcoinCoreStratumServer(final BitcoinMiningRpcConnectorFactory rpcConnectionFactory, final StratumServerSocket stratumServerSocket, final ThreadPool threadPool, final MasterInflater masterInflater) {
-        this(rpcConnectionFactory, stratumServerSocket, threadPool, masterInflater, new SystemTime());
+    public BitcoinCoreStratumServer(final BitcoinMiningRpcConnectorFactory rpcConnectionFactory, final StratumServerSocket stratumServerSocket, final MasterInflater masterInflater) {
+        this(rpcConnectionFactory, stratumServerSocket, masterInflater, new SystemTime());
     }
 
-    public BitcoinCoreStratumServer(final BitcoinMiningRpcConnectorFactory rpcConnectionFactory, final StratumServerSocket stratumServerSocket, final ThreadPool threadPool, final MasterInflater masterInflater, final SystemTime systemTime) {
+    public BitcoinCoreStratumServer(final BitcoinMiningRpcConnectorFactory rpcConnectionFactory, final StratumServerSocket stratumServerSocket, final MasterInflater masterInflater, final SystemTime systemTime) {
         _systemTime = systemTime;
         _startTime = _systemTime.getCurrentTimeInSeconds();
         _currentBlockStartTime = _systemTime.getCurrentTimeInSeconds();
 
         _masterInflater = masterInflater;
         _rpcConnectionFactory = rpcConnectionFactory;
-        _threadPool = threadPool;
         _seedBytes = _createRandomBytes(_extraNonceByteCount);
 
         _stratumServerSocket = stratumServerSocket;

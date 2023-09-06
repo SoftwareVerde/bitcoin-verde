@@ -1,31 +1,19 @@
 package com.softwareverde.bitcoin.server;
 
+import com.softwareverde.bitcoin.server.configuration.ExplorerProperties;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactoryFactory;
 
 public class Environment {
-    protected final Database _database;
-    protected final DatabaseConnectionFactoryFactory _databaseConnectionFactoryFactory;
-    protected DatabaseConnectionFactory _databaseConnectionFactory;
 
-    public Environment(final Database database, final DatabaseConnectionFactoryFactory databaseConnectionFactoryFactory) {
-        _database = database;
-        _databaseConnectionFactoryFactory = databaseConnectionFactoryFactory;
+    protected final ExplorerProperties _explorerProperties;
+
+    public Environment(final ExplorerProperties explorerProperties) {
+        _explorerProperties = explorerProperties;
     }
 
-    public Database getDatabase() {
-        return _database;
-    }
-
-    public synchronized DatabaseConnectionFactory getDatabaseConnectionFactory() {
-        if (_databaseConnectionFactory == null) {
-            _databaseConnectionFactory = _databaseConnectionFactoryFactory.newDatabaseConnectionFactory();
-        }
-        return _databaseConnectionFactory;
-    }
-
-    public DatabaseConnectionFactory newDatabaseConnectionFactory() {
-        return _databaseConnectionFactoryFactory.newDatabaseConnectionFactory();
+    public ExplorerProperties getExplorerProperties() {
+        return _explorerProperties;
     }
 }

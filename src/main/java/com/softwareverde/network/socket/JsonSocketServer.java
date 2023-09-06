@@ -7,15 +7,11 @@ import java.net.Socket;
 public class JsonSocketServer extends SocketServer<JsonSocket> {
 
     protected static class JsonSocketFactory implements SocketFactory<JsonSocket> {
-        protected final ThreadPool _threadPool;
-
-        public JsonSocketFactory(final ThreadPool threadPool) {
-            _threadPool = threadPool;
-        }
+        public JsonSocketFactory() { }
 
         @Override
         public JsonSocket newSocket(final Socket socket) {
-            return new JsonSocket(socket, _threadPool);
+            return new JsonSocket(socket);
         }
     }
 
@@ -28,7 +24,7 @@ public class JsonSocketServer extends SocketServer<JsonSocket> {
         void run(JsonSocket socketConnection);
     }
 
-    public JsonSocketServer(final Integer port, final ThreadPool threadPool) {
-        super(port, new JsonSocketFactory(threadPool), threadPool);
+    public JsonSocketServer(final Integer port) {
+        super(port, new JsonSocketFactory());
     }
 }

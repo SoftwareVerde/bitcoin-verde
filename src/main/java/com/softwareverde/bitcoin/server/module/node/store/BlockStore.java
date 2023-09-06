@@ -15,6 +15,7 @@ public interface BlockStore {
     MutableBlock getBlock(Sha256Hash blockHash, Long blockHeight);
     Boolean blockExists(Sha256Hash blockHash, Long blockHeight);
     ByteArray readFromBlock(Sha256Hash blockHash, Long blockHeight, Long diskOffset, Integer byteCount);
+    Long getBlockByteCount(Sha256Hash blockHash, Long blockHeight);
     File getDataDirectory();
     File getBlockDataDirectory();
 }

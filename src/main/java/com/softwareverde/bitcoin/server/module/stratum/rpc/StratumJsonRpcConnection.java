@@ -45,7 +45,7 @@ public class StratumJsonRpcConnection implements AutoCloseable {
         return (jsonProtocolMessage != null ? jsonProtocolMessage.getMessage() : null);
     }
 
-    public StratumJsonRpcConnection(final String hostname, final Integer port, final ThreadPool threadPool) {
+    public StratumJsonRpcConnection(final String hostname, final Integer port) {
         java.net.Socket socket = null;
         try {
             socket = new java.net.Socket(hostname, port);
@@ -54,15 +54,15 @@ public class StratumJsonRpcConnection implements AutoCloseable {
             Logger.warn(exception);
         }
 
-        _jsonSocket = ((socket != null) ? new JsonSocket(socket, threadPool) : null);
+        _jsonSocket = ((socket != null) ? new JsonSocket(socket) : null);
 
         if (_jsonSocket != null) {
             _jsonSocket.setMessageReceivedCallback(_onNewMessageCallback);
         }
     }
 
-    public StratumJsonRpcConnection(final java.net.Socket socket, final ThreadPool threadPool) {
-        _jsonSocket = ((socket != null) ? new JsonSocket(socket, threadPool) : null);
+    public StratumJsonRpcConnection(final java.net.Socket socket) {
+        _jsonSocket = ((socket != null) ? new JsonSocket(socket) : null);
 
         if (_jsonSocket != null) {
             _jsonSocket.setMessageReceivedCallback(_onNewMessageCallback);

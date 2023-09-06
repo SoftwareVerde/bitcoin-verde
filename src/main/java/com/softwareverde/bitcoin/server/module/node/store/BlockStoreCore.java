@@ -339,6 +339,13 @@ public class BlockStoreCore implements BlockStore {
     }
 
     @Override
+    public Long getBlockByteCount(final Sha256Hash blockHash, final Long blockHeight) {
+        final ByteArray blockBytes = _readBlock(blockHash, blockHeight);
+        if (blockBytes == null) { return null; }
+        return (long) blockBytes.getByteCount();
+    }
+
+    @Override
     public File getDataDirectory() {
         return _dataDirectory;
     }

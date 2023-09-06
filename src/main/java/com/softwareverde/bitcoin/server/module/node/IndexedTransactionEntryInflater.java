@@ -27,7 +27,7 @@ public class IndexedTransactionEntryInflater implements BucketDb.BucketEntryInfl
         if (byteArray.isEmpty()) { return null; } // Support null values.
         final Long blockHeight = ByteUtil.bytesToLong(byteArray.getBytes(0, 4)); // NOTE: Only stored via 4 bytes.
         final int diskOffset = ByteUtil.bytesToInteger(byteArray.getBytes(4, 4));
-        final int byteCount = ByteUtil.bytesToInteger(byteArray.getBytes(4, 4));
+        final int byteCount = ByteUtil.bytesToInteger(byteArray.getBytes(8, 4));
 
         return new IndexedTransaction(blockHeight, (long) diskOffset, byteCount);
     }
@@ -36,16 +36,17 @@ public class IndexedTransactionEntryInflater implements BucketDb.BucketEntryInfl
     public ByteArray valueToBytes(final IndexedTransaction value) {
         if (value == null) { return new MutableByteArray(0); } // Support null values.
 
-        final MutableByteArray byteArray = new MutableByteArray(8);
+        final MutableByteArray byteArray = new MutableByteArray(12);
         byteArray.setBytes(0, ByteUtil.integerToBytes(value.blockHeight));
         byteArray.setBytes(4, ByteUtil.integerToBytes(value.diskOffset));
+        byteArray.setBytes(8, ByteUtil.integerToBytes(value.byteCount));
         return byteArray;
     }
 
     @Override
     public int getValueByteCount(final IndexedTransaction value) {
         if (value == null) { return 0; } // Support null values.
-        return 8;
+        return 12;
     }
 
     @Override

@@ -27,7 +27,7 @@ public class BitcoinVerdeMiningRpcConnectorFactory implements BitcoinMiningRpcCo
             protected NodeJsonRpcConnection _getRpcConnection() {
                 final String host = _bitcoinNodeRpcAddress.getHost();
                 final Integer port = _bitcoinNodeRpcAddress.getPort();
-                return new NodeJsonRpcConnection(host, port, _threadPool);
+                return new NodeJsonRpcConnection(host, port);
             }
         };
     }

@@ -13,7 +13,6 @@ import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProof;
 import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProofInflater;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -292,16 +291,15 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return _executeJsonRequest(rpcRequestJson);
     }
 
-    public NodeJsonRpcConnection(final String hostname, final Integer port, final ThreadPool threadPool) {
+    public NodeJsonRpcConnection(final String hostname, final Integer port) {
         this(
             hostname,
             port,
-            threadPool,
             new CoreInflater()
         );
     }
 
-    public NodeJsonRpcConnection(final String hostname, final Integer port, final ThreadPool threadPool, final MasterInflater masterInflater) {
+    public NodeJsonRpcConnection(final String hostname, final Integer port, final MasterInflater masterInflater) {
         _masterInflater = masterInflater;
 
         final java.net.Socket javaSocket;
@@ -316,25 +314,24 @@ public class NodeJsonRpcConnection implements AutoCloseable {
             javaSocket = socket;
         }
 
-        _jsonSocket = ((javaSocket != null) ? new JsonSocket(javaSocket, threadPool) : null);
+        _jsonSocket = ((javaSocket != null) ? new JsonSocket(javaSocket) : null);
 
         if (_jsonSocket != null) {
             _jsonSocket.setMessageReceivedCallback(_onNewMessageCallback);
         }
     }
 
-    public NodeJsonRpcConnection(final java.net.Socket javaSocket, final ThreadPool threadPool) {
+    public NodeJsonRpcConnection(final java.net.Socket javaSocket) {
         this(
             javaSocket,
-            threadPool,
             new CoreInflater()
         );
     }
 
-    public NodeJsonRpcConnection(final java.net.Socket socket, final ThreadPool threadPool, final MasterInflater masterInflater) {
+    public NodeJsonRpcConnection(final java.net.Socket socket, final MasterInflater masterInflater) {
         _masterInflater = masterInflater;
 
-        _jsonSocket = ((socket != null) ? new JsonSocket(socket, threadPool) : null);
+        _jsonSocket = ((socket != null) ? new JsonSocket(socket) : null);
 
         if (_jsonSocket != null) {
             _jsonSocket.setMessageReceivedCallback(_onNewMessageCallback);

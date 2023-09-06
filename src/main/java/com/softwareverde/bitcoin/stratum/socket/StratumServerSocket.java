@@ -26,8 +26,6 @@ public class StratumServerSocket {
 
     protected SocketEventCallback _socketEventCallback = null;
 
-    protected final ThreadPool _threadPool;
-
     protected static final Long _purgeEveryCount = 20L;
     protected void _purgeDisconnectedConnections() {
         synchronized (_connections) {
@@ -49,30 +47,19 @@ public class StratumServerSocket {
     protected void _onConnect(final JsonSocket socketConnection) {
         final SocketEventCallback socketEventCallback = _socketEventCallback;
         if (socketEventCallback != null) {
-            _threadPool.execute(new Runnable() {
-                @Override
-                public void run() {
-                    socketEventCallback.onConnect(socketConnection);
-                }
-            });
+            socketEventCallback.onConnect(socketConnection);
         }
     }
 
     protected void _onDisconnect(final JsonSocket socketConnection) {
         final SocketEventCallback socketEventCallback = _socketEventCallback;
         if (socketEventCallback != null) {
-            _threadPool.execute(new Runnable() {
-                @Override
-                public void run() {
-                    socketEventCallback.onDisconnect(socketConnection);
-                }
-            });
+            socketEventCallback.onDisconnect(socketConnection);
         }
     }
 
-    public StratumServerSocket(final Integer port, final ThreadPool threadPool) {
+    public StratumServerSocket(final Integer port) {
         _port = port;
-        _threadPool = threadPool;
     }
 
     public void setSocketEventCallback(final SocketEventCallback socketEventCallback) {
@@ -92,7 +79,7 @@ public class StratumServerSocket {
                         while (_shouldContinue) {
                             if (_socket == null) { return; }
 
-                            final JsonSocket connection = new JsonSocket(_socket.accept(), _threadPool);
+                            final JsonSocket connection = new JsonSocket(_socket.accept());
 
                             final boolean shouldPurgeConnections = (_nextConnectionId % _purgeEveryCount == 0L);
                             if (shouldPurgeConnections) {
