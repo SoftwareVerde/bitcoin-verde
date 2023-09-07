@@ -34,7 +34,7 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
     }
 
     @Override
-    public void applyBlock(final Block block, final Long blockHeight) throws DatabaseException {
+    public synchronized void applyBlock(final Block block, final Long blockHeight) throws DatabaseException {
         try {
             final BlockUtxoDiff blockUtxoDiff = BlockUtil.getBlockUtxoDiff(block);
 
@@ -81,7 +81,7 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
     }
 
     @Override
-    public void undoBlock(final Block block, final Long blockHeight) throws DatabaseException {
+    public synchronized void undoBlock(final Block block, final Long blockHeight) throws DatabaseException {
         // TODO
     }
 
@@ -235,7 +235,7 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
     }
 
     @Override
-    public void close() throws Exception {
+    public synchronized void close() throws Exception {
         _utxoDb.close();
     }
 }

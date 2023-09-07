@@ -59,6 +59,7 @@ import com.softwareverde.util.timer.NanoTimer;
 
 import java.io.File;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class NodeModule {
     protected String _toCanonicalConnectionString(final NodeIpAddress nodeIpAddress) {
@@ -82,6 +83,7 @@ public class NodeModule {
     protected final WorkerManager _transactionIndexWorker;
     protected final WorkerManager _blockDownloadWorker;
     protected final WorkerManager _syncWorker;
+    protected final ReentrantReadWriteLock.WriteLock _blockProcessLock;
     protected final TransactionMempool _transactionMempool;
 
     protected final MutableList<BitcoinNode> _bitcoinNodes = new MutableArrayList<>();
@@ -313,6 +315,7 @@ public class NodeModule {
                     final Sha256Hash blockHash = blockHeader.getHash();
                     final Promise<Block> promise = _downloadBlocks(bitcoinNode, blockHash);
 
+                    if (! _blockProcessLock.tryLock()) { break; } // Close in process.
                     try {
                         final Block block = promise.getResult(_maxTimeoutMs);
                         if (block == null) { break; }
@@ -393,6 +396,9 @@ public class NodeModule {
                         Logger.debug(exception);
                         bitcoinNode.disconnect();
                         return;
+                    }
+                    finally {
+                        _blockProcessLock.unlock();
                     }
 
                     blockHeight += 1;
@@ -697,6 +703,9 @@ public class NodeModule {
         _transactionIndexWorker.setName("Blockchain Indexer");
         _transactionIndexWorker.start();
 
+        final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
+        _blockProcessLock = readWriteLock.writeLock();
+
         _syncWorker = new WorkerManager(1, 1);
         _syncWorker.setName("Blockchain Sync");
         _syncWorker.start();
@@ -833,6 +842,7 @@ public class NodeModule {
 
     public void close() throws Exception {
         if (! _isShuttingDown.compareAndSet(false, true)) { return; }
+        _blockProcessLock.lock();
 
         try {
             for (final BitcoinNode bitcoinNode : _bitcoinNodes) {
