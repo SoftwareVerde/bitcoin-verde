@@ -99,6 +99,8 @@ public class NodeModule {
     protected final Container<Long> _headBlockHeaderHeightContainer = new Container<>(0L);
     protected final Container<Long> _indexedBlockHeightContainer = new Container<>(0L);
 
+    protected boolean _skipNetworking = false;
+
     protected void _syncHeaders() {
         final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(_upgradeSchedule, _blockchain, _networkTime, _difficultyCalculator);
 
@@ -226,6 +228,11 @@ public class NodeModule {
                     }
                 }
 
+                if (bitcoinNode == null) {
+                    promise.setResult(null);
+                    return;
+                }
+
                 final Container<Integer> failCountContainer = new Container<>(0);
                 final NanoTimer downloadTimer = new NanoTimer();
                 downloadTimer.start();
@@ -294,9 +301,14 @@ public class NodeModule {
 
     protected void _syncBlocks() {
         final BitcoinNode bitcoinNode;
-        synchronized (_bitcoinNodes) {
-            if (_bitcoinNodes.isEmpty()) { return; }
-            bitcoinNode = _bitcoinNodes.get(0);
+        if (_skipNetworking) {
+            bitcoinNode = null;
+        }
+        else {
+            synchronized (_bitcoinNodes) {
+                if (_bitcoinNodes.isEmpty()) { return; }
+                bitcoinNode = _bitcoinNodes.get(0);
+            }
         }
 
         _syncWorker.offerTask(new WorkerManager.Task() {
@@ -336,7 +348,9 @@ public class NodeModule {
                             validationTimer.stop();
                             if (! result.isValid) {
                                 Logger.info(result.errorMessage + " " + block.getHash() + " " + result.invalidTransactions.get(0) + " (" + result.invalidTransactions.getCount() + ")");
-                                bitcoinNode.disconnect();
+                                if (bitcoinNode != null) {
+                                    bitcoinNode.disconnect();
+                                }
                                 break;
                             }
 
@@ -394,7 +408,9 @@ public class NodeModule {
                     }
                     catch (final Exception exception) {
                         Logger.debug(exception);
-                        bitcoinNode.disconnect();
+                        if (bitcoinNode != null) {
+                            bitcoinNode.disconnect();
+                        }
                         return;
                     }
                     finally {
@@ -562,6 +578,7 @@ public class NodeModule {
 
     protected synchronized void _addNewNodes(final int numberOfNodesToAttemptConnectionsTo) {
         if (_isShuttingDown.get()) { return; }
+        if (_skipNetworking) { return; }
 
         final Integer defaultPort = _bitcoinProperties.getBitcoinPort();
         while (_availablePeers.isEmpty()) { // Connect to DNS seeded nodes...
@@ -792,6 +809,10 @@ public class NodeModule {
         _rpcHandler.setQueryAddressHandler(queryAddressHandler);
 
         _addNewNodes(3);
+
+        if (_skipNetworking) {
+            _syncBlocks();
+        }
 
         _jsonSocketServer = new JsonSocketServer(_bitcoinProperties.getBitcoinRpcPort());
         _jsonSocketServer.setSocketConnectedCallback(new SocketServer.SocketConnectedCallback<>() {

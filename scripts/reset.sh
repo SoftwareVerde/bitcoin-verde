@@ -42,6 +42,6 @@ if [[ -d blocks ]]; then
     done
 fi
 
-cd ../..
+cd ../../..
 rm logs/*
 
