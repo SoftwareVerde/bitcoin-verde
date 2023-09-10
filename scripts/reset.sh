@@ -40,8 +40,9 @@ if [[ -d blocks ]]; then
         done
         cd ..
     done
+    cd ..
 fi
 
-cd ../../..
+cd ../..
 rm logs/*
 
