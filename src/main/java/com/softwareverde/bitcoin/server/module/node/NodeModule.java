@@ -880,8 +880,8 @@ public class NodeModule {
             _syncWorker.waitForCompletion();
             _syncWorker.close();
             _unspentTransactionOutputDatabaseManager.close();
-            _transactionIndexer.close();
             _transactionIndexWorker.close();
+            _transactionIndexer.close();
             _blockchain.save(_blockchainFile);
 
             Logger.debug("Shutdown complete.");

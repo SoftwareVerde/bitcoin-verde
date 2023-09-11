@@ -44,5 +44,5 @@ if [[ -d blocks ]]; then
 fi
 
 cd ../..
-rm logs/*
+rm logs/* 2>/dev/null
 
