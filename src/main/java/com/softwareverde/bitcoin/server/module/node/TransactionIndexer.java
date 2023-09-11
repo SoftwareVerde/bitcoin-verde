@@ -49,7 +49,7 @@ public class TransactionIndexer implements AutoCloseable {
         _transactionDb = new BucketDb<>(transactionDbDirectory, new IndexedTransactionEntryInflater(), 16, 1024 * 1024, 8, true);
         _transactionDb.open();
 
-        _addressDb = new BucketDb<>(addressDbDirectory, new IndexedAddressEntryInflater(), 16, 1024 * 1024, 16, true);
+        _addressDb = new BucketDb<>(addressDbDirectory, new IndexedAddressEntryInflater(), 16, 1024 * 1024, 16, false);
         _addressDb.open();
 
         _spentOutputsDb = new BucketDb<>(spendOutputsDbDirectory, new IndexedSpentOutputsInflater(), 17, 1024 * 12, 16, true);
