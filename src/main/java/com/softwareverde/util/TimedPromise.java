@@ -2,7 +2,7 @@ package com.softwareverde.util;
 
 import com.softwareverde.util.timer.NanoTimer;
 
-class TimedPromise<T> extends Promise<T> {
+public class TimedPromise<T> extends Promise<T> {
     protected final NanoTimer _nanoTimer = new NanoTimer();
 
     public TimedPromise() {
@@ -12,6 +12,7 @@ class TimedPromise<T> extends Promise<T> {
     public TimedPromise(final T value) {
         super(value);
         _nanoTimer.start();
+        _nanoTimer.stop();
     }
 
     @Override

@@ -46,13 +46,13 @@ public class TransactionIndexer implements AutoCloseable {
             spendOutputsDbDirectory.mkdirs();
         }
 
-        _transactionDb = new BucketDb<>(transactionDbDirectory, new IndexedTransactionEntryInflater(), 16, 1024 * 1024, 8, true);
+        _transactionDb = new BucketDb<>(transactionDbDirectory, new IndexedTransactionEntryInflater(), 16, 1024 * 1024, 8, true, false);
         _transactionDb.open();
 
-        _addressDb = new BucketDb<>(addressDbDirectory, new IndexedAddressEntryInflater(), 16, 1024 * 1024, 16, false);
+        _addressDb = new BucketDb<>(addressDbDirectory, new IndexedAddressEntryInflater(), 16, 1024 * 1024, 16, true, false);
         _addressDb.open();
 
-        _spentOutputsDb = new BucketDb<>(spendOutputsDbDirectory, new IndexedSpentOutputsInflater(), 17, 1024 * 12, 16, true);
+        _spentOutputsDb = new BucketDb<>(spendOutputsDbDirectory, new IndexedSpentOutputsInflater(), 17, 1024 * 12, 16, true, false);
         _spentOutputsDb.open();
     }
 

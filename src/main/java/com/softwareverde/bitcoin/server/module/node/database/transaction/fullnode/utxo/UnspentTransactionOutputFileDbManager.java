@@ -29,7 +29,7 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
             FileDb.initialize(dataDirectory);
         }
 
-        _utxoDb = new BucketDb<>(dataDirectory, new UnspentTransactionOutputEntryInflater(), 17, 1024 * 1024, 16, true);
+        _utxoDb = new BucketDb<>(dataDirectory, new UnspentTransactionOutputEntryInflater(), 17, 1024 * 1024, 16, true, false);
         _utxoDb.open();
     }
 
