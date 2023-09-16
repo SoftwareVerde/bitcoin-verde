@@ -20,6 +20,7 @@ cd out/data
 
 rm -rf index
 rm -rf utxo
+rm key-values.dat 2>/dev/null
 
 cd network
 

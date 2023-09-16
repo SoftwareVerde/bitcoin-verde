@@ -357,16 +357,16 @@ public class BlockchainDataHandler implements NodeRpcHandler.DataHandler {
 
     @Override
     public Float getIndexingPercentComplete() {
-        final Long headBlockHeight = (_headBlockHeightContainer != null ? _headBlockHeightContainer.value : null);
+        final Long headBlockHeight = (_headBlockHeaderHeightContainer != null ? _headBlockHeaderHeightContainer.value : null);
         final Long indexedBlockHeight = (_indexedBlockHeightContainer != null ? _indexedBlockHeightContainer.value : null);
         if (headBlockHeight == null || indexedBlockHeight == null) { return null; }
 
-        return (headBlockHeight.floatValue() / indexedBlockHeight.floatValue());
+        return (indexedBlockHeight.floatValue() / headBlockHeight.floatValue());
     }
 
     @Override
     public Float getSlpIndexingPercentComplete() {
-        return 0.0F;
+        return null;
     }
 
     @Override

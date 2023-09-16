@@ -42,10 +42,15 @@ class StatusUi {
                 $(".blocks-per-second").text(statistics.blocksPerSecond);
                 $(".transactions-per-second").text(statistics.transactionsPerSecond);
 
-                if (statistics.indexingPercentComplete && statistics.slpIndexingPercentComplete) {
+                if (statistics.indexingPercentComplete) {
                     $(".transaction-indexing-value").text((100.0 * statistics.indexingPercentComplete).toFixed(2) + "%");
-                    $(".slp-indexing-value").text((100.0 * statistics.slpIndexingPercentComplete).toFixed(2) + "%");
-
+                    if (statistics.slpIndexingPercentComplete) {
+                        $(".slp-indexing-value").text((100.0 * statistics.slpIndexingPercentComplete).toFixed(2) + "%");
+                        $(".indexing-labels .slp-label").toggle(true);
+                    }
+                    else {
+                        $(".indexing-labels .slp-label").toggle(false);
+                    }
                     $(".indexing-progress-container").toggle(true);
                 }
                 else {
@@ -95,7 +100,7 @@ class StatusUi {
                     $(".percent-done-text", container).text(percentComplete + "%");
                 }
 
-                { // Slp Indexing Progress
+                if (statistics.slpIndexingPercentComplete) { // Slp Indexing Progress
                     const container = $(".indexing-progress-container");
                     const slpIndexingPercentComplete = window.parseFloat(statistics.slpIndexingPercentComplete);
                     const percentComplete = (100.0 * slpIndexingPercentComplete).toFixed(2);

@@ -138,10 +138,10 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
 
         final boolean isUnconfirmed;
         { // Include Block hashes which include this transaction...
-            isUnconfirmed = (indexedTransaction.blockHeight != null);
+            isUnconfirmed = (indexedTransaction != null && indexedTransaction.blockHeight != null);
 
             final Json blockHashesJson = new Json(true);
-            if (indexedTransaction.blockHeight != null) {
+            if (indexedTransaction != null && indexedTransaction.blockHeight != null) {
                 final BlockHeader blockHeader = _blockchain.getBlockHeader(indexedTransaction.blockHeight);
                 if (blockHeader != null) {
                     final Sha256Hash blockHash = blockHeader.getHash();

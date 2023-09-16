@@ -22,7 +22,7 @@ public class BitcoinPropertiesLoader {
         }
 
         { // Parse DNS Seed Nodes...
-            final String defaultSeedsString = "[\"seed.flowee.cash\", \"seed-bch.bitcoinforks.org\", \"btccash-seeder.bitcoinunlimited.info\", \"seed.bchd.cash\"]";
+            final String defaultSeedsString = "[\"bch.bitjson.com\", \"dnsseed.electroncash.de\", \"bchseed.c3-soft.com\", \"btccash-seeder.bitcoinunlimited.info\", \"seed.bchd.cash\"]";
             final Json seedNodesJson = Json.parse(properties.getProperty("bitcoin.dnsSeeds", defaultSeedsString));
 
             final MutableList<String> dnsSeeds = new MutableArrayList<>(seedNodesJson.length());

@@ -24,11 +24,13 @@ import com.softwareverde.bitcoin.server.message.type.query.header.RequestBlockHe
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputFileDbManager;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.handler.MetadataHandler;
+import com.softwareverde.bitcoin.server.module.node.store.DiskKeyValueStore;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStoreCore;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.RequestId;
 import com.softwareverde.bitcoin.server.node.RequestPriority;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.btreedb.file.InputOutputFileCore;
 import com.softwareverde.concurrent.Pin;
 import com.softwareverde.constable.Visitor;
 import com.softwareverde.constable.list.List;
@@ -60,6 +62,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class NodeModule {
+    protected static class KeyValues {
+        public static final String INDEXED_BLOCK_HEIGHT = "indexedBlockHeight";
+    }
+
     protected String _toCanonicalConnectionString(final NodeIpAddress nodeIpAddress) {
         final Ip ip = nodeIpAddress.getIp();
         final Integer port = nodeIpAddress.getPort();
@@ -70,6 +76,7 @@ public class NodeModule {
     protected final BitcoinProperties _bitcoinProperties;
     protected final File _blockchainFile;
     protected final Blockchain _blockchain;
+    protected final DiskKeyValueStore _keyValueStore;
     protected final UnspentTransactionOutputFileDbManager _unspentTransactionOutputDatabaseManager;
     protected final TransactionIndexer _transactionIndexer;
     protected final PendingBlockStoreCore _blockStore;
@@ -78,10 +85,11 @@ public class NodeModule {
     protected final JsonSocketServer _jsonSocketServer;
     protected final NodeRpcHandler _rpcHandler;
     protected final DifficultyCalculator _difficultyCalculator;
-    protected final WorkerManager _transactionIndexWorker;
+    protected final WorkerManager _blockchainIndexerWorker;
     protected final WorkerManager _syncWorker;
     protected final ReentrantReadWriteLock.WriteLock _blockProcessLock;
     protected final TransactionMempool _transactionMempool;
+    protected final BlockchainSynchronizationStatusHandler _synchronizationStatusHandler;
 
     protected final MutableList<BitcoinNode> _bitcoinNodes = new MutableArrayList<>();
     protected final MutableHashSet<NodeIpAddress> _availablePeers = new MutableHashSet<>();
@@ -95,7 +103,7 @@ public class NodeModule {
     protected final Container<Long> _headBlockHeightContainer = new Container<>(0L);
     protected final Container<Long> _headBlockHeaderHeightContainer = new Container<>(0L);
     protected final Container<Long> _indexedBlockHeightContainer = new Container<>(0L);
-
+    protected final WorkerManager.UnsafeTask _indexBlockTask;
     protected boolean _skipNetworking = false;
 
     protected void _syncHeaders() {
@@ -148,6 +156,8 @@ public class NodeModule {
 
                 _headBlockHeaderHeightContainer.value = _blockchain.getHeadBlockHeaderHeight();
                 _headBlockHeightContainer.value = _blockchain.getHeadBlockHeight();
+
+                _synchronizationStatusHandler.recalculateState();
 
                 if (count > 0 && (! hadInvalid)) {
                     if (count < RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT) {
@@ -276,27 +286,11 @@ public class NodeModule {
                         _transactionMempool.revalidate();
 
                         if (_transactionIndexer != null) {
-                            final Long indexBlockHeight = blockHeight;
-                            _transactionIndexWorker.submitTask(new WorkerManager.Task() {
-                                @Override
-                                public void run() {
-                                    final NanoTimer indexTimer = new NanoTimer();
-                                    indexTimer.start();
-                                    try {
-                                        _transactionIndexer.indexTransactions(block, indexBlockHeight);
-
-                                        synchronized (_indexedBlockHeightContainer) {
-                                            _indexedBlockHeightContainer.value = Math.max(_indexedBlockHeightContainer.value, indexBlockHeight);
-                                        }
-                                    }
-                                    catch (final Exception exception) {
-                                        Logger.debug(exception);
-                                    }
-                                    indexTimer.stop();
-                                    Logger.debug("Indexed " + blockHash + " in " + indexTimer.getMillisecondsElapsed() + "ms.");
-                                }
-                            });
+                            _blockchainIndexerWorker.offerTask(_indexBlockTask);
                         }
+
+                        _synchronizationStatusHandler.recalculateState();
+                        _blockDownloader.onBlockProcessed();
 
                         Logger.debug("Finished: " + blockHeight + " " + blockHash + " " +
                             "utxoTimer=" + utxoTimer.getMillisecondsElapsed() + " " +
@@ -362,6 +356,7 @@ public class NodeModule {
                 return nodeFeatures;
             }
         });
+        bitcoinNode.setSynchronizationStatusHandler(_synchronizationStatusHandler);
         bitcoinNode.setNodeConnectedCallback(new Node.NodeConnectedCallback() {
             @Override
             public void onNodeConnected() {
@@ -583,6 +578,19 @@ public class NodeModule {
             Logger.debug(exception);
         }
 
+        final File keyValueFile = new File(dataDirectory, "key-values.dat");
+        _keyValueStore = new DiskKeyValueStore(new InputOutputFileCore(keyValueFile));
+        try {
+            _keyValueStore.open();
+        }
+        catch (final Exception exception) {
+            Logger.debug(exception);
+        }
+        // TODO: Remove.
+        if (! _keyValueStore.hasKey(KeyValues.INDEXED_BLOCK_HEIGHT)) {
+            _keyValueStore.putString(KeyValues.INDEXED_BLOCK_HEIGHT, "" + _blockchain.getHeadBlockHeight());
+        }
+
         switch (networkType) {
             case TEST_NET: {
                 _upgradeSchedule = new TestNetUpgradeSchedule();
@@ -618,9 +626,44 @@ public class NodeModule {
 
         _transactionMempool = new TransactionMempool(_blockchain, _upgradeSchedule, _networkTime, _unspentTransactionOutputDatabaseManager);
 
-        _transactionIndexWorker = new WorkerManager(1, 128);
-        _transactionIndexWorker.setName("Blockchain Indexer");
-        _transactionIndexWorker.start();
+        _indexBlockTask = new WorkerManager.Task() {
+            @Override
+            public void run() {
+                while (true) {
+                    if (_isShuttingDown.get()) { return; }
+                    final Long lastIndexedBlockHeight = Util.parseLong(_keyValueStore.getString(KeyValues.INDEXED_BLOCK_HEIGHT), 0L);
+                    final Long blockHeight = lastIndexedBlockHeight + 1L;
+
+                    final BlockHeader blockHeader = _blockchain.getBlockHeader(blockHeight);
+                    if (blockHeader == null) { return; }
+
+                    final Sha256Hash blockHash = blockHeader.getHash();
+                    final Block block = _blockStore.getBlock(blockHash, blockHeight);
+                    if (block == null) { return; }
+
+                    final NanoTimer indexTimer = new NanoTimer();
+                    indexTimer.start();
+                    try {
+                        _transactionIndexer.indexTransactions(block, blockHeight);
+                        _keyValueStore.putString(KeyValues.INDEXED_BLOCK_HEIGHT, "" + blockHeight);
+                        _indexedBlockHeightContainer.value = blockHeight;
+                    }
+                    catch (final Exception exception) {
+                        Logger.debug(exception);
+                    }
+                    indexTimer.stop();
+                    Logger.debug("Indexed " + blockHash + " in " + indexTimer.getMillisecondsElapsed() + "ms.");
+                }
+            }
+        };
+
+        _indexedBlockHeightContainer.value = Util.parseLong(_keyValueStore.getString(KeyValues.INDEXED_BLOCK_HEIGHT), 0L);
+        _headBlockHeaderHeightContainer.value = _blockchain.getHeadBlockHeaderHeight();
+        _headBlockHeightContainer.value = _blockchain.getHeadBlockHeight();
+
+        _blockchainIndexerWorker = new WorkerManager(1, 128);
+        _blockchainIndexerWorker.setName("Blockchain Indexer");
+        _blockchainIndexerWorker.start();
 
         final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
         _blockProcessLock = readWriteLock.writeLock();
@@ -629,6 +672,7 @@ public class NodeModule {
         _syncWorker.setName("Blockchain Sync");
         _syncWorker.start();
 
+        _synchronizationStatusHandler = new BlockchainSynchronizationStatusHandler(_blockchain);
         final BlockchainDataHandler blockchainDataHandler = new BlockchainDataHandler(_blockchain, _blockStore, _upgradeSchedule, _transactionIndexer, _transactionMempool, _unspentTransactionOutputDatabaseManager);
         final BlockchainQueryAddressHandler queryAddressHandler = new BlockchainQueryAddressHandler(_blockchain, _transactionIndexer, _transactionMempool);
         final NodeRpcHandler.MetadataHandler metadataHandler = new MetadataHandler(_blockchain, _transactionIndexer, null);
@@ -686,8 +730,11 @@ public class NodeModule {
             @Override
             public void removeIpFromWhitelist(final Ip ip) { }
         };
+        blockchainDataHandler.setHeadBlockHeightContainer(_headBlockHeightContainer);
+        blockchainDataHandler.setHeadBlockHeaderHeightContainer(_headBlockHeaderHeightContainer);
+        blockchainDataHandler.setIndexedBlockHeightContainer(_indexedBlockHeightContainer);
 
-        _blockDownloader = new PendingBlockQueue(_blockchain, new PendingBlockQueue.BitcoinNodeSelector() {
+        _blockDownloader = new PendingBlockQueue(_blockchain, _blockStore, new PendingBlockQueue.BitcoinNodeSelector() {
             @Override
             public BitcoinNode getBitcoinNode(final Long blockHeight) {
                 synchronized (_bitcoinNodes) {
@@ -719,6 +766,7 @@ public class NodeModule {
         _rpcHandler.setNodeHandler(nodeHandler);
         _rpcHandler.setMetadataHandler(metadataHandler);
         _rpcHandler.setQueryAddressHandler(queryAddressHandler);
+        _rpcHandler.setSynchronizationStatusHandler(_synchronizationStatusHandler);
 
         _addNewNodes(3);
 
@@ -752,6 +800,9 @@ public class NodeModule {
 
         final Runtime runtime = Runtime.getRuntime();
         runtime.addShutdownHook(shutdownThread);
+
+        _synchronizationStatusHandler.recalculateState();
+        _blockchainIndexerWorker.offerTask(_indexBlockTask);
     }
 
     public void loop() {
@@ -793,9 +844,10 @@ public class NodeModule {
             _syncWorker.waitForCompletion();
             _syncWorker.close();
             _unspentTransactionOutputDatabaseManager.close();
-            _transactionIndexWorker.close();
+            _blockchainIndexerWorker.close();
             _transactionIndexer.close();
             _blockchain.save(_blockchainFile);
+            _keyValueStore.close();
 
             Logger.debug("Shutdown complete.");
             Logger.flush();
