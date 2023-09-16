@@ -21,6 +21,7 @@ package com.softwareverde.bitcoin.jni;
 
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.BitcoinSystemUtil;
 import com.softwareverde.util.SystemUtil;
 import com.softwareverde.util.jni.NativeUtil;
 
@@ -59,13 +60,20 @@ public class NativeSecp256k1 {
         boolean isEnabled = true;
         long contextRef = -1;
         try {
+            boolean loadJniLibExplicitly = false;
             final String extension;
             {
                 if (SystemUtil.isWindowsOperatingSystem()) {
                     extension = "dll";
                 }
                 else if (SystemUtil.isMacOperatingSystem()) {
-                    extension = "dylib";
+                    if (BitcoinSystemUtil.isAppleSiliconArchitecture()) {
+                        extension = "m2.dylib";
+                        loadJniLibExplicitly = true;
+                    }
+                    else {
+                        extension = "dylib";
+                    }
                 }
                 else {
                     extension = "so";
@@ -73,6 +81,9 @@ public class NativeSecp256k1 {
             }
 
             NativeUtil.loadLibraryFromJar("/lib/libsecp256k1." + extension);
+            if (loadJniLibExplicitly) {
+                NativeUtil.loadLibraryFromJar("/lib/libsecp256k1." + extension + ".jni");
+            }
             contextRef = secp256k1_init_context();
         }
         catch (final Throwable exception) {

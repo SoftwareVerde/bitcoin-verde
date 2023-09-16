@@ -221,6 +221,8 @@ public class NodeModule {
         _syncWorker.offerTask(new WorkerManager.Task() {
             @Override
             public void run() {
+                if (_isShuttingDown.get()) { return; }
+
                 Logger.info("Syncing blocks.");
 
                 final long trustedBlockHeight = _bitcoinProperties.getTrustedBlockHeight();
