@@ -126,6 +126,7 @@ public class Blockchain {
                 double chainWorkTime = 0D;
 
                 try (final WorkerManager workerManager = new WorkerManager(1, 1)) {
+                    workerManager.setName("Blockchain Anonymous");
                     workerManager.start();
 
                     long i = 0L;
@@ -356,6 +357,8 @@ public class Blockchain {
             final BlockHeader blockHeader = _blockHeaders.get(blockHeight.intValue());
             if (blockHeader == null) { return null; }
 
+            if (blockHeight > _headBlockHeight) { return null; }
+
             final Sha256Hash blockHash = blockHeader.getHash();
             final long diskOffset = BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT;
             final ByteArray transactionCountBytes = _blockStore.readFromBlock(blockHash, blockHeight, diskOffset, CompactVariableLengthInteger.MAX_BYTE_COUNT);
@@ -374,6 +377,8 @@ public class Blockchain {
             if (blockHeight < 0L) { return null; }
             final BlockHeader blockHeader = _blockHeaders.get(blockHeight.intValue());
             if (blockHeader == null) { return null; }
+
+            if (blockHeight > _headBlockHeight) { return null; }
 
             final Sha256Hash blockHash = blockHeader.getHash();
             return _blockStore.getBlockByteCount(blockHash, blockHeight);

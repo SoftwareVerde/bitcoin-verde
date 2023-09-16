@@ -81,12 +81,16 @@ public class PendingBlockQueue {
     }
 
     protected void _createExistingBlockPromise(final Long blockHeight, final Sha256Hash blockHash) {
+        if (_isShutdown.get()) { return; }
+
         final TimedPromise<Block> promise = new TimedPromise<>();
         _requests.put(blockHeight, promise);
 
         _blockLoader.submitTask(new WorkerManager.Task() {
             @Override
             public void run() {
+                if (_isShutdown.get()) { return; }
+
                 final BlockInflater blockInflater = new BlockInflater();
                 final ByteArray blockData = _blockStore.getPendingBlockData(blockHash);
                 final Block block = blockInflater.fromBytes(blockData);
@@ -121,6 +125,7 @@ public class PendingBlockQueue {
         _nodeSelector = nodeSelector;
 
         _blockLoader = new WorkerManager(2, 256);
+        _blockLoader.setName("Block Loader");
     }
 
     public void start() {
@@ -219,6 +224,7 @@ public class PendingBlockQueue {
     public void stop() throws Exception {
         if (! _isShutdown.compareAndSet(false, true)) { return; }
 
+        _blockLoader.waitForCompletion();
         _blockLoader.close();
 
         final Thread thread = _thread;

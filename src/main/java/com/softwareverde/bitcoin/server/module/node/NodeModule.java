@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.bip.TestNet4UpgradeSchedule;
 import com.softwareverde.bitcoin.bip.TestNetUpgradeSchedule;
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockUtxoDiff;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
 import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
@@ -21,6 +22,7 @@ import com.softwareverde.bitcoin.server.main.NetworkType;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.query.header.RequestBlockHeadersMessage;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputEntryInflater;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputFileDbManager;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.handler.MetadataHandler;
@@ -30,9 +32,16 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.RequestId;
 import com.softwareverde.bitcoin.server.node.RequestPriority;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.output.MutableUnspentTransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.util.BlockUtil;
 import com.softwareverde.btreedb.file.InputOutputFileCore;
+import com.softwareverde.btreedb.file.OutputFile;
 import com.softwareverde.concurrent.Pin;
 import com.softwareverde.constable.Visitor;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableArrayList;
@@ -87,6 +96,7 @@ public class NodeModule {
     protected final DifficultyCalculator _difficultyCalculator;
     protected final WorkerManager _blockchainIndexerWorker;
     protected final WorkerManager _syncWorker;
+    protected final WorkerManager _undoBlockWorker;
     protected final ReentrantReadWriteLock.WriteLock _blockProcessLock;
     protected final TransactionMempool _transactionMempool;
     protected final BlockchainSynchronizationStatusHandler _synchronizationStatusHandler;
@@ -206,6 +216,51 @@ public class NodeModule {
         return transactionOutputSet;
     }
 
+    protected void _createUndoLog(final Long blockHeight, final Sha256Hash blockHash, final Block block, final UnspentTransactionOutputContext unspentTransactionOutputContext) {
+        _undoBlockWorker.submitTask(new WorkerManager.UnsafeTask() {
+            @Override
+            public void run() throws Exception {
+                final UnspentTransactionOutputEntryInflater unspentTransactionOutputEntryInflater = new UnspentTransactionOutputEntryInflater();
+                final File blockSubDirectory = _blockStore.getBlockDataDirectory(blockHeight);
+                final File undoFile = new File(blockSubDirectory, blockHash + ".undo");
+                try (final OutputFile outputFile = new InputOutputFileCore(undoFile)) {
+                    outputFile.open();
+
+                    final MutableHashSet<Sha256Hash> blockTransactions;
+                    {
+                        final int transactionCount = block.getTransactionCount();
+                        blockTransactions = new MutableHashSet<>(transactionCount);
+
+                        for (final Transaction transaction : block.getTransactions()) {
+                            final Sha256Hash transactionHash = transaction.getHash();
+                            blockTransactions.add(transactionHash);
+                        }
+                    }
+
+                    final BlockUtxoDiff utxoDiff = BlockUtil.getBlockUtxoDiff(block);
+                    for (final TransactionOutputIdentifier transactionOutputIdentifier : utxoDiff.spentTransactionOutputIdentifiers) {
+                        final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
+                        if (blockTransactions.contains(transactionHash)) {
+                            continue; // Exclude outputs that are both created and destroyed by the block.
+                        }
+
+                        final TransactionOutput utxo = unspentTransactionOutputContext.getTransactionOutput(transactionOutputIdentifier);
+                        final Long utxoBlockHeight = unspentTransactionOutputContext.getBlockHeight(transactionOutputIdentifier);
+                        final Boolean utxoIsCoinbase = unspentTransactionOutputContext.isCoinbaseTransactionOutput(transactionOutputIdentifier);
+
+                        final UnspentTransactionOutput unspentTransactionOutput = new MutableUnspentTransactionOutput(utxo, utxoBlockHeight, utxoIsCoinbase);
+
+                        final ByteArray keyBytes = unspentTransactionOutputEntryInflater.keyToBytes(transactionOutputIdentifier);
+                        final ByteArray valueBytes = unspentTransactionOutputEntryInflater.valueToBytes(unspentTransactionOutput);
+
+                        outputFile.write(keyBytes.getBytes());
+                        outputFile.write(valueBytes.getBytes());
+                    }
+                }
+            }
+        });
+    }
+
     protected void _syncBlocks() {
         final BitcoinNode bitcoinNode;
         if (_skipNetworking) {
@@ -261,12 +316,14 @@ public class NodeModule {
                             final BlockValidationResult result = blockValidator.validateBlock(block, unspentTransactionOutputContext);
                             validationTimer.stop();
                             if (! result.isValid) {
-                                Logger.info(result.errorMessage + " " + block.getHash() + " " + result.invalidTransactions.get(0) + " (" + result.invalidTransactions.getCount() + ")");
+                                Logger.info(result.errorMessage + " " + blockHash + " " + result.invalidTransactions.get(0) + " (" + result.invalidTransactions.getCount() + ")");
                                 if (bitcoinNode != null) {
                                     bitcoinNode.disconnect();
                                 }
                                 break;
                             }
+
+                            _createUndoLog(blockHeight, blockHash, block, unspentTransactionOutputContext);
 
                             Logger.info("Valid: " + blockHeight + " " + blockHash);
                         }
@@ -288,7 +345,7 @@ public class NodeModule {
                         _transactionMempool.revalidate();
 
                         if (_transactionIndexer != null) {
-                            _blockchainIndexerWorker.offerTask(_indexBlockTask);
+                            // asdf _blockchainIndexerWorker.offerTask(_indexBlockTask);
                         }
 
                         _synchronizationStatusHandler.recalculateState();
@@ -674,6 +731,10 @@ public class NodeModule {
         _syncWorker.setName("Blockchain Sync");
         _syncWorker.start();
 
+        _undoBlockWorker = new WorkerManager(2, 64);
+        _undoBlockWorker.setName("Undo Log");
+        _undoBlockWorker.start();
+
         _synchronizationStatusHandler = new BlockchainSynchronizationStatusHandler(_blockchain);
         final BlockchainDataHandler blockchainDataHandler = new BlockchainDataHandler(_blockchain, _blockStore, _upgradeSchedule, _transactionIndexer, _transactionMempool, _unspentTransactionOutputDatabaseManager);
         final BlockchainQueryAddressHandler queryAddressHandler = new BlockchainQueryAddressHandler(_blockchain, _transactionIndexer, _transactionMempool);
@@ -843,13 +904,21 @@ public class NodeModule {
         try {
             _jsonSocketServer.stop();
             _blockDownloader.stop();
+
             _syncWorker.waitForCompletion();
             _syncWorker.close();
+
             _unspentTransactionOutputDatabaseManager.close();
+
+            _blockchainIndexerWorker.waitForCompletion();
             _blockchainIndexerWorker.close();
+
             _transactionIndexer.close();
             _blockchain.save(_blockchainFile);
             _keyValueStore.close();
+
+            _undoBlockWorker.waitForCompletion();
+            _undoBlockWorker.close();
 
             Logger.debug("Shutdown complete.");
             Logger.flush();

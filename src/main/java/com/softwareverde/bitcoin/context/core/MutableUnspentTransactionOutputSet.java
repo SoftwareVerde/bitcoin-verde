@@ -268,7 +268,10 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
         final List<TransactionOutputIdentifier> missingOutputIdentifiers = _stepTwo(_missingOutputIdentifiers, blockchain, blockHeight, upgradeSchedule, multiTimer);
         _missingOutputIdentifiers.addAll(missingOutputIdentifiers);
 
-        Logger.debug("Failed to load " + missingOutputIdentifiers.getCount() + "/" + outputCount + " outputs.");
+        final int missingOutputsCount = missingOutputIdentifiers.getCount();
+        if (missingOutputsCount > 0) {
+            Logger.debug("Failed to load " + missingOutputsCount + "/" + outputCount + " outputs.");
+        }
         return missingOutputIdentifiers.isEmpty();
     }
 

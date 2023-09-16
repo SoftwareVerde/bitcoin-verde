@@ -239,6 +239,10 @@ public class BlockStoreCore implements BlockStore {
         _blockCompressionIsEnabled = useCompression;
     }
 
+    public File getBlockDataDirectory(final Long blockHeight) {
+        return _getBlockDataDirectory(blockHeight);
+    }
+
     @Override
     public Boolean storeBlock(final Block block, final Long blockHeight) {
         if (_blockDataDirectory == null) { return false; }
