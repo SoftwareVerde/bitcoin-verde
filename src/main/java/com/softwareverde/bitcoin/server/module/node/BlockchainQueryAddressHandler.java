@@ -1,15 +1,14 @@
 package com.softwareverde.bitcoin.server.module.node;
 
-import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.TypedAddress;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionWithFee;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.identifier.ShortTransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
-import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -21,7 +20,6 @@ import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
 import java.util.Comparator;
-import java.util.HashSet;
 
 public class BlockchainQueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
     protected final Blockchain _blockchain;
@@ -44,14 +42,17 @@ public class BlockchainQueryAddressHandler implements NodeRpcHandler.QueryAddres
     public Long getBalance(final Sha256Hash scriptHash, final Boolean includeUnconfirmedTransactions) {
         try {
             final IndexedAddress indexedAddress = _transactionIndexer.getIndexedAddress(scriptHash);
-            final List<TransactionOutputIdentifier> receivedOutputs = indexedAddress.getTransactionOutputs();
+            if (indexedAddress == null) { return 0L; }
+
+            final List<ShortTransactionOutputIdentifier> receivedOutputs = indexedAddress.getTransactionOutputs();
 
             long totalAmount = 0L;
             final MutableHashMap<Sha256Hash, Transaction> cachedTransactions = new MutableHashMap<>();
-            for (final TransactionOutputIdentifier transactionOutputIdentifier : receivedOutputs) {
-                final Sha256Hash spendingTransactionHash = _transactionIndexer.getSpendingTransactionHash(transactionOutputIdentifier);
-                if (spendingTransactionHash == null) { // Output is unspent.
-                    final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
+            for (final ShortTransactionOutputIdentifier transactionOutputIdentifier : receivedOutputs) {
+                final Long spendingTransactionId = _transactionIndexer.getSpendingTransactionId(transactionOutputIdentifier);
+                if (spendingTransactionId == null) { // Output is unspent.
+                    final Long transactionId = transactionOutputIdentifier.getTransactionId();
+                    final Sha256Hash transactionHash = _transactionIndexer.getTransactionHash(transactionId);
                     final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
 
                     final Transaction transaction;
@@ -72,11 +73,12 @@ public class BlockchainQueryAddressHandler implements NodeRpcHandler.QueryAddres
             }
 
             if (includeUnconfirmedTransactions) {
-                final Set<TransactionOutputIdentifier> receivedOutputsSet = new MutableHashSet<>(receivedOutputs);
+                final Set<ShortTransactionOutputIdentifier> receivedOutputsSet = new MutableHashSet<>(receivedOutputs);
                 for (final TransactionWithFee mempoolTransaction : _mempool.getTransactions()) {
                     for (final TransactionInput transactionInput : mempoolTransaction.transaction.getTransactionInputs()) {
                         final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-                        if (receivedOutputsSet.contains(transactionOutputIdentifier)) {
+                        final ShortTransactionOutputIdentifier shortIdentifier = _transactionIndexer.getShortTransactionOutputIdentifier(transactionOutputIdentifier);
+                        if (receivedOutputsSet.contains(shortIdentifier)) {
                             final Transaction transaction;
                             {
                                 final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
@@ -128,23 +130,27 @@ public class BlockchainQueryAddressHandler implements NodeRpcHandler.QueryAddres
     public List<Transaction> getAddressTransactions(final Sha256Hash scriptHash) {
         try {
             final IndexedAddress indexedAddress = _transactionIndexer.getIndexedAddress(scriptHash);
-            final List<TransactionOutputIdentifier> receivedOutputs = indexedAddress.getTransactionOutputs();
+            if (indexedAddress == null) { return new MutableArrayList<>(0); }
 
-            final MutableHashMap<Sha256Hash, Long> transactionBlockHeights = new MutableHashMap<>();
+            final List<ShortTransactionOutputIdentifier> receivedOutputs = indexedAddress.getTransactionOutputs();
+
+            final MutableHashMap<Sha256Hash, Long> transactionBlockHeights = new MutableHashMap<>(); // TransactionId -> BlockHeight
             final MutableHashMap<Sha256Hash, Transaction> cachedTransactions = new MutableHashMap<>();
-            for (final TransactionOutputIdentifier transactionOutputIdentifier : receivedOutputs) {
-                final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
+            for (final ShortTransactionOutputIdentifier transactionOutputIdentifier : receivedOutputs) {
+                final Long transactionId = transactionOutputIdentifier.getTransactionId();
+                final Sha256Hash transactionHash = _transactionIndexer.getTransactionHash(transactionId);
                 if (! cachedTransactions.containsKey(transactionHash)) {
-                    final IndexedTransaction indexedTransaction = _transactionIndexer.getIndexedTransaction(transactionHash);
+                    final IndexedTransaction indexedTransaction = _transactionIndexer.getIndexedTransaction(transactionId);
                     final Transaction transaction = _blockchain.getTransaction(indexedTransaction);
                     cachedTransactions.put(transactionHash, transaction);
                     transactionBlockHeights.put(transactionHash, indexedTransaction.blockHeight);
                 }
 
-                final Sha256Hash spendingTransactionHash = _transactionIndexer.getSpendingTransactionHash(transactionOutputIdentifier);
-                if (spendingTransactionHash != null) {
+                final Long spendingTransactionId = _transactionIndexer.getSpendingTransactionId(transactionOutputIdentifier);
+                if (spendingTransactionId != null) {
+                    final Sha256Hash spendingTransactionHash = _transactionIndexer.getTransactionHash(spendingTransactionId);
                     if (! cachedTransactions.containsKey(spendingTransactionHash)) {
-                        final IndexedTransaction indexedTransaction = _transactionIndexer.getIndexedTransaction(spendingTransactionHash);
+                        final IndexedTransaction indexedTransaction = _transactionIndexer.getIndexedTransaction(spendingTransactionId);
                         final Transaction transaction = _blockchain.getTransaction(indexedTransaction);
                         cachedTransactions.put(spendingTransactionHash, transaction);
                         transactionBlockHeights.put(spendingTransactionHash, indexedTransaction.blockHeight);
@@ -159,7 +165,8 @@ public class BlockchainQueryAddressHandler implements NodeRpcHandler.QueryAddres
 
                 for (final TransactionInput transactionInput : mempoolTransaction.getTransactionInputs()) {
                     final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-                    if (receivedOutputs.contains(transactionOutputIdentifier)) {
+                    final ShortTransactionOutputIdentifier shortIdentifier = _transactionIndexer.getShortTransactionOutputIdentifier(transactionOutputIdentifier);
+                    if (receivedOutputs.contains(shortIdentifier)) {
                         cachedTransactions.put(mempoolTransactionHash, mempoolTransaction);
                         transactionBlockHeights.put(mempoolTransactionHash, blockHeight);
                     }
@@ -211,18 +218,20 @@ public class BlockchainQueryAddressHandler implements NodeRpcHandler.QueryAddres
     public List<Sha256Hash> getAddressTransactionHashes(final Sha256Hash scriptHash) {
         try {
             final IndexedAddress indexedAddress = _transactionIndexer.getIndexedAddress(scriptHash);
-            final List<TransactionOutputIdentifier> receivedOutputs = indexedAddress.getTransactionOutputs();
+            final List<ShortTransactionOutputIdentifier> receivedOutputs = indexedAddress.getTransactionOutputs();
 
             final MutableHashMap<Sha256Hash, Long> transactionBlockHeights = new MutableHashMap<>();
-            for (final TransactionOutputIdentifier transactionOutputIdentifier : receivedOutputs) {
-                final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
+            for (final ShortTransactionOutputIdentifier transactionOutputIdentifier : receivedOutputs) {
+                final Long transactionId = transactionOutputIdentifier.getTransactionId();
+                final Sha256Hash transactionHash = _transactionIndexer.getTransactionHash(transactionId);
                 if (! transactionBlockHeights.containsKey(transactionHash)) {
                     final IndexedTransaction indexedTransaction = _transactionIndexer.getIndexedTransaction(transactionHash);
                     transactionBlockHeights.put(transactionHash, indexedTransaction.blockHeight);
                 }
 
-                final Sha256Hash spendingTransactionHash = _transactionIndexer.getSpendingTransactionHash(transactionOutputIdentifier);
-                if (spendingTransactionHash != null) {
+                final Long spendingTransactionId = _transactionIndexer.getSpendingTransactionId(transactionOutputIdentifier);
+                if (spendingTransactionId != null) {
+                    final Sha256Hash spendingTransactionHash = _transactionIndexer.getTransactionHash(spendingTransactionId);
                     if (! transactionBlockHeights.containsKey(spendingTransactionHash)) {
                         final IndexedTransaction indexedTransaction = _transactionIndexer.getIndexedTransaction(spendingTransactionHash);
                         transactionBlockHeights.put(spendingTransactionHash, indexedTransaction.blockHeight);
@@ -237,7 +246,8 @@ public class BlockchainQueryAddressHandler implements NodeRpcHandler.QueryAddres
 
                 for (final TransactionInput transactionInput : mempoolTransaction.getTransactionInputs()) {
                     final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-                    if (receivedOutputs.contains(transactionOutputIdentifier)) {
+                    final ShortTransactionOutputIdentifier shotIdentifier = _transactionIndexer.getShortTransactionOutputIdentifier(transactionOutputIdentifier);
+                    if (receivedOutputs.contains(shotIdentifier)) {
                         transactionBlockHeights.put(mempoolTransactionHash, blockHeight);
                     }
                 }

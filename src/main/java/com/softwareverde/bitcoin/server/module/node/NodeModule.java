@@ -50,6 +50,7 @@ import com.softwareverde.constable.set.mutable.MutableHashSet;
 import com.softwareverde.constable.set.mutable.MutableSet;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.filedb.WorkerManager;
+import com.softwareverde.logging.LogLevel;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.Node;
@@ -222,6 +223,8 @@ public class NodeModule {
             public void run() throws Exception {
                 final UnspentTransactionOutputEntryInflater unspentTransactionOutputEntryInflater = new UnspentTransactionOutputEntryInflater();
                 final File blockSubDirectory = _blockStore.getBlockDataDirectory(blockHeight);
+                blockSubDirectory.mkdirs();
+
                 final File undoFile = new File(blockSubDirectory, blockHash + ".undo");
                 try (final OutputFile outputFile = new InputOutputFileCore(undoFile)) {
                     outputFile.open();
@@ -332,8 +335,13 @@ public class NodeModule {
                         }
 
                         addBlockTimer.start();
-                        _blockchain.addBlock(block);
+                        final boolean addBlockResult = _blockchain.addBlock(block);
                         addBlockTimer.stop();
+
+                        if (! addBlockResult) {
+                            Logger.debug("Unable to add block: " + blockHash);
+                            break;
+                        }
 
                         applyBlockTimer.start();
                         _unspentTransactionOutputDatabaseManager.applyBlock(block, blockHeight);
@@ -345,7 +353,7 @@ public class NodeModule {
                         _transactionMempool.revalidate();
 
                         if (_transactionIndexer != null) {
-                            // asdf _blockchainIndexerWorker.offerTask(_indexBlockTask);
+                            _blockchainIndexerWorker.offerTask(_indexBlockTask);
                         }
 
                         _synchronizationStatusHandler.recalculateState();
@@ -645,10 +653,6 @@ public class NodeModule {
         catch (final Exception exception) {
             Logger.debug(exception);
         }
-        // TODO: Remove.
-        if (! _keyValueStore.hasKey(KeyValues.INDEXED_BLOCK_HEIGHT)) {
-            _keyValueStore.putString(KeyValues.INDEXED_BLOCK_HEIGHT, "" + _blockchain.getHeadBlockHeight());
-        }
 
         switch (networkType) {
             case TEST_NET: {
@@ -675,7 +679,7 @@ public class NodeModule {
         try {
             final File transactionIndexDbDirectory = new File(dataDirectory, "index");
             Logger.info("Loading Transaction Index");
-            _transactionIndexer = new TransactionIndexer(transactionIndexDbDirectory, _blockchain);
+            _transactionIndexer = new TransactionIndexer(transactionIndexDbDirectory, _blockchain, _keyValueStore);
         }
         catch (final Exception exception) {
             throw new RuntimeException(exception);
@@ -869,6 +873,8 @@ public class NodeModule {
     }
 
     public void loop() {
+        Logger.setLogLevel("com.softwareverde.util.IoUtil", LogLevel.ON);
+
         while (! _isShuttingDown.get()) {
             try {
                 Thread.sleep(10000L);
@@ -905,20 +911,18 @@ public class NodeModule {
             _jsonSocketServer.stop();
             _blockDownloader.stop();
 
-            _syncWorker.waitForCompletion();
             _syncWorker.close();
 
             _unspentTransactionOutputDatabaseManager.close();
 
-            _blockchainIndexerWorker.waitForCompletion();
             _blockchainIndexerWorker.close();
 
             _transactionIndexer.close();
             _blockchain.save(_blockchainFile);
-            _keyValueStore.close();
 
-            _undoBlockWorker.waitForCompletion();
             _undoBlockWorker.close();
+
+            _keyValueStore.close(); // NOTE: Must be closed after TransactionIndexer.
 
             Logger.debug("Shutdown complete.");
             Logger.flush();

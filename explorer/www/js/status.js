@@ -43,7 +43,8 @@ class StatusUi {
                 $(".transactions-per-second").text(statistics.transactionsPerSecond);
 
                 if (statistics.indexingPercentComplete) {
-                    $(".transaction-indexing-value").text((100.0 * statistics.indexingPercentComplete).toFixed(2) + "%");
+                    // $(".transaction-indexing-value").text((100.0 * statistics.indexingPercentComplete).toFixed(2) + "%");
+                    $(".transaction-indexing-value").text(window.Math.ceil(window.parseInt(statistics.blockHeaderHeight) * window.parseFloat(statistics.indexingPercentComplete)));
                     if (statistics.slpIndexingPercentComplete) {
                         $(".slp-indexing-value").text((100.0 * statistics.slpIndexingPercentComplete).toFixed(2) + "%");
                         $(".indexing-labels .slp-label").toggle(true);

@@ -2,13 +2,7 @@ package com.softwareverde.bitcoin.server.module.node;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
-import com.softwareverde.bitcoin.transaction.input.TransactionInput;
-import com.softwareverde.bitcoin.transaction.input.TransactionInputDeflater;
-import com.softwareverde.bitcoin.transaction.input.TransactionInputInflater;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutputInflater;
-import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.transaction.output.identifier.ShortTransactionOutputIdentifier;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -16,9 +10,6 @@ import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.constable.map.mutable.MutableHashMap;
-import com.softwareverde.constable.map.mutable.MutableMap;
-import com.softwareverde.constable.set.Set;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.ByteArrayReader;
@@ -31,17 +22,17 @@ public class IndexedAddress {
         final int addressByteCount = byteArrayReader.readInteger(1); // Address Byte Count, 1 byte
         final Address address = addressInflater.fromBytes(MutableByteArray.wrap(byteArrayReader.readBytes(addressByteCount))); // Address
 
-        final MutableList<TransactionOutputIdentifier> receivedOutputs;
+        final MutableList<ShortTransactionOutputIdentifier> receivedOutputs;
         {
             final CompactVariableLengthInteger compactOutputsCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader); // Outputs Count, variable
             final int outputsCount = compactOutputsCount.intValue();
             receivedOutputs = new MutableArrayList<>(outputsCount);
             for (int j = 0; j < outputsCount; ++j) {
-                final Sha256Hash transactionHash = Sha256Hash.wrap(byteArrayReader.readBytes(Sha256Hash.BYTE_COUNT));
+                final Long transactionId = ByteUtil.bytesToLong(byteArrayReader.readBytes(4)); // NOTE: Only 4 bytes.
                 final CompactVariableLengthInteger compactVariableLengthInteger = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader); // Output Index, variable
                 final Integer outputIndex = compactVariableLengthInteger.intValue();
 
-                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+                final ShortTransactionOutputIdentifier transactionOutputIdentifier = new ShortTransactionOutputIdentifier(transactionId, outputIndex);
                 receivedOutputs.add(transactionOutputIdentifier);
             }
         }
@@ -50,7 +41,7 @@ public class IndexedAddress {
     }
 
     protected final Address _address;
-    protected final MutableList<TransactionOutputIdentifier> _receivedOutputs;
+    protected final MutableList<ShortTransactionOutputIdentifier> _receivedOutputs;
     protected ByteArray _cachedBytes;
 
     protected void _cacheBytes() {
@@ -66,11 +57,13 @@ public class IndexedAddress {
             final int receivedOutputsCount = _receivedOutputs.getCount();
             final ByteArray outputCountBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(receivedOutputsCount);
             byteArrayBuilder.appendBytes(outputCountBytes);
-            for (final TransactionOutputIdentifier transactionOutputIdentifier : _receivedOutputs) {
-                final Sha256Hash outputTransactionHash = transactionOutputIdentifier.getTransactionHash();
+            for (final ShortTransactionOutputIdentifier transactionOutputIdentifier : _receivedOutputs) {
+                final Long outputTransactionId = transactionOutputIdentifier.getTransactionId();
                 final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
 
-                byteArrayBuilder.appendBytes(outputTransactionHash);
+                final byte[] outputTransactionIdBytes = ByteUtil.integerToBytes(outputTransactionId); // NOTE: Only stored as 4 bytes.
+                byteArrayBuilder.appendBytes(outputTransactionIdBytes);
+
                 final ByteArray outputIndexBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(outputIndex);
                 byteArrayBuilder.appendBytes(outputIndexBytes);
             }
@@ -84,7 +77,7 @@ public class IndexedAddress {
         _receivedOutputs = new MutableArrayList<>();
     }
 
-    public IndexedAddress(final Address address, final MutableList<TransactionOutputIdentifier> receivedOutputs) {
+    public IndexedAddress(final Address address, final MutableList<ShortTransactionOutputIdentifier> receivedOutputs) {
         _address = address;
         _receivedOutputs = receivedOutputs;
     }
@@ -93,11 +86,11 @@ public class IndexedAddress {
         return _address;
     }
 
-    public List<TransactionOutputIdentifier> getTransactionOutputs() {
+    public List<ShortTransactionOutputIdentifier> getTransactionOutputs() {
         return _receivedOutputs;
     }
 
-    public void addTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
+    public void addTransactionOutput(final ShortTransactionOutputIdentifier transactionOutputIdentifier) {
         _cachedBytes = null;
         _receivedOutputs.add(transactionOutputIdentifier);
     }

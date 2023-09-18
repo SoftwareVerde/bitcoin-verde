@@ -224,7 +224,6 @@ public class PendingBlockQueue {
     public void stop() throws Exception {
         if (! _isShutdown.compareAndSet(false, true)) { return; }
 
-        _blockLoader.waitForCompletion();
         _blockLoader.close();
 
         final Thread thread = _thread;

@@ -71,9 +71,12 @@ public class Blockchain {
         }
     }
 
-    protected void _addBlock(final Block block, final Long blockHeight) {
-        _blockStore.storeBlock(block, blockHeight);
+    protected boolean _addBlock(final Block block, final Long blockHeight) {
+        final boolean storeResult = _blockStore.storeBlock(block, blockHeight);
+        if (! storeResult) { return false; }
+
         _headBlockHeight = Math.max(_headBlockHeight, blockHeight);
+        return true;
     }
 
     protected BlockHeader _getBlockHeader(final Long blockHeight) {
@@ -205,7 +208,8 @@ public class Blockchain {
 
             if (_headBlockHeight < 0L) {
                 final Block block = blockInflater.fromBytes(genesisBlockBytes);
-                _addBlock(block, 0L);
+                final boolean addBlockResult = _addBlock(block, 0L);
+                if (!addBlockResult) { throw new Exception("Unable to store Genesis Block."); }
                 Logger.debug("Added Genesis Block: " + block.getHash());
             }
         }
@@ -427,13 +431,12 @@ public class Blockchain {
             final BlockHeader headBlockHeader = _getBlockHeader(_headBlockHeight);
             if (headBlockHeader != null) {
                 final Sha256Hash headBlockHash = headBlockHeader.getHash();
-                if (!Util.areEqual(headBlockHash, block.getPreviousBlockHash())) {
+                if (! Util.areEqual(headBlockHash, block.getPreviousBlockHash())) {
                     return false;
                 }
             }
 
-            _addBlock(block, blockHeight);
-            return true;
+            return _addBlock(block, blockHeight);
         }
         finally {
             _writeLock.unlock();

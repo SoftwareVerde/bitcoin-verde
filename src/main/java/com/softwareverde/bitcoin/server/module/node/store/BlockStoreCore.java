@@ -259,7 +259,7 @@ public class BlockStoreCore implements BlockStore {
             final File directory = _getBlockDataDirectory(blockHeight);
             if (! directory.exists()) {
                 final boolean mkdirSuccessful = directory.mkdirs();
-                if (! mkdirSuccessful) {
+                if ( (! mkdirSuccessful) && (! directory.exists()) ) { // Double-checked due to UndoLog race condition.
                     Logger.warn("Unable to create block data directory: " + directory);
                     return false;
                 }
