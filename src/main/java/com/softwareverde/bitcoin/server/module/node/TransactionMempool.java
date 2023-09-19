@@ -250,6 +250,10 @@ public class TransactionMempool {
         return _signatureOperationCount;
     }
 
+    public synchronized int getCount() {
+        return _transactions.getCount();
+    }
+
     public synchronized long getBlockHeight() {
         return _blockHeight;
     }

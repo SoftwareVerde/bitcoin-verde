@@ -31,6 +31,8 @@ import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStoreCore;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.RequestId;
 import com.softwareverde.bitcoin.server.node.RequestPriority;
+import com.softwareverde.bitcoin.server.node.request.UnfulfilledPublicKeyRequest;
+import com.softwareverde.bitcoin.server.node.request.UnfulfilledSha256HashRequest;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.output.MutableUnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
@@ -50,7 +52,6 @@ import com.softwareverde.constable.set.mutable.MutableHashSet;
 import com.softwareverde.constable.set.mutable.MutableSet;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.filedb.WorkerManager;
-import com.softwareverde.logging.LogLevel;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.Node;
@@ -61,14 +62,17 @@ import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.network.socket.SocketServer;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.network.time.VolatileNetworkTime;
+import com.softwareverde.util.CircleBuffer;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Promise;
 import com.softwareverde.util.TimedPromise;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
+import com.softwareverde.util.type.time.SystemTime;
 
 import java.io.File;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class NodeModule {
@@ -82,6 +86,8 @@ public class NodeModule {
         return (ip + ":" + port);
     }
 
+    protected final SystemTime _systemTime = new SystemTime();
+    protected final AtomicLong _timeAtLastBlock = new AtomicLong(0L);
     protected final Long _maxTimeoutMs = 30000L;
     protected final BitcoinProperties _bitcoinProperties;
     protected final File _blockchainFile;
@@ -116,6 +122,9 @@ public class NodeModule {
     protected final Container<Long> _indexedBlockHeightContainer = new Container<>(0L);
     protected final WorkerManager.UnsafeTask _indexBlockTask;
     protected boolean _skipNetworking = false;
+
+    protected final CircleBuffer<Double> _blockProcessMs = new CircleBuffer<>(100);
+    protected final CircleBuffer<Double> _headerProcessMs = new CircleBuffer<>(100);
 
     protected void _syncHeaders() {
         final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(_upgradeSchedule, _blockchain, _networkTime, _difficultyCalculator);
@@ -290,7 +299,11 @@ public class NodeModule {
                 long blockHeight = _blockchain.getHeadBlockHeight() + 1L;
                 BlockHeader blockHeader = _blockchain.getBlockHeader(blockHeight);
 
+                final NanoTimer blockProcessTimer = new NanoTimer();
+
                 while (blockHeader != null) {
+                    blockProcessTimer.start();
+
                     final Sha256Hash blockHash = blockHeader.getHash();
                     final Promise<Block> promise = _blockDownloader.getBlock(blockHeight);
 
@@ -343,6 +356,9 @@ public class NodeModule {
                             break;
                         }
 
+                        final long now = _systemTime.getCurrentTimeInMilliSeconds();
+                        _timeAtLastBlock.set(now);
+
                         applyBlockTimer.start();
                         _unspentTransactionOutputDatabaseManager.applyBlock(block, blockHeight);
                         applyBlockTimer.stop();
@@ -382,6 +398,11 @@ public class NodeModule {
 
                     blockHeight += 1;
                     blockHeader = _blockchain.getBlockHeader(blockHeight);
+
+                    blockProcessTimer.stop();
+                    synchronized (_blockProcessMs) {
+                        _blockProcessMs.push(blockProcessTimer.getMillisecondsElapsed());
+                    }
                 }
             }
         });
@@ -752,7 +773,7 @@ public class NodeModule {
 
             @Override
             public List<BitcoinNode> getNodes() {
-                final MutableList<BitcoinNode> bitcoinNodes = new MutableList<>();
+                final MutableList<BitcoinNode> bitcoinNodes = new MutableArrayList<>();
                 synchronized (_bitcoinNodes) {
                     bitcoinNodes.addAll(_bitcoinNodes);
                 }
@@ -834,6 +855,47 @@ public class NodeModule {
         _rpcHandler.setMetadataHandler(metadataHandler);
         _rpcHandler.setQueryAddressHandler(queryAddressHandler);
         _rpcHandler.setSynchronizationStatusHandler(_synchronizationStatusHandler);
+        _rpcHandler.setStatisticsHandler(new NodeRpcHandler.StatisticsHandler() {
+            @Override
+            public Float getAverageBlockHeadersPerSecond() {
+                return 0F; // TODO
+            }
+
+            @Override
+            public Float getAverageBlocksPerSecond() {
+                synchronized (_blockProcessMs) {
+                    double total = 0D;
+                    final int count = _blockProcessMs.getCount();
+                    if (count == 0) { return 0F; }
+
+                    for (int i = 0; i < count; ++i) {
+                        total += _blockProcessMs.get(i);
+                    }
+                    return (float) ((count * 1000D) / total);
+                }
+            }
+
+            @Override
+            public Float getAverageTransactionsPerSecond() {
+                final long now = _systemTime.getCurrentTimeInMilliSeconds();
+                final long timeAtLastBlock = _timeAtLastBlock.get();
+                final long durationMs = (now - timeAtLastBlock);
+                return (_transactionMempool.getCount() / ((float) durationMs));
+            }
+
+            @Override
+            public List<UnfulfilledSha256HashRequest> getActiveBlockDownloads() {
+                return _blockDownloader.getPendingDownloads();
+            }
+
+            @Override
+            public List<UnfulfilledPublicKeyRequest> getActiveUtxoCommitmentDownloads() { return new MutableArrayList<>(0); }
+
+            @Override
+            public List<UnfulfilledSha256HashRequest> getActiveTransactionDownloads() {
+                return new MutableArrayList<>(0); // TODO
+            }
+        });
 
         _addNewNodes(3);
 
@@ -873,8 +935,6 @@ public class NodeModule {
     }
 
     public void loop() {
-        Logger.setLogLevel("com.softwareverde.util.IoUtil", LogLevel.ON);
-
         while (! _isShuttingDown.get()) {
             try {
                 Thread.sleep(10000L);

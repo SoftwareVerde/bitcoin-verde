@@ -7,7 +7,10 @@ import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.RequestId;
 import com.softwareverde.bitcoin.server.node.RequestPriority;
+import com.softwareverde.bitcoin.server.node.request.UnfulfilledSha256HashRequest;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -35,6 +38,8 @@ public class PendingBlockQueue {
     protected final AtomicBoolean _isShutdown = new AtomicBoolean(true);
     protected final BitcoinNodeSelector _nodeSelector;
 
+    protected final MutableHashMap<RequestId, UnfulfilledSha256HashRequest> _pendingRequests = new MutableHashMap<>(0);
+
     protected double _calculateMegabitsPerSecond(final TimedPromise<Block> promise) {
         final Block block = promise.pollResult();
         if (block == null) { return 0F; }
@@ -55,11 +60,15 @@ public class PendingBlockQueue {
         }
 
         Logger.debug("Requested " + blockHash + " from " + bitcoinNode + ".");
-        bitcoinNode.requestBlock(blockHash, new BitcoinNode.DownloadBlockCallback() {
+        final RequestId requestId = bitcoinNode.requestBlock(blockHash, new BitcoinNode.DownloadBlockCallback() {
             @Override
             public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final Block block) {
                 Logger.debug("Downloaded " + blockHash + " from " + bitcoinNode + " in " + promise.getMsElapsed()  + "ms.");
                 promise.setResult(block);
+
+                synchronized (_requests) {
+                    _pendingRequests.remove(requestId);
+                }
 
                 final double mbps = _calculateMegabitsPerSecond(promise);
                 final boolean wasSlowDownload = (mbps < _minMegabitsPerSecond);
@@ -73,9 +82,16 @@ public class PendingBlockQueue {
             public void onFailure(final RequestId requestId, final BitcoinNode bitcoinNode, final Sha256Hash blockHash) {
                 Logger.debug("Failed to download " + blockHash + " from " + bitcoinNode + " in " + promise.getMsElapsed()  + "ms.");
                 promise.setResult(null);
+
+                synchronized (_requests) {
+                    _pendingRequests.remove(requestId);
+                }
+
                 bitcoinNode.disconnect();
             }
         }, RequestPriority.NORMAL);
+
+        _pendingRequests.put(requestId, new UnfulfilledSha256HashRequest(bitcoinNode, requestId, RequestPriority.NORMAL, blockHash));
 
         return promise;
     }
@@ -164,6 +180,20 @@ public class PendingBlockQueue {
                             });
 
                             _createRequests(headBlockHeight);
+
+                            _pendingRequests.mutableVisit(new MutableMap.MutableVisitor<>() {
+                                @Override
+                                public boolean run(final Tuple<RequestId, UnfulfilledSha256HashRequest> entry) {
+                                    final UnfulfilledSha256HashRequest request = entry.second;
+                                    final Sha256Hash blockHash = request.hash;
+                                    final Long blockHeight = _blockchain.getBlockHeight(blockHash);
+                                    if (! _requests.containsKey(blockHeight)) {
+                                        entry.first = null; // Delete entry.
+                                    }
+
+                                    return true;
+                                }
+                            });
                         }
 
                         Thread.sleep(_requestTimeout / 2L);
@@ -218,6 +248,12 @@ public class PendingBlockQueue {
         final Long headBlockHeight = _blockchain.getHeadBlockHeight();
         synchronized (_requests) {
             _createRequests(headBlockHeight);
+        }
+    }
+
+    public List<UnfulfilledSha256HashRequest> getPendingDownloads() {
+        synchronized (_requests) {
+            return new MutableArrayList<>(_pendingRequests.getValues());
         }
     }
 
