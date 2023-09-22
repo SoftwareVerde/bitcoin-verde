@@ -207,6 +207,23 @@ public class BitcoinConstants {
         }
     }
 
+    public static Default getNetworkDefaults(final NetworkType networkType) {
+        switch (networkType) {
+            case TEST_NET: {
+                return BitcoinConstants.TestNet;
+            }
+            case TEST_NET4: {
+                return BitcoinConstants.TestNet4;
+            }
+            case CHIP_NET: {
+                return BitcoinConstants.ChipNet;
+            }
+            default: {
+                return BitcoinConstants.MainNet;
+            }
+        }
+    }
+
     public static Boolean isLocked() {
         return LOCKED;
     }

@@ -565,7 +565,7 @@ public class NodeModule {
         if (_isShuttingDown.get()) { return; }
         if (_skipNetworking) { return; }
 
-        final Integer defaultPort = _bitcoinProperties.getBitcoinPort();
+        final Integer networkPort = BitcoinConstants.getNetworkDefaults(_bitcoinProperties.getNetworkType()).defaultNetworkPort;
         while (_availablePeers.isEmpty()) { // Connect to DNS seeded nodes...
             final MutableHashSet<String> uniqueConnectionStrings = new MutableHashSet<>();
             final List<String> dnsSeeds = _bitcoinProperties.getDnsSeeds();
@@ -575,15 +575,13 @@ public class NodeModule {
                 if (seedIps == null) { continue; }
 
                 for (final Ip ip : seedIps) {
-                    final NodeIpAddress nodeIpAddress = new NodeIpAddress(ip, defaultPort);
+                    final NodeIpAddress nodeIpAddress = new NodeIpAddress(ip, networkPort);
 
                     synchronized (_previouslyConnectedIps) {
                         if (_previouslyConnectedIps.contains(ip)) {
                             continue;
                         }
                     }
-
-                    if (! Util.areEqual(BitcoinConstants.getDefaultNetworkPort(), nodeIpAddress.getPort())) { continue; }
 
                     final String connectionString = _toCanonicalConnectionString(nodeIpAddress);
                     final boolean isUnique = uniqueConnectionStrings.add(connectionString);
@@ -880,6 +878,7 @@ public class NodeModule {
                 final long now = _systemTime.getCurrentTimeInMilliSeconds();
                 final long timeAtLastBlock = _timeAtLastBlock.get();
                 final long durationMs = (now - timeAtLastBlock);
+                if (durationMs < 0.10) { return 0F; }
                 return (_transactionMempool.getCount() / ((float) durationMs));
             }
 
