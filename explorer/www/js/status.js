@@ -33,10 +33,32 @@ class StatusUi {
             }
 
             if (wasSuccess) {
+                const blockDelta = (statistics.blockHeight - (StatusUi.previousBlockHeight || statistics.blockHeight));
+                StatusUi.previousBlockHeight = statistics.blockHeight;
+
                 $(".block-header-height-value").text(statistics.blockHeaderHeight);
                 $(".block-header-date-value").text(DateUtil.formatDateIso(statistics.blockHeaderTimestamp));
                 $(".block-height-value").text(statistics.blockHeight);
                 $(".block-date-value").text(DateUtil.formatDateIso(statistics.blockTimestamp));
+
+                if (blockDelta > 0) {
+                    var div = window.document.createElement("div");
+                    $(div).text("+" + blockDelta);
+                    $(div).css({
+                        "position": "absolute",
+                        "color": "#40FF40",
+                        "font-weight": "bold",
+                        "top": $(".block-height-value").offset().top + "px",
+                        "left": ($(".block-height-value").offset().left + 45) + "px"
+                    });
+                    $(div).animate({
+                        "top": ($(".block-height-value").offset().top - 100) + "px",
+                        "opacity": 0
+                    }, 1500, "swing", function() {
+                        window.document.body.removeChild(div);
+                    });
+                    window.document.body.appendChild(div);
+                }
 
                 $(".block-headers-per-second").toggle(false);
                 // $(".block-headers-per-second").text(statistics.blockHeadersPerSecond);

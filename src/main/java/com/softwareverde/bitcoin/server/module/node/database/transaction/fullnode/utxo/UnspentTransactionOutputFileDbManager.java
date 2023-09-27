@@ -15,7 +15,6 @@ import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.filedb.FileDb;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 
@@ -25,8 +24,8 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
     protected final BucketDb<TransactionOutputIdentifier, UnspentTransactionOutput> _utxoDb;
 
     public UnspentTransactionOutputFileDbManager(final File dataDirectory) throws Exception {
-        if (! FileDb.exists(dataDirectory)) {
-            FileDb.initialize(dataDirectory);
+        if (! dataDirectory.exists()) {
+            dataDirectory.mkdirs();
         }
 
         _utxoDb = new BucketDb<>(dataDirectory, new UnspentTransactionOutputEntryInflater(), 17, 1024 * 1024, 16, true, true);

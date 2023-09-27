@@ -935,9 +935,14 @@ public class NodeModule {
 
     public void loop() {
         while (! _isShuttingDown.get()) {
+            long count = 0L;
             try {
                 Thread.sleep(10000L);
-                // System.gc();
+                if (count % 3 == 0) {
+                    System.gc();
+                }
+                count += 1L;
+                if (count < 0L) { count = 0L; }
             }
             catch (final Exception exception) {
                 break;
