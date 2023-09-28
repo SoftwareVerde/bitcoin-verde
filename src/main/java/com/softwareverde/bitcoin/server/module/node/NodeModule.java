@@ -22,6 +22,8 @@ import com.softwareverde.bitcoin.server.main.NetworkType;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.query.header.RequestBlockHeadersMessage;
+import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
+import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemType;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputEntryInflater;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputFileDbManager;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
@@ -553,6 +555,21 @@ public class NodeModule {
             }
         });
 
+        bitcoinNode.setRequestDataHandler(new BitcoinNode.RequestDataHandler() {
+            @Override
+            public void run(final BitcoinNode bitcoinNode, final List<InventoryItem> dataHashes) {
+                for (final InventoryItem inventoryItem : dataHashes) {
+                    final Sha256Hash itemHash = inventoryItem.getItemHash();
+                    if (inventoryItem.getItemType() == InventoryItemType.TRANSACTION) {
+                        if (_transactionMempool.contains(itemHash)) {
+                            final Transaction transaction = _transactionMempool.getTransaction(itemHash).transaction;
+                            bitcoinNode.transmitTransaction(transaction);
+                        }
+                    }
+                }
+            }
+        });
+
         Logger.info("Connecting to: " + host + ":" + port);
         bitcoinNode.connect();
 
@@ -759,7 +776,14 @@ public class NodeModule {
         _undoBlockWorker.start();
 
         _synchronizationStatusHandler = new BlockchainSynchronizationStatusHandler(_blockchain);
-        final BlockchainDataHandler blockchainDataHandler = new BlockchainDataHandler(_blockchain, _blockStore, _upgradeSchedule, _transactionIndexer, _transactionMempool, _unspentTransactionOutputDatabaseManager);
+        final BlockchainDataHandler blockchainDataHandler = new BlockchainDataHandler(_blockchain, _blockStore, _upgradeSchedule, _transactionIndexer, _transactionMempool, _unspentTransactionOutputDatabaseManager) {
+            @Override
+            public void submitTransaction(final Transaction transaction) {
+                if (transaction == null) { return; }
+
+                // TODO
+            }
+        };
         final BlockchainQueryAddressHandler queryAddressHandler = new BlockchainQueryAddressHandler(_blockchain, _transactionIndexer, _transactionMempool);
         final NodeRpcHandler.MetadataHandler metadataHandler = new MetadataHandler(_blockchain, _transactionIndexer, null);
         final NodeRpcHandler.NodeHandler nodeHandler = new NodeRpcHandler.NodeHandler() {
