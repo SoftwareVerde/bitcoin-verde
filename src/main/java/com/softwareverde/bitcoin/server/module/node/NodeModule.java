@@ -17,6 +17,10 @@ import com.softwareverde.bitcoin.block.validator.difficulty.TestNetDifficultyCal
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.context.core.MutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
+import com.softwareverde.bitcoin.server.configuration.CheckpointConfiguration;
+import com.softwareverde.bitcoin.server.configuration.ChipNetCheckpointConfiguration;
+import com.softwareverde.bitcoin.server.configuration.DisabledCheckpointConfiguration;
+import com.softwareverde.bitcoin.server.configuration.TestNetCheckpointConfiguration;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.main.NetworkType;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
@@ -36,6 +40,7 @@ import com.softwareverde.bitcoin.server.node.RequestPriority;
 import com.softwareverde.bitcoin.server.node.request.UnfulfilledPublicKeyRequest;
 import com.softwareverde.bitcoin.server.node.request.UnfulfilledSha256HashRequest;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionWithFee;
 import com.softwareverde.bitcoin.transaction.output.MutableUnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
@@ -54,6 +59,7 @@ import com.softwareverde.constable.set.mutable.MutableHashSet;
 import com.softwareverde.constable.set.mutable.MutableSet;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.filedb.WorkerManager;
+import com.softwareverde.logging.LogLevel;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.Node;
@@ -108,6 +114,7 @@ public class NodeModule {
     protected final WorkerManager _undoBlockWorker;
     protected final ReentrantReadWriteLock.WriteLock _blockProcessLock;
     protected final TransactionMempool _transactionMempool;
+    protected final CircleBuffer<Transaction> _submittedTransactions;
     protected final BlockchainSynchronizationStatusHandler _synchronizationStatusHandler;
 
     protected final MutableList<BitcoinNode> _bitcoinNodes = new MutableArrayList<>();
@@ -334,10 +341,15 @@ public class NodeModule {
                             final BlockValidationResult result = blockValidator.validateBlock(block, unspentTransactionOutputContext);
                             validationTimer.stop();
                             if (! result.isValid) {
-                                Logger.info(result.errorMessage + " " + blockHash + " " + result.invalidTransactions.get(0) + " (" + result.invalidTransactions.getCount() + ")");
-                                if (bitcoinNode != null) {
-                                    bitcoinNode.disconnect();
+                                Logger.info(result.errorMessage + " " + blockHash + " " + (result.invalidTransactions.isEmpty() ? null : result.invalidTransactions.get(0)) + " (" + result.invalidTransactions.getCount() + ")");
+
+                                if (result.invalidTransactions.isEmpty()) {
+                                    // Block is likely corrupted since the BlockHeader was invalid.
+                                    _blockStore.removePendingBlock(blockHash);
+                                    _blockDownloader.removeBlock(blockHeight);
+                                    continue;
                                 }
+
                                 break;
                             }
 
@@ -346,6 +358,10 @@ public class NodeModule {
                             Logger.info("Valid: " + blockHeight + " " + blockHash);
                         }
                         else {
+                            if (! block.isValid()) {
+                                _blockStore.removePendingBlock(blockHash);
+                                continue;
+                            }
                             Logger.info("Assumed Valid: " + blockHeight + " " + blockHash);
                         }
 
@@ -383,15 +399,14 @@ public class NodeModule {
                             "addBlockTimer=" + addBlockTimer.getMillisecondsElapsed() + " " +
                             "applyBlockTimer=" + applyBlockTimer.getMillisecondsElapsed()
                         );
+
+                        _rpcHandler.onNewBlock(blockHeader);
                     }
                     catch (final InterruptedException exception) {
                         return;
                     }
                     catch (final Exception exception) {
                         Logger.debug(exception);
-                        if (bitcoinNode != null) {
-                            bitcoinNode.disconnect();
-                        }
                         return;
                     }
                     finally {
@@ -549,7 +564,13 @@ public class NodeModule {
                 bitcoinNode.requestTransactions(unseenTransactions, new BitcoinNode.DownloadTransactionCallback() {
                     @Override
                     public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final Transaction transaction) {
-                        _transactionMempool.addTransaction(transaction);
+                        final boolean wasAccepted = _transactionMempool.addTransaction(transaction);
+
+                        if (wasAccepted) {
+                            final Sha256Hash transactionHash = transaction.getHash();
+                            final TransactionWithFee transactionWithFee = _transactionMempool.getTransaction(transactionHash);
+                            _rpcHandler.onNewTransaction(transactionWithFee);
+                        }
                     }
                 });
             }
@@ -564,6 +585,17 @@ public class NodeModule {
                         if (_transactionMempool.contains(itemHash)) {
                             final Transaction transaction = _transactionMempool.getTransaction(itemHash).transaction;
                             bitcoinNode.transmitTransaction(transaction);
+                        }
+                        else {
+                            synchronized (_submittedTransactions) {
+                                for (final Transaction transaction : _submittedTransactions) {
+                                    final Sha256Hash transactionHash = transaction.getHash();
+                                    if (Util.areEqual(itemHash, transactionHash)) {
+                                        bitcoinNode.transmitTransaction(transaction);
+                                        break;
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -673,7 +705,17 @@ public class NodeModule {
             throw new RuntimeException(exception);
         }
 
-        _blockchain = new Blockchain(_blockStore, _unspentTransactionOutputDatabaseManager);
+        final CheckpointConfiguration checkpointConfiguration;
+        {
+            switch (networkType) {
+                case MAIN_NET: { checkpointConfiguration = new CheckpointConfiguration(); } break;
+                case CHIP_NET: { checkpointConfiguration = new ChipNetCheckpointConfiguration(); } break;
+                case TEST_NET: { checkpointConfiguration = new TestNetCheckpointConfiguration(); } break;
+                default: { checkpointConfiguration = new DisabledCheckpointConfiguration(); } break;
+            }
+        }
+
+        _blockchain = new Blockchain(_blockStore, _unspentTransactionOutputDatabaseManager, checkpointConfiguration);
         try {
             _blockchain.load(_blockchainFile);
         }
@@ -724,6 +766,7 @@ public class NodeModule {
         _networkTime = new MutableNetworkTime();
 
         _transactionMempool = new TransactionMempool(_blockchain, _upgradeSchedule, _networkTime, _unspentTransactionOutputDatabaseManager);
+        _submittedTransactions = new CircleBuffer<>(1024);
 
         _indexBlockTask = new WorkerManager.Task() {
             @Override
@@ -781,7 +824,19 @@ public class NodeModule {
             public void submitTransaction(final Transaction transaction) {
                 if (transaction == null) { return; }
 
-                // TODO
+                synchronized (_submittedTransactions) {
+                    _submittedTransactions.push(transaction);
+                }
+
+                synchronized (_bitcoinNodes) {
+                    final Sha256Hash transactionHash = transaction.getHash();
+                    final MutableArrayList<Sha256Hash> transactionHashes = new MutableArrayList<>();
+                    transactionHashes.add(transactionHash);
+
+                    for (final BitcoinNode bitcoinNode : _bitcoinNodes) {
+                        bitcoinNode.transmitTransactionHashes(transactionHashes);
+                    }
+                }
             }
         };
         final BlockchainQueryAddressHandler queryAddressHandler = new BlockchainQueryAddressHandler(_blockchain, _transactionIndexer, _transactionMempool);
@@ -877,6 +932,18 @@ public class NodeModule {
         _rpcHandler.setMetadataHandler(metadataHandler);
         _rpcHandler.setQueryAddressHandler(queryAddressHandler);
         _rpcHandler.setSynchronizationStatusHandler(_synchronizationStatusHandler);
+        _rpcHandler.setLogLevelSetter(new NodeRpcHandler.LogLevelSetter() {
+            @Override
+            public void setLogLevel(final String packageName, final String logLevelString) {
+                final LogLevel logLevel = LogLevel.fromString(logLevelString);
+                if (logLevel == null) {
+                    Logger.debug("Invalid Log Level: " + logLevelString);
+                    return;
+                }
+
+                Logger.setLogLevel(packageName, logLevel);
+            }
+        });
         _rpcHandler.setStatisticsHandler(new NodeRpcHandler.StatisticsHandler() {
             @Override
             public Float getAverageBlockHeadersPerSecond() {
@@ -963,7 +1030,7 @@ public class NodeModule {
             try {
                 Thread.sleep(10000L);
                 if (count % 3 == 0) {
-                    System.gc();
+                    // System.gc();
                 }
                 count += 1L;
                 if (count < 0L) { count = 0L; }

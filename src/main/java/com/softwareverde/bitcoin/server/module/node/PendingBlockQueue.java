@@ -11,6 +11,7 @@ import com.softwareverde.bitcoin.server.node.request.UnfulfilledSha256HashReques
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableArrayList;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -38,7 +39,14 @@ public class PendingBlockQueue {
     protected final AtomicBoolean _isShutdown = new AtomicBoolean(true);
     protected final BitcoinNodeSelector _nodeSelector;
 
-    protected final MutableHashMap<RequestId, UnfulfilledSha256HashRequest> _pendingRequests = new MutableHashMap<>(0);
+    protected final MutableHashMap<RequestId, BlockRequest> _pendingRequests = new MutableHashMap<>(0);
+
+    public static class BlockRequest extends UnfulfilledSha256HashRequest {
+        public final AtomicBoolean isComplete = new AtomicBoolean(false);
+        public BlockRequest(final BitcoinNode bitcoinNode, final RequestId requestId, final RequestPriority requestPriority, final Sha256Hash hash) {
+            super(bitcoinNode, requestId, requestPriority, hash);
+        }
+    }
 
     protected double _calculateMegabitsPerSecond(final TimedPromise<Block> promise) {
         final Block block = promise.pollResult();
@@ -66,8 +74,11 @@ public class PendingBlockQueue {
                 Logger.debug("Downloaded " + blockHash + " from " + bitcoinNode + " in " + promise.getMsElapsed()  + "ms.");
                 promise.setResult(block);
 
-                synchronized (_requests) {
-                    _pendingRequests.remove(requestId);
+                _blockStore.storePendingBlock(block);
+
+                final BlockRequest blockRequest = _pendingRequests.get(requestId);
+                if (blockRequest != null) {
+                    blockRequest.isComplete.set(true);
                 }
 
                 final double mbps = _calculateMegabitsPerSecond(promise);
@@ -83,21 +94,22 @@ public class PendingBlockQueue {
                 Logger.debug("Failed to download " + blockHash + " from " + bitcoinNode + " in " + promise.getMsElapsed()  + "ms.");
                 promise.setResult(null);
 
-                synchronized (_requests) {
-                    _pendingRequests.remove(requestId);
+                final BlockRequest blockRequest = _pendingRequests.get(requestId);
+                if (blockRequest != null) {
+                    blockRequest.isComplete.set(true);
                 }
 
                 bitcoinNode.disconnect();
             }
         }, RequestPriority.NORMAL);
 
-        _pendingRequests.put(requestId, new UnfulfilledSha256HashRequest(bitcoinNode, requestId, RequestPriority.NORMAL, blockHash));
+        _pendingRequests.put(requestId, new BlockRequest(bitcoinNode, requestId, RequestPriority.NORMAL, blockHash));
 
         return promise;
     }
 
-    protected void _createExistingBlockPromise(final Long blockHeight, final Sha256Hash blockHash) {
-        if (_isShutdown.get()) { return; }
+    protected TimedPromise<Block> _createExistingBlockPromise(final Long blockHeight, final Sha256Hash blockHash) {
+        if (_isShutdown.get()) { return new TimedPromise<>(null); }
 
         final TimedPromise<Block> promise = new TimedPromise<>();
         _requests.put(blockHeight, promise);
@@ -113,25 +125,49 @@ public class PendingBlockQueue {
                 promise.setResult(block);
             }
         });
+        return promise;
     }
 
-    protected void _createRequests(final Long headBlockHeight) {
-        for (int i = 0; i < _queueDepth; ++i) {
-            final Long blockHeight = headBlockHeight + 1L + i;
-            final TimedPromise<Block> promise = _requests.get(blockHeight);
-            if ( (promise != null) && (! promise.isComplete()) ) { continue; } // Request is still executing.
-
-            final BlockHeader blockHeader = _blockchain.getBlockHeader(blockHeight);
-            if (blockHeader == null) { break; }
-
-            final Sha256Hash blockHash = blockHeader.getHash();
-            final boolean pendingBlockExists = _blockStore.pendingBlockExists(blockHash);
-            if (pendingBlockExists) {
-                _createExistingBlockPromise(blockHeight, blockHash);
+    protected final Object _headBlockHeightLock = new Object();
+    protected Long _headBlockHeight = null;
+    protected Long _headRequestedBlockHeight = 0L;
+    protected void _createRequests() {
+        synchronized (_headBlockHeightLock) {
+            if (_headBlockHeight == null) {
+                _headBlockHeight = _blockchain.getHeadBlockHeight();
+                if (_headBlockHeight == null) { return; }
             }
-            else {
-                _createPromise(blockHeight, blockHash);
-            }
+
+            int newPromiseCount = 0;
+            do {
+                for (int i = 0; i < _queueDepth; ++i) {
+                    final Long blockHeight = _headBlockHeight + 1L + i;
+                    final TimedPromise<Block> promise = _requests.get(blockHeight);
+                    if ((promise != null) && (! promise.isComplete())) { continue; } // Request is still executing.
+
+                    final BlockHeader blockHeader = _blockchain.getBlockHeader(blockHeight);
+                    if (blockHeader == null) { break; }
+
+                    final Sha256Hash blockHash = blockHeader.getHash();
+                    final boolean pendingBlockExists = _blockStore.pendingBlockExists(blockHash);
+                    if (pendingBlockExists) {
+                        _createExistingBlockPromise(blockHeight, blockHash);
+                        _headRequestedBlockHeight = Math.max(_headRequestedBlockHeight, blockHeight);
+                    }
+                    else {
+                        _createPromise(blockHeight, blockHash);
+                        _headRequestedBlockHeight = Math.max(_headRequestedBlockHeight, blockHeight);
+                    }
+                    newPromiseCount += 1;
+                }
+
+                if (newPromiseCount == 0) {
+                    if (_requests.isEmpty()) {
+                        _headBlockHeight = Math.max(_headRequestedBlockHeight, _headBlockHeight);
+                    }
+                    else { break; }
+                }
+            } while (newPromiseCount == 0);
         }
     }
 
@@ -179,15 +215,15 @@ public class PendingBlockQueue {
                                 }
                             });
 
-                            _createRequests(headBlockHeight);
+                            _createRequests();
 
                             _pendingRequests.mutableVisit(new MutableMap.MutableVisitor<>() {
                                 @Override
-                                public boolean run(final Tuple<RequestId, UnfulfilledSha256HashRequest> entry) {
+                                public boolean run(final Tuple<RequestId, BlockRequest> entry) {
                                     final UnfulfilledSha256HashRequest request = entry.second;
                                     final Sha256Hash blockHash = request.hash;
                                     final Long blockHeight = _blockchain.getBlockHeight(blockHash);
-                                    if (! _requests.containsKey(blockHeight)) {
+                                    if (entry.second.isComplete.get() || (! _requests.containsKey(blockHeight))) {
                                         entry.first = null; // Delete entry.
                                     }
 
@@ -219,6 +255,15 @@ public class PendingBlockQueue {
         _thread.start();
     }
 
+    public void removeBlock(final Long blockHeight) {
+        synchronized (_requests) {
+            final TimedPromise<Block> existingPromise = _requests.remove(blockHeight);
+            if (existingPromise != null) {
+                existingPromise.setResult(null);
+            }
+        }
+    }
+
     public TimedPromise<Block> getBlock(final Long blockHeight) {
         synchronized (_requests) {
             final TimedPromise<Block> existingPromise = _requests.get(blockHeight);
@@ -232,7 +277,13 @@ public class PendingBlockQueue {
             }
 
             final Sha256Hash blockHash = blockHeader.getHash();
-            return _createPromise(blockHeight, blockHash);
+            final boolean pendingBlockExists = _blockStore.pendingBlockExists(blockHash);
+            if (pendingBlockExists) {
+                return _createExistingBlockPromise(blockHeight, blockHash);
+            }
+            else {
+                return _createPromise(blockHeight, blockHash);
+            }
         }
     }
 
@@ -245,15 +296,19 @@ public class PendingBlockQueue {
     public void onBlockProcessed() {
         if (_isShutdown.get()) { return; }
 
-        final Long headBlockHeight = _blockchain.getHeadBlockHeight();
         synchronized (_requests) {
-            _createRequests(headBlockHeight);
+            _createRequests();
         }
     }
 
     public List<UnfulfilledSha256HashRequest> getPendingDownloads() {
         synchronized (_requests) {
-            return new MutableArrayList<>(_pendingRequests.getValues());
+            final MutableList<UnfulfilledSha256HashRequest> requests = new MutableArrayList<>();
+            for (final BlockRequest blockRequest : _pendingRequests.getValues()) {
+                if (blockRequest.isComplete.get()) { continue; }
+                requests.add(blockRequest);
+            }
+            return requests;
         }
     }
 

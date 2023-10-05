@@ -28,7 +28,16 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
             dataDirectory.mkdirs();
         }
 
-        _utxoDb = new BucketDb<>(dataDirectory, new UnspentTransactionOutputEntryInflater(), 17, 1024 * 1024, 16, true, true);
+        // Performance Tuning:
+        // validation=false, blockHeight~=395k, indexing=false, debug=true
+        //     4 workers, true, false: 2.1 b/s
+        //     8 workers, true, false: 2.3 b/s
+        //     8 workers, true, true:  2.4 b/s
+        //    16 workers, true, false: 1.7-2.2 b/s
+        //    64 workers, true, false: 1.3 b/s
+        // validation=false, blockHeight~=396k, indexing=false, debug=false
+        //     8 workers, true, false: 2.3 b/s
+        _utxoDb = new BucketDb<>(dataDirectory, new UnspentTransactionOutputEntryInflater(), 17, 1024 * 1024, 8, true, false);
         _utxoDb.open();
     }
 

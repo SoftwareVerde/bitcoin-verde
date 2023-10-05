@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.block.header.difficulty.work.MutableChainWork;
 import com.softwareverde.bitcoin.block.validator.difficulty.AsertReferenceBlock;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
+import com.softwareverde.bitcoin.server.configuration.CheckpointConfiguration;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
@@ -42,6 +43,7 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Comparator;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class Blockchain {
@@ -53,12 +55,24 @@ public class Blockchain {
     protected final MutableArrayList<MedianBlockTime> _medianBlockTimes = new MutableArrayList<>();
     protected final MutableArrayList<ChainWork> _chainWorks = new MutableArrayList<>();
     protected final BlockStore _blockStore;
+    protected final CheckpointConfiguration _checkpointConfiguration;
     protected final UnspentTransactionOutputDatabaseManager _unspentTransactionOutputDatabaseManager;
     protected AsertReferenceBlock _asertReferenceBlock = null;
     protected Long _headBlockHeight = -1L;
 
-    protected void _addBlockHeader(final BlockHeader blockHeader, final Long blockHeight, final MedianBlockTime medianBlockTime, final ChainWork chainWork) {
+    protected boolean _addBlockHeader(final BlockHeader blockHeader, final Long blockHeight, final MedianBlockTime medianBlockTime, final ChainWork chainWork) {
         final Sha256Hash blockHash = blockHeader.getHash();
+
+        if (! blockHeader.isValid()) {
+            Logger.debug("Corrupted block header " + blockHash + " at height " + blockHeight + ".");
+            return false;
+        }
+
+        if (_checkpointConfiguration.violatesCheckpoint(blockHeight, blockHash)) {
+            Logger.debug(blockHash + " violates checkpoint for height " + blockHeight + ".");
+            return false;
+        }
+
         _blockHeaders.add(blockHeader);
         _medianBlockTimes.add(medianBlockTime);
         _chainWorks.add(chainWork);
@@ -69,6 +83,7 @@ public class Blockchain {
                 _headBlockHeight = Math.max(_headBlockHeight, blockHeight);
             }
         }
+        return true;
     }
 
     protected boolean _addBlock(final Block block, final Long blockHeight) {
@@ -132,8 +147,10 @@ public class Blockchain {
                     workerManager.setName("Blockchain Anonymous");
                     workerManager.start();
 
+                    final AtomicBoolean shouldContinue = new AtomicBoolean(true);
+
                     long i = 0L;
-                    while (true) {
+                    while (shouldContinue.get()) {
                         final long blockHeight = i;
                         final NanoTimer nanoTimer = new NanoTimer();
 
@@ -171,7 +188,10 @@ public class Blockchain {
                                 final ChainWork chainWork = currentChainWork.asConst();
                                 nanoTimer.stop();
 
-                                _addBlockHeader(blockHeader, blockHeight, medianBlockTime, chainWork);
+                                final boolean wasValid = _addBlockHeader(blockHeader, blockHeight, medianBlockTime, chainWork);
+                                if (! wasValid) {
+                                    shouldContinue.set(false);
+                                }
                             }
                         });
 
@@ -235,9 +255,10 @@ public class Blockchain {
         }
     }
 
-    public Blockchain(final BlockStore blockStore, final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager) {
+    public Blockchain(final BlockStore blockStore, final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager, final CheckpointConfiguration checkpointConfiguration) {
         _blockStore = blockStore;
         _unspentTransactionOutputDatabaseManager = unspentTransactionOutputDatabaseManager;
+        _checkpointConfiguration = checkpointConfiguration;
 
         final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
         _readLock = readWriteLock.readLock();
@@ -413,8 +434,7 @@ public class Blockchain {
             final BlockWork blockWork = difficulty.calculateWork();
             final ChainWork newChainWork = ChainWork.add(currentChainWork, blockWork);
 
-            _addBlockHeader(blockHeader, blockHeight, medianBlockTime, newChainWork);
-            return true;
+            return _addBlockHeader(blockHeader, blockHeight, medianBlockTime, newChainWork);
         }
         finally {
             _writeLock.unlock();
