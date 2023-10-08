@@ -68,7 +68,7 @@ public class Blockchain {
             return false;
         }
 
-        if (_checkpointConfiguration.violatesCheckpoint(blockHeight, blockHash)) {
+        if ( (_checkpointConfiguration != null) && _checkpointConfiguration.violatesCheckpoint(blockHeight, blockHash) ) {
             Logger.debug(blockHash + " violates checkpoint for height " + blockHeight + ".");
             return false;
         }
@@ -253,6 +253,10 @@ public class Blockchain {
                 blockHeight += 1;
             }
         }
+    }
+
+    public Blockchain(final BlockStore blockStore) {
+        this(blockStore, null, null);
     }
 
     public Blockchain(final BlockStore blockStore, final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager, final CheckpointConfiguration checkpointConfiguration) {

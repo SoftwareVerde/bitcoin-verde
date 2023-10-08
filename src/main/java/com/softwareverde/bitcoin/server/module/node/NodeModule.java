@@ -72,7 +72,6 @@ import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.network.time.VolatileNetworkTime;
 import com.softwareverde.util.CircleBuffer;
 import com.softwareverde.util.Container;
-import com.softwareverde.util.Promise;
 import com.softwareverde.util.TimedPromise;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
@@ -283,17 +282,6 @@ public class NodeModule {
     }
 
     protected void _syncBlocks() {
-        final BitcoinNode bitcoinNode;
-        if (_skipNetworking) {
-            bitcoinNode = null;
-        }
-        else {
-            synchronized (_bitcoinNodes) {
-                if (_bitcoinNodes.isEmpty()) { return; }
-                bitcoinNode = _bitcoinNodes.get(0);
-            }
-        }
-
         _syncWorker.offerTask(new WorkerManager.Task() {
             @Override
             public void run() {
@@ -314,14 +302,17 @@ public class NodeModule {
                     blockProcessTimer.start();
 
                     final Sha256Hash blockHash = blockHeader.getHash();
-                    final Promise<Block> promise = _blockDownloader.getBlock(blockHeight);
+                    final TimedPromise<Block> promise = _blockDownloader.getBlock(blockHeight);
 
                     if (! _blockProcessLock.tryLock()) { break; } // Close in process.
                     try {
                         final Block block = promise.getResult(_maxTimeoutMs);
+                        _blockDownloader.removeBlock(blockHeight);
+
                         if (block == null) {
                             if (_isShuttingDown.get()) { return; }
 
+                            Logger.debug("Unable to get block, trying again in 500ms.");
                             Thread.sleep(500L);
                             continue;
                         }
@@ -346,7 +337,6 @@ public class NodeModule {
                                 if (result.invalidTransactions.isEmpty()) {
                                     // Block is likely corrupted since the BlockHeader was invalid.
                                     _blockStore.removePendingBlock(blockHash);
-                                    _blockDownloader.removeBlock(blockHeight);
                                     continue;
                                 }
 
@@ -397,7 +387,8 @@ public class NodeModule {
                             "utxoTimer=" + utxoTimer.getMillisecondsElapsed() + " " +
                             "validationTimer=" + validationTimer.getMillisecondsElapsed() + " " +
                             "addBlockTimer=" + addBlockTimer.getMillisecondsElapsed() + " " +
-                            "applyBlockTimer=" + applyBlockTimer.getMillisecondsElapsed()
+                            "applyBlockTimer=" + applyBlockTimer.getMillisecondsElapsed() + " " +
+                            "getBlockTimer=" + promise.getMsElapsed()
                         );
 
                         _rpcHandler.onNewBlock(blockHeader);
@@ -602,6 +593,53 @@ public class NodeModule {
             }
         });
 
+        bitcoinNode.setBlockInventoryMessageHandler(new BitcoinNode.BlockInventoryAnnouncementHandler() {
+            @Override
+            public void onNewInventory(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes) {
+                final BitcoinNode.BlockInventoryAnnouncementHandler announcementHandler = this;
+
+                final Sha256Hash blockHash = blockHashes.get(0);
+                bitcoinNode.requestBlockHeadersAfter(blockHash, new BitcoinNode.DownloadBlockHeadersCallback() {
+                    @Override
+                    public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final List<BlockHeader> blockHeaders) {
+                        announcementHandler.onNewHeaders(bitcoinNode, blockHeaders);
+                    }
+                });
+            }
+
+            @Override
+            public void onNewHeaders(final BitcoinNode bitcoinNode, final List<BlockHeader> blockHeaders) {
+                final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(_upgradeSchedule, _blockchain, _networkTime, _difficultyCalculator);
+
+                for (final BlockHeader blockHeader : blockHeaders) {
+                    if (! blockHeader.isValid()) {
+                        bitcoinNode.disconnect();
+                        return;
+                    }
+
+                    final Long headBlockHeight = _blockchain.getHeadBlockHeaderHeight();
+                    final Sha256Hash headBlockHash = _blockchain.getHeadBlockHeaderHash();
+
+                    final Sha256Hash blockHash = blockHeader.getHash();
+                    final Sha256Hash previousBlockHash = blockHeader.getPreviousBlockHash();
+                    if (! Util.areEqual(headBlockHash, previousBlockHash)) { return; }
+
+                    final BlockHeaderValidator.BlockHeaderValidationResult validationResult = blockHeaderValidator.validateBlockHeader(blockHeader, headBlockHeight + 1L);
+                    if (! validationResult.isValid) {
+                        Logger.debug(validationResult.errorMessage + " " + blockHash);
+                        bitcoinNode.disconnect();
+                        return;
+                    }
+
+                    _blockchain.addBlockHeader(blockHeader);
+
+                    _syncBlocks();
+                }
+            }
+        });
+
+        bitcoinNode.enableNewBlockViaHeaders();
+
         Logger.info("Connecting to: " + host + ":" + port);
         bitcoinNode.connect();
 
@@ -771,6 +809,16 @@ public class NodeModule {
         _indexBlockTask = new WorkerManager.Task() {
             @Override
             public void run() {
+                if (! _bitcoinProperties.isIndexingModeEnabled()) { return; }
+
+                { // Only begin indexing once syncing is complete.
+                    final Long blockHeight = _blockchain.getHeadBlockHeight();
+                    final Long headerHeight = _blockchain.getHeadBlockHeaderHeight();
+                    if (! Util.areEqual(blockHeight, headerHeight)) {
+                        return;
+                    }
+                }
+
                 while (true) {
                     if (_isShuttingDown.get()) { return; }
                     final Long lastIndexedBlockHeight = Util.parseLong(_keyValueStore.getString(KeyValues.INDEXED_BLOCK_HEIGHT), 0L);

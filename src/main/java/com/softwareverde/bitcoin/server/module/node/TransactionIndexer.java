@@ -160,6 +160,8 @@ public class TransactionIndexer implements AutoCloseable {
         final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
 
         final Long transactionId = _transactionIdDb.get(transactionHash);
+        if (transactionId == null) { return null; }
+
         return new ShortTransactionOutputIdentifier(transactionId, outputIndex);
     }
 
@@ -175,8 +177,10 @@ public class TransactionIndexer implements AutoCloseable {
     public synchronized IndexedTransaction getIndexedTransaction(final Sha256Hash transactionHash) throws Exception {
         if (! _transactionIdDb.isOpen()) { return null; }
         if (! _transactionDb.isOpen()) { return null; }
+
         final Long transactionId = _transactionIdDb.get(transactionHash);
         if (transactionId == null) { return null; }
+
         return _transactionDb.get(transactionId);
     }
 
@@ -197,6 +201,8 @@ public class TransactionIndexer implements AutoCloseable {
     public synchronized Sha256Hash getSpendingTransactionHash(final TransactionOutputIdentifier transactionOutputIdentifier) throws Exception {
         final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
         final Long transactionId = _transactionIdDb.get(transactionHash);
+        if (transactionId == null) { return null; }
+
         final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
         final ShortTransactionOutputIdentifier shortIdentifier = new ShortTransactionOutputIdentifier(transactionId, outputIndex);
 
