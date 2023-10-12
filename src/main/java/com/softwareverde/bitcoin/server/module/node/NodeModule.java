@@ -234,15 +234,15 @@ public class NodeModule {
         return transactionOutputSet;
     }
 
-    protected void _createUndoLog(final Long blockHeight, final Sha256Hash blockHash, final Block block, final UnspentTransactionOutputContext unspentTransactionOutputContext) {
+    protected void _createUndoLog(final Sha256Hash blockHash, final Block block, final UnspentTransactionOutputContext unspentTransactionOutputContext) {
         _undoBlockWorker.submitTask(new WorkerManager.UnsafeTask() {
             @Override
             public void run() throws Exception {
                 final UnspentTransactionOutputEntryInflater unspentTransactionOutputEntryInflater = new UnspentTransactionOutputEntryInflater();
-                final File blockSubDirectory = _blockStore.getBlockDataDirectory(blockHeight);
+                final File blockSubDirectory = new File(_blockStore.getBlockDataDirectory(), "undo");
                 blockSubDirectory.mkdirs();
 
-                final File undoFile = new File(blockSubDirectory, blockHash + ".undo");
+                final File undoFile = new File(blockSubDirectory, blockHash.toString());
                 try (final OutputFile outputFile = new InputOutputFileCore(undoFile)) {
                     outputFile.open();
 
@@ -343,7 +343,7 @@ public class NodeModule {
                                 break;
                             }
 
-                            _createUndoLog(blockHeight, blockHash, block, unspentTransactionOutputContext);
+                            _createUndoLog(blockHash, block, unspentTransactionOutputContext);
 
                             Logger.info("Valid: " + blockHeight + " " + blockHash);
                         }
@@ -733,8 +733,11 @@ public class NodeModule {
         final NetworkType networkType = bitcoinProperties.getNetworkType();
         BitcoinConstants.configureForNetwork(networkType);
 
-        _blockStore = new PendingBlockStoreCore(dataDirectory, true);
+        _blockStore = new PendingBlockStoreCore(dataDirectory);
         try {
+            Logger.info("Loading BlockStore");
+            _blockStore.open();
+
             final File utxoDbDirectory = new File(dataDirectory, "utxo");
             Logger.info("Loading FileDB");
             _unspentTransactionOutputDatabaseManager = new UnspentTransactionOutputFileDbManager(utxoDbDirectory);
@@ -1023,7 +1026,7 @@ public class NodeModule {
 
             @Override
             public List<UnfulfilledSha256HashRequest> getActiveBlockDownloads() {
-                return _blockDownloader.getPendingDownloads();
+                return new MutableArrayList<>(0); // return _blockDownloader.getPendingDownloads(); // TODO: Can deadlock.
             }
 
             @Override
@@ -1035,7 +1038,7 @@ public class NodeModule {
             }
         });
 
-        _addNewNodes(3);
+        _addNewNodes(8);
 
         if (_skipNetworking) {
             _syncBlocks();
@@ -1126,6 +1129,7 @@ public class NodeModule {
             _undoBlockWorker.close();
 
             _keyValueStore.close(); // NOTE: Must be closed after TransactionIndexer.
+            _blockStore.close();
 
             Logger.debug("Shutdown complete.");
             Logger.flush();

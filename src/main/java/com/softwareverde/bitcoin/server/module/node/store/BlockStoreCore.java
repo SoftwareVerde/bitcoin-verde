@@ -10,12 +10,16 @@ import com.softwareverde.bitcoin.inflater.BlockHeaderInflaters;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.btreedb.BucketDb;
+import com.softwareverde.btreedb.file.InputFile;
+import com.softwareverde.btreedb.file.InputFileStream;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Container;
 import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.Util;
 
@@ -24,7 +28,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.RandomAccessFile;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipException;
@@ -45,27 +48,14 @@ public class BlockStoreCore implements BlockStore {
     protected final BlockDeflater _blockDeflater;
     protected final File _dataDirectory;
     protected final File _blockDataDirectory;
-    protected final Integer _blocksPerDirectoryCount = 2016; // About 2 weeks...
-    protected final Boolean _blockCompressionIsEnabled;
+    protected final BucketDb<Sha256Hash, ByteArray> _bucketDb;
 
-    protected File _getBlockDataDirectory(final Long blockHeight) {
-        final long blockHeightDirectory = (blockHeight / _blocksPerDirectoryCount);
-        return new File(_blockDataDirectory, String.valueOf(blockHeightDirectory));
-    }
-
-    protected File _getBlockDataPath(final Sha256Hash blockHash, final Long blockHeight) {
-        if (_blockDataDirectory == null) { return null; }
-
-        final File blockHeightDirectory = _getBlockDataDirectory(blockHeight);
-        return new File(blockHeightDirectory, blockHash.toString());
-    }
-
-    protected ByteArray _readCompressedInternal(final File inputFile) throws ZipException {
+    protected ByteArray _readCompressedInternal(final InputFile inputFile) throws ZipException {
         int byteCount = 0;
         MutableList<byte[]> bytes = new MutableArrayList<>(0);
 
         try (
-            final InputStream inputStream = new FileInputStream(inputFile);
+            final InputStream inputStream = new InputFileStream(inputFile);
             final GZIPInputStream gzipInputStream = new GZIPInputStream(inputStream, GZIP_BUFFER_SIZE)
         ) {
             final byte[] buffer = new byte[READ_BUFFER_SIZE];
@@ -96,10 +86,10 @@ public class BlockStoreCore implements BlockStore {
         return byteArray;
     }
 
-    protected ByteArray _readCompressedChunkInternal(final File inputFile, final Long diskOffset, final Integer byteCount) throws ZipException {
+    protected ByteArray _readCompressedChunkInternal(final InputFile inputFile, final Long diskOffset, final Integer byteCount) throws ZipException {
         final MutableByteArray byteArray = new MutableByteArray(byteCount);
         try (
-            final InputStream inputStream = new FileInputStream(inputFile);
+            final InputStream inputStream = new InputFileStream(inputFile);
             final GZIPInputStream gzipInputStream = new GZIPInputStream(inputStream, GZIP_BUFFER_SIZE)
         ) {
             gzipInputStream.skip(diskOffset);
@@ -153,29 +143,19 @@ public class BlockStoreCore implements BlockStore {
         swapFile.delete();                                  //      GZ     NULL    NULL
     }
 
-    protected ByteArray _readBlock(final Sha256Hash blockHash, final Long blockHeight) {
+    protected ByteArray _readBlock(final Sha256Hash blockHash) {
         if (_blockDataDirectory == null) { return null; }
 
-        final File blockFile = _getBlockDataPath(blockHash, blockHeight);
-        if (blockFile == null) { return null; }
-
-        if (! blockFile.exists()) { return null; }
-
         try {
-            if (_blockCompressionIsEnabled) {
-                try {
-                    return _readCompressedInternal(blockFile);
+            final Container<ByteArray> bytesContainer = new Container<>();
+            _bucketDb.stream(blockHash, new BucketDb.StreamVisitor() {
+                @Override
+                public void run(final InputFile stream) throws Exception {
+                    bytesContainer.value = _readCompressedInternal(stream);
                 }
-                catch (final ZipException zipException) {
-                    Logger.debug(blockHash + " was not a compressed block file; compressing.");
-                    _compressInternal(blockFile);
+            });
 
-                    return _readCompressedInternal(blockFile);
-                }
-            }
-
-            final byte[] bytes = IoUtil.getFileContents(blockFile);
-            return MutableByteArray.wrap(bytes);
+            return bytesContainer.value;
         }
         catch (final Exception exception) {
             Logger.warn(exception);
@@ -183,35 +163,19 @@ public class BlockStoreCore implements BlockStore {
         }
     }
 
-    protected ByteArray _readFromBlock(final Sha256Hash blockHash, final Long blockHeight, final Long diskOffset, final Integer byteCount) {
+    protected ByteArray _readFromBlock(final Sha256Hash blockHash, final Long diskOffset, final Integer byteCount) {
         if (_blockDataDirectory == null) { return null; }
 
-        final File blockPath = _getBlockDataPath(blockHash, blockHeight);
-        if (blockPath == null) { return null; }
-
-        if (! blockPath.exists()) { return null; }
-
         try {
-            if (_blockCompressionIsEnabled) {
-                try {
-                    return _readCompressedChunkInternal(blockPath, diskOffset, byteCount);
+            final Container<ByteArray> bytesContainer = new Container<>();
+            _bucketDb.stream(blockHash, new BucketDb.StreamVisitor() {
+                @Override
+                public void run(final InputFile stream) throws Exception {
+                    bytesContainer.value = _readCompressedChunkInternal(stream, diskOffset, byteCount);
                 }
-                catch (final ZipException zipException) {
-                    Logger.debug(blockHash + " was not a compressed block file; compressing.");
-                    _compressInternal(blockPath);
+            });
 
-                    return _readCompressedChunkInternal(blockPath, diskOffset, byteCount);
-                }
-            }
-
-            final MutableByteArray byteArray = new MutableByteArray(byteCount);
-
-            try (final RandomAccessFile file = new RandomAccessFile(blockPath, "r")) {
-                file.seek(diskOffset);
-                file.readFully(byteArray.unwrap()); // Can throw EOF, but is caught later and returns null.
-            }
-
-            return byteArray;
+            return bytesContainer.value;
         }
         catch (final Exception exception) {
             Logger.warn(exception);
@@ -219,15 +183,15 @@ public class BlockStoreCore implements BlockStore {
         }
     }
 
-    public BlockStoreCore(final File dataDirectory, final Boolean useCompression) {
-        this(dataDirectory, useCompression, new BlockHeaderInflater(), new BlockInflater(), new BlockDeflater());
+    public BlockStoreCore(final File dataDirectory) {
+        this(dataDirectory, new BlockHeaderInflater(), new BlockInflater(), new BlockDeflater());
     }
 
-    public BlockStoreCore(final File dataDirectory, final Boolean useCompression, final BlockHeaderInflaters blockHeaderInflaters, final BlockInflaters blockInflaters) {
-        this(dataDirectory, useCompression, blockHeaderInflaters.getBlockHeaderInflater(), blockInflaters.getBlockInflater(), blockInflaters.getBlockDeflater());
+    public BlockStoreCore(final File dataDirectory, final BlockHeaderInflaters blockHeaderInflaters, final BlockInflaters blockInflaters) {
+        this(dataDirectory, blockHeaderInflaters.getBlockHeaderInflater(), blockInflaters.getBlockInflater(), blockInflaters.getBlockDeflater());
     }
 
-    public BlockStoreCore(final File dataDirectory, final Boolean useCompression, final BlockHeaderInflater blockHeaderInflater, final BlockInflater blockInflater, final BlockDeflater blockDeflater) {
+    public BlockStoreCore(final File dataDirectory, final BlockHeaderInflater blockHeaderInflater, final BlockInflater blockInflater, final BlockDeflater blockDeflater) {
         final File mainDataDirectory = new File(dataDirectory, BitcoinProperties.DATA_DIRECTORY_NAME);
         final File blocksDataDirectory = new File(mainDataDirectory, BlockStoreCore.SUB_DIRECTORY);
 
@@ -236,11 +200,16 @@ public class BlockStoreCore implements BlockStore {
         _blockHeaderInflater = blockHeaderInflater;
         _blockInflater = blockInflater;
         _blockDeflater = blockDeflater;
-        _blockCompressionIsEnabled = useCompression;
+
+        _bucketDb = new BucketDb<>(_blockDataDirectory, new BlockBucketDbEntryInflater(), 14, 1024 * 12, 1, false, false);
     }
 
-    public File getBlockDataDirectory(final Long blockHeight) {
-        return _getBlockDataDirectory(blockHeight);
+    public void open() throws Exception {
+        _bucketDb.open();
+    }
+
+    public void close() throws Exception {
+        _bucketDb.close();
     }
 
     @Override
@@ -250,59 +219,31 @@ public class BlockStoreCore implements BlockStore {
 
         final Sha256Hash blockHash = block.getHash();
 
-        final File blockPath = _getBlockDataPath(blockHash, blockHeight);
-        if (blockPath == null) { return false; }
+        final ByteArray blockBytes = _blockDeflater.toBytes(block);
+        final ByteArray compressedBytes = IoUtil.compress(blockBytes);
 
-        if (! BlockStoreCore.isEmpty(blockPath)) { return true; }
-
-        { // Create the directory, if necessary...
-            final File directory = _getBlockDataDirectory(blockHeight);
-            if (! directory.exists()) {
-                final boolean mkdirSuccessful = directory.mkdirs();
-                if ( (! mkdirSuccessful) && (! directory.exists()) ) { // Double-checked due to UndoLog race condition.
-                    Logger.warn("Unable to create block data directory: " + directory);
-                    return false;
-                }
-            }
+        try {
+            _bucketDb.put(blockHash, compressedBytes);
+            _bucketDb.commit();
+            return true;
         }
-
-        final ByteArray byteArray = _blockDeflater.toBytes(block);
-
-        if (Logger.isTraceEnabled()) {
-            if (blockPath.exists()) {
-                Logger.trace("Overwriting existing block: " + blockHash, new Exception());
-            }
+        catch (final Exception exception) {
+            Logger.debug(exception);
+            return false;
         }
-
-        if (_blockCompressionIsEnabled) {
-            final boolean result = IoUtil.putCompressedFileContents(byteArray, blockPath);
-            if (result) { return true; }
-        }
-
-        return IoUtil.putFileContents(blockPath, byteArray);
     }
 
     @Override
     public void removeBlock(final Sha256Hash blockHash, final Long blockHeight) {
         if (_blockDataDirectory == null) { return; }
-
-        final File blockPath = _getBlockDataPath(blockHash, blockHeight);
-        if (blockPath == null) { return; }
-
-        if (! blockPath.exists()) { return; }
-
-        blockPath.delete();
+        _bucketDb.delete(blockHash);
     }
 
     @Override
     public MutableBlockHeader getBlockHeader(final Sha256Hash blockHash, final Long blockHeight) {
         if (_blockDataDirectory == null) { return null; }
 
-        final File blockPath = _getBlockDataPath(blockHash, blockHeight);
-        if (blockPath == null) { return null; }
-
-        if (! blockPath.exists()) { return null; }
-        final ByteArray blockBytes = _readFromBlock(blockHash, blockHeight, 0L, BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT);
+        final ByteArray blockBytes = _readFromBlock(blockHash, 0L, BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT);
         if (blockBytes == null) { return null; }
 
         return _blockHeaderInflater.fromBytes(blockBytes);
@@ -312,7 +253,7 @@ public class BlockStoreCore implements BlockStore {
     public MutableBlock getBlock(final Sha256Hash blockHash, final Long blockHeight) {
         if (_blockDataDirectory == null) { return null; }
 
-        final ByteArray blockBytes = _readBlock(blockHash, blockHeight);
+        final ByteArray blockBytes = _readBlock(blockHash);
         if (blockBytes == null) { return null; }
 
         final MutableBlock block = _blockInflater.fromBytes(blockBytes);
@@ -330,21 +271,23 @@ public class BlockStoreCore implements BlockStore {
     @Override
     public Boolean blockExists(final Sha256Hash blockHash, final Long blockHeight) {
         if (_blockDataDirectory == null) { return false; }
-
-        final File blockPath = _getBlockDataPath(blockHash, blockHeight);
-        if (blockPath == null) { return false; }
-
-        return blockPath.exists();
+        try {
+            return _bucketDb.containsKey(blockHash);
+        }
+        catch (final Exception exception) {
+            Logger.debug(exception);
+            return false;
+        }
     }
 
     @Override
     public ByteArray readFromBlock(final Sha256Hash blockHash, final Long blockHeight, final Long diskOffset, final Integer byteCount) {
-        return _readFromBlock(blockHash, blockHeight, diskOffset, byteCount);
+        return _readFromBlock(blockHash, diskOffset, byteCount);
     }
 
     @Override
     public Long getBlockByteCount(final Sha256Hash blockHash, final Long blockHeight) {
-        final ByteArray blockBytes = _readBlock(blockHash, blockHeight);
+        final ByteArray blockBytes = _readBlock(blockHash);
         if (blockBytes == null) { return null; }
         return (long) blockBytes.getByteCount();
     }
@@ -357,5 +300,43 @@ public class BlockStoreCore implements BlockStore {
     @Override
     public File getBlockDataDirectory() {
         return _blockDataDirectory;
+    }
+}
+
+class BlockBucketDbEntryInflater implements BucketDb.BucketEntryInflater<Sha256Hash, ByteArray> {
+
+    @Override
+    public Sha256Hash getHash(final Sha256Hash bytes) {
+        return bytes;
+    }
+
+    @Override
+    public int getValueByteCount(final ByteArray blockBytes) {
+        return blockBytes.getByteCount();
+    }
+
+    @Override
+    public Sha256Hash keyFromBytes(final ByteArray bytes) {
+        return Sha256Hash.wrap(bytes.getBytes());
+    }
+
+    @Override
+    public ByteArray keyToBytes(final Sha256Hash bytes) {
+        return bytes;
+    }
+
+    @Override
+    public int getKeyByteCount() {
+        return Sha256Hash.BYTE_COUNT;
+    }
+
+    @Override
+    public ByteArray valueFromBytes(final ByteArray compressedBytes) {
+        return compressedBytes;
+    }
+
+    @Override
+    public ByteArray valueToBytes(final ByteArray blockBytes) {
+        return blockBytes;
     }
 }

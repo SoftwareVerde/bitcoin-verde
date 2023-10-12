@@ -206,6 +206,25 @@ public class BitcoinNode extends Node {
         void onResult(PendingRequest<S> pendingRequest);
     }
 
+    protected static abstract class AsyncCallbackExecutor<S extends BitcoinNodeCallback> implements CallbackExecutor<S> {
+        @Override
+        public void onResult(final PendingRequest<S> pendingRequest) {
+            (new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        AsyncCallbackExecutor.this.onResult0(pendingRequest);
+                    }
+                    catch (final Exception exception) {
+                        Logger.debug(exception);
+                    }
+                }
+            })).start();
+        }
+
+        public abstract void onResult0(PendingRequest<S> pendingRequest);
+    }
+
     public static final SynchronizationStatus DEFAULT_STATUS_CALLBACK = new SynchronizationStatus() {
         @Override
         public State getState() { return State.ONLINE; }
@@ -646,9 +665,9 @@ public class BitcoinNode extends Node {
                     if (merkleBlockParameters != null) {
                         final MerkleBlock merkleBlock = merkleBlockParameters.getMerkleBlock();
                         final Sha256Hash blockHash = merkleBlock.getHash();
-                        BitcoinNodeUtil.executeAndClearCallbacks(_downloadMerkleBlockRequests, _failableRequests, blockHash, new CallbackExecutor<DownloadMerkleBlockCallback>() {
+                        BitcoinNodeUtil.executeAndClearCallbacks(_downloadMerkleBlockRequests, _failableRequests, blockHash, new AsyncCallbackExecutor<>() {
                             @Override
-                            public void onResult(final PendingRequest<DownloadMerkleBlockCallback> pendingRequest) {
+                            public void onResult0(final PendingRequest<DownloadMerkleBlockCallback> pendingRequest) {
                                 final DownloadMerkleBlockCallback callback = pendingRequest.callback;
                                 callback.onResult(pendingRequest.requestId, BitcoinNode.this, merkleBlockParameters);
                             }
@@ -879,9 +898,9 @@ public class BitcoinNode extends Node {
             Logger.info("Received invalid Block from " + BitcoinNode.this + ": " + blockHash);
         }
 
-        final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_downloadBlockRequests, _failableRequests, blockHash, new CallbackExecutor<DownloadBlockCallback>() {
+        final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_downloadBlockRequests, _failableRequests, blockHash, new AsyncCallbackExecutor<>() {
             @Override
-            public void onResult(final PendingRequest<DownloadBlockCallback> pendingRequest) {
+            public void onResult0(final PendingRequest<DownloadBlockCallback> pendingRequest) {
                 final DownloadBlockCallback callback = pendingRequest.callback;
                 final Block blockOrNull = (blockHeaderIsValid ? block : null);
                 callback.onResult(pendingRequest.requestId, BitcoinNode.this, blockOrNull);
@@ -914,9 +933,9 @@ public class BitcoinNode extends Node {
 
         final PublicKey compressedPublicKey = publicKey.compress();
 
-        final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_downloadUtxoCommitmentRequests, _failableRequests, compressedPublicKey, new CallbackExecutor<DownloadUtxoCommitmentCallback>() {
+        final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_downloadUtxoCommitmentRequests, _failableRequests, compressedPublicKey, new AsyncCallbackExecutor<>() {
             @Override
-            public void onResult(final PendingRequest<DownloadUtxoCommitmentCallback> pendingRequest) {
+            public void onResult0(final PendingRequest<DownloadUtxoCommitmentCallback> pendingRequest) {
                 final DownloadUtxoCommitmentCallback callback = pendingRequest.callback;
                 callback.onResult(pendingRequest.requestId, BitcoinNode.this, utxoCommitmentBytes);
             }
@@ -933,9 +952,9 @@ public class BitcoinNode extends Node {
         final Transaction transaction = transactionMessage.getTransaction();
 
         final Sha256Hash transactionHash = transaction.getHash();
-        final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_downloadTransactionRequests, _failableRequests, transactionHash, new CallbackExecutor<DownloadTransactionCallback>() {
+        final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_downloadTransactionRequests, _failableRequests, transactionHash, new AsyncCallbackExecutor<>() {
             @Override
-            public void onResult(final PendingRequest<DownloadTransactionCallback> pendingRequest) {
+            public void onResult0(final PendingRequest<DownloadTransactionCallback> pendingRequest) {
                 final DownloadTransactionCallback callback = pendingRequest.callback;
                 callback.onResult(pendingRequest.requestId, BitcoinNode.this, transaction);
             }
@@ -950,9 +969,9 @@ public class BitcoinNode extends Node {
 
             if (merkleBlockParameters.hasAllTransactions()) {
                 _currentMerkleBlockBeingTransmitted = null;
-                BitcoinNodeUtil.executeAndClearCallbacks(_downloadMerkleBlockRequests, _failableRequests, merkleBlock.getHash(), new CallbackExecutor<DownloadMerkleBlockCallback>() {
+                BitcoinNodeUtil.executeAndClearCallbacks(_downloadMerkleBlockRequests, _failableRequests, merkleBlock.getHash(), new AsyncCallbackExecutor<>() {
                     @Override
-                    public void onResult(final PendingRequest<DownloadMerkleBlockCallback> pendingRequest) {
+                    public void onResult0(final PendingRequest<DownloadMerkleBlockCallback> pendingRequest) {
                         final DownloadMerkleBlockCallback callback = pendingRequest.callback;
                         callback.onResult(pendingRequest.requestId, BitcoinNode.this, merkleBlockParameters);
                     }
@@ -972,9 +991,9 @@ public class BitcoinNode extends Node {
         final DoubleSpendProof doubleSpendProof = doubleSpendProofMessage.getDoubleSpendProof();
 
         final Sha256Hash doubleSpendProofHash = doubleSpendProof.getHash();
-        final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_downloadDoubleSpendProofRequests, _failableRequests, doubleSpendProofHash, new CallbackExecutor<DownloadDoubleSpendProofCallback>() {
+        final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_downloadDoubleSpendProofRequests, _failableRequests, doubleSpendProofHash, new AsyncCallbackExecutor<>() {
             @Override
-            public void onResult(final PendingRequest<DownloadDoubleSpendProofCallback> pendingRequest) {
+            public void onResult0(final PendingRequest<DownloadDoubleSpendProofCallback> pendingRequest) {
                 final DownloadDoubleSpendProofCallback callback = pendingRequest.callback;
                 callback.onResult(pendingRequest.requestId, BitcoinNode.this, doubleSpendProof);
             }
@@ -1019,9 +1038,9 @@ public class BitcoinNode extends Node {
         final MerkleBlockParameters merkleBlockParameters = new MerkleBlockParameters(merkleBlock);
         if (transactionCount == 0) {
             // No Transactions should be transmitted alongside this MerkleBlock, so execute any callbacks and return early.
-            final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_downloadMerkleBlockRequests, _failableRequests, blockHash, new CallbackExecutor<DownloadMerkleBlockCallback>() {
+            final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_downloadMerkleBlockRequests, _failableRequests, blockHash, new AsyncCallbackExecutor<>() {
                 @Override
-                public void onResult(final PendingRequest<DownloadMerkleBlockCallback> pendingRequest) {
+                public void onResult0(final PendingRequest<DownloadMerkleBlockCallback> pendingRequest) {
                     final DownloadMerkleBlockCallback callback = pendingRequest.callback;
                     callback.onResult(pendingRequest.requestId, BitcoinNode.this, merkleBlockParameters);
                 }
@@ -1060,9 +1079,9 @@ public class BitcoinNode extends Node {
         if (blockHeaders.isEmpty()) { return; }
 
         final BlockHeader firstBlockHeader = blockHeaders.get(0);
-        final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_downloadBlockHeadersRequests, _failableRequests, firstBlockHeader.getPreviousBlockHash(), new CallbackExecutor<DownloadBlockHeadersCallback>() {
+        final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_downloadBlockHeadersRequests, _failableRequests, firstBlockHeader.getPreviousBlockHash(), new AsyncCallbackExecutor<>() {
             @Override
-            public void onResult(final PendingRequest<DownloadBlockHeadersCallback> pendingRequest) {
+            public void onResult0(final PendingRequest<DownloadBlockHeadersCallback> pendingRequest) {
                 final DownloadBlockHeadersCallback callback = pendingRequest.callback;
                 final List<BlockHeader> blockHeadersOrNull = (allBlockHeadersAreValid ? blockHeaders : null);
                 callback.onResult(pendingRequest.requestId, BitcoinNode.this, blockHeadersOrNull);
@@ -1183,9 +1202,9 @@ public class BitcoinNode extends Node {
         final ThinBlockParameters thinBlockParameters = new ThinBlockParameters(blockHeader, transactionHashes, transactions);
 
         final Sha256Hash blockHash = blockHeader.getHash();
-        final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_downloadThinBlockRequests, _failableRequests, blockHash, new CallbackExecutor<DownloadThinBlockCallback>() {
+        final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_downloadThinBlockRequests, _failableRequests, blockHash, new AsyncCallbackExecutor<>() {
             @Override
-            public void onResult(final PendingRequest<DownloadThinBlockCallback> pendingRequest) {
+            public void onResult0(final PendingRequest<DownloadThinBlockCallback> pendingRequest) {
                 final DownloadThinBlockCallback callback = pendingRequest.callback;
                 final ThinBlockParameters thinBlockParametersOrNull = (blockHeaderIsValid ? thinBlockParameters : null);
                 callback.onResult(pendingRequest.requestId, BitcoinNode.this, thinBlockParametersOrNull);
@@ -1208,9 +1227,9 @@ public class BitcoinNode extends Node {
         final ExtraThinBlockParameters extraThinBlockParameters = new ExtraThinBlockParameters(blockHeader, transactionHashes, transactions);
 
         final Sha256Hash blockHash = blockHeader.getHash();
-        final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_downloadExtraThinBlockRequests, _failableRequests, blockHash, new CallbackExecutor<DownloadExtraThinBlockCallback>() {
+        final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_downloadExtraThinBlockRequests, _failableRequests, blockHash, new AsyncCallbackExecutor<>() {
             @Override
-            public void onResult(final PendingRequest<DownloadExtraThinBlockCallback> pendingRequest) {
+            public void onResult0(final PendingRequest<DownloadExtraThinBlockCallback> pendingRequest) {
                 final DownloadExtraThinBlockCallback callback = pendingRequest.callback;
                 final ExtraThinBlockParameters extraThinBlockParametersOrNull = (blockHeaderIsValid ? extraThinBlockParameters : null);
                 callback.onResult(pendingRequest.requestId, BitcoinNode.this, extraThinBlockParametersOrNull);
@@ -1228,9 +1247,9 @@ public class BitcoinNode extends Node {
         final Sha256Hash blockHash = transactionsMessage.getBlockHash();
         final List<Transaction> transactions = transactionsMessage.getTransactions();
 
-        final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_downloadThinTransactionsRequests, _failableRequests, blockHash, new CallbackExecutor<DownloadThinTransactionsCallback>() {
+        final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_downloadThinTransactionsRequests, _failableRequests, blockHash, new AsyncCallbackExecutor<>() {
             @Override
-            public void onResult(final PendingRequest<DownloadThinTransactionsCallback> pendingRequest) {
+            public void onResult0(final PendingRequest<DownloadThinTransactionsCallback> pendingRequest) {
                 final DownloadThinTransactionsCallback callback = pendingRequest.callback;
                 callback.onResult(pendingRequest.requestId, BitcoinNode.this, transactions);
             }

@@ -45,13 +45,13 @@ public class PendingBlockStoreCore extends BlockStoreCore implements PendingBloc
         file.delete();
     }
 
-    public PendingBlockStoreCore(final File dataDirectory, final Boolean useCompression) {
-        super(dataDirectory, useCompression);
+    public PendingBlockStoreCore(final File dataDirectory) {
+        super(dataDirectory);
         _pendingBlockDataDirectory = PendingBlockStoreCore.getPendingBlockDataDirectory(dataDirectory);
     }
 
-    public PendingBlockStoreCore(final File dataDirectory, final BlockHeaderInflaters blockHeaderInflaters, final BlockInflaters blockInflaters, final Boolean useCompression) {
-        super(dataDirectory, useCompression, blockHeaderInflaters, blockInflaters);
+    public PendingBlockStoreCore(final File dataDirectory, final BlockHeaderInflaters blockHeaderInflaters, final BlockInflaters blockInflaters) {
+        super(dataDirectory, blockHeaderInflaters, blockInflaters);
         _pendingBlockDataDirectory = PendingBlockStoreCore.getPendingBlockDataDirectory(dataDirectory);
     }
 

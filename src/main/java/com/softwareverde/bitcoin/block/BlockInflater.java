@@ -12,7 +12,19 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 
 public class BlockInflater {
-    protected MutableBlock _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
+    protected static class InflatedBlock {
+        public final BlockHeader blockHeader;
+        public final MutableList<Transaction> transactions;
+        public final Integer byteCount;
+
+        public InflatedBlock(final BlockHeader blockHeader, final MutableList<Transaction> transactions, final Integer byteCount) {
+            this.blockHeader = blockHeader;
+            this.transactions = transactions;
+            this.byteCount = byteCount;
+        }
+    }
+
+    protected InflatedBlock _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
         final TransactionInflater transactionInflater = new TransactionInflater();
 
@@ -39,28 +51,34 @@ public class BlockInflater {
         final Integer endPosition = byteArrayReader.getPosition();
         final Integer byteCount = (endPosition - startPosition);
 
-        final MutableBlock mutableBlock = new MutableBlock(blockHeader, transactions);
-        mutableBlock.cacheByteCount(byteCount);
+        return new InflatedBlock(blockHeader, transactions, byteCount);
+    }
 
+    protected MutableBlock _toMutableBlock(final InflatedBlock inflatedBlock) {
+        final MutableBlock mutableBlock = new MutableBlock(inflatedBlock.blockHeader, inflatedBlock.transactions);
+        mutableBlock.cacheByteCount(inflatedBlock.byteCount);
         return mutableBlock;
     }
 
     public MutableBlock fromBytes(final ByteArrayReader byteArrayReader) {
         if (byteArrayReader == null) { return null; }
 
-        return _fromByteArrayReader(byteArrayReader);
+        final InflatedBlock inflatedBlock = _fromByteArrayReader(byteArrayReader);
+        return _toMutableBlock(inflatedBlock);
     }
 
     public MutableBlock fromBytes(final ByteArray byteArray) {
         if (byteArray == null) { return null; }
 
-        return _fromByteArrayReader(new ByteArrayReader(byteArray));
+        final InflatedBlock inflatedBlock = _fromByteArrayReader(new ByteArrayReader(byteArray));
+        return _toMutableBlock(inflatedBlock);
     }
 
     public MutableBlock fromBytes(final byte[] bytes) {
         if (bytes == null) { return null; }
 
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
-        return _fromByteArrayReader(byteArrayReader);
+        final InflatedBlock inflatedBlock = _fromByteArrayReader(byteArrayReader);
+        return _toMutableBlock(inflatedBlock);
     }
 }

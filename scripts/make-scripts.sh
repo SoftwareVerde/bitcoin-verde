@@ -4,7 +4,9 @@
 # Additionally, the G1 collector does compacting quite well ensuring long-life stability, and collects most objects in parallel. G1 also shrinks the memory footprint when not in use.
 # Setting -XX:InitiatingHeapOccupancyPercent to 20 increases the frequency that old-generation objects are attempted to be collected.
 # Setting -XX:G1MixedGCLiveThresholdPercent to 50 to encourage collecting "old" data before expanding the heap.
-JVM_PARAMS='-XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:NewSize=128M -XX:MaxNewSize=128M -XX:+UnlockExperimentalVMOptions -XX:InitiatingHeapOccupancyPercent=20 -XX:G1OldCSetRegionThresholdPercent=90 -XX:G1MixedGCLiveThresholdPercent=50 -XX:MaxGCPauseMillis=1000'
+#JVM_PARAMS='-XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:NewSize=128M -XX:MaxNewSize=128M -XX:+UnlockExperimentalVMOptions -XX:InitiatingHeapOccupancyPercent=20 -XX:G1OldCSetRegionThresholdPercent=90 -XX:G1MixedGCLiveThresholdPercent=50 -XX:MaxGCPauseMillis=1000'
+
+JVM_PARAMS='-XX:MaxRAMPercentage=75.0 -XX:NewSize=128M -XX:MaxNewSize=128M'
 
 # Allows JVM debugging. (Should not use for production runtimes.)
 DEBUG_PARAMS='-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=1044'

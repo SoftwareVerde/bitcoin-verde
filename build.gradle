@@ -28,8 +28,3 @@ publishing {
         }
     }
 }
-
-test {
-    minHeapSize = "512m"
-    maxHeapSize = "2024m"
-}
