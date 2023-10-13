@@ -78,11 +78,11 @@ public class Blockchain {
         _chainWorks.add(chainWork);
         _blockHeights.put(blockHash, blockHeight);
 
-        if ( _headBlockHeight == (blockHeight - 1L) ) {
-            if (_blockStore.blockExists(blockHash, blockHeight)) {
-                _headBlockHeight = Math.max(_headBlockHeight, blockHeight);
-            }
-        }
+//        if ( _headBlockHeight == (blockHeight - 1L) ) {
+//            if (_blockStore.blockExists(blockHash, blockHeight)) {
+//                _headBlockHeight = Math.max(_headBlockHeight, blockHeight);
+//            }
+//        }
         return true;
     }
 
@@ -208,29 +208,6 @@ public class Blockchain {
                 }
 
                 Logger.debug("blockHeaderTime=" + blockHeaderTime + ", medianBlockTimeTime=" + medianBlockTimeTime + ", chainWorkTime=" + chainWorkTime);
-                Logger.debug("headBlockHeight=" + _headBlockHeight);
-            }
-        }
-
-        if (_blockHeaders.isEmpty() || _headBlockHeight < 0L) {
-            final BlockInflater blockInflater = new BlockInflater();
-            final ByteArray genesisBlockBytes = MutableByteArray.wrap(HexUtil.hexStringToByteArray(BitcoinConstants.getGenesisBlock()));
-
-            if (_blockHeaders.isEmpty()) {
-                final BlockHeader blockHeader = blockHeaderInflater.fromBytes(genesisBlockBytes);
-                final MedianBlockTime medianBlockTime = MedianBlockTime.fromSeconds(blockHeader.getTimestamp());
-                final Difficulty difficulty = blockHeader.getDifficulty();
-                final ChainWork chainWork = ChainWork.add(new MutableChainWork(), difficulty.calculateWork());
-
-                _addBlockHeader(blockHeader, 0L, medianBlockTime, chainWork);
-                Logger.debug("Added Genesis Header: " + blockHeader.getHash());
-            }
-
-            if (_headBlockHeight < 0L) {
-                final Block block = blockInflater.fromBytes(genesisBlockBytes);
-                final boolean addBlockResult = _addBlock(block, 0L);
-                if (!addBlockResult) { throw new Exception("Unable to store Genesis Block."); }
-                Logger.debug("Added Genesis Block: " + block.getHash());
             }
         }
     }
@@ -269,10 +246,37 @@ public class Blockchain {
         _writeLock = readWriteLock.writeLock();
     }
 
-    public void load(final File file) throws Exception {
+    public void load(final File file, final Sha256Hash headBlockHash) throws Exception {
         _writeLock.lock();
         try {
             _load(file);
+
+            final Long blockHeight = _blockHeights.get(headBlockHash);
+            _headBlockHeight = Util.coalesce(blockHeight, -1L);
+            Logger.debug("headBlockHeight=" + _headBlockHeight);
+
+            if (_blockHeaders.isEmpty() || _headBlockHeight < 0L) {
+                final BlockInflater blockInflater = new BlockInflater();
+                final ByteArray genesisBlockBytes = MutableByteArray.wrap(HexUtil.hexStringToByteArray(BitcoinConstants.getGenesisBlock()));
+
+                if (_blockHeaders.isEmpty()) {
+                    final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
+                    final BlockHeader blockHeader = blockHeaderInflater.fromBytes(genesisBlockBytes);
+                    final MedianBlockTime medianBlockTime = MedianBlockTime.fromSeconds(blockHeader.getTimestamp());
+                    final Difficulty difficulty = blockHeader.getDifficulty();
+                    final ChainWork chainWork = ChainWork.add(new MutableChainWork(), difficulty.calculateWork());
+
+                    _addBlockHeader(blockHeader, 0L, medianBlockTime, chainWork);
+                    Logger.debug("Added Genesis Header: " + blockHeader.getHash());
+                }
+
+                if (_headBlockHeight < 0L) {
+                    final Block block = blockInflater.fromBytes(genesisBlockBytes);
+                    final boolean addBlockResult = _addBlock(block, 0L);
+                    if (!addBlockResult) { throw new Exception("Unable to store Genesis Block."); }
+                    Logger.debug("Added Genesis Block: " + block.getHash());
+                }
+            }
         }
         finally {
             _writeLock.unlock();
@@ -474,7 +478,7 @@ public class Blockchain {
 
             final int blockHeaderCount = _blockHeaders.getCount();
             final int index = blockHeaderCount - 1;
-            final Long blockHeight = (long) index;
+            final long blockHeight = index;
             final BlockHeader headBlock = _blockHeaders.get(index);
             final Sha256Hash blockHash = headBlock.getHash();
 
@@ -483,9 +487,12 @@ public class Blockchain {
             _chainWorks.remove(index);
             _blockHeights.remove(blockHash);
 
-            if (_blockStore.blockExists(blockHash, blockHeight)) {
-                _blockStore.removeBlock(blockHash, blockHeight);
-                _headBlockHeight -= 1;
+//            if (_blockStore.blockExists(blockHash, blockHeight)) {
+//                _blockStore.removeBlock(blockHash, blockHeight);
+//                _headBlockHeight -= 1L;
+//            }
+            if (blockHeight == _headBlockHeight) {
+                _headBlockHeight -= 1L;
             }
         }
         finally {

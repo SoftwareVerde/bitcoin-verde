@@ -19,8 +19,10 @@ import com.softwareverde.btreedb.BucketDb;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.filedb.WorkerManager;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.timer.NanoTimer;
 
 import java.io.File;
 import java.util.concurrent.atomic.AtomicLong;
@@ -63,20 +65,38 @@ public class TransactionIndexer implements AutoCloseable {
             spendOutputsDbDirectory.mkdirs();
         }
 
-        _transactionIdDb = new BucketDb<>(transactionIdDbDirectory, new TransactionIdEntryInflater(), 16, 1024 * 1024, 8, false, false);
+        final int pageSize = 16384;
+
+        _transactionIdDb = new BucketDb<>(transactionIdDbDirectory, new TransactionIdEntryInflater(), 19, 1024 * 1024, 8, false, false);
+        _transactionIdDb.setBucketFilePageSize(pageSize);
         _transactionIdDb.open();
 
-        _transactionDb = new BucketDb<>(transactionDbDirectory, new IndexedTransactionEntryInflater(), 16, 1024 * 1024, 8, false, false);
+        _transactionDb = new BucketDb<>(transactionDbDirectory, new IndexedTransactionEntryInflater(), 19, 1024 * 1024, 8, false, false);
+        _transactionDb.setBucketFilePageSize(pageSize);
         _transactionDb.open();
 
-        _addressDb = new BucketDb<>(addressDbDirectory, new IndexedAddressEntryInflater(), 16, 1024 * 1024, 16, false, false);
+        _addressDb = new BucketDb<>(addressDbDirectory, new IndexedAddressEntryInflater(), 19, 1024 * 1024, 16, false, false);
+        _addressDb.setBucketFilePageSize(pageSize);
         _addressDb.open();
 
-        _spentOutputsDb = new BucketDb<>(spendOutputsDbDirectory, new IndexedSpentOutputsInflater(), 17, 1024 * 12, 16, false, false);
+        _spentOutputsDb = new BucketDb<>(spendOutputsDbDirectory, new IndexedSpentOutputsInflater(), 19, 1024 * 12, 16, false, false);
+        _spentOutputsDb.setBucketFilePageSize(pageSize);
         _spentOutputsDb.open();
+
+        _commitWorker = new WorkerManager(4, 4);
+        _commitWorker.setName("Commit Worker");
+        _commitWorker.start();
     }
 
+    protected final WorkerManager _commitWorker;
+    protected boolean _requiresCommit = false;
+    protected int _indexesSinceCommit = 0;
+
     public synchronized void indexTransactions(final Block block, final Long blockHeight) throws Exception {
+        final NanoTimer indexTimer = new NanoTimer();
+        final NanoTimer databaseTimer = new NanoTimer();
+
+        indexTimer.start();
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
         final List<Transaction> transactions = block.getTransactions();
@@ -149,13 +169,53 @@ public class TransactionIndexer implements AutoCloseable {
             _addressDb.put(scriptHash, indexedAddress);
         }
 
-        _transactionIdDb.commit();
-        _transactionDb.commit();
-        _addressDb.commit();
-        _spentOutputsDb.commit();
+        indexTimer.stop();
+
+        databaseTimer.start();
+        if (_indexesSinceCommit > 8) {
+            _commitWorker.submitTask(new WorkerManager.UnsafeTask() {
+                @Override
+                public void run() throws Exception {
+                    _addressDb.commit();
+                }
+            });
+
+            _commitWorker.submitTask(new WorkerManager.UnsafeTask() {
+                @Override
+                public void run() throws Exception {
+                    _spentOutputsDb.commit();
+                }
+            });
+
+            _commitWorker.submitTask(new WorkerManager.UnsafeTask() {
+                @Override
+                public void run() throws Exception {
+                    _transactionIdDb.commit();
+                }
+            });
+
+            _commitWorker.submitTask(new WorkerManager.UnsafeTask() {
+                @Override
+                public void run() throws Exception {
+                    _transactionDb.commit();
+                }
+            });
+
+            _commitWorker.waitForCompletion();
+
+            _requiresCommit = false;
+            _indexesSinceCommit = 0;
+        }
+        else {
+            _requiresCommit = true;
+            _indexesSinceCommit += 1;
+        }
+        databaseTimer.stop();
+
+        Logger.debug(blockHeight + ": " + transactionCount + " Tx; Indexing: " + indexTimer.getMillisecondsElapsed() + "ms, Database: " + databaseTimer.getMillisecondsElapsed() + "ms.");
     }
 
-    public synchronized ShortTransactionOutputIdentifier getShortTransactionOutputIdentifier(final TransactionOutputIdentifier transactionOutputIdentifier) throws Exception {
+    public ShortTransactionOutputIdentifier getShortTransactionOutputIdentifier(final TransactionOutputIdentifier transactionOutputIdentifier) throws Exception {
         final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
         final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
 
@@ -165,7 +225,7 @@ public class TransactionIndexer implements AutoCloseable {
         return new ShortTransactionOutputIdentifier(transactionId, outputIndex);
     }
 
-    public synchronized TransactionOutputIdentifier getTransactionOutputIdentifier(final ShortTransactionOutputIdentifier transactionOutputIdentifier) throws Exception {
+    public TransactionOutputIdentifier getTransactionOutputIdentifier(final ShortTransactionOutputIdentifier transactionOutputIdentifier) throws Exception {
         final Long transactionId = transactionOutputIdentifier.getTransactionId();
         final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
 
@@ -174,7 +234,7 @@ public class TransactionIndexer implements AutoCloseable {
         return new TransactionOutputIdentifier(transactionHash, outputIndex);
     }
 
-    public synchronized IndexedTransaction getIndexedTransaction(final Sha256Hash transactionHash) throws Exception {
+    public IndexedTransaction getIndexedTransaction(final Sha256Hash transactionHash) throws Exception {
         if (! _transactionIdDb.isOpen()) { return null; }
         if (! _transactionDb.isOpen()) { return null; }
 
@@ -184,13 +244,13 @@ public class TransactionIndexer implements AutoCloseable {
         return _transactionDb.get(transactionId);
     }
 
-    public synchronized IndexedTransaction getIndexedTransaction(final Long transactionId) throws Exception {
+    public IndexedTransaction getIndexedTransaction(final Long transactionId) throws Exception {
         if (! _transactionDb.isOpen()) { return null; }
         if (transactionId == null) { return null; }
         return _transactionDb.get(transactionId);
     }
 
-    public synchronized Long getSpendingTransactionId(final ShortTransactionOutputIdentifier transactionOutputIdentifier) throws Exception {
+    public Long getSpendingTransactionId(final ShortTransactionOutputIdentifier transactionOutputIdentifier) throws Exception {
         final Long transactionId = transactionOutputIdentifier.getTransactionId();
         final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
         final ShortTransactionOutputIdentifier shortIdentifier = new ShortTransactionOutputIdentifier(transactionId, outputIndex);
@@ -198,7 +258,7 @@ public class TransactionIndexer implements AutoCloseable {
         return _spentOutputsDb.get(shortIdentifier);
     }
 
-    public synchronized Sha256Hash getSpendingTransactionHash(final TransactionOutputIdentifier transactionOutputIdentifier) throws Exception {
+    public Sha256Hash getSpendingTransactionHash(final TransactionOutputIdentifier transactionOutputIdentifier) throws Exception {
         final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
         final Long transactionId = _transactionIdDb.get(transactionHash);
         if (transactionId == null) { return null; }
@@ -213,19 +273,31 @@ public class TransactionIndexer implements AutoCloseable {
         return indexedTransaction.hash;
     }
 
-    public synchronized Sha256Hash getTransactionHash(final Long transactionId) throws Exception {
+    public Sha256Hash getTransactionHash(final Long transactionId) throws Exception {
         final IndexedTransaction indexedTransaction = _transactionDb.get(transactionId);
         if (indexedTransaction == null) { return null; }
 
         return indexedTransaction.hash;
     }
 
-    public synchronized IndexedAddress getIndexedAddress(final Sha256Hash scriptHash) throws Exception {
+    public IndexedAddress getIndexedAddress(final Sha256Hash scriptHash) throws Exception {
         return _addressDb.get(scriptHash);
     }
 
     @Override
     public synchronized void close() throws Exception {
+        if (_requiresCommit) {
+            _transactionIdDb.commit();
+            _transactionDb.commit();
+            _addressDb.commit();
+            _spentOutputsDb.commit();
+
+            _requiresCommit = false;
+            _indexesSinceCommit = 0;
+        }
+
+        _commitWorker.close();
+
         Logger.debug("Closing AddressDb.");
         _addressDb.close();
         Logger.debug("Closing TransactionDb.");

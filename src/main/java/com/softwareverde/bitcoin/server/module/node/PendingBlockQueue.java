@@ -315,11 +315,11 @@ public class PendingBlockQueue {
     public void stop() throws Exception {
         if (! _isShutdown.compareAndSet(false, true)) { return; }
 
-        _blockLoader.close();
+        _blockLoader.close(3000L);
 
         final Thread thread = _thread;
         if (thread != null) {
-            thread.join();
+            thread.join(1000);
         }
     }
 }

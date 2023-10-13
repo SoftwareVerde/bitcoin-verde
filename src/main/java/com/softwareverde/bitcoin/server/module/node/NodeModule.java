@@ -85,6 +85,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public class NodeModule {
     protected static class KeyValues {
         public static final String INDEXED_BLOCK_HEIGHT = "indexedBlockHeight";
+        public static final String HEAD_BLOCK_HASH = "headBlockHash";
     }
 
     protected String _toCanonicalConnectionString(final NodeIpAddress nodeIpAddress) {
@@ -111,6 +112,7 @@ public class NodeModule {
     protected final WorkerManager _blockchainIndexerWorker;
     protected final WorkerManager _syncWorker;
     protected final WorkerManager _undoBlockWorker;
+    protected final WorkerManager _rpcWorkerManager;
     protected final ReentrantReadWriteLock.WriteLock _blockProcessLock;
     protected final TransactionMempool _transactionMempool;
     protected final CircleBuffer<Transaction> _submittedTransactions;
@@ -323,6 +325,7 @@ public class NodeModule {
                         final NanoTimer validationTimer = new NanoTimer();
                         final NanoTimer addBlockTimer = new NanoTimer();
                         final NanoTimer applyBlockTimer = new NanoTimer();
+                        final NanoTimer miscTimer = new NanoTimer();
 
                         if (blockHeight > trustedBlockHeight) {
                             utxoTimer.start();
@@ -371,6 +374,7 @@ public class NodeModule {
                         _unspentTransactionOutputDatabaseManager.applyBlock(block, blockHeight);
                         applyBlockTimer.stop();
 
+                        miscTimer.start();
                         _headBlockHeaderHeightContainer.value = _blockchain.getHeadBlockHeaderHeight();
                         _headBlockHeightContainer.value = _blockchain.getHeadBlockHeight();
 
@@ -383,15 +387,23 @@ public class NodeModule {
                         _synchronizationStatusHandler.recalculateState();
                         _blockDownloader.onBlockProcessed();
 
+                        final BlockHeader rpcBlockHeader = blockHeader;
+                        _rpcWorkerManager.submitTask(new WorkerManager.Task() {
+                            @Override
+                            public void run() {
+                                _rpcHandler.onNewBlock(rpcBlockHeader);
+                            }
+                        });
+                        miscTimer.stop();
+
                         Logger.debug("Finished: " + blockHeight + " " + blockHash + " " +
                             "utxoTimer=" + utxoTimer.getMillisecondsElapsed() + " " +
                             "validationTimer=" + validationTimer.getMillisecondsElapsed() + " " +
                             "addBlockTimer=" + addBlockTimer.getMillisecondsElapsed() + " " +
                             "applyBlockTimer=" + applyBlockTimer.getMillisecondsElapsed() + " " +
-                            "getBlockTimer=" + promise.getMsElapsed()
+                            "getBlockTimer=" + promise.getMsElapsed() + " " +
+                            "miscTimer=" + miscTimer.getMillisecondsElapsed()
                         );
-
-                        _rpcHandler.onNewBlock(blockHeader);
                     }
                     catch (final InterruptedException exception) {
                         return;
@@ -737,13 +749,28 @@ public class NodeModule {
         try {
             Logger.info("Loading BlockStore");
             _blockStore.open();
-
-            final File utxoDbDirectory = new File(dataDirectory, "utxo");
-            Logger.info("Loading FileDB");
-            _unspentTransactionOutputDatabaseManager = new UnspentTransactionOutputFileDbManager(utxoDbDirectory);
         }
         catch (final Exception exception) {
             throw new RuntimeException(exception);
+        }
+
+        final File keyValueFile = new File(dataDirectory, "key-values.dat");
+        _keyValueStore = new DiskKeyValueStore(new InputOutputFileCore(keyValueFile));
+        try {
+            _keyValueStore.open();
+        }
+        catch (final Exception exception) {
+            Logger.debug(exception);
+        }
+
+        final File utxoDbDirectory = new File(dataDirectory, "utxo");
+        _unspentTransactionOutputDatabaseManager = new UnspentTransactionOutputFileDbManager(utxoDbDirectory, true, false);
+        try {
+            Logger.info("Loading FileDB");
+            _unspentTransactionOutputDatabaseManager.open();
+        }
+        catch (final Exception exception) {
+            Logger.debug(exception);
         }
 
         final CheckpointConfiguration checkpointConfiguration;
@@ -758,16 +785,9 @@ public class NodeModule {
 
         _blockchain = new Blockchain(_blockStore, _unspentTransactionOutputDatabaseManager, checkpointConfiguration);
         try {
-            _blockchain.load(_blockchainFile);
-        }
-        catch (final Exception exception) {
-            Logger.debug(exception);
-        }
-
-        final File keyValueFile = new File(dataDirectory, "key-values.dat");
-        _keyValueStore = new DiskKeyValueStore(new InputOutputFileCore(keyValueFile));
-        try {
-            _keyValueStore.open();
+            Logger.info("Loading Blockchain");
+            final Sha256Hash headBlockHash = Sha256Hash.fromHexString(_keyValueStore.getString(KeyValues.HEAD_BLOCK_HASH));
+            _blockchain.load(_blockchainFile, headBlockHash);
         }
         catch (final Exception exception) {
             Logger.debug(exception);
@@ -868,6 +888,10 @@ public class NodeModule {
         _undoBlockWorker = new WorkerManager(2, 64);
         _undoBlockWorker.setName("Undo Log");
         _undoBlockWorker.start();
+
+        _rpcWorkerManager = new WorkerManager(1, 1024);
+        _rpcWorkerManager.setName("RPC Worker");
+        _rpcWorkerManager.start();
 
         _synchronizationStatusHandler = new BlockchainSynchronizationStatusHandler(_blockchain);
         final BlockchainDataHandler blockchainDataHandler = new BlockchainDataHandler(_blockchain, _blockStore, _upgradeSchedule, _transactionIndexer, _transactionMempool, _unspentTransactionOutputDatabaseManager) {
@@ -1124,10 +1148,16 @@ public class NodeModule {
             _blockchainIndexerWorker.close();
 
             _transactionIndexer.close();
+
+            final Sha256Hash headBlockHash = _blockchain.getHeadBlockHash();
             _blockchain.save(_blockchainFile);
 
             _undoBlockWorker.close();
+            _rpcWorkerManager.close();
 
+            if (headBlockHash != null) {
+                _keyValueStore.putString(KeyValues.HEAD_BLOCK_HASH, headBlockHash.toString());
+            }
             _keyValueStore.close(); // NOTE: Must be closed after TransactionIndexer.
             _blockStore.close();
 

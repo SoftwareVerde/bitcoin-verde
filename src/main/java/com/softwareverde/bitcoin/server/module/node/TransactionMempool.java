@@ -26,6 +26,7 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.Tuple;
+import com.softwareverde.util.Util;
 
 public class TransactionMempool {
     protected final UpgradeSchedule _upgradeSchedule;
@@ -135,6 +136,7 @@ public class TransactionMempool {
         final Long blockHeight = (_blockchain.getHeadBlockHeaderHeight() + 1L);
         final TransactionValidator transactionValidator = new TransactionValidatorCore(_upgradeSchedule, _blockchain, _networkTime, utxoContext);
         final TransactionValidationResult validationResult = transactionValidator.validateTransaction(blockHeight, transaction);
+        if (! validationResult.isValid) { return false; }
 
         final int maximumSignatureOperationCount = (BitcoinConstants.getBlockMaxByteCount() / Block.MIN_BYTES_PER_SIGNATURE_OPERATION);
         final int totalSignatureOperationCount = (_signatureOperationCount + validationResult.signatureOperationCount);

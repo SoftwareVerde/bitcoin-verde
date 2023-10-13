@@ -21,12 +21,14 @@ import com.softwareverde.util.timer.NanoTimer;
 import java.io.File;
 
 public class UnspentTransactionOutputFileDbManager implements UnspentTransactionOutputDatabaseManager, AutoCloseable {
+    protected final File _dataDirectory;
     protected final BucketDb<TransactionOutputIdentifier, UnspentTransactionOutput> _utxoDb;
 
-    public UnspentTransactionOutputFileDbManager(final File dataDirectory) throws Exception {
+    public UnspentTransactionOutputFileDbManager(final File dataDirectory, final Boolean allowMemoryBuckets, final Boolean allowMemoryDatFile) {
         if (! dataDirectory.exists()) {
             dataDirectory.mkdirs();
         }
+        _dataDirectory = dataDirectory;
 
         // Performance Tuning:
         // validation=false, blockHeight~=395k, indexing=false, debug=true
@@ -37,7 +39,10 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
         //    64 workers, true, false: 1.3 b/s
         // validation=false, blockHeight~=396k, indexing=false, debug=false
         //     8 workers, true, false: 2.3 b/s
-        _utxoDb = new BucketDb<>(dataDirectory, new UnspentTransactionOutputEntryInflater(), 17, 1024 * 1024, 8, true, false);
+        _utxoDb = new BucketDb<>(_dataDirectory, new UnspentTransactionOutputEntryInflater(), 17, 1024 * 1024, 8, allowMemoryBuckets, allowMemoryDatFile);
+    }
+
+    public void open() throws Exception {
         _utxoDb.open();
     }
 
@@ -55,8 +60,6 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
             final int spentOutputCount = spentTransactionOutputIdentifiers.getCount();
 
             final NanoTimer nanoTimer = new NanoTimer();
-
-            // Logger.debug("FileDb::resizeCapacity=" + nanoTimer.getMillisecondsElapsed() + "ms.");
 
             nanoTimer.start();
             for (int i = 0; i < outputCount; ++i) {

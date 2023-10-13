@@ -7,7 +7,7 @@ import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Tuple;
 
-public class DiskKeyValueStore implements KeyValueStore {
+public class DiskKeyValueStore implements KeyValueStore, AutoCloseable {
     protected final InputOutputFile _inputOutputFile;
     protected final MutableHashMap<String, String> _values = new MutableHashMap<>();
 
@@ -73,6 +73,7 @@ public class DiskKeyValueStore implements KeyValueStore {
         }
     }
 
+    @Override
     public synchronized void close() throws Exception {
         _inputOutputFile.open();
         try {

@@ -76,6 +76,7 @@ import com.softwareverde.constable.set.Set;
 import com.softwareverde.constable.set.mutable.MutableSet;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
+import com.softwareverde.filedb.WorkerManager;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.p2p.message.type.AcknowledgeVersionMessage;
@@ -206,25 +207,6 @@ public class BitcoinNode extends Node {
         void onResult(PendingRequest<S> pendingRequest);
     }
 
-    protected static abstract class AsyncCallbackExecutor<S extends BitcoinNodeCallback> implements CallbackExecutor<S> {
-        @Override
-        public void onResult(final PendingRequest<S> pendingRequest) {
-            (new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        AsyncCallbackExecutor.this.onResult0(pendingRequest);
-                    }
-                    catch (final Exception exception) {
-                        Logger.debug(exception);
-                    }
-                }
-            })).start();
-        }
-
-        public abstract void onResult0(PendingRequest<S> pendingRequest);
-    }
-
     public static final SynchronizationStatus DEFAULT_STATUS_CALLBACK = new SynchronizationStatus() {
         @Override
         public State getState() { return State.ONLINE; }
@@ -265,6 +247,20 @@ public class BitcoinNode extends Node {
         }
     }
 
+    protected abstract class AsyncCallbackExecutor<S extends BitcoinNodeCallback> implements CallbackExecutor<S> {
+        @Override
+        public void onResult(final PendingRequest<S> pendingRequest) {
+            _callbackWorker.submitTask(new WorkerManager.Task() {
+                @Override
+                public void run() {
+                    AsyncCallbackExecutor.this.onResult0(pendingRequest);
+                }
+            });
+        }
+
+        public abstract void onResult0(PendingRequest<S> pendingRequest);
+    }
+
     protected RequestId _newRequestId() {
         return RequestId.wrap(NEXT_REQUEST_ID.incrementAndGet());
     }
@@ -276,6 +272,8 @@ public class BitcoinNode extends Node {
 
     protected final AddressInflater _addressInflater;
     protected final MessageRouter _messageRouter = new MessageRouter();
+
+    protected final WorkerManager _callbackWorker;
 
     // Requests Maps
     protected final ConcurrentMutableHashMap<RequestId, FailableRequest> _failableRequests = new ConcurrentMutableHashMap<>();
@@ -508,12 +506,21 @@ public class BitcoinNode extends Node {
         BitcoinNodeUtil.failPendingRequests(_downloadThinTransactionsRequests, _failableRequests, this);
 
         _failableRequests.clear();
+
+        try {
+            _callbackWorker.close(3000L);
+        }
+        catch (final Exception exception) {
+            Logger.debug(exception);
+        }
     }
 
     @Override
     protected void _onConnect() {
         final boolean wasDisconnected = _isConnected.compareAndSet(false, true);
         if (! wasDisconnected) { return; }
+
+        _callbackWorker.start(); // Reinitialize the callbackWorker if reconnecting (does nothing upon first connect).
 
         synchronized (_requestMonitor) {
             final Thread existingRequestMonitorThread = _requestMonitorThread;
@@ -1535,6 +1542,10 @@ public class BitcoinNode extends Node {
         _requestMonitor = _createRequestMonitor();
         _requestMonitorThread = null;
 
+        _callbackWorker = new WorkerManager(2, 1024);
+        _callbackWorker.setName("Callback Worker");
+        _callbackWorker.start();
+
         _defineRoutes();
         _initConnection();
     }
@@ -1557,6 +1568,10 @@ public class BitcoinNode extends Node {
 
         _requestMonitor = _createRequestMonitor();
         _requestMonitorThread = null;
+
+        _callbackWorker = new WorkerManager(2, 1024);
+        _callbackWorker.setName("Callback Worker");
+        _callbackWorker.start();
 
         _defineRoutes();
         _initConnection();
