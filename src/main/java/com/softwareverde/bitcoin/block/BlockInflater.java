@@ -55,6 +55,8 @@ public class BlockInflater {
     }
 
     protected MutableBlock _toMutableBlock(final InflatedBlock inflatedBlock) {
+        if (inflatedBlock == null) { return null; }
+
         final MutableBlock mutableBlock = new MutableBlock(inflatedBlock.blockHeader, inflatedBlock.transactions);
         mutableBlock.cacheByteCount(inflatedBlock.byteCount);
         return mutableBlock;

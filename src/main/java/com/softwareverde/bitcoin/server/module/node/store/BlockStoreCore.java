@@ -201,10 +201,14 @@ public class BlockStoreCore implements BlockStore {
         _blockInflater = blockInflater;
         _blockDeflater = blockDeflater;
 
-        _bucketDb = new BucketDb<>(_blockDataDirectory, new BlockBucketDbEntryInflater(), 14, 1024 * 12, 1, false, false);
+        _bucketDb = new BucketDb<>(_blockDataDirectory, new BlockBucketDbEntryInflater(), 14, 1024 * 12, 1, 0L, 0L);
     }
 
     public void open() throws Exception {
+        if (! _blockDataDirectory.exists()) {
+            _blockDataDirectory.mkdirs();
+        }
+
         _bucketDb.open();
     }
 
@@ -237,6 +241,12 @@ public class BlockStoreCore implements BlockStore {
     public void removeBlock(final Sha256Hash blockHash, final Long blockHeight) {
         if (_blockDataDirectory == null) { return; }
         _bucketDb.delete(blockHash);
+        try {
+            _bucketDb.commit();
+        }
+        catch (final Exception exception) {
+            Logger.debug(exception);
+        }
     }
 
     @Override

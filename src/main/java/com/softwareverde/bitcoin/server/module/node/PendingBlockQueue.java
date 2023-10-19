@@ -121,6 +121,12 @@ public class PendingBlockQueue {
 
                 final BlockInflater blockInflater = new BlockInflater();
                 final ByteArray blockData = _blockStore.getPendingBlockData(blockHash);
+                if (blockData == null) {
+                    promise.setException(new Exception("BlockStore did not contain data: " + blockHash));
+                    promise.setResult(null);
+                    return;
+                }
+
                 final Block block = blockInflater.fromBytes(blockData);
                 promise.setResult(block);
             }
@@ -262,6 +268,14 @@ public class PendingBlockQueue {
                 existingPromise.setResult(null);
             }
         }
+    }
+
+    public void purgeBlock(final Long blockHeight) {
+        final BlockHeader blockHeader = _blockchain.getBlockHeader(blockHeight);
+        if (blockHeader == null) { return; }
+
+        final Sha256Hash blockHash = blockHeader.getHash();
+        _blockStore.removePendingBlock(blockHash);
     }
 
     public TimedPromise<Block> getBlock(final Long blockHeight) {

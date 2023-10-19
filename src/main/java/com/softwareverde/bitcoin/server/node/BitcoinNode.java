@@ -76,7 +76,6 @@ import com.softwareverde.constable.set.Set;
 import com.softwareverde.constable.set.mutable.MutableSet;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
-import com.softwareverde.filedb.WorkerManager;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.p2p.message.type.AcknowledgeVersionMessage;
@@ -247,15 +246,34 @@ public class BitcoinNode extends Node {
         }
     }
 
-    protected abstract class AsyncCallbackExecutor<S extends BitcoinNodeCallback> implements CallbackExecutor<S> {
+    protected static class CallbackThread extends Thread {
+        public CallbackThread(final Runnable runnable) {
+            super(runnable);
+            this.setName("BitcoinNode Callback");
+            this.setUncaughtExceptionHandler(new UncaughtExceptionHandler() {
+                @Override
+                public void uncaughtException(final Thread thread, final Throwable exception) {
+                    Logger.debug(exception);
+                }
+            });
+        }
+    }
+
+    protected abstract static class AsyncCallbackExecutor<S extends BitcoinNodeCallback> implements CallbackExecutor<S> {
         @Override
         public void onResult(final PendingRequest<S> pendingRequest) {
-            _callbackWorker.submitTask(new WorkerManager.Task() {
+            // _callbackWorker.submitTask(new WorkerManager.Task() {
+            //     @Override
+            //     public void run() {
+            //         AsyncCallbackExecutor.this.onResult0(pendingRequest);
+            //     }
+            // });
+            (new CallbackThread(new Runnable() {
                 @Override
                 public void run() {
                     AsyncCallbackExecutor.this.onResult0(pendingRequest);
                 }
-            });
+            })).start();
         }
 
         public abstract void onResult0(PendingRequest<S> pendingRequest);
@@ -273,7 +291,7 @@ public class BitcoinNode extends Node {
     protected final AddressInflater _addressInflater;
     protected final MessageRouter _messageRouter = new MessageRouter();
 
-    protected final WorkerManager _callbackWorker;
+    // protected final WorkerManager _callbackWorker;
 
     // Requests Maps
     protected final ConcurrentMutableHashMap<RequestId, FailableRequest> _failableRequests = new ConcurrentMutableHashMap<>();
@@ -507,12 +525,12 @@ public class BitcoinNode extends Node {
 
         _failableRequests.clear();
 
-        try {
-            _callbackWorker.close(3000L);
-        }
-        catch (final Exception exception) {
-            Logger.debug(exception);
-        }
+        // try {
+        //     _callbackWorker.close(3000L);
+        // }
+        // catch (final Exception exception) {
+        //     Logger.debug(exception);
+        // }
     }
 
     @Override
@@ -520,7 +538,7 @@ public class BitcoinNode extends Node {
         final boolean wasDisconnected = _isConnected.compareAndSet(false, true);
         if (! wasDisconnected) { return; }
 
-        _callbackWorker.start(); // Reinitialize the callbackWorker if reconnecting (does nothing upon first connect).
+        // _callbackWorker.start(); // Reinitialize the callbackWorker if reconnecting (does nothing upon first connect).
 
         synchronized (_requestMonitor) {
             final Thread existingRequestMonitorThread = _requestMonitorThread;
@@ -1542,9 +1560,9 @@ public class BitcoinNode extends Node {
         _requestMonitor = _createRequestMonitor();
         _requestMonitorThread = null;
 
-        _callbackWorker = new WorkerManager(2, 1024);
-        _callbackWorker.setName("Callback Worker");
-        _callbackWorker.start();
+        // _callbackWorker = new WorkerManager(2, 1024);
+        // _callbackWorker.setName("Callback Worker");
+        // _callbackWorker.start();
 
         _defineRoutes();
         _initConnection();
@@ -1569,9 +1587,9 @@ public class BitcoinNode extends Node {
         _requestMonitor = _createRequestMonitor();
         _requestMonitorThread = null;
 
-        _callbackWorker = new WorkerManager(2, 1024);
-        _callbackWorker.setName("Callback Worker");
-        _callbackWorker.start();
+        // _callbackWorker = new WorkerManager(2, 1024);
+        // _callbackWorker.setName("Callback Worker");
+        // _callbackWorker.start();
 
         _defineRoutes();
         _initConnection();

@@ -59,8 +59,10 @@ import com.softwareverde.constable.set.mutable.MutableHashSet;
 import com.softwareverde.constable.set.mutable.MutableSet;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.filedb.WorkerManager;
+import com.softwareverde.logging.Log;
 import com.softwareverde.logging.LogLevel;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.logging.filelog.AnnotatedFileLog;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.p2p.node.NodeId;
@@ -72,6 +74,7 @@ import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.network.time.VolatileNetworkTime;
 import com.softwareverde.util.CircleBuffer;
 import com.softwareverde.util.Container;
+import com.softwareverde.util.Function;
 import com.softwareverde.util.TimedPromise;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
@@ -137,6 +140,8 @@ public class NodeModule {
     protected final CircleBuffer<Double> _headerProcessMs = new CircleBuffer<>(100);
 
     protected void _syncHeaders() {
+        if (_isShuttingDown.get()) { return; }
+
         final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(_upgradeSchedule, _blockchain, _networkTime, _difficultyCalculator);
 
         final BitcoinNode.DownloadBlockHeadersCallback downloadBlockHeadersCallback = new BitcoinNode.DownloadBlockHeadersCallback() {
@@ -312,6 +317,7 @@ public class NodeModule {
                         _blockDownloader.removeBlock(blockHeight);
 
                         if (block == null) {
+                            _blockDownloader.purgeBlock(blockHeight);
                             if (_isShuttingDown.get()) { return; }
 
                             Logger.debug("Unable to get block, trying again in 500ms.");
@@ -355,6 +361,13 @@ public class NodeModule {
                                 _blockStore.removePendingBlock(blockHash);
                                 continue;
                             }
+
+                            if (false) { // TODO
+                                utxoTimer.start();
+                                _getUnspentTransactionOutputContext(block);
+                                utxoTimer.stop();
+                            }
+
                             Logger.info("Assumed Valid: " + blockHeight + " " + blockHash);
                         }
 
@@ -424,6 +437,10 @@ public class NodeModule {
                         _blockProcessMs.push(blockProcessTimer.getMillisecondsElapsed());
                     }
                 }
+
+                if (! _synchronizationStatusHandler.isBlockchainSynchronized()) {
+                    _syncHeaders();
+                }
             }
         });
     }
@@ -468,11 +485,15 @@ public class NodeModule {
         bitcoinNode.setNodeConnectedCallback(new Node.NodeConnectedCallback() {
             @Override
             public void onNodeConnected() {
+                if (_isShuttingDown.get()) { return; }
+
                 Logger.info("Connected to: " + host + ":" + port);
             }
 
             @Override
             public void onFailure() {
+                if (_isShuttingDown.get()) { return; }
+
                 _removeBitcoinNode(bitcoinNode);
                 _addNewNodes(1);
             }
@@ -481,6 +502,8 @@ public class NodeModule {
         bitcoinNode.setDisconnectedCallback(new Node.DisconnectedCallback() {
             @Override
             public void onNodeDisconnected() {
+                if (_isShuttingDown.get()) { return; }
+
                 _removeBitcoinNode(bitcoinNode);
 
                 _addNewNodes(1);
@@ -490,6 +513,8 @@ public class NodeModule {
         bitcoinNode.setHandshakeCompleteCallback(new Node.HandshakeCompleteCallback() {
             @Override
             public void onHandshakeComplete() {
+                if (_isShuttingDown.get()) { return; }
+
                 final NodeFeatures nodeFeatures = bitcoinNode.getNodeFeatures();
 
                 if (bitcoinNode.getBlockHeight() < _blockchain.getHeadBlockHeaderHeight()) {
@@ -501,6 +526,8 @@ public class NodeModule {
                 bitcoinNode.setNodeAddressesReceivedCallback(new Node.NodeAddressesReceivedCallback() {
                     @Override
                     public void onNewNodeAddresses(final List<NodeIpAddress> nodeIpAddresses) {
+                        if (_isShuttingDown.get()) { return; }
+
                         for (final NodeIpAddress nodeIpAddress : nodeIpAddresses) {
                             synchronized (_previouslyConnectedIps) {
                                 if (_previouslyConnectedIps.contains(nodeIpAddress.getIp())) {
@@ -524,6 +551,8 @@ public class NodeModule {
         bitcoinNode.setUnsolicitedBlockReceivedCallback(new BitcoinNode.DownloadBlockCallback() {
             @Override
             public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final Block block) {
+                if (_isShuttingDown.get()) { return; }
+
                 final Sha256Hash blockHash = block.getHash();
                 final Long headBlockHeight = _blockchain.getHeadBlockHeight();
                 final Long blockHeight = _blockchain.getBlockHeight(blockHash);
@@ -553,6 +582,8 @@ public class NodeModule {
         bitcoinNode.setTransactionsAnnouncementCallback(new BitcoinNode.TransactionInventoryAnnouncementHandler() {
             @Override
             public void onResult(final BitcoinNode bitcoinNode, final List<Sha256Hash> transactionHashes) {
+                if (_isShuttingDown.get()) { return; }
+
                 final boolean isSynced = Util.areEqual(_blockchain.getHeadBlockHeaderHeight(), _blockchain.getHeadBlockHeight());
                 if (! isSynced) { return; }
 
@@ -582,6 +613,8 @@ public class NodeModule {
         bitcoinNode.setRequestDataHandler(new BitcoinNode.RequestDataHandler() {
             @Override
             public void run(final BitcoinNode bitcoinNode, final List<InventoryItem> dataHashes) {
+                if (_isShuttingDown.get()) { return; }
+
                 for (final InventoryItem inventoryItem : dataHashes) {
                     final Sha256Hash itemHash = inventoryItem.getItemHash();
                     if (inventoryItem.getItemType() == InventoryItemType.TRANSACTION) {
@@ -608,6 +641,8 @@ public class NodeModule {
         bitcoinNode.setBlockInventoryMessageHandler(new BitcoinNode.BlockInventoryAnnouncementHandler() {
             @Override
             public void onNewInventory(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes) {
+                if (_isShuttingDown.get()) { return; }
+
                 final BitcoinNode.BlockInventoryAnnouncementHandler announcementHandler = this;
 
                 final Sha256Hash blockHash = blockHashes.get(0);
@@ -621,6 +656,8 @@ public class NodeModule {
 
             @Override
             public void onNewHeaders(final BitcoinNode bitcoinNode, final List<BlockHeader> blockHeaders) {
+                if (_isShuttingDown.get()) { return; }
+
                 final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(_upgradeSchedule, _blockchain, _networkTime, _difficultyCalculator);
 
                 for (final BlockHeader blockHeader : blockHeaders) {
@@ -834,38 +871,52 @@ public class NodeModule {
             public void run() {
                 if (! _bitcoinProperties.isIndexingModeEnabled()) { return; }
 
-                { // Only begin indexing once syncing is complete.
+                final Function<Boolean> isSynced = () -> {
                     final Long blockHeight = _blockchain.getHeadBlockHeight();
                     final Long headerHeight = _blockchain.getHeadBlockHeaderHeight();
-                    if (! Util.areEqual(blockHeight, headerHeight)) {
-                        return;
+                    return Util.areEqual(blockHeight, headerHeight);
+                };
+
+                if (! isSynced.run()) { return; }
+
+                try (final WorkerManager workerManager = new WorkerManager(2, 2)) {
+                    workerManager.setName("Indexer BlockLoader");
+                    workerManager.start();
+
+                    long lastIndexedBlockHeight = Util.parseLong(_keyValueStore.getString(KeyValues.INDEXED_BLOCK_HEIGHT), 0L);
+                    long blockHeight = lastIndexedBlockHeight + 1L;
+
+                    while (true) {
+                        if (_isShuttingDown.get()) { return; }
+
+                        // Only index when syncing is complete.
+                        if (! isSynced.run()) { return; }
+
+                        final BlockHeader blockHeader = _blockchain.getBlockHeader(blockHeight);
+                        if (blockHeader == null) { return; }
+                        final Sha256Hash blockHash = blockHeader.getHash();
+
+                        final Block block = _blockStore.getBlock(blockHash, blockHeight);
+                        if (block == null) { return; }
+
+                        final NanoTimer indexTimer = new NanoTimer();
+                        indexTimer.start();
+                        try {
+                            _transactionIndexer.indexTransactions(block, blockHeight);
+                            _keyValueStore.putString(KeyValues.INDEXED_BLOCK_HEIGHT, "" + blockHeight);
+                            _indexedBlockHeightContainer.value = blockHeight;
+                        }
+                        catch (final Exception exception) {
+                            Logger.debug(exception);
+                        }
+                        indexTimer.stop();
+                        Logger.debug("Indexed " + blockHash + " in " + indexTimer.getMillisecondsElapsed() + "ms.");
+
+                        blockHeight += 1L;
                     }
                 }
-
-                while (true) {
-                    if (_isShuttingDown.get()) { return; }
-                    final Long lastIndexedBlockHeight = Util.parseLong(_keyValueStore.getString(KeyValues.INDEXED_BLOCK_HEIGHT), 0L);
-                    final Long blockHeight = lastIndexedBlockHeight + 1L;
-
-                    final BlockHeader blockHeader = _blockchain.getBlockHeader(blockHeight);
-                    if (blockHeader == null) { return; }
-
-                    final Sha256Hash blockHash = blockHeader.getHash();
-                    final Block block = _blockStore.getBlock(blockHash, blockHeight);
-                    if (block == null) { return; }
-
-                    final NanoTimer indexTimer = new NanoTimer();
-                    indexTimer.start();
-                    try {
-                        _transactionIndexer.indexTransactions(block, blockHeight);
-                        _keyValueStore.putString(KeyValues.INDEXED_BLOCK_HEIGHT, "" + blockHeight);
-                        _indexedBlockHeightContainer.value = blockHeight;
-                    }
-                    catch (final Exception exception) {
-                        Logger.debug(exception);
-                    }
-                    indexTimer.stop();
-                    Logger.debug("Indexed " + blockHash + " in " + indexTimer.getMillisecondsElapsed() + "ms.");
+                catch (final Exception exception) {
+                    Logger.debug(exception);
                 }
             }
         };
@@ -1014,6 +1065,25 @@ public class NodeModule {
                 if (logLevel == null) {
                     Logger.debug("Invalid Log Level: " + logLevelString);
                     return;
+                }
+
+                if (logLevel == LogLevel.OFF) {
+                    Logger.setLog(new Log() {
+                        @Override
+                        public void write(final Class<?> callingClass, final LogLevel logLevel, final String nullableMessage, final Throwable nullableException) {
+                            // Nothing.
+                        }
+                    });
+                }
+                else if (Logger.getLogLevel() == LogLevel.OFF) {
+                    try {
+                        final String logDirectory = bitcoinProperties.getLogDirectory();
+                        final Log log = AnnotatedFileLog.newInstance(logDirectory, "node");
+                        Logger.setLog(log);
+                    }
+                    catch (final Exception exception) {
+                        // Cannot log.
+                    }
                 }
 
                 Logger.setLogLevel(packageName, logLevel);

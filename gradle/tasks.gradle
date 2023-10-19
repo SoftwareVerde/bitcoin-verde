@@ -42,7 +42,7 @@ tasks.withType(Javadoc) {
 allprojects {
     test {
         minHeapSize = "1024m"
-        maxHeapSize = "8192m"
+        maxHeapSize = "11g"
 
         testLogging {
             outputs.upToDateWhen { false }

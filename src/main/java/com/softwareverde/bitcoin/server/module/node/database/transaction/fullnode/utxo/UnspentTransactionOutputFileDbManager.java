@@ -15,14 +15,15 @@ import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.filedb.WorkerManager;
 import com.softwareverde.util.Util;
-import com.softwareverde.util.timer.NanoTimer;
 
 import java.io.File;
 
 public class UnspentTransactionOutputFileDbManager implements UnspentTransactionOutputDatabaseManager, AutoCloseable {
     protected final File _dataDirectory;
     protected final BucketDb<TransactionOutputIdentifier, UnspentTransactionOutput> _utxoDb;
+    protected final WorkerManager _commitWorker;
 
     public UnspentTransactionOutputFileDbManager(final File dataDirectory, final Boolean allowMemoryBuckets, final Boolean allowMemoryDatFile) {
         if (! dataDirectory.exists()) {
@@ -39,11 +40,14 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
         //    64 workers, true, false: 1.3 b/s
         // validation=false, blockHeight~=396k, indexing=false, debug=false
         //     8 workers, true, false: 2.3 b/s
-        _utxoDb = new BucketDb<>(_dataDirectory, new UnspentTransactionOutputEntryInflater(), 17, 1024 * 1024, 8, allowMemoryBuckets, allowMemoryDatFile);
+        // _utxoDb = new BucketDb<>(_dataDirectory, new UnspentTransactionOutputEntryInflater(), 22, 1024 * 1024, 8, 0L, 0L);
+        _utxoDb = new BucketDb<>(_dataDirectory, new UnspentTransactionOutputEntryInflater(), 17, 2 * 1024 * 1024, 8, null, 0L);
+        _commitWorker = new WorkerManager(1, 1);
     }
 
     public void open() throws Exception {
         _utxoDb.open();
+        _commitWorker.start();
     }
 
     @Override
@@ -59,9 +63,6 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
             final int outputCount = unspentTransactionOutputIdentifiers.getCount();
             final int spentOutputCount = spentTransactionOutputIdentifiers.getCount();
 
-            final NanoTimer nanoTimer = new NanoTimer();
-
-            nanoTimer.start();
             for (int i = 0; i < outputCount; ++i) {
                 final TransactionOutputIdentifier transactionOutputIdentifier = unspentTransactionOutputIdentifiers.get(i);
                 final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
@@ -71,20 +72,19 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
                 final UnspentTransactionOutput unspentTransactionOutput = new MutableUnspentTransactionOutput(transactionOutput, blockHeight, isCoinbase);
                 _utxoDb.put(transactionOutputIdentifier, unspentTransactionOutput);
             }
-            nanoTimer.stop();
-            // Logger.debug("FileDb::put=" + nanoTimer.getMillisecondsElapsed() + "ms.");
 
-            nanoTimer.start();
             for (final TransactionOutputIdentifier spentTransactionOutputIdentifier : spentTransactionOutputIdentifiers) {
                 _utxoDb.delete(spentTransactionOutputIdentifier);
             }
-            nanoTimer.stop();
-            // Logger.debug("FileDb::putDeleted=" + nanoTimer.getMillisecondsElapsed() + "ms.");
 
-            nanoTimer.start();
-            _utxoDb.commit();
-            nanoTimer.stop();
-            // Logger.debug("FileDb::finalizeBucket=" + nanoTimer.getMillisecondsElapsed() + "ms.");
+            if (_utxoDb.getStagedBucketsCount() > 16384) {
+                _commitWorker.submitTask(new WorkerManager.UnsafeTask() {
+                    @Override
+                    public void run() throws Exception {
+                        _utxoDb.commit();
+                    }
+                });
+            }
         }
         catch (final Exception exception) {
             throw new DatabaseException(exception);
@@ -247,6 +247,8 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
 
     @Override
     public synchronized void close() throws Exception {
+        _utxoDb.commit();
         _utxoDb.close();
+        _commitWorker.close();
     }
 }
