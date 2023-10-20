@@ -25,6 +25,10 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
     protected final BucketDb<TransactionOutputIdentifier, UnspentTransactionOutput> _utxoDb;
     protected final WorkerManager _commitWorker;
 
+    protected static BucketDb<TransactionOutputIdentifier, UnspentTransactionOutput> createBucketDb(final File dataDirectory, final Long maxBucketMemoryByteCount, final Long maxDatFileMemoryByteCount) {
+        return new BucketDb<>(dataDirectory, new UnspentTransactionOutputEntryInflater(), 17, 2 * 1024 * 1024, 8, maxBucketMemoryByteCount, maxDatFileMemoryByteCount);
+    }
+
     public UnspentTransactionOutputFileDbManager(final File dataDirectory, final Boolean allowMemoryBuckets, final Boolean allowMemoryDatFile) {
         if (! dataDirectory.exists()) {
             dataDirectory.mkdirs();
@@ -41,13 +45,44 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
         // validation=false, blockHeight~=396k, indexing=false, debug=false
         //     8 workers, true, false: 2.3 b/s
         // _utxoDb = new BucketDb<>(_dataDirectory, new UnspentTransactionOutputEntryInflater(), 22, 1024 * 1024, 8, 0L, 0L);
-        _utxoDb = new BucketDb<>(_dataDirectory, new UnspentTransactionOutputEntryInflater(), 17, 2 * 1024 * 1024, 8, null, 0L);
+        _utxoDb = UnspentTransactionOutputFileDbManager.createBucketDb(dataDirectory, null, 0L);
         _commitWorker = new WorkerManager(1, 1);
     }
 
     public void open() throws Exception {
         _utxoDb.open();
         _commitWorker.start();
+    }
+
+    public synchronized void defragment() throws Exception {
+        _commitWorker.waitForCompletion();
+        _utxoDb.flush();
+
+        final BucketDb.DiskFiles utxoDbInFiles;
+        final BucketDb.DiskFiles utxoDbOutFiles;
+        {
+            utxoDbInFiles = _utxoDb.getDiskFiles();
+
+            File fileOut = new File(utxoDbInFiles.directory.getAbsolutePath() + ".tmp");
+            fileOut.mkdir();
+
+            try (final BucketDb<TransactionOutputIdentifier, UnspentTransactionOutput> utxoDbOut = UnspentTransactionOutputFileDbManager.createBucketDb(fileOut, 0L, 0L)) {
+                utxoDbOut.open();
+                utxoDbOutFiles = utxoDbOut.getDiskFiles();
+
+                BucketDb.defragment(_utxoDb, utxoDbOut);
+            }
+        }
+
+        _utxoDb.close();
+
+        final File swapFile = new File(utxoDbInFiles.directory.getAbsolutePath() + ".swp");
+        utxoDbInFiles.directory.renameTo(swapFile);
+        utxoDbOutFiles.directory.renameTo(utxoDbInFiles.directory);
+        swapFile.renameTo(utxoDbOutFiles.directory);
+        utxoDbOutFiles.delete(); // Delete the (moved) old directory.
+
+        _utxoDb.open();
     }
 
     @Override

@@ -237,7 +237,8 @@ public class NodeModule {
         final Sha256Hash blockHash = block.getHash();
         final Long blockHeight = _blockchain.getBlockHeight(blockHash);
         final MutableUnspentTransactionOutputSet transactionOutputSet = new MutableUnspentTransactionOutputSet();
-        transactionOutputSet.loadOutputsForBlock(_blockchain, block, blockHeight, _upgradeSchedule);
+        final boolean allOutputsFound = transactionOutputSet.loadOutputsForBlock(_blockchain, block, blockHeight, _upgradeSchedule);
+        if (! allOutputsFound) { return null; }
         return transactionOutputSet;
     }
 
@@ -289,6 +290,8 @@ public class NodeModule {
     }
 
     protected void _syncBlocks() {
+        final boolean validateTrustedBlockUtxos = false;
+
         _syncWorker.offerTask(new WorkerManager.Task() {
             @Override
             public void run() {
@@ -338,7 +341,7 @@ public class NodeModule {
                             final UnspentTransactionOutputContext unspentTransactionOutputContext = _getUnspentTransactionOutputContext(block);
                             utxoTimer.stop();
                             validationTimer.start();
-                            final BlockValidationResult result = blockValidator.validateBlock(block, unspentTransactionOutputContext);
+                            final BlockValidationResult result = (unspentTransactionOutputContext != null ? blockValidator.validateBlock(block, unspentTransactionOutputContext) : BlockValidationResult.invalid("Missing outputs."));
                             validationTimer.stop();
                             if (! result.isValid) {
                                 Logger.info(result.errorMessage + " " + blockHash + " " + (result.invalidTransactions.isEmpty() ? null : result.invalidTransactions.get(0)) + " (" + result.invalidTransactions.getCount() + ")");
@@ -362,9 +365,13 @@ public class NodeModule {
                                 continue;
                             }
 
-                            if (false) { // TODO
+                            if (validateTrustedBlockUtxos) {
                                 utxoTimer.start();
-                                _getUnspentTransactionOutputContext(block);
+                                final UnspentTransactionOutputContext outputs = _getUnspentTransactionOutputContext(block);
+                                if (outputs == null) {
+                                    Logger.info("Outputs not found: " + blockHeight + " " + blockHash);
+                                    break;
+                                }
                                 utxoTimer.stop();
                             }
 

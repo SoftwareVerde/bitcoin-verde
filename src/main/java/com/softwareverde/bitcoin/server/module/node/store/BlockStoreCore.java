@@ -217,7 +217,7 @@ public class BlockStoreCore implements BlockStore {
     }
 
     @Override
-    public Boolean storeBlock(final Block block, final Long blockHeight) {
+    public synchronized Boolean storeBlock(final Block block, final Long blockHeight) {
         if (_blockDataDirectory == null) { return false; }
         if (block == null) { return false; }
 
@@ -238,7 +238,7 @@ public class BlockStoreCore implements BlockStore {
     }
 
     @Override
-    public void removeBlock(final Sha256Hash blockHash, final Long blockHeight) {
+    public synchronized void removeBlock(final Sha256Hash blockHash, final Long blockHeight) {
         if (_blockDataDirectory == null) { return; }
         _bucketDb.delete(blockHash);
         try {
