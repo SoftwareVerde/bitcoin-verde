@@ -1,11 +1,13 @@
 package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo;
 
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockUtxoDiff;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.map.Map;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 
@@ -20,7 +22,7 @@ public interface UnspentTransactionOutputDatabaseManager {
     Long BYTES_PER_UTXO = 128L; // NOTE: This value is larger than the actual size.  // TODO: Research a more accurate UTXO byte count.
 
     void applyBlock(Block block, Long blockHeight) throws DatabaseException;
-    void undoBlock(Block block, Long blockHeight) throws DatabaseException;
+    void undoBlock(BlockUtxoDiff blockUtxoDiff, Map<TransactionOutputIdentifier, UnspentTransactionOutput> destroyedUtxos) throws Exception;
 
     UnspentTransactionOutput getUnspentTransactionOutput(TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException;
 

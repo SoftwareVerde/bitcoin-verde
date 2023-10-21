@@ -32,7 +32,6 @@ import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
-import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
@@ -71,7 +70,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     }
 
     public interface StatisticsHandler {
-        Float getAverageBlockHeadersPerSecond();
+        Float getAverageBlocksIndexedPerSecond();
         Float getAverageBlocksPerSecond();
         Float getAverageTransactionsPerSecond();
 
@@ -906,7 +905,8 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
             final Json statisticsJson = new Json();
             statisticsJson.put("blockHeaderHeight", blockHeaderHeight);
-            statisticsJson.put("blockHeadersPerSecond", (statisticsHandler != null ? statisticsHandler.getAverageBlockHeadersPerSecond() : null));
+            statisticsJson.put("blockHeadersPerSecond", null); // Deprecated
+            statisticsJson.put("blocksIndexedPerSecond", (statisticsHandler != null ? statisticsHandler.getAverageBlocksIndexedPerSecond() : null));
             statisticsJson.put("blockHeaderDate", DateUtil.Utc.timestampToDatetimeString(blockHeaderTimestampInSeconds * 1000));
             statisticsJson.put("blockHeaderTimestamp", blockHeaderTimestampInSeconds);
 

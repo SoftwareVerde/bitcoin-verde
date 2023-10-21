@@ -281,7 +281,7 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
         // double timeSpentLoadingUnknownPatfoBlockTimes = 0D;
         final MutableHashSet<Sha256Hash> unknownTransactionBlockHeightsSet = new MutableHashSet<>();
         boolean allTransactionOutputsWereLoaded = true;
-        final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = blockchain.getUnspentTransactionOutputDatabaseManager();
+        final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = blockchain.getUtxoSet();
         final List<UnspentTransactionOutput> transactionOutputs = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutputs(transactionOutputIdentifiers);
         for (int i = 0; i < transactionOutputs.getCount(); ++i) {
             final TransactionOutputIdentifier transactionOutputIdentifier = transactionOutputIdentifiers.get(i);
@@ -412,6 +412,10 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
         }
     }
 
+    public List<TransactionOutputIdentifier> getMissingOutputs() {
+        return _missingOutputIdentifiers;
+    }
+
     /**
      * Returns true if the TransactionOutput associated with the provided TransactionOutputIdentifier is a CashToken output
      *  that was created before the CashToken activation fork.  CashTokens generated before the activation are not spendable.
@@ -421,7 +425,9 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
     }
 
     public synchronized void clear() {
+        _missingOutputIdentifiers.clear();
         _transactionOutputs.clear();
         _transactionBlockHeights.clear();
+        _preActivationTokenForgeries.clear();
     }
 }

@@ -32,6 +32,7 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputFileDbManager;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.handler.MetadataHandler;
+import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
 import com.softwareverde.bitcoin.server.module.node.store.DiskKeyValueStore;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStoreCore;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
@@ -46,15 +47,19 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.util.BlockUtil;
+import com.softwareverde.btreedb.file.InputFile;
 import com.softwareverde.btreedb.file.InputOutputFileCore;
 import com.softwareverde.btreedb.file.OutputFile;
 import com.softwareverde.concurrent.Pin;
 import com.softwareverde.constable.Visitor;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.Map;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.constable.set.mutable.MutableHashSet;
 import com.softwareverde.constable.set.mutable.MutableSet;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -72,6 +77,7 @@ import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.network.socket.SocketServer;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.network.time.VolatileNetworkTime;
+import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.CircleBuffer;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Function;
@@ -86,7 +92,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class NodeModule {
-    protected static class KeyValues {
+    public static class KeyValues {
         public static final String INDEXED_BLOCK_HEIGHT = "indexedBlockHeight";
         public static final String HEAD_BLOCK_HASH = "headBlockHash";
     }
@@ -138,6 +144,7 @@ public class NodeModule {
 
     protected final CircleBuffer<Double> _blockProcessMs = new CircleBuffer<>(100);
     protected final CircleBuffer<Double> _headerProcessMs = new CircleBuffer<>(100);
+    protected final CircleBuffer<Double> _indexProcessMs = new CircleBuffer<>(100);
 
     protected void _syncHeaders() {
         if (_isShuttingDown.get()) { return; }
@@ -233,13 +240,45 @@ public class NodeModule {
         });
     }
 
-    protected UnspentTransactionOutputContext _getUnspentTransactionOutputContext(final Block block) throws Exception {
+    protected MutableUnspentTransactionOutputSet _getUnspentTransactionOutputContext(final Block block) throws Exception {
         final Sha256Hash blockHash = block.getHash();
         final Long blockHeight = _blockchain.getBlockHeight(blockHash);
         final MutableUnspentTransactionOutputSet transactionOutputSet = new MutableUnspentTransactionOutputSet();
-        final boolean allOutputsFound = transactionOutputSet.loadOutputsForBlock(_blockchain, block, blockHeight, _upgradeSchedule);
-        if (! allOutputsFound) { return null; }
+        transactionOutputSet.loadOutputsForBlock(_blockchain, block, blockHeight, _upgradeSchedule);
         return transactionOutputSet;
+    }
+
+    public static Map<TransactionOutputIdentifier, UnspentTransactionOutput> loadUndoLog(final Sha256Hash blockHash, final BlockStore blockStore) throws Exception {
+        final UnspentTransactionOutputEntryInflater unspentTransactionOutputEntryInflater = new UnspentTransactionOutputEntryInflater();
+        final MutableHashMap<TransactionOutputIdentifier, UnspentTransactionOutput> destroyedUtxos = new MutableHashMap<>();
+
+        final File blockSubDirectory = new File(blockStore.getBlockDataDirectory(), "undo");
+        final File undoFile = new File(blockSubDirectory, blockHash.toString());
+        try (final InputFile inputFile = new InputOutputFileCore(undoFile)) {
+            inputFile.open();
+            inputFile.setPosition(0L);
+
+            final long fileByteCount = inputFile.getByteCount();
+
+            final int keyByteCount = unspentTransactionOutputEntryInflater.getKeyByteCount();
+            final MutableByteArray keyBuffer = new MutableByteArray(keyByteCount);
+            final MutableByteArray intBuffer = new MutableByteArray(4);
+
+            while (inputFile.getPosition() < fileByteCount) {
+                inputFile.read(keyBuffer.unwrap());
+                inputFile.read(intBuffer.unwrap());
+
+                final int valueByteCount = ByteUtil.bytesToInteger(intBuffer);
+                final MutableByteArray valueBytes = new MutableByteArray(valueByteCount);
+                inputFile.read(valueBytes.unwrap());
+
+                final TransactionOutputIdentifier transactionOutputIdentifier = unspentTransactionOutputEntryInflater.keyFromBytes(keyBuffer);
+                final UnspentTransactionOutput transactionOutput = unspentTransactionOutputEntryInflater.valueFromBytes(valueBytes);
+                destroyedUtxos.put(transactionOutputIdentifier, transactionOutput);
+            }
+        }
+
+        return destroyedUtxos;
     }
 
     protected void _createUndoLog(final Sha256Hash blockHash, final Block block, final UnspentTransactionOutputContext unspentTransactionOutputContext) {
@@ -282,6 +321,7 @@ public class NodeModule {
                         final ByteArray valueBytes = unspentTransactionOutputEntryInflater.valueToBytes(unspentTransactionOutput);
 
                         outputFile.write(keyBytes.getBytes());
+                        outputFile.write(ByteUtil.integerToBytes(valueBytes.getByteCount()));
                         outputFile.write(valueBytes.getBytes());
                     }
                 }
@@ -341,7 +381,7 @@ public class NodeModule {
                             final UnspentTransactionOutputContext unspentTransactionOutputContext = _getUnspentTransactionOutputContext(block);
                             utxoTimer.stop();
                             validationTimer.start();
-                            final BlockValidationResult result = (unspentTransactionOutputContext != null ? blockValidator.validateBlock(block, unspentTransactionOutputContext) : BlockValidationResult.invalid("Missing outputs."));
+                            final BlockValidationResult result = blockValidator.validateBlock(block, unspentTransactionOutputContext);
                             validationTimer.stop();
                             if (! result.isValid) {
                                 Logger.info(result.errorMessage + " " + blockHash + " " + (result.invalidTransactions.isEmpty() ? null : result.invalidTransactions.get(0)) + " (" + result.invalidTransactions.getCount() + ")");
@@ -367,8 +407,8 @@ public class NodeModule {
 
                             if (validateTrustedBlockUtxos) {
                                 utxoTimer.start();
-                                final UnspentTransactionOutputContext outputs = _getUnspentTransactionOutputContext(block);
-                                if (outputs == null) {
+                                final MutableUnspentTransactionOutputSet outputs = _getUnspentTransactionOutputContext(block);
+                                if (! outputs.getMissingOutputs().isEmpty()) {
                                     Logger.info("Outputs not found: " + blockHeight + " " + blockHash);
                                     break;
                                 }
@@ -522,8 +562,6 @@ public class NodeModule {
             public void onHandshakeComplete() {
                 if (_isShuttingDown.get()) { return; }
 
-                final NodeFeatures nodeFeatures = bitcoinNode.getNodeFeatures();
-
                 if (bitcoinNode.getBlockHeight() < _blockchain.getHeadBlockHeaderHeight()) {
                     Logger.debug("Disconnecting from behind peer.");
                     bitcoinNode.disconnect();
@@ -550,7 +588,6 @@ public class NodeModule {
                         }
                     }
                 });
-                // bitcoinNode.requestNodeAddresses();
 
                 _syncHeaders();
             }
@@ -919,6 +956,10 @@ public class NodeModule {
                         indexTimer.stop();
                         Logger.debug("Indexed " + blockHash + " in " + indexTimer.getMillisecondsElapsed() + "ms.");
 
+                        synchronized (_indexProcessMs) {
+                            _indexProcessMs.push(indexTimer.getMillisecondsElapsed());
+                        }
+
                         blockHeight += 1L;
                     }
                 }
@@ -1098,12 +1139,26 @@ public class NodeModule {
         });
         _rpcHandler.setStatisticsHandler(new NodeRpcHandler.StatisticsHandler() {
             @Override
-            public Float getAverageBlockHeadersPerSecond() {
-                return 0F; // TODO
+            public Float getAverageBlocksIndexedPerSecond() {
+                if (! _synchronizationStatusHandler.isBlockchainSynchronized()) { return null; }
+                if (! _bitcoinProperties.isIndexingModeEnabled()) { return null; }
+
+                synchronized (_indexProcessMs) {
+                    double total = 0D;
+                    final int count = _indexProcessMs.getCount();
+                    if (count == 0) { return 0F; }
+
+                    for (int i = 0; i < count; ++i) {
+                        total += _indexProcessMs.get(i);
+                    }
+                    return (float) ((count * 1000D) / total);
+                }
             }
 
             @Override
             public Float getAverageBlocksPerSecond() {
+                if (_synchronizationStatusHandler.isBlockchainSynchronized()) { return null; }
+
                 synchronized (_blockProcessMs) {
                     double total = 0D;
                     final int count = _blockProcessMs.getCount();
@@ -1118,6 +1173,8 @@ public class NodeModule {
 
             @Override
             public Float getAverageTransactionsPerSecond() {
+                if (! _synchronizationStatusHandler.isBlockchainSynchronized()) { return null; }
+
                 final long now = _systemTime.getCurrentTimeInMilliSeconds();
                 final long timeAtLastBlock = _timeAtLastBlock.get();
                 final long durationMs = (now - timeAtLastBlock);

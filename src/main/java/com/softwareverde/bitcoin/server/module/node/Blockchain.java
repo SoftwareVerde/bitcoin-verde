@@ -56,7 +56,7 @@ public class Blockchain {
     protected final MutableArrayList<ChainWork> _chainWorks = new MutableArrayList<>();
     protected final BlockStore _blockStore;
     protected final CheckpointConfiguration _checkpointConfiguration;
-    protected final UnspentTransactionOutputDatabaseManager _unspentTransactionOutputDatabaseManager;
+    protected final UnspentTransactionOutputDatabaseManager _utxoSet;
     protected AsertReferenceBlock _asertReferenceBlock = null;
     protected Long _headBlockHeight = -1L;
 
@@ -236,9 +236,9 @@ public class Blockchain {
         this(blockStore, null, null);
     }
 
-    public Blockchain(final BlockStore blockStore, final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager, final CheckpointConfiguration checkpointConfiguration) {
+    public Blockchain(final BlockStore blockStore, final UnspentTransactionOutputDatabaseManager utxoSet, final CheckpointConfiguration checkpointConfiguration) {
         _blockStore = blockStore;
-        _unspentTransactionOutputDatabaseManager = unspentTransactionOutputDatabaseManager;
+        _utxoSet = utxoSet;
         _checkpointConfiguration = checkpointConfiguration;
 
         final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
@@ -325,6 +325,11 @@ public class Blockchain {
         finally {
             _readLock.unlock();
         }
+    }
+
+    public Sha256Hash getBlockHash(final Long blockHeight) {
+        final BlockHeader blockHeader = this.getBlockHeader(blockHeight);
+        return (blockHeader != null ? blockHeader.getHash() : null);
     }
 
     public BlockHeader getBlockHeader(final Sha256Hash blockHash) {
@@ -567,8 +572,8 @@ public class Blockchain {
         }
     }
 
-    public UnspentTransactionOutputDatabaseManager getUnspentTransactionOutputDatabaseManager() {
-        return _unspentTransactionOutputDatabaseManager;
+    public UnspentTransactionOutputDatabaseManager getUtxoSet() {
+        return _utxoSet;
     }
 
     public Transaction getTransaction(final IndexedTransaction indexedTransaction) {
