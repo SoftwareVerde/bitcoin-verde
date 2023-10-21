@@ -26,7 +26,7 @@ public class SearchHandler implements RequestHandler<Environment> {
 
     /**
      * SEARCH
-     * Requires GET:   query, [rawFormat=0]
+     * Requires GET:   query, [rawFormat=0], [pageNumber=0]
      * Requires POST:
      **/
     @Override
@@ -40,6 +40,7 @@ public class SearchHandler implements RequestHandler<Environment> {
         }
 
         final Boolean rawFormat = (getParameters.containsKey("rawFormat") ? Util.parseBool(getParameters.get("rawFormat")) : null);
+        final Integer pageNumber = (getParameters.containsKey("pageNumber") ? Util.parseInt(getParameters.get("pageNumber")) : null);
 
         try (final NodeJsonRpcConnection nodeJsonRpcConnection = environment.getNodeJsonRpcConnection()) {
             if (nodeJsonRpcConnection == null) {
@@ -97,7 +98,7 @@ public class SearchHandler implements RequestHandler<Environment> {
                                         return new JsonResponse(Response.Codes.SERVER_ERROR, result);
                                     }
 
-                                    final Json queryBlockTransactionsJson = secondNodeJsonRpcConnection.getBlockTransactions(blockHash, 32, 0);
+                                    final Json queryBlockTransactionsJson = secondNodeJsonRpcConnection.getBlockTransactions(blockHash, 32, Util.coalesce(pageNumber));
                                     blockTransactionsJson = (queryBlockTransactionsJson != null ? queryBlockTransactionsJson.get("transactions") : null);
                                 }
 

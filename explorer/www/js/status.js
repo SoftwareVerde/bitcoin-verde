@@ -60,10 +60,16 @@ class StatusUi {
                     window.document.body.appendChild(div);
                 }
 
-                $(".block-headers-per-second").toggle(false);
-                // $(".block-headers-per-second").text(statistics.blockHeadersPerSecond);
+                $(".block-headers-per-second").toggle(false); // Deprecated
+                $(".block-headers-per-second").text(statistics.blockHeadersPerSecond);
+
+                $(".blocks-indexed-per-second").toggle(statistics.blocksIndexedPerSecond != null);
+                $(".blocks-indexed-per-second").text(statistics.blocksIndexedPerSecond);
+
+                $(".blocks-per-second").toggle(statistics.blocksPerSecond != null);
                 $(".blocks-per-second").text(statistics.blocksPerSecond);
 
+                $(".transactions-per-second").toggle(statistics.transactionsPerSecond != null);
                 $(".transactions-per-second").text(statistics.transactionsPerSecond);
 
                 if (statistics.indexingPercentComplete) {

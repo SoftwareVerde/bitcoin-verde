@@ -254,6 +254,12 @@
     margin-bottom: 0.75em;
 }
 
+.blocks-indexed-per-second::before {
+    content: 'Indexing Blocks Per Second';
+    display: block;
+    margin-bottom: 0.75em;
+}
+
 .blocks-per-second::before {
     content: 'Syncing Blocks Per Second';
     display: block;

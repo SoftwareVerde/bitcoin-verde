@@ -81,13 +81,20 @@ class Api {
         const apiParameters = $.extend({ }, defaultParameters, parameters);
 
         const query = apiParameters.query;
+        const pageNumber = apiParameters.pageNumber || null;
 
         const searchInput = $("#search");
         searchInput.val(query);
 
         const queryParams = new URLSearchParams(window.location.search);
-        if (queryParams.get("search") != query) {
-            window.history.pushState({ query: query}, query, "?search=" + window.encodeURIComponent(query));
+        let isNewHistory = queryParams.get("search") != query || (queryParams.get("search") == query && queryParams.get("pageNumber") != pageNumber);
+        if (isNewHistory) {
+            if (pageNumber) {
+                window.history.pushState({ query: query, pageNumber: pageNumber }, query, "?search=" + window.encodeURIComponent(query) + "&pageNumber=" + pageNumber);
+            }
+            else {
+                window.history.pushState({ query: query }, query, "?search=" + window.encodeURIComponent(query));
+            }
         }
 
         Http.get(Api.PREFIX + "search", apiParameters, callback);
@@ -340,13 +347,14 @@ class Ui {
         return transactionOutputUi;
     }
 
-    static renderBlock(block) {
+    static renderBlock(block, pageNumber) {
         Ui.currentObject = block;
         Ui.currentObjectType = Constants.BLOCK;
+        Ui.currentPageNumber = pageNumber;
 
         const loadingImage = $("#search-loading-image");
 
-        const blockUi = Ui.inflateBlock(block);
+        const blockUi = Ui.inflateBlock(block, pageNumber);
 
         blockUi.hide();
         const main = $("#main");
@@ -365,9 +373,10 @@ class Ui {
         });
     }
 
-    static renderAddress(addressObject) {
+    static renderAddress(addressObject, pageNumber) {
         Ui.currentObject = addressObject;
         Ui.currentObjectType = Constants.ADDRESS;
+        Ui.currentPageNumber = pageNumber;
 
         const main = $("#main");
         main.empty();
@@ -439,9 +448,10 @@ class Ui {
         return $("#loading");
     }
 
-    static renderTransaction(transaction) {
+    static renderTransaction(transaction, pageNumber) {
         Ui.currentObject = transaction;
         Ui.currentObjectType = Constants.TRANSACTION;
+        Ui.currentPageNumber = pageNumber;
 
         const transactionUi = Ui.inflateTransaction(transaction);
         transactionUi.hide();
@@ -454,7 +464,8 @@ class Ui {
         });
     }
 
-    static inflateBlock(block) {
+    static inflateBlock(block, startingPageNumber) {
+        startingPageNumber = startingPageNumber || 0;
         const templates = $("#templates");
         const blockTemplate = $("> .block", templates);
         const blockUi = blockTemplate.clone();
@@ -492,6 +503,9 @@ class Ui {
             if ( (pageNumber < 0) || (pageNumber >= pageCount) ) {
                 return;
             }
+
+            window.history.pushState({ query: block.hash, pageNumber: pageNumber }, block.hash, "?search=" + window.encodeURIComponent(block.hash) + "&pageNumber=" + window.encodeURIComponent(pageNumber));
+            console.log(window.history);
 
             Api.getBlockTransactions(block.hash, { pageSize: pageSize, pageNumber: pageNumber }, function(data) {
                 const container = $(".transactions", blockUi);
@@ -558,7 +572,7 @@ class Ui {
 
             renderPagination.currentPageNumber = pageNumber;
         };
-        renderPagination.currentPageNumber = 0;
+        renderPagination.currentPageNumber = startingPageNumber;
 
         const pageCarets = $("> .previous, > .next", pageNavigation.parent());
         pageCarets.on("click", function() {
@@ -841,6 +855,7 @@ class Ui {
 Ui.displayCashAddressFormat = true;
 Ui.currentObject = null;
 Ui.currentObjectType = null;
+Ui.pageNumber = null;
 Ui.appendTransactionTimeouts = [];
 
 class DateUtil {
