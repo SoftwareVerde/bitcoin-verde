@@ -4,7 +4,6 @@ import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.message.BitcoinBinaryPacketFormat;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
-import com.softwareverde.concurrent.threadpool.ThreadPoolFactory;
 
 public class NodeInitializer {
     public interface TransactionsAnnouncementHandlerFactory {
@@ -25,7 +24,6 @@ public class NodeInitializer {
         public BitcoinNode.RequestDataHandler requestDataHandler;
         public BitcoinNode.RequestSpvBlocksHandler requestSpvBlocksHandler;
         public BitcoinNode.QueryUtxoCommitmentsHandler queryUtxoCommitmentsHandler;
-        public ThreadPoolFactory threadPoolFactory;
         public LocalNodeFeatures localNodeFeatures;
         public BitcoinNode.RequestPeersHandler requestPeersHandler;
         public BitcoinNode.RequestUnconfirmedTransactionsHandler requestUnconfirmedTransactionsHandler;
@@ -44,7 +42,6 @@ public class NodeInitializer {
     protected final BitcoinNode.RequestDataHandler _requestDataHandler;
     protected final BitcoinNode.RequestSpvBlocksHandler _requestSpvBlocksHandler;
     protected final BitcoinNode.QueryUtxoCommitmentsHandler _queryUtxoCommitmentsHandler;
-    protected final ThreadPoolFactory _threadPoolFactory;
     protected final LocalNodeFeatures _localNodeFeatures;
     protected final BitcoinNode.RequestPeersHandler _requestPeersHandler;
     protected final BitcoinNode.RequestUnconfirmedTransactionsHandler _requestUnconfirmedTransactionsHandler;
@@ -94,7 +91,6 @@ public class NodeInitializer {
         _requestDataHandler = properties.requestDataHandler;
         _requestSpvBlocksHandler = properties.requestSpvBlocksHandler;
         _queryUtxoCommitmentsHandler = properties.queryUtxoCommitmentsHandler;
-        _threadPoolFactory = properties.threadPoolFactory;
         _localNodeFeatures = properties.localNodeFeatures;
         _requestPeersHandler = properties.requestPeersHandler;
         _requestUnconfirmedTransactionsHandler = properties.requestUnconfirmedTransactionsHandler;

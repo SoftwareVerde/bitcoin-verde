@@ -17,7 +17,6 @@ import com.softwareverde.constable.map.Map;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.filedb.WorkerManager;
-import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
 import java.io.File;
@@ -132,17 +131,17 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
     public synchronized void undoBlock(final BlockUtxoDiff blockUtxoDiff, final Map<TransactionOutputIdentifier, UnspentTransactionOutput> destroyedUtxos) throws Exception {
         for (final TransactionOutputIdentifier transactionOutputIdentifier : blockUtxoDiff.unspentTransactionOutputIdentifiers) {
             _utxoDb.delete(transactionOutputIdentifier);
-            Logger.debug("Deleting: " + transactionOutputIdentifier);
+            // Logger.debug("Deleting: " + transactionOutputIdentifier);
         }
         for (final TransactionOutputIdentifier transactionOutputIdentifier : blockUtxoDiff.spentTransactionOutputIdentifiers) {
             final UnspentTransactionOutput unspentTransactionOutput = destroyedUtxos.get(transactionOutputIdentifier);
             if (unspentTransactionOutput != null) {
                 _utxoDb.put(transactionOutputIdentifier, unspentTransactionOutput);
-                Logger.debug("Adding: " + transactionOutputIdentifier);
+                // Logger.debug("Adding: " + transactionOutputIdentifier);
             }
-            else {
-                Logger.debug("Unknown: " + transactionOutputIdentifier);
-            }
+            // else {
+            //     Logger.debug("Unknown: " + transactionOutputIdentifier); // UTXO was created by this block (i.e. it exists within blockUtxoDiff.unspentTransactionOutputIdentifiers).
+            // }
         }
         _utxoDb.commit();
     }

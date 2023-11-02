@@ -1,17 +1,19 @@
 package com.softwareverde.bitcoin.server.node;
 
 import com.softwareverde.bitcoin.server.message.BitcoinBinaryPacketFormat;
+import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
-import com.softwareverde.concurrent.threadpool.ThreadPoolFactory;
 import com.softwareverde.network.socket.BinarySocket;
 
 public class BitcoinNodeFactory {
-    protected final ThreadPoolFactory _threadPoolFactory;
     protected final LocalNodeFeatures _localNodeFeatures;
     protected final BitcoinBinaryPacketFormat _binaryPacketFormat;
 
-    public BitcoinNodeFactory(final BitcoinBinaryPacketFormat binaryPacketFormat, final ThreadPoolFactory threadPoolFactory, final LocalNodeFeatures localNodeFeatures) {
-        _threadPoolFactory = threadPoolFactory;
+    public BitcoinNodeFactory(final LocalNodeFeatures localNodeFeatures) {
+        this (BitcoinProtocolMessage.BINARY_PACKET_FORMAT, localNodeFeatures);
+    }
+
+    public BitcoinNodeFactory(final BitcoinBinaryPacketFormat binaryPacketFormat, final LocalNodeFeatures localNodeFeatures) {
         _localNodeFeatures = localNodeFeatures;
         _binaryPacketFormat = binaryPacketFormat;
     }

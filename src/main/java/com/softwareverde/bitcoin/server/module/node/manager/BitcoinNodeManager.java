@@ -5,10 +5,8 @@ import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
+import com.softwareverde.bitcoin.server.module.node.Blockchain;
 import com.softwareverde.bitcoin.server.module.node.MemoryPoolEnquirer;
-import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
-import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilter;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockFinderHashesBuilder;
 import com.softwareverde.bitcoin.server.module.node.sync.inventory.BitcoinNodeHeadBlockFinder;
@@ -20,7 +18,6 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProofWithTransactions;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
-import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.Visitor;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
@@ -34,7 +31,6 @@ import com.softwareverde.constable.map.mutable.MutableWeakHashMap;
 import com.softwareverde.constable.set.mutable.ConcurrentMutableHashSet;
 import com.softwareverde.constable.set.mutable.MutableHashSet;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
-import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.Node;
@@ -82,15 +78,15 @@ public class BitcoinNodeManager {
         public Integer minNodeCount;
         public Integer maxNodeCount;
         public Boolean shouldPrioritizeNewConnections;
-        public DatabaseManagerFactory databaseManagerFactory;
         public BitcoinNodeFactory nodeFactory;
         public MutableNetworkTime networkTime;
+        public Blockchain blockchain;
         public NodeInitializer nodeInitializer;
         public BanFilter banFilter;
         public MemoryPoolEnquirer memoryPoolEnquirer;
         public SynchronizationStatus synchronizationStatusHandler;
-        public ThreadPool threadPool;
         public SystemTime systemTime;
+        public BitcoinNodeStore bitcoinNodeStore;
     }
 
     protected static class NodePerformance {
@@ -120,9 +116,22 @@ public class BitcoinNodeManager {
         return true;
     }
 
+    protected static void runAsync(final Runnable runnable) {
+        final Thread thread = new Thread(runnable);
+        thread.setName("BlockHeaderDownloader Callback");
+        thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+            @Override
+            public void uncaughtException(final Thread thread, final Throwable exception) {
+                Logger.debug(exception);
+            }
+        });
+        thread.start();
+    }
+
     protected final SystemTime _systemTime;
     protected final BitcoinNodeFactory _nodeFactory;
-    protected final ThreadPool _threadPool;
+    protected final Blockchain _blockchain;
+    protected final BitcoinNodeStore _bitcoinNodeStore;
 
     protected final ConcurrentMutableHashMap<NodeId, BitcoinNode> _preferredNodes;
     protected final ConcurrentMutableHashMap<NodeId, BitcoinNode> _otherNodes;
@@ -145,7 +154,6 @@ public class BitcoinNodeManager {
     protected Integer _defaultExternalPort = BitcoinConstants.getDefaultNetworkPort();
     protected NodeIpAddress _localNodeIpAddress = null;
 
-    protected final DatabaseManagerFactory _databaseManagerFactory;
     protected final NodeInitializer _nodeInitializer;
     protected final BanFilter _banFilter;
     protected final MemoryPoolEnquirer _memoryPoolEnquirer;
@@ -337,51 +345,44 @@ public class BitcoinNodeManager {
         final boolean shouldConnectToUnknownPeers = (! _shouldOnlyConnectToSeedNodes);
         if (shouldConnectToUnknownPeers) {
             { // Add previously-connected nodes...
-                try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-                    final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
-
-                    final List<BitcoinNodeIpAddress> foundNodeIpAddresses;
-                    { // Look for nodes that would be good preferred nodes, falling back to unknown nodes if there aren't enough available.
-                        final MutableList<NodeFeatures.Feature> requiredFeatures = new MutableArrayList<>();
-                        {
-                            requiredFeatures.add(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
-                            requiredFeatures.add(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
-                        }
-
-                        final long minSecondsSinceLastConnectionAttempt = (10L * 60L);
-                        final List<BitcoinNodeIpAddress> possiblePreferredNodes = nodeDatabaseManager.findNodes(requiredFeatures, minSecondsSinceLastConnectionAttempt, defaultPort, numberOfNodesToAttemptConnectionsTo);
-                        if (possiblePreferredNodes.getCount() >= numberOfNodesToAttemptConnectionsTo) {
-                            foundNodeIpAddresses = possiblePreferredNodes;
-                        }
-                        else { // If there weren't enough preferred nodes, then relax the requirements to include unknown peers.
-                            final int missingDesiredNodeCount = (numberOfNodesToAttemptConnectionsTo - possiblePreferredNodes.getCount());
-                            final List<BitcoinNodeIpAddress> unknownBitcoinNodeIpAddresses = nodeDatabaseManager.findNodes(minSecondsSinceLastConnectionAttempt, missingDesiredNodeCount);
-
-                            final MutableList<BitcoinNodeIpAddress> newBitcoinNodeIpAddresses = new MutableArrayList<>();
-                            newBitcoinNodeIpAddresses.addAll(possiblePreferredNodes);
-                            newBitcoinNodeIpAddresses.addAll(unknownBitcoinNodeIpAddresses);
-                            foundNodeIpAddresses = newBitcoinNodeIpAddresses;
-                        }
+                final List<BitcoinNodeIpAddress> foundNodeIpAddresses;
+                { // Look for nodes that would be good preferred nodes, falling back to unknown nodes if there aren't enough available.
+                    final MutableList<NodeFeatures.Feature> requiredFeatures = new MutableArrayList<>();
+                    {
+                        requiredFeatures.add(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
+                        requiredFeatures.add(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
                     }
 
-                    for (final BitcoinNodeIpAddress nodeIpAddress : foundNodeIpAddresses) {
-                        if (nodeIpAddresses.getCount() >= numberOfNodesToAttemptConnectionsTo) { break; }
+                    final long minSecondsSinceLastConnectionAttempt = (10L * 60L);
+                    final List<BitcoinNodeIpAddress> possiblePreferredNodes = _bitcoinNodeStore.findNodes(requiredFeatures, minSecondsSinceLastConnectionAttempt, defaultPort, numberOfNodesToAttemptConnectionsTo);
+                    if (possiblePreferredNodes.getCount() >= numberOfNodesToAttemptConnectionsTo) {
+                        foundNodeIpAddresses = possiblePreferredNodes;
+                    }
+                    else { // If there weren't enough preferred nodes, then relax the requirements to include unknown peers.
+                        final int missingDesiredNodeCount = (numberOfNodesToAttemptConnectionsTo - possiblePreferredNodes.getCount());
+                        final List<BitcoinNodeIpAddress> unknownBitcoinNodeIpAddresses = _bitcoinNodeStore.findNodes(minSecondsSinceLastConnectionAttempt, missingDesiredNodeCount);
 
-                        final Integer port = nodeIpAddress.getPort();
-                        if (Util.areEqual(defaultPort, port)) { continue; }
-
-                        final String connectionString = _toCanonicalConnectionString(nodeIpAddress);
-                        final boolean isUnique = excludeSet.add(connectionString);
-                        if (! isUnique) {
-                            Logger.trace("Skipping excluded database address: " + connectionString);
-                            continue;
-                        }
-
-                        nodeIpAddresses.add(nodeIpAddress);
+                        final MutableList<BitcoinNodeIpAddress> newBitcoinNodeIpAddresses = new MutableArrayList<>();
+                        newBitcoinNodeIpAddresses.addAll(possiblePreferredNodes);
+                        newBitcoinNodeIpAddresses.addAll(unknownBitcoinNodeIpAddresses);
+                        foundNodeIpAddresses = newBitcoinNodeIpAddresses;
                     }
                 }
-                catch (final DatabaseException databaseException) {
-                    Logger.warn(databaseException);
+
+                for (final BitcoinNodeIpAddress nodeIpAddress : foundNodeIpAddresses) {
+                    if (nodeIpAddresses.getCount() >= numberOfNodesToAttemptConnectionsTo) { break; }
+
+                    final Integer port = nodeIpAddress.getPort();
+                    if (Util.areEqual(defaultPort, port)) { continue; }
+
+                    final String connectionString = _toCanonicalConnectionString(nodeIpAddress);
+                    final boolean isUnique = excludeSet.add(connectionString);
+                    if (! isUnique) {
+                        Logger.trace("Skipping excluded database address: " + connectionString);
+                        continue;
+                    }
+
+                    nodeIpAddresses.add(nodeIpAddress);
                 }
             }
 
@@ -649,7 +650,7 @@ public class BitcoinNodeManager {
 
         final Runnable onNodeListChangedCallback = _onNodeListChanged;
         if (onNodeListChangedCallback != null) {
-            _threadPool.execute(onNodeListChangedCallback);
+            BitcoinNodeManager.runAsync(onNodeListChangedCallback);
         }
     }
 
@@ -732,17 +733,11 @@ public class BitcoinNodeManager {
             public void onNewNodeAddresses(final List<NodeIpAddress> nodeIpAddresses) {
                 if (_isShuttingDown) { return; }
 
-                try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-                    final BitcoinNodeDatabaseManager bitcoinNodeDatabaseManager = databaseManager.getNodeDatabaseManager();
-                    for (final NodeIpAddress nodeIpAddress : nodeIpAddresses) {
-                        final Integer port = nodeIpAddress.getPort();
+                for (final NodeIpAddress nodeIpAddress : nodeIpAddresses) {
+                    final Integer port = nodeIpAddress.getPort();
 
-                        if (! Util.areEqual(_defaultExternalPort, port)) { return; }
-                        bitcoinNodeDatabaseManager.storeAddress(nodeIpAddress);
-                    }
-                }
-                catch (final DatabaseException exception) {
-                    Logger.debug(exception);
+                    if (! Util.areEqual(_defaultExternalPort, port)) { return; }
+                    _bitcoinNodeStore.storeAddress(nodeIpAddress);
                 }
             }
         });
@@ -799,7 +794,7 @@ public class BitcoinNodeManager {
         bitcoinNode.connect();
         bitcoinNode.handshake();
 
-        _threadPool.execute(timeoutRunnable); // TODO: Make the timeouts handled by a single managed thread.
+        BitcoinNodeManager.runAsync(timeoutRunnable); // TODO: Make the timeouts handled by a single managed thread.
     }
 
     protected void _pingIdleNodes() {
@@ -825,7 +820,7 @@ public class BitcoinNodeManager {
         Logger.debug("Idle Node Count: " + idleNodes.getCount() + " / " + allNodes.getCount());
 
         for (final BitcoinNode idleNode : idleNodes) {
-            if (! idleNode.handshakeIsComplete()) { return; }
+            if (! idleNode.isHandshakeComplete()) { return; }
 
             Logger.debug("Pinging Idle Node: " + idleNode.getConnectionString());
 
@@ -890,13 +885,7 @@ public class BitcoinNodeManager {
             return;
         }
 
-        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
-            nodeDatabaseManager.storeNode(bitcoinNode);
-        }
-        catch (final DatabaseException databaseException) {
-            Logger.warn(databaseException);
-        }
+        _bitcoinNodeStore.storeNode(bitcoinNode);
 
         final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
 
@@ -953,33 +942,21 @@ public class BitcoinNodeManager {
             bitcoinNode.setBloomFilter(bloomFilter);
         }
 
-        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final BlockFinderHashesBuilder blockFinderHashesBuilder = new BlockFinderHashesBuilder(databaseManager);
-            final List<Sha256Hash> blockFinderHashes = blockFinderHashesBuilder.createBlockFinderBlockHashes();
+        final BlockFinderHashesBuilder blockFinderHashesBuilder = new BlockFinderHashesBuilder(_blockchain);
+        final List<Sha256Hash> blockFinderHashes = blockFinderHashesBuilder.createBlockFinderBlockHashes();
 
-            bitcoinNode.transmitBlockFinder(blockFinderHashes);
-        }
-        catch (final DatabaseException exception) {
-            Logger.warn(exception);
-        }
+        bitcoinNode.transmitBlockFinder(blockFinderHashes);
 
         final Runnable onNodeListChangedCallback = _onNodeListChanged;
         if (onNodeListChangedCallback != null) {
-            _threadPool.execute(onNodeListChangedCallback);
+            BitcoinNodeManager.runAsync(onNodeListChangedCallback);
         }
     }
 
     protected void _onNodeHandshakeComplete(final BitcoinNode bitcoinNode) {
-        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
-
-            nodeDatabaseManager.updateLastHandshake(bitcoinNode); // WARNING: If removing Last Handshake update, ensure BanFilter no longer requires the handshake timestamp...
-            nodeDatabaseManager.updateNodeFeatures(bitcoinNode);
-            nodeDatabaseManager.updateUserAgent(bitcoinNode);
-        }
-        catch (final DatabaseException databaseException) {
-            Logger.debug(databaseException);
-        }
+        _bitcoinNodeStore.updateLastHandshake(bitcoinNode); // WARNING: If removing Last Handshake update, ensure BanFilter no longer requires the handshake timestamp...
+        _bitcoinNodeStore.updateNodeFeatures(bitcoinNode);
+        _bitcoinNodeStore.updateUserAgent(bitcoinNode);
 
         _banFilter.onNodeHandshakeComplete(bitcoinNode);
         if (! bitcoinNode.isConnected()) { return; } // Node was banned.
@@ -990,7 +967,7 @@ public class BitcoinNodeManager {
 
         final NewNodeCallback newNodeCallback = _newNodeCallback;
         if (newNodeCallback != null) {
-            _threadPool.execute(new Runnable() {
+            BitcoinNodeManager.runAsync(new Runnable() {
                 @Override
                 public void run() {
                     newNodeCallback.onNodeHandshakeComplete(bitcoinNode);
@@ -1000,7 +977,7 @@ public class BitcoinNodeManager {
 
         final Runnable onNodeListChangedCallback = _onNodeListChanged;
         if (onNodeListChangedCallback != null) {
-            _threadPool.execute(onNodeListChangedCallback);
+            BitcoinNodeManager.runAsync(onNodeListChangedCallback);
         }
     }
 
@@ -1013,7 +990,8 @@ public class BitcoinNodeManager {
         _maxNodeCount = context.maxNodeCount;
         _nodeFactory = context.nodeFactory;
         _networkTime = context.networkTime;
-        _threadPool = context.threadPool;
+        _blockchain = context.blockchain;
+        _bitcoinNodeStore = context.bitcoinNodeStore;
 
         _bitcoinNodeObserver = new BitcoinNodeObserver() {
             private final List<MessageType> _trackedMessageResponseTypes = new ImmutableList<>(
@@ -1077,13 +1055,12 @@ public class BitcoinNodeManager {
             }
         };
 
-        _databaseManagerFactory = context.databaseManagerFactory;
         _nodeInitializer = context.nodeInitializer;
         _banFilter = context.banFilter;
         _memoryPoolEnquirer = context.memoryPoolEnquirer;
         _synchronizationStatusHandler = context.synchronizationStatusHandler;
 
-        _bitcoinNodeHeadBlockFinder = new BitcoinNodeHeadBlockFinder(_databaseManagerFactory, _threadPool, _banFilter);
+        _bitcoinNodeHeadBlockFinder = new BitcoinNodeHeadBlockFinder(_blockchain, _banFilter);
     }
 
     public void setDefaultExternalPort(final Integer externalPortNumber) {
@@ -1280,7 +1257,7 @@ public class BitcoinNodeManager {
         return _shouldOnlyConnectToSeedNodes;
     }
 
-    public void shutdown() {
+    public void close() {
         _isShuttingDown = true;
 
         final Thread nodeMaintenanceThread = _nodeMaintenanceThread;
@@ -1364,7 +1341,7 @@ public class BitcoinNodeManager {
 
         final Runnable onNodeListChangedCallback = _onNodeListChanged;
         if (onNodeListChangedCallback != null) {
-            _threadPool.execute(onNodeListChangedCallback);
+            BitcoinNodeManager.runAsync(onNodeListChangedCallback);
         }
     }
 

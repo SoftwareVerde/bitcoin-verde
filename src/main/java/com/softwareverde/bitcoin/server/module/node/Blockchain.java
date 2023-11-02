@@ -26,6 +26,7 @@ import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.constable.map.mutable.MutableMap;
+import com.softwareverde.constable.set.mutable.ConcurrentMutableHashSet;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.filedb.WorkerManager;
 import com.softwareverde.logging.Logger;
@@ -53,6 +54,7 @@ public class Blockchain {
     protected final MutableHashMap<Sha256Hash, Long> _blockHeights = new MutableHashMap<>();
     protected final MutableArrayList<BlockHeader> _blockHeaders = new MutableArrayList<>();
     protected final MutableArrayList<MedianBlockTime> _medianBlockTimes = new MutableArrayList<>();
+    protected final ConcurrentMutableHashSet<Sha256Hash> _invalidBlocks = new ConcurrentMutableHashSet<>();
     protected final MutableArrayList<ChainWork> _chainWorks = new MutableArrayList<>();
     protected final BlockStore _blockStore;
     protected final CheckpointConfiguration _checkpointConfiguration;
@@ -633,5 +635,13 @@ public class Blockchain {
             transactions.add(transaction);
         }
         return transactions;
+    }
+
+    public boolean isBlockInvalid(final Sha256Hash blockHash) {
+        return _invalidBlocks.contains(blockHash);
+    }
+
+    public void markBlockInvalid(final Sha256Hash blockHash) {
+        _invalidBlocks.add(blockHash);
     }
 }

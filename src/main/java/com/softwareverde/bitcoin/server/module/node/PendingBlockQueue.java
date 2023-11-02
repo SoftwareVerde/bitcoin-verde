@@ -50,7 +50,7 @@ public class PendingBlockQueue {
 
     protected double _calculateMegabitsPerSecond(final TimedPromise<Block> promise) {
         final Block block = promise.pollResult();
-        if (block == null) { return 0F; }
+        if (block == null) { return 0D; }
 
         final double ms = promise.getMsElapsed();
         final long byteCount = block.getByteCount();
@@ -84,8 +84,8 @@ public class PendingBlockQueue {
                 final double mbps = _calculateMegabitsPerSecond(promise);
                 final boolean wasSlowDownload = (mbps < _minMegabitsPerSecond);
                 if (wasSlowDownload) {
-                    Logger.debug("Disconnecting from slow peer (" + mbps + "mbps).");
-                    bitcoinNode.disconnect();
+                    Logger.debug("Slow peer (" + mbps + "mbps) detected: " + bitcoinNode);
+                    // bitcoinNode.disconnect();
                 }
             }
 
@@ -99,7 +99,7 @@ public class PendingBlockQueue {
                     blockRequest.isComplete.set(true);
                 }
 
-                bitcoinNode.disconnect();
+                // bitcoinNode.disconnect();
             }
         }, RequestPriority.NORMAL);
 

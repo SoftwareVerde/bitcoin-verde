@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.server.main;
 
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
-import com.softwareverde.bitcoin.server.configuration.BitcoinVerdeDatabaseProperties;
 import com.softwareverde.bitcoin.server.configuration.Configuration;
 import com.softwareverde.bitcoin.server.configuration.ExplorerProperties;
 import com.softwareverde.bitcoin.server.module.AddressModule;
@@ -18,7 +17,6 @@ import com.softwareverde.logging.LogLevel;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.logging.filelog.AnnotatedFileLog;
 import com.softwareverde.logging.log.SystemLog;
-import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 
 import java.io.File;
@@ -241,12 +239,11 @@ public class Main {
                 final Configuration configuration = _loadConfigurationFile(configurationFilename);
 
                 final BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
-                final BitcoinVerdeDatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
 
                 { // Set Log Level...
                     try {
                         final String logDirectory = bitcoinProperties.getLogDirectory();
-                        final Log log = AnnotatedFileLog.newInstance(logDirectory, "node");
+                        final Log log = AnnotatedFileLog.newInstance(logDirectory, "node", null, false);
                         Logger.setLog(log);
                     }
                     catch (final IOException exception) {
@@ -272,9 +269,8 @@ public class Main {
                 final Integer blockMaxByteCount = bitcoinProperties.getBlockMaxByteCount();
                 BitcoinConstants.setBlockMaxByteCount(blockMaxByteCount);
 
-                final Container<NodeModule> nodeModuleContainer = new Container<>();
-                nodeModuleContainer.value = new NodeModule(bitcoinProperties);
-                nodeModuleContainer.value.loop();
+                final NodeModule nodeModule = new NodeModule(bitcoinProperties);
+                nodeModule.loop();
 
                 loggerFlushThread.interrupt();
                 try {

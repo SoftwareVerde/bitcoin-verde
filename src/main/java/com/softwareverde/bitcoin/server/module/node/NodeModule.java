@@ -8,6 +8,10 @@ import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockUtxoDiff;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
+import com.softwareverde.bitcoin.block.header.difficulty.work.BlockWork;
+import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
+import com.softwareverde.bitcoin.block.header.difficulty.work.MutableChainWork;
 import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
 import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
@@ -35,6 +39,7 @@ import com.softwareverde.bitcoin.server.module.node.rpc.handler.MetadataHandler;
 import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
 import com.softwareverde.bitcoin.server.module.node.store.DiskKeyValueStore;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStoreCore;
+import com.softwareverde.bitcoin.server.module.node.sync.BlockFinderHashesBuilder;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.RequestId;
 import com.softwareverde.bitcoin.server.node.RequestPriority;
@@ -55,7 +60,6 @@ import com.softwareverde.constable.Visitor;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.constable.map.Map;
@@ -146,83 +150,48 @@ public class NodeModule {
     protected final CircleBuffer<Double> _headerProcessMs = new CircleBuffer<>(100);
     protected final CircleBuffer<Double> _indexProcessMs = new CircleBuffer<>(100);
 
+    /**
+     * After execution, the head block header height will be equal to `endingBlockHeight`;
+     *  if the blockchain is synced past `endingBlockHeight`, the UTXOs will also be undone.
+     */
+    protected void _undoToHeight(final long endingBlockHeight) {
+        _blockProcessLock.lock();
+        try {
+            final long originalHeaderHeight = _blockchain.getHeadBlockHeaderHeight();
+            final long undoDepth = (originalHeaderHeight - endingBlockHeight);
+            long currentBlockHeight = _blockchain.getHeadBlockHeight();
+            for (int i = 0; i < undoDepth; ++i) {
+                final long preUndoHeaderHeight = _blockchain.getHeadBlockHeaderHeight();
+                final Sha256Hash undoneBlockHash = _blockchain.getHeadBlockHeaderHash();
+
+                _blockchain.undoHeadBlockHeader();
+                Logger.info("UndoneHeader: " + undoneBlockHash);
+
+                if (preUndoHeaderHeight == currentBlockHeight) {
+                    final Block undoneBlock = _blockStore.getBlock(undoneBlockHash, preUndoHeaderHeight);
+                    final BlockUtxoDiff blockUtxoDiff = BlockUtil.getBlockUtxoDiff(undoneBlock);
+                    final Map<TransactionOutputIdentifier, UnspentTransactionOutput> destroyedUtxos = NodeModule.loadUndoLog(undoneBlockHash, _blockStore);
+                    _unspentTransactionOutputDatabaseManager.undoBlock(blockUtxoDiff, destroyedUtxos);
+                    Logger.debug("Applied UndoLog: " + undoneBlockHash);
+
+                    currentBlockHeight -= 1L;
+                }
+            }
+
+            // TODO: Undo any block-indexing that may have occurred.
+        }
+        catch (final Exception exception) {
+            Logger.debug(exception);
+        }
+        finally {
+            _blockProcessLock.unlock();
+        }
+    }
+
+    protected final BitcoinNode.DownloadBlockHeadersCallback _downloadBlockHeadersCallback;
+
     protected void _syncHeaders() {
         if (_isShuttingDown.get()) { return; }
-
-        final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(_upgradeSchedule, _blockchain, _networkTime, _difficultyCalculator);
-
-        final BitcoinNode.DownloadBlockHeadersCallback downloadBlockHeadersCallback = new BitcoinNode.DownloadBlockHeadersCallback() {
-            @Override
-            public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final List<BlockHeader> response) {
-                if (_isShuttingDown.get()) { return; }
-
-                int count = 0;
-                boolean hadInvalid = false;
-                for (final BlockHeader blockHeader : response) {
-                    final Sha256Hash blockHash = blockHeader.getHash();
-                    final Long blockHeight = _blockchain.getHeadBlockHeaderHeight();
-
-                    final Long existingBlockHeight = _blockchain.getBlockHeight(blockHash);
-                    if (existingBlockHeight == null) {
-                        if (blockHeight > 0L) {
-                            final BlockHeaderValidator.BlockHeaderValidationResult validationResult = blockHeaderValidator.validateBlockHeader(blockHeader, blockHeight + 1L);
-                            if (! validationResult.isValid) {
-                                bitcoinNode.disconnect();
-                                Logger.debug(validationResult.errorMessage + " " + blockHash);
-                                hadInvalid = true;
-                                break;
-                            }
-                        }
-
-                        final Boolean result = _blockchain.addBlockHeader(blockHeader);
-                        if (! result) {
-                            bitcoinNode.disconnect();
-                            Logger.debug("Rejected: " + blockHash);
-                            hadInvalid = true;
-                            break;
-                        }
-
-                        count += 1;
-
-                        final Long nodeBlockHeight = bitcoinNode.getBlockHeight();
-                        bitcoinNode.setBlockHeight(Math.max(blockHeight, nodeBlockHeight));
-                    }
-                    else { // BlockHeader is already known.
-                        final Long nodeBlockHeight = bitcoinNode.getBlockHeight();
-                        bitcoinNode.setBlockHeight(Math.max(existingBlockHeight, nodeBlockHeight));
-                    }
-                }
-
-                final Sha256Hash headBlockHash = _blockchain.getHeadBlockHeaderHash();
-                Logger.info("Head: " + headBlockHash + " " + _blockchain.getHeadBlockHeaderHeight());
-
-                _headBlockHeaderHeightContainer.value = _blockchain.getHeadBlockHeaderHeight();
-                _headBlockHeightContainer.value = _blockchain.getHeadBlockHeight();
-
-                _synchronizationStatusHandler.recalculateState();
-
-                if (count > 0 && (! hadInvalid)) {
-                    if (count < RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT) {
-                        Logger.debug("Block Headers Complete.");
-                        try {
-                            _blockchain.save(_blockchainFile);
-                        }
-                        catch (final Exception exception) {
-                            Logger.debug(exception);
-                        }
-                        _syncBlocks();
-                    }
-                    else {
-                        bitcoinNode.requestBlockHeadersAfter(new ImmutableList<Sha256Hash>(headBlockHash), this, RequestPriority.NORMAL);
-                    }
-                }
-            }
-
-            @Override
-            public void onFailure(final RequestId requestId, final BitcoinNode bitcoinNode, final Sha256Hash blockHash) {
-                _syncBlocks();
-            }
-        };
 
         final BitcoinNode bitcoinNode;
         synchronized (_bitcoinNodes) {
@@ -234,8 +203,9 @@ public class NodeModule {
             @Override
             public void run() {
                 if (_isShuttingDown.get()) { return; }
-                final Sha256Hash headBlockHash = _blockchain.getHeadBlockHeaderHash();
-                bitcoinNode.requestBlockHeadersAfter(new ImmutableList<Sha256Hash>(headBlockHash), downloadBlockHeadersCallback, RequestPriority.NORMAL);
+                final BlockFinderHashesBuilder blockFinderHashesBuilder = new BlockFinderHashesBuilder(_blockchain);
+                final List<Sha256Hash> blockHashes = blockFinderHashesBuilder.createBlockHeaderFinderBlockHashes();
+                bitcoinNode.requestBlockHeadersAfter(blockHashes, _downloadBlockHeadersCallback, RequestPriority.NORMAL);
             }
         });
     }
@@ -368,6 +338,14 @@ public class NodeModule {
                             continue;
                         }
                         if (_isShuttingDown.get()) { return; }
+
+                        { // Check for a fork block by ensuring the block is the expected hash.
+                            final Sha256Hash fullBlockHash = block.getHash();
+                            if (! Util.areEqual(blockHash, fullBlockHash)) {
+                                Logger.debug("Ignoring fork block: " + fullBlockHash + " conflicts with " + blockHash);
+                                break;
+                            }
+                        }
 
                         Logger.debug("Processing: " + blockHash);
                         final NanoTimer utxoTimer = new NanoTimer();
@@ -823,9 +801,6 @@ public class NodeModule {
         final File dataDirectory = new File(bitcoinProperties.getDataDirectory());
         _blockchainFile = new File(dataDirectory, "block-headers.dat");
 
-        final NetworkType networkType = bitcoinProperties.getNetworkType();
-        BitcoinConstants.configureForNetwork(networkType);
-
         _blockStore = new PendingBlockStoreCore(dataDirectory);
         try {
             Logger.info("Loading BlockStore");
@@ -854,6 +829,7 @@ public class NodeModule {
             Logger.debug(exception);
         }
 
+        final NetworkType networkType = bitcoinProperties.getNetworkType();
         final CheckpointConfiguration checkpointConfiguration;
         {
             switch (networkType) {
@@ -1195,6 +1171,168 @@ public class NodeModule {
                 return new MutableArrayList<>(0); // TODO
             }
         });
+
+        _downloadBlockHeadersCallback = new BitcoinNode.DownloadBlockHeadersCallback() {
+            final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(_upgradeSchedule, _blockchain, _networkTime, _difficultyCalculator);
+
+            @Override
+            public synchronized void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final List<BlockHeader> response) {
+                if (_isShuttingDown.get()) { return; }
+                if (response.isEmpty()) { return; }
+
+                { // Validate headers are sequential.
+                    Sha256Hash previousBlockHash;
+                    {
+                        final BlockHeader blockHeader = response.get(0);
+                        previousBlockHash = blockHeader.getPreviousBlockHash();
+                        final Long previousBlockHeight = _blockchain.getBlockHeight(previousBlockHash);
+                        if (previousBlockHeight == null) {
+                            final Sha256Hash blockHash = blockHeader.getHash();
+                            Logger.info("Unknown block header received (" + blockHash + ") from " + bitcoinNode);
+                            return;
+                        }
+                    }
+                    for (final BlockHeader blockHeader : response) {
+                        if (! Util.areEqual(previousBlockHash, blockHeader.getPreviousBlockHash())) {
+                            Logger.info("Non-sequential blockHeaders received from " + bitcoinNode + "; disconnecting.");
+                            bitcoinNode.disconnect();
+                            return;
+                        }
+                        previousBlockHash = blockHeader.getHash();
+                    }
+                }
+
+                int count = 0;
+                boolean hadInvalid = false;
+                for (final BlockHeader blockHeader : response) {
+                    final Sha256Hash blockHash = blockHeader.getHash();
+                    if (_blockchain.getBlockHeight(blockHash) != null) { continue; } // Already-synced header.
+
+                    final Long headBlockHeaderHeight = _blockchain.getHeadBlockHeaderHeight();
+                    final Sha256Hash headBlockHeaderHash = _blockchain.getHeadBlockHeaderHash();
+                    final Sha256Hash previousBlockHash = blockHeader.getPreviousBlockHash();
+                    if (! Util.areEqual(headBlockHeaderHash, previousBlockHash)) { // Possible alternate chain.
+                        // TODO: Reorg triggering logic requires that all reorg headers are sent in a single batch; instead should track alternate headers so they can be received incrementally.
+                        final Long sharedParentBlockHeight = _blockchain.getBlockHeight(previousBlockHash);
+                        if (sharedParentBlockHeight == null) {
+                            Logger.info("Irrelevant header (" + blockHash + ") received from " + bitcoinNode + "; disconnecting.");
+                            bitcoinNode.disconnect();
+                            return;
+                        }
+
+                        final BlockHeaderValidator.BlockHeaderValidationResult validationResult = this.blockHeaderValidator.validateBlockHeader(blockHeader, sharedParentBlockHeight + 1L);
+                        if (! validationResult.isValid) {
+                            Logger.info("Invalid header (" + blockHash + ") received from " + bitcoinNode + "; disconnecting.");
+                            bitcoinNode.disconnect();
+                            return;
+                        }
+
+                        final ChainWork sharedParentChainWork = _blockchain.getChainWork(sharedParentBlockHeight);
+                        final ChainWork currentChainWork = _blockchain.getChainWork(headBlockHeaderHeight);
+                        final Difficulty difficulty = blockHeader.getDifficulty();
+                        final BlockWork blockWork = difficulty.calculateWork();
+                        MutableChainWork altWork = new MutableChainWork(sharedParentChainWork);
+                        altWork = altWork.add(blockWork);
+
+                        int nextHeaderIndex = count + 1;
+                        while (nextHeaderIndex < response.getCount()) {
+                            final BlockHeader nextBlockHeader = response.get(nextHeaderIndex);
+                            final Difficulty nextDifficulty = nextBlockHeader.getDifficulty();
+                            final BlockWork nextBlockWork = nextDifficulty.calculateWork();
+                            altWork = altWork.add(nextBlockWork);
+                            nextHeaderIndex += 1;
+                        }
+
+                        boolean shouldUndo = false;
+                        final int workCompareValue = currentChainWork.compareTo(altWork);
+                        if (workCompareValue < 0) {
+                            shouldUndo = true;
+                        }
+                        else if (workCompareValue == 0) {
+                            final BlockHeader headBlockHeader = _blockchain.getBlockHeader(headBlockHeaderHeight);
+                            final long age = _systemTime.getCurrentTimeInSeconds() - headBlockHeader.getTimestamp();
+                            if (age > 3600L) {
+                                shouldUndo = true;
+                            }
+                        }
+
+                        if (shouldUndo) {
+                            _undoToHeight(sharedParentBlockHeight);
+                        }
+                        else {
+                            Logger.info("Disregarding alternate chain with insufficient work: " + blockHash + ", altWork=" + altWork + ", currentWork=" + currentChainWork);
+                            break;
+                        }
+                    }
+
+                    final Long blockHeight = _blockchain.getHeadBlockHeaderHeight();
+
+                    final Long existingBlockHeight = _blockchain.getBlockHeight(blockHash);
+                    if (existingBlockHeight == null) {
+                        if (blockHeight > 0L) {
+                            final BlockHeaderValidator.BlockHeaderValidationResult validationResult = blockHeaderValidator.validateBlockHeader(blockHeader, blockHeight + 1L);
+                            if (! validationResult.isValid) {
+                                bitcoinNode.disconnect();
+                                Logger.debug(validationResult.errorMessage + " " + blockHash);
+                                hadInvalid = true;
+                                break;
+                            }
+                        }
+
+                        final Boolean result = _blockchain.addBlockHeader(blockHeader);
+                        if (! result) {
+                            bitcoinNode.disconnect();
+                            Logger.debug("Rejected: " + blockHash);
+                            hadInvalid = true;
+                            break;
+                        }
+
+                        count += 1;
+
+                        final Long nodeBlockHeight = bitcoinNode.getBlockHeight();
+                        bitcoinNode.setBlockHeight(Math.max(blockHeight, nodeBlockHeight));
+                    }
+                    else { // BlockHeader is already known.
+                        final Long nodeBlockHeight = bitcoinNode.getBlockHeight();
+                        bitcoinNode.setBlockHeight(Math.max(existingBlockHeight, nodeBlockHeight));
+                    }
+                }
+
+                final Sha256Hash headBlockHash = _blockchain.getHeadBlockHeaderHash();
+                Logger.info("Head: " + headBlockHash + " " + _blockchain.getHeadBlockHeaderHeight());
+
+                _headBlockHeaderHeightContainer.value = _blockchain.getHeadBlockHeaderHeight();
+                _headBlockHeightContainer.value = _blockchain.getHeadBlockHeight();
+
+                _synchronizationStatusHandler.recalculateState();
+
+                if (count > 0 && (! hadInvalid)) {
+                    if (count < RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT) {
+                        Logger.debug("Block Headers Complete.");
+                        try {
+                            _blockchain.save(_blockchainFile);
+                        }
+                        catch (final Exception exception) {
+                            Logger.debug(exception);
+                        }
+
+                        if (_blockchain.getHeadBlockHeight() < _blockchain.getHeadBlockHeaderHeight()) {
+                            _syncBlocks();
+                        }
+                    }
+                    else {
+                        final BlockFinderHashesBuilder blockFinderHashesBuilder = new BlockFinderHashesBuilder(_blockchain);
+                        final List<Sha256Hash> blockHashes = blockFinderHashesBuilder.createBlockHeaderFinderBlockHashes();
+                        bitcoinNode.requestBlockHeadersAfter(blockHashes, this, RequestPriority.NORMAL);
+                    }
+                }
+            }
+
+            @Override
+            public void onFailure(final RequestId requestId, final BitcoinNode bitcoinNode, final Sha256Hash blockHash) {
+                _syncBlocks();
+            }
+        };
 
         _addNewNodes(8);
 

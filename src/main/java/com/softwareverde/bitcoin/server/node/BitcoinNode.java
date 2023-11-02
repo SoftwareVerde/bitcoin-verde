@@ -1103,15 +1103,24 @@ public class BitcoinNode extends Node {
 
         if (blockHeaders.isEmpty()) { return; }
 
+        final boolean wasRequested = (! _downloadBlockHeadersRequests.isEmpty());
         final BlockHeader firstBlockHeader = blockHeaders.get(0);
-        final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_downloadBlockHeadersRequests, _failableRequests, firstBlockHeader.getPreviousBlockHash(), new AsyncCallbackExecutor<>() {
+        final AsyncCallbackExecutor<DownloadBlockHeadersCallback> callbackExecutor = new AsyncCallbackExecutor<>() {
             @Override
             public void onResult0(final PendingRequest<DownloadBlockHeadersCallback> pendingRequest) {
                 final DownloadBlockHeadersCallback callback = pendingRequest.callback;
                 final List<BlockHeader> blockHeadersOrNull = (allBlockHeadersAreValid ? blockHeaders : null);
                 callback.onResult(pendingRequest.requestId, BitcoinNode.this, blockHeadersOrNull);
             }
-        });
+        };
+        if (_downloadBlockHeadersRequests.containsKey(firstBlockHeader.getPreviousBlockHash())) {
+            BitcoinNodeUtil.executeAndClearCallbacks(_downloadBlockHeadersRequests, _failableRequests, firstBlockHeader.getPreviousBlockHash(), callbackExecutor);
+        }
+        else { // Trigger all callbacks since a blockFinder may have been requested (i.e. reorg detection).
+            for (final Sha256Hash blockHash : _downloadBlockHeadersRequests.getKeys()) {
+                BitcoinNodeUtil.executeAndClearCallbacks(_downloadBlockHeadersRequests, _failableRequests, blockHash, callbackExecutor);
+            }
+        }
 
         if ( (! wasRequested) && announceNewBlocksViaHeadersIsEnabled ) {
             Logger.trace(firstBlockHeader.getHash() + " was announced by " + BitcoinNode.this + ".");

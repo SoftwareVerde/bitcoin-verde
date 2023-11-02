@@ -1,20 +1,11 @@
 //package com.softwareverde.bitcoin.server.module.node.sync;
 //
-//import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 //import com.softwareverde.bitcoin.block.Block;
 //import com.softwareverde.bitcoin.block.BlockId;
 //import com.softwareverde.bitcoin.block.header.BlockHeader;
 //import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
-//import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-//import com.softwareverde.bitcoin.context.DifficultyCalculatorFactory;
-//import com.softwareverde.bitcoin.context.MultiConnectionDatabaseContext;
-//import com.softwareverde.bitcoin.context.NetworkTimeContext;
-//import com.softwareverde.bitcoin.context.NodeManagerContext;
-//import com.softwareverde.bitcoin.context.SystemTimeContext;
-//import com.softwareverde.bitcoin.context.ThreadPoolContext;
-//import com.softwareverde.bitcoin.context.UpgradeScheduleContext;
-//import com.softwareverde.bitcoin.context.core.BlockHeaderValidatorContext;
 //import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
+//import com.softwareverde.bitcoin.server.module.node.Blockchain;
 //import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 //import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 //import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -24,7 +15,6 @@
 //import com.softwareverde.bitcoin.server.node.BitcoinNode;
 //import com.softwareverde.bitcoin.server.node.RequestId;
 //import com.softwareverde.concurrent.service.PausableSleepyService;
-//import com.softwareverde.concurrent.threadpool.ThreadPool;
 //import com.softwareverde.constable.list.List;
 //import com.softwareverde.constable.list.immutable.ImmutableList;
 //import com.softwareverde.constable.list.mutable.MutableArrayList;
@@ -32,7 +22,6 @@
 //import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 //import com.softwareverde.database.DatabaseException;
 //import com.softwareverde.logging.Logger;
-//import com.softwareverde.network.time.VolatileNetworkTime;
 //import com.softwareverde.util.Util;
 //import com.softwareverde.util.timer.MilliTimer;
 //import com.softwareverde.util.type.time.SystemTime;
@@ -40,16 +29,27 @@
 //import java.util.concurrent.atomic.AtomicBoolean;
 //
 //public class BlockHeaderDownloader extends PausableSleepyService {
-//    public interface Context extends MultiConnectionDatabaseContext, NetworkTimeContext, NodeManagerContext, SystemTimeContext, ThreadPoolContext, DifficultyCalculatorFactory, UpgradeScheduleContext { }
-//
 //    public interface NewBlockHeadersAvailableCallback {
 //        void onNewHeadersReceived(BitcoinNode bitcoinNode, List<BlockHeader> blockHeaders);
 //    }
 //
 //    public static final Long MAX_TIMEOUT_MS = (15L * 1000L); // 15 Seconds...
 //
-//    protected final Context _context;
+//    protected static void runAsync(final Runnable runnable) {
+//        final Thread thread = new Thread(runnable);
+//        thread.setName("BlockHeaderDownloader Callback");
+//        thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+//            @Override
+//            public void uncaughtException(final Thread thread, final Throwable exception) {
+//                Logger.debug(exception);
+//            }
+//        });
+//        thread.start();
+//    }
 //
+//    protected final Blockchain _blockchain;
+//    protected final BitcoinNodeManager _bitcoinNodeManager;
+//    protected final BlockHeaderValidator _blockHeaderValidator;
 //    protected final BitcoinNodeBlockInventoryTracker _blockInventoryTracker;
 //    protected final BitcoinNode.DownloadBlockHeadersCallback _downloadBlockHeadersCallback;
 //
@@ -60,7 +60,6 @@
 //    protected final Object _genesisBlockPin = new Object();
 //    protected Boolean _hasGenesisBlock = false;
 //
-//    protected Long _headBlockHeight = 0L;
 //    protected Sha256Hash _lastBlockHash = BlockHeader.GENESIS_BLOCK_HASH;
 //    protected BlockHeader _lastBlockHeader = null;
 //    protected Long _minBlockTimestamp;
@@ -76,8 +75,7 @@
 //
 //        final NewBlockHeadersAvailableCallback newBlockHeaderAvailableCallback = _newBlockHeaderAvailableCallback;
 //        if (newBlockHeaderAvailableCallback != null) {
-//            final ThreadPool threadPool = _context.getThreadPool();
-//            threadPool.execute(new Runnable() {
+//            BlockHeaderDownloader.runAsync(new Runnable() {
 //                @Override
 //                public void run() {
 //                    newBlockHeaderAvailableCallback.onNewHeadersReceived(bitcoinNode, blockHeaders);
@@ -86,19 +84,15 @@
 //        }
 //    }
 //
-//    protected Boolean _checkForGenesisBlockHeader() throws DatabaseException {
-//        final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
-//        try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-//            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-//            final Sha256Hash lastKnownHash = blockHeaderDatabaseManager.getHeadBlockHeaderHash();
+//    protected Boolean _checkForGenesisBlockHeader() {
+//        final Sha256Hash lastKnownHash = _blockchain.getHeadBlockHeaderHash();
 //
-//            synchronized (_genesisBlockPin) {
-//                _hasGenesisBlock = (lastKnownHash != null);
-//                _genesisBlockPin.notifyAll();
-//            }
-//
-//            return _hasGenesisBlock;
+//        synchronized (_genesisBlockPin) {
+//            _hasGenesisBlock = (lastKnownHash != null);
+//            _genesisBlockPin.notifyAll();
 //        }
+//
+//        return _hasGenesisBlock;
 //    }
 //
 //    protected void _downloadGenesisBlock() {
@@ -110,10 +104,7 @@
 //            }
 //        };
 //
-//        final ThreadPool threadPool = _context.getThreadPool();
-//
-//        final BitcoinNodeManager bitcoinNodeManager = _context.getBitcoinNodeManager();
-//        final List<BitcoinNode> bitcoinNodes = bitcoinNodeManager.getNodes(new NodeFilter() {
+//        final List<BitcoinNode> bitcoinNodes = _bitcoinNodeManager.getNodes(new NodeFilter() {
 //            @Override
 //            public Boolean meetsCriteria(final BitcoinNode bitcoinNode) {
 //                final Boolean hasBlockchainEnabled = bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
@@ -122,7 +113,7 @@
 //        });
 //
 //        if (bitcoinNodes.isEmpty()) {
-//            threadPool.execute(retryGenesisBlockDownload);
+//            BlockHeaderDownloader.runAsync(retryGenesisBlockDownload);
 //            return;
 //        }
 //
@@ -140,19 +131,12 @@
 //                    final Sha256Hash blockHash = block.getHash();
 //                    Logger.trace("GENESIS RECEIVED: " + blockHash);
 //
-//                    final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
-//
 //                    boolean genesisBlockWasStored = false;
 //                    synchronized (BlockHeaderDatabaseManager.MUTEX) {
-//                        try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-//                            genesisBlockWasStored = _validateAndStoreBlockHeader(block, _headBlockHeight, databaseManager);
-//                        }
-//                        catch (final DatabaseException databaseException) {
-//                            Logger.debug(databaseException);
-//                        }
+//                        genesisBlockWasStored = _validateAndStoreBlockHeader(block);
 //                    }
 //                    if (! genesisBlockWasStored) {
-//                        threadPool.execute(retryGenesisBlockDownload);
+//                        BlockHeaderDownloader.runAsync(retryGenesisBlockDownload);
 //                        return;
 //                    }
 //
@@ -166,7 +150,7 @@
 //
 //                @Override
 //                public void onFailure(final RequestId requestId, final BitcoinNode bitcoinNode, final Sha256Hash blockHash) {
-//                    threadPool.execute(retryGenesisBlockDownload);
+//                    BlockHeaderDownloader.runAsync(retryGenesisBlockDownload);
 //                }
 //            });
 //        }
@@ -182,53 +166,35 @@
 //        }
 //    }
 //
-//    protected Boolean _validateAndStoreBlockHeader(final BlockHeader blockHeader, final Long blockHeight, final DatabaseManager databaseManager) throws DatabaseException {
+//    protected Boolean _validateAndStoreBlockHeader(final BlockHeader blockHeader) {
 //        final Sha256Hash blockHash = blockHeader.getHash();
-//
 //        if (! blockHeader.isValid()) {
-//            Logger.info("Invalid BlockHeader: " + blockHash);
+//            Logger.info("Invalid BlockHeader: " + blockHeader.getHash());
 //            return false;
 //        }
 //
-//        final VolatileNetworkTime networkTime = _context.getNetworkTime();
-//        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+//        final Sha256Hash headBlockHash = _blockchain.getHeadBlockHeaderHash();
+//        final Long blockHeight = _blockchain.getHeadBlockHeaderHeight() + 1L;
 //
-//        databaseManager.startTransaction();
-//        final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
-//
-//        if (blockId == null) {
-//            Logger.info("Error storing BlockHeader: " + blockHash);
-//            databaseManager.rollbackTransaction();
+//        if (! Util.areEqual(headBlockHash, blockHeader.getPreviousBlockHash())) {
+//            Logger.info("Out of order blockHeader: " + blockHash + " " + blockHeight);
 //            return false;
 //        }
 //
-//        final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
-//        final DifficultyCalculatorFactory difficultyCalculatorFactory = _context;
-//        final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
-//        final BlockHeaderValidatorContext blockHeaderValidatorContext = new BlockHeaderValidatorContext(blockchainSegmentId, databaseManager, networkTime, difficultyCalculatorFactory, upgradeSchedule);
-//
-//        final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(blockHeaderValidatorContext);
-//
-//        final BlockHeaderValidator.BlockHeaderValidationResult blockHeaderValidationResult = blockHeaderValidator.validateBlockHeader(blockHeader, blockHeight);
+//        final BlockHeaderValidator.BlockHeaderValidationResult blockHeaderValidationResult = _blockHeaderValidator.validateBlockHeader(blockHeader, blockHeight);
 //        if (! blockHeaderValidationResult.isValid) {
 //            Logger.info("Invalid BlockHeader: " + blockHeaderValidationResult.errorMessage + " (" + blockHash + ")");
-//            databaseManager.rollbackTransaction();
 //            return false;
 //        }
 //
-//        _headBlockHeight = Math.max(blockHeight, _headBlockHeight);
-//
-//        databaseManager.commitTransaction();
+//        _blockchain.addBlockHeader(blockHeader);
 //
 //        return true;
 //    }
 //
-//    protected Boolean _validateAndStoreBlockHeaders(final List<BlockHeader> blockHeaders, final DatabaseManager databaseManager, final MutableList<Sha256Hash> nullableInvalidBlockHashes) throws DatabaseException {
+//    protected Boolean _validateAndStoreBlockHeaders(final List<BlockHeader> blockHeaders, final MutableList<Sha256Hash> nullableInvalidBlockHashes) throws DatabaseException {
 //        if (blockHeaders.isEmpty()) { return true; }
 //
-//        final VolatileNetworkTime networkTime = _context.getNetworkTime();
-//        final DifficultyCalculatorFactory difficultyCalculatorFactory = _context;
-//        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 //
 //        { // Validate blockHeaders are sequential...
 //            final BlockHeader firstBlockHeader = blockHeaders.get(0);
@@ -240,8 +206,8 @@
 //                return false;
 //            }
 //
-//            final BlockId previousBlockId = blockHeaderDatabaseManager.getBlockHeaderId(firstBlockHeader.getPreviousBlockHash());
-//            final boolean previousBlockExists = (previousBlockId != null);
+//            final Long previousBlockHeight = _blockchain.getBlockHeight(firstBlockHeader.getPreviousBlockHash());
+//            final boolean previousBlockExists = (previousBlockHeight != null);
 //            if (! previousBlockExists) {
 //                final Boolean isGenesisBlock = Util.areEqual(BlockHeader.GENESIS_BLOCK_HASH, firstBlockHeader.getHash());
 //                if (! isGenesisBlock) {
@@ -253,10 +219,8 @@
 //            else {
 //                final Boolean isContentiousBlock = blockHeaderDatabaseManager.hasChildBlock(previousBlockId);
 //                if (isContentiousBlock) {
-//                    // BlockHeaders cannot be batched due to potential forks...
-//                    long blockHeight = (blockHeaderDatabaseManager.getBlockHeight(previousBlockId) + 1L);
 //                    for (final BlockHeader blockHeader : blockHeaders) {
-//                        final Boolean isValid = _validateAndStoreBlockHeader(blockHeader, blockHeight, databaseManager);
+//                        final Boolean isValid = _validateAndStoreBlockHeader(blockHeader);
 //                        if (! isValid) {
 //                            if (nullableInvalidBlockHashes != null) {
 //                                final Sha256Hash blockHash = blockHeader.getHash();
@@ -264,7 +228,6 @@
 //                            }
 //                            return false;
 //                        }
-//                        blockHeight += 1L;
 //                    }
 //                    return true;
 //                }
@@ -306,17 +269,9 @@
 //        final BlockId firstBlockHeaderId = blockIds.get(0);
 //        final Long firstBlockHeight = blockHeaderDatabaseManager.getBlockHeight(firstBlockHeaderId);
 //
-//        final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(firstBlockHeaderId);
-//
-//
-//        final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
-//        final BlockHeaderValidatorContext blockHeaderValidatorContext = new BlockHeaderValidatorContext(blockchainSegmentId, databaseManager, networkTime, difficultyCalculatorFactory, upgradeSchedule);
-//
-//        final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(blockHeaderValidatorContext);
-//
 //        long nextBlockHeight = firstBlockHeight;
 //        for (final BlockHeader blockHeader : blockHeaders) {
-//            final BlockHeaderValidator.BlockHeaderValidationResult blockHeaderValidationResult = blockHeaderValidator.validateBlockHeader(blockHeader, nextBlockHeight);
+//            final BlockHeaderValidator.BlockHeaderValidationResult blockHeaderValidationResult = _blockHeaderValidator.validateBlockHeader(blockHeader, nextBlockHeight);
 //            if (!blockHeaderValidationResult.isValid) {
 //                Logger.info("Invalid BlockHeader: " + blockHeaderValidationResult.errorMessage);
 //                databaseManager.rollbackTransaction();
@@ -407,13 +362,13 @@
 //        return true;
 //    }
 //
-//    public BlockHeaderDownloader(final Context context, final BitcoinNodeBlockInventoryTracker blockInventoryTracker) {
-//        _context = context;
+//    public BlockHeaderDownloader(final BlockHeaderValidator blockHeaderValidator, final BitcoinNodeBlockInventoryTracker blockInventoryTracker) {
+//        _blockHeaderValidator = blockHeaderValidator;
 //
 //        _blockInventoryTracker = blockInventoryTracker;
 //        _timer = new MilliTimer();
 //
-//        final SystemTime systemTime = _context.getSystemTime();
+//        final SystemTime systemTime = new SystemTime();
 //        _minBlockTimestamp = (systemTime.getCurrentTimeInSeconds() - 3600L); // Default to an hour ago...
 //
 //        _downloadBlockHeadersCallback = new BitcoinNode.DownloadBlockHeadersCallback() {
@@ -432,8 +387,7 @@
 //
 //                    final NewBlockHeadersAvailableCallback newBlockHeaderAvailableCallback = _newBlockHeaderAvailableCallback;
 //                    if (newBlockHeaderAvailableCallback != null) {
-//                        final ThreadPool threadPool = _context.getThreadPool();
-//                        threadPool.execute(new Runnable() {
+//                        BlockHeaderDownloader.runAsync(new Runnable() {
 //                            @Override
 //                            public void run() {
 //                                newBlockHeaderAvailableCallback.onNewHeadersReceived(bitcoinNode, blockHeaders);

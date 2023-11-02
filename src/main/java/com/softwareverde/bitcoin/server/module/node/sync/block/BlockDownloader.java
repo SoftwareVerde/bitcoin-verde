@@ -7,7 +7,6 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.RequestId;
 import com.softwareverde.bitcoin.server.node.RequestPriority;
 import com.softwareverde.concurrent.service.PausableSleepyService;
-import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -37,7 +36,18 @@ public class BlockDownloader extends PausableSleepyService {
         void clearQueue();
     }
 
-    protected final ThreadPool _threadPool;
+    protected static void runAsync(final Runnable runnable) {
+        final Thread thread = new Thread(runnable);
+        thread.setName("BlockDownloader Callback");
+        thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+            @Override
+            public void uncaughtException(final Thread thread, final Throwable exception) {
+                Logger.debug(exception);
+            }
+        });
+        thread.start();
+    }
+
     protected final ConcurrentSkipListSet<PendingBlockInventory> _downloadBlockQueue;
     protected final PendingBlockStore _pendingBlockStore;
     protected final BitcoinNodeCollector _bitcoinNodeCollector;
@@ -265,7 +275,7 @@ public class BlockDownloader extends PausableSleepyService {
 
                     final BlockDownloadCallback blockDownloadCallback = _blockDownloadCallback;
                     if (blockDownloadCallback != null) {
-                        _threadPool.execute(new Runnable() {
+                        BlockDownloader.runAsync(new Runnable() {
                             @Override
                             public void run() {
                                 blockDownloadCallback.onBlockDownloaded(block, bitcoinNode);
@@ -295,11 +305,10 @@ public class BlockDownloader extends PausableSleepyService {
     @Override
     protected void _onSleep() { }
 
-    public BlockDownloader(final PendingBlockStore pendingBlockStore, final BitcoinNodeCollector bitcoinNodeCollector, final BitcoinNodeBlockInventoryTracker blockInventoryTracker, final BlockDownloadPlanner blockDownloadPlanner, final ThreadPool threadPool) {
-        _threadPool = threadPool;
+    public BlockDownloader(final PendingBlockStore pendingBlockStore, final BitcoinNodeCollector bitcoinNodeCollector, final BitcoinNodeBlockInventoryTracker blockInventoryTracker, final BlockDownloadPlanner blockDownloadPlanner) {
         _pendingBlockStore = pendingBlockStore;
         _bitcoinNodeCollector = bitcoinNodeCollector;
-        _downloadBlockQueue = new ConcurrentSkipListSet<>(new Comparator<PendingBlockInventory>() {
+        _downloadBlockQueue = new ConcurrentSkipListSet<>(new Comparator<>() {
             @Override
             public int compare(final PendingBlockInventory pendingBlockInventory0, final PendingBlockInventory pendingBlockInventory1) {
                 if (pendingBlockInventory0 == pendingBlockInventory1) { return 0; }
@@ -377,7 +386,7 @@ public class BlockDownloader extends PausableSleepyService {
 
         final BlockDownloadCallback blockDownloadCallback = _blockDownloadCallback;
         if (blockDownloadCallback != null) {
-            _threadPool.execute(new Runnable() {
+            BlockDownloader.runAsync(new Runnable() {
                 @Override
                 public void run() {
                     blockDownloadCallback.onBlockDownloaded(block, null);

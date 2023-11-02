@@ -5,7 +5,6 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
 import com.softwareverde.bitcoin.server.module.node.Blockchain;
 import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -44,8 +43,8 @@ public class DifficultyCalculator {
         final long blockTimestamp = parentBlockHeader.getTimestamp();
         final long previousBlockTimestamp = lastAdjustedBlockHeader.getTimestamp();
 
-        Logger.trace(DateUtil.Utc.timestampToDatetimeString(blockTimestamp * 1000L));
-        Logger.trace(DateUtil.Utc.timestampToDatetimeString(previousBlockTimestamp * 1000L));
+        // Logger.trace(DateUtil.Utc.timestampToDatetimeString(blockTimestamp * 1000L));
+        // Logger.trace(DateUtil.Utc.timestampToDatetimeString(previousBlockTimestamp * 1000L));
 
         //  3. Calculate the difference between the network-time and the time of the 2015th-parent block ("secondsElapsed"). (NOTE: 2015 instead of 2016 due to protocol bug.)
         final long secondsElapsed = (blockTimestamp - previousBlockTimestamp);
@@ -95,7 +94,7 @@ public class DifficultyCalculator {
                 return minimumDifficulty;
             }
 
-            Logger.debug("Emergency Difficulty Adjustment: BlockHeight: " + forBlockHeight + " Original Difficulty: " + previousBlockHeader.getDifficulty() + " New Difficulty: " + newDifficulty);
+            Logger.trace("Emergency Difficulty Adjustment: BlockHeight: " + forBlockHeight + " Original Difficulty: " + previousBlockHeader.getDifficulty() + " New Difficulty: " + newDifficulty);
             return newDifficulty;
         }
 

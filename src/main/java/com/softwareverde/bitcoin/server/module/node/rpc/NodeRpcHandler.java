@@ -1777,7 +1777,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             nodeJson.put("localHost", (localNodeIpAddress != null ? localNodeIpAddress.getIp() : null));
             nodeJson.put("localPort", (localNodeIpAddress != null ? localNodeIpAddress.getPort() : null));
 
-            nodeJson.put("handshakeIsComplete", (bitcoinNode.handshakeIsComplete() ? 1 : 0));
+            nodeJson.put("handshakeIsComplete", (bitcoinNode.isHandshakeComplete() ? 1 : 0));
             nodeJson.put("id", bitcoinNode.getId());
 
             final Json featuresJson = new Json(false);

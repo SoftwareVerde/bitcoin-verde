@@ -201,7 +201,7 @@ public class BlockStoreCore implements BlockStore {
         _blockInflater = blockInflater;
         _blockDeflater = blockDeflater;
 
-        _bucketDb = new BucketDb<>(_blockDataDirectory, new BlockBucketDbEntryInflater(), 14, 1024 * 12, 1, 0L, 0L);
+        _bucketDb = new BucketDb<>(_blockDataDirectory, new Sha256ByteArrayBucketEntryInflater(), 14, 1024 * 12, 1, 0L, 0L);
     }
 
     public void open() throws Exception {
@@ -310,43 +310,5 @@ public class BlockStoreCore implements BlockStore {
     @Override
     public File getBlockDataDirectory() {
         return _blockDataDirectory;
-    }
-}
-
-class BlockBucketDbEntryInflater implements BucketDb.BucketEntryInflater<Sha256Hash, ByteArray> {
-
-    @Override
-    public Sha256Hash getHash(final Sha256Hash bytes) {
-        return bytes;
-    }
-
-    @Override
-    public int getValueByteCount(final ByteArray blockBytes) {
-        return blockBytes.getByteCount();
-    }
-
-    @Override
-    public Sha256Hash keyFromBytes(final ByteArray bytes) {
-        return Sha256Hash.wrap(bytes.getBytes());
-    }
-
-    @Override
-    public ByteArray keyToBytes(final Sha256Hash bytes) {
-        return bytes;
-    }
-
-    @Override
-    public int getKeyByteCount() {
-        return Sha256Hash.BYTE_COUNT;
-    }
-
-    @Override
-    public ByteArray valueFromBytes(final ByteArray compressedBytes) {
-        return compressedBytes;
-    }
-
-    @Override
-    public ByteArray valueToBytes(final ByteArray blockBytes) {
-        return blockBytes;
     }
 }

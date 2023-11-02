@@ -97,6 +97,7 @@ public class TransactionIndexer implements AutoCloseable {
     public synchronized void indexTransactions(final Block block, final Long blockHeight) throws Exception {
         final NanoTimer indexTimer = new NanoTimer();
         final NanoTimer databaseTimer = new NanoTimer();
+        double txIdDbTime = 0D;
 
         indexTimer.start();
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
@@ -111,12 +112,16 @@ public class TransactionIndexer implements AutoCloseable {
 
         boolean isCoinbase = true;
         for (final Transaction transaction : transactions) {
+            final NanoTimer nanoTimer = new NanoTimer();
+            nanoTimer.start();
             final Sha256Hash transactionHash = transaction.getHash();
             Long transactionId = _transactionIdDb.get(transactionHash);
             if (transactionId == null) {
                 transactionId = _lastTransactionId.incrementAndGet();
                 _transactionIdDb.put(transactionHash, transactionId);
             }
+            nanoTimer.stop();
+            txIdDbTime += nanoTimer.getMillisecondsElapsed();
 
             final int transactionByteCount = transaction.getByteCount();
             final IndexedTransaction indexedTransaction = new IndexedTransaction(transactionHash, blockHeight, diskOffset, transactionByteCount);
@@ -142,6 +147,7 @@ public class TransactionIndexer implements AutoCloseable {
 
             if (! isCoinbase) {
                 for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+                    nanoTimer.start();
                     // Index which Transaction the prevout was spent by.
                     final Sha256Hash prevoutTransactionHash = transactionInput.getPreviousOutputTransactionHash();
                     Long prevoutTransactionId = _transactionIdDb.get(prevoutTransactionHash);
@@ -152,6 +158,8 @@ public class TransactionIndexer implements AutoCloseable {
                     final Integer prevoutIndex = transactionInput.getPreviousOutputIndex();
                     final ShortTransactionOutputIdentifier previousOutputIdentifier = new ShortTransactionOutputIdentifier(prevoutTransactionId, prevoutIndex);
                     _spentOutputsDb.put(previousOutputIdentifier, transactionId);
+                    nanoTimer.stop();
+                    txIdDbTime += nanoTimer.getMillisecondsElapsed();
                 }
             }
 
@@ -214,7 +222,7 @@ public class TransactionIndexer implements AutoCloseable {
         }
         databaseTimer.stop();
 
-        Logger.debug(blockHeight + ": " + transactionCount + " Tx; Indexing: " + indexTimer.getMillisecondsElapsed() + "ms, Database: " + databaseTimer.getMillisecondsElapsed() + "ms.");
+        Logger.debug(blockHeight + ": " + transactionCount + " Tx; Indexing: " + indexTimer.getMillisecondsElapsed() + "ms, Database: " + databaseTimer.getMillisecondsElapsed() + "ms; txIdDbTime=" + txIdDbTime);
     }
 
     public ShortTransactionOutputIdentifier getShortTransactionOutputIdentifier(final TransactionOutputIdentifier transactionOutputIdentifier) throws Exception {

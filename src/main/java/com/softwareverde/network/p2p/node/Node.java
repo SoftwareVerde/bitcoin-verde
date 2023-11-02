@@ -460,7 +460,7 @@ public abstract class Node {
         _handshake();
     }
 
-    public Boolean handshakeIsComplete() {
+    public Boolean isHandshakeComplete() {
         return _handshakeIsComplete;
     }
 
