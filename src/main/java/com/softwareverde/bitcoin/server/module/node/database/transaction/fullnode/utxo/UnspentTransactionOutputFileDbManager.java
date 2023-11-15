@@ -27,7 +27,7 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
     protected final WorkerManager _commitWorker;
 
     protected static BucketDb<TransactionOutputIdentifier, UnspentTransactionOutput> createBucketDb(final File dataDirectory, final Long maxBucketMemoryByteCount, final Long maxDatFileMemoryByteCount) {
-        return new BucketDb<>(dataDirectory, new UnspentTransactionOutputEntryInflater(), 17, 2 * 1024 * 1024, 8, maxBucketMemoryByteCount, maxDatFileMemoryByteCount);
+        return new BucketDb<>(dataDirectory, new UnspentTransactionOutputEntryInflater(), 17, 2 * 1024 * 1024, 8, maxBucketMemoryByteCount, maxDatFileMemoryByteCount, 64);
     }
 
     public UnspentTransactionOutputFileDbManager(final File dataDirectory, final Boolean allowMemoryBuckets, final Boolean allowMemoryDatFile) {

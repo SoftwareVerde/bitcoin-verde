@@ -69,19 +69,19 @@ public class TransactionIndexer implements AutoCloseable {
         final int pageSize = 16384;
         final long bucketMemorySize = 0L; // Unstable: ByteUtil.Unit.Binary.GIBIBYTES / 4L;
 
-        _transactionIdDb = new BucketDb<>(transactionIdDbDirectory, new TransactionIdEntryInflater(), 20, 1024 * 1024, 8, bucketMemorySize, 0L);
+        _transactionIdDb = new BucketDb<>(transactionIdDbDirectory, new TransactionIdEntryInflater(), 20, 1024 * 1024, 8, bucketMemorySize, 0L, 64);
         _transactionIdDb.setBucketFilePageSize(pageSize);
         _transactionIdDb.open();
 
-        _transactionDb = new BucketDb<>(transactionDbDirectory, new IndexedTransactionEntryInflater(), 20, 1024 * 1024, 8, bucketMemorySize, 0L);
+        _transactionDb = new BucketDb<>(transactionDbDirectory, new IndexedTransactionEntryInflater(), 20, 1024 * 1024, 8, bucketMemorySize, 0L, 64);
         _transactionDb.setBucketFilePageSize(pageSize);
         _transactionDb.open();
 
-        _addressDb = new BucketDb<>(addressDbDirectory, new IndexedAddressEntryInflater(), 20, 1024 * 1024, 16, bucketMemorySize, 0L);
+        _addressDb = new BucketDb<>(addressDbDirectory, new IndexedAddressEntryInflater(), 20, 16 * 1024 * 1024, 16, bucketMemorySize, 0L, 64);
         _addressDb.setBucketFilePageSize(pageSize);
         _addressDb.open();
 
-        _spentOutputsDb = new BucketDb<>(spendOutputsDbDirectory, new IndexedSpentOutputsInflater(), 20, 1024 * 12, 16, bucketMemorySize, 0L);
+        _spentOutputsDb = new BucketDb<>(spendOutputsDbDirectory, new IndexedSpentOutputsInflater(), 20, 1024 * 12, 16, bucketMemorySize, 0L, 64);
         _spentOutputsDb.setBucketFilePageSize(pageSize);
         _spentOutputsDb.open();
 

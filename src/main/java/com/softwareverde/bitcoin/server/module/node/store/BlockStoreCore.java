@@ -201,7 +201,7 @@ public class BlockStoreCore implements BlockStore {
         _blockInflater = blockInflater;
         _blockDeflater = blockDeflater;
 
-        _bucketDb = new BucketDb<>(_blockDataDirectory, new Sha256ByteArrayBucketEntryInflater(), 14, 1024 * 12, 1, 0L, 0L);
+        _bucketDb = new BucketDb<>(_blockDataDirectory, new Sha256ByteArrayBucketEntryInflater(), 14, 1024 * 12, 1, 0L, 0L, 64);
     }
 
     public void open() throws Exception {
