@@ -1,17 +1,12 @@
 package com.softwareverde.bitcoin.server.module.node;
 
+import com.google.leveldb.LevelDb;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.btreedb.BucketDb;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
-public class TransactionIdEntryInflater implements BucketDb.BucketEntryInflater<Sha256Hash, Long> {
-    @Override
-    public Sha256Hash getHash(final Sha256Hash bytes) {
-        return bytes;
-    }
-
+public class TransactionIdEntryInflater implements LevelDb.EntryInflater<Sha256Hash, Long> {
     @Override
     public Sha256Hash keyFromBytes(final ByteArray bytes) {
         return Sha256Hash.wrap(bytes.getBytes());
@@ -23,22 +18,16 @@ public class TransactionIdEntryInflater implements BucketDb.BucketEntryInflater<
     }
 
     @Override
-    public int getKeyByteCount() {
-        return Sha256Hash.BYTE_COUNT;
-    }
-
-    @Override
     public Long valueFromBytes(final ByteArray bytes) {
+        if (bytes == null) { return null; }
+        if (bytes.isEmpty()) { return null; }
         return ByteUtil.bytesToLong(bytes);
     }
 
     @Override
     public ByteArray valueToBytes(final Long value) {
+        if (value == null) { return null; }
         return MutableByteArray.wrap(ByteUtil.integerToBytes(value)); // NOTE: Only stored via 4 bytes.
     }
 
-    @Override
-    public int getValueByteCount(final Long value) {
-        return 4; // NOTE: Only stored via 4 bytes.
-    }
 }

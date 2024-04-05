@@ -230,7 +230,7 @@ public class NodeModule {
 
             final long fileByteCount = inputFile.getByteCount();
 
-            final int keyByteCount = unspentTransactionOutputEntryInflater.getKeyByteCount();
+            final int keyByteCount = Sha256Hash.BYTE_COUNT + 4;
             final MutableByteArray keyBuffer = new MutableByteArray(keyByteCount);
             final MutableByteArray intBuffer = new MutableByteArray(4);
 
@@ -307,7 +307,7 @@ public class NodeModule {
             public void run() {
                 if (_isShuttingDown.get()) { return; }
 
-                Logger.info("Syncing blocks.");
+                // Logger.info("Syncing blocks.");
 
                 final long trustedBlockHeight = _bitcoinProperties.getTrustedBlockHeight();
                 final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(_upgradeSchedule, _blockchain, _networkTime, _difficultyCalculator);
@@ -820,7 +820,7 @@ public class NodeModule {
         }
 
         final File utxoDbDirectory = new File(dataDirectory, "utxo");
-        _unspentTransactionOutputDatabaseManager = new UnspentTransactionOutputFileDbManager(utxoDbDirectory, true, false);
+        _unspentTransactionOutputDatabaseManager = new UnspentTransactionOutputFileDbManager(utxoDbDirectory);
         try {
             Logger.info("Loading FileDB");
             _unspentTransactionOutputDatabaseManager.open();

@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.store;
 
+import com.google.leveldb.LevelDb;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockInflater;
@@ -10,7 +11,7 @@ import com.softwareverde.bitcoin.inflater.BlockHeaderInflaters;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.btreedb.BucketDb;
+import com.softwareverde.btreedb.file.ByteArrayInputFile;
 import com.softwareverde.btreedb.file.InputFile;
 import com.softwareverde.btreedb.file.InputFileStream;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -19,7 +20,6 @@ import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.util.Container;
 import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.Util;
 
@@ -48,7 +48,7 @@ public class BlockStoreCore implements BlockStore {
     protected final BlockDeflater _blockDeflater;
     protected final File _dataDirectory;
     protected final File _blockDataDirectory;
-    protected final BucketDb<Sha256Hash, ByteArray> _bucketDb;
+    protected final LevelDb<Sha256Hash, ByteArray> _blockDb;
 
     protected ByteArray _readCompressedInternal(final InputFile inputFile) throws ZipException {
         int byteCount = 0;
@@ -147,15 +147,9 @@ public class BlockStoreCore implements BlockStore {
         if (_blockDataDirectory == null) { return null; }
 
         try {
-            final Container<ByteArray> bytesContainer = new Container<>();
-            _bucketDb.stream(blockHash, new BucketDb.StreamVisitor() {
-                @Override
-                public void run(final InputFile stream) throws Exception {
-                    bytesContainer.value = _readCompressedInternal(stream);
-                }
-            });
-
-            return bytesContainer.value;
+            final ByteArray blockBytes = _blockDb.get(blockHash);
+            final InputFile inputFile = new ByteArrayInputFile(blockHash.toString(), blockBytes);
+            return _readCompressedInternal(inputFile);
         }
         catch (final Exception exception) {
             Logger.warn(exception);
@@ -167,15 +161,9 @@ public class BlockStoreCore implements BlockStore {
         if (_blockDataDirectory == null) { return null; }
 
         try {
-            final Container<ByteArray> bytesContainer = new Container<>();
-            _bucketDb.stream(blockHash, new BucketDb.StreamVisitor() {
-                @Override
-                public void run(final InputFile stream) throws Exception {
-                    bytesContainer.value = _readCompressedChunkInternal(stream, diskOffset, byteCount);
-                }
-            });
-
-            return bytesContainer.value;
+            final ByteArray blockBytes = _blockDb.get(blockHash);
+            final InputFile inputFile = new ByteArrayInputFile(blockHash.toString(), blockBytes);
+            return _readCompressedChunkInternal(inputFile, diskOffset, byteCount);
         }
         catch (final Exception exception) {
             Logger.warn(exception);
@@ -200,8 +188,8 @@ public class BlockStoreCore implements BlockStore {
         _blockHeaderInflater = blockHeaderInflater;
         _blockInflater = blockInflater;
         _blockDeflater = blockDeflater;
-
-        _bucketDb = new BucketDb<>(_blockDataDirectory, new Sha256ByteArrayBucketEntryInflater(), 14, 1024 * 12, 1, 0L, 0L, 64);
+        
+        _blockDb = new LevelDb<>(_blockDataDirectory, new Sha256ByteArrayBucketEntryInflater());
     }
 
     public void open() throws Exception {
@@ -209,11 +197,11 @@ public class BlockStoreCore implements BlockStore {
             _blockDataDirectory.mkdirs();
         }
 
-        _bucketDb.open();
+        _blockDb.open();
     }
 
     public void close() throws Exception {
-        _bucketDb.close();
+        _blockDb.close();
     }
 
     @Override
@@ -227,8 +215,8 @@ public class BlockStoreCore implements BlockStore {
         final ByteArray compressedBytes = IoUtil.compress(blockBytes);
 
         try {
-            _bucketDb.put(blockHash, compressedBytes);
-            _bucketDb.commit();
+            _blockDb.put(blockHash, compressedBytes);
+            _blockDb.commit();
             return true;
         }
         catch (final Exception exception) {
@@ -240,9 +228,9 @@ public class BlockStoreCore implements BlockStore {
     @Override
     public synchronized void removeBlock(final Sha256Hash blockHash, final Long blockHeight) {
         if (_blockDataDirectory == null) { return; }
-        _bucketDb.delete(blockHash);
+        _blockDb.remove(blockHash);
         try {
-            _bucketDb.commit();
+            _blockDb.commit();
         }
         catch (final Exception exception) {
             Logger.debug(exception);
@@ -282,7 +270,7 @@ public class BlockStoreCore implements BlockStore {
     public Boolean blockExists(final Sha256Hash blockHash, final Long blockHeight) {
         if (_blockDataDirectory == null) { return false; }
         try {
-            return _bucketDb.containsKey(blockHash);
+            return _blockDb.containsKey(blockHash);
         }
         catch (final Exception exception) {
             Logger.debug(exception);

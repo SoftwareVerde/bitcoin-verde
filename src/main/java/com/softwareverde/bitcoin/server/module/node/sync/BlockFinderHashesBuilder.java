@@ -7,12 +7,12 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.util.Util;
 
 public class BlockFinderHashesBuilder {
     protected final Blockchain _blockchain;
 
     protected List<Sha256Hash> _createBlockFinderBlockHashes(final Boolean processedBlocksOnly, final Integer offset) {
-        final Long maxBlockHeight;
         final Sha256Hash headBlockHash;
         {
             final Sha256Hash blockHash;
@@ -26,16 +26,12 @@ public class BlockFinderHashesBuilder {
             final BlockHeader blockHeader = _blockchain.getParentBlockHeader(blockHash, offset);
             headBlockHash = (blockHeader != null ? blockHeader.getHash() : null);
         }
-        if (headBlockHash != null) {
-            maxBlockHeight = _blockchain.getBlockHeight(headBlockHash);
-        }
-        else {
-            maxBlockHeight = 0L;
-        }
+
+        final Long maxBlockHeight = Util.coalesce(_blockchain.getBlockHeight(headBlockHash));
 
         final MutableList<Sha256Hash> blockHashes = new MutableArrayList<>(BitcoinUtil.log2(maxBlockHeight.intValue()) + 11);
         int blockHeightStep = 1;
-        for (long blockHeight = maxBlockHeight; blockHeight > 0L; blockHeight -= blockHeightStep) {
+        for (long blockHeight = maxBlockHeight; blockHeight >= 0L; blockHeight -= blockHeightStep) {
             final Sha256Hash blockHash = _blockchain.getBlockHash(blockHeight);
             blockHashes.add(blockHash);
 

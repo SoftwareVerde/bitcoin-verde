@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo;
 
+import com.google.leveldb.LevelDb;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockUtxoDiff;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
@@ -9,7 +10,6 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.util.BlockUtil;
-import com.softwareverde.btreedb.BucketDb;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -23,14 +23,14 @@ import java.io.File;
 
 public class UnspentTransactionOutputFileDbManager implements UnspentTransactionOutputDatabaseManager, AutoCloseable {
     protected final File _dataDirectory;
-    protected final BucketDb<TransactionOutputIdentifier, UnspentTransactionOutput> _utxoDb;
+    protected final LevelDb<TransactionOutputIdentifier, UnspentTransactionOutput> _utxoDb;
     protected final WorkerManager _commitWorker;
 
-    protected static BucketDb<TransactionOutputIdentifier, UnspentTransactionOutput> createBucketDb(final File dataDirectory, final Long maxBucketMemoryByteCount, final Long maxDatFileMemoryByteCount) {
-        return new BucketDb<>(dataDirectory, new UnspentTransactionOutputEntryInflater(), 17, 2 * 1024 * 1024, 8, maxBucketMemoryByteCount, maxDatFileMemoryByteCount, 64);
+    protected static LevelDb<TransactionOutputIdentifier, UnspentTransactionOutput> createBucketDb(final File dataDirectory) {
+        return new LevelDb<>(dataDirectory, new UnspentTransactionOutputEntryInflater());
     }
 
-    public UnspentTransactionOutputFileDbManager(final File dataDirectory, final Boolean allowMemoryBuckets, final Boolean allowMemoryDatFile) {
+    public UnspentTransactionOutputFileDbManager(final File dataDirectory) {
         if (! dataDirectory.exists()) {
             dataDirectory.mkdirs();
         }
@@ -46,44 +46,13 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
         // validation=false, blockHeight~=396k, indexing=false, debug=false
         //     8 workers, true, false: 2.3 b/s
         // _utxoDb = new BucketDb<>(_dataDirectory, new UnspentTransactionOutputEntryInflater(), 22, 1024 * 1024, 8, 0L, 0L);
-        _utxoDb = UnspentTransactionOutputFileDbManager.createBucketDb(dataDirectory, null, 0L);
+        _utxoDb = UnspentTransactionOutputFileDbManager.createBucketDb(dataDirectory);
         _commitWorker = new WorkerManager(1, 1);
     }
 
     public void open() throws Exception {
         _utxoDb.open();
         _commitWorker.start();
-    }
-
-    public synchronized void defragment() throws Exception {
-        _commitWorker.waitForCompletion();
-        _utxoDb.flush();
-
-        final BucketDb.DiskFiles utxoDbInFiles;
-        final BucketDb.DiskFiles utxoDbOutFiles;
-        {
-            utxoDbInFiles = _utxoDb.getDiskFiles();
-
-            File fileOut = new File(utxoDbInFiles.directory.getAbsolutePath() + ".tmp");
-            fileOut.mkdir();
-
-            try (final BucketDb<TransactionOutputIdentifier, UnspentTransactionOutput> utxoDbOut = UnspentTransactionOutputFileDbManager.createBucketDb(fileOut, 0L, 0L)) {
-                utxoDbOut.open();
-                utxoDbOutFiles = utxoDbOut.getDiskFiles();
-
-                BucketDb.defragment(_utxoDb, utxoDbOut);
-            }
-        }
-
-        _utxoDb.close();
-
-        final File swapFile = new File(utxoDbInFiles.directory.getAbsolutePath() + ".swp");
-        utxoDbInFiles.directory.renameTo(swapFile);
-        utxoDbOutFiles.directory.renameTo(utxoDbInFiles.directory);
-        swapFile.renameTo(utxoDbOutFiles.directory);
-        utxoDbOutFiles.delete(); // Delete the (moved) old directory.
-
-        _utxoDb.open();
     }
 
     @Override
@@ -110,10 +79,10 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
             }
 
             for (final TransactionOutputIdentifier spentTransactionOutputIdentifier : spentTransactionOutputIdentifiers) {
-                _utxoDb.delete(spentTransactionOutputIdentifier);
+                _utxoDb.remove(spentTransactionOutputIdentifier);
             }
 
-            if (_utxoDb.getStagedBucketsCount() > 16384) {
+            if (_utxoDb.getStagedWriteCount() > 16384) {
                 _commitWorker.submitTask(new WorkerManager.UnsafeTask() {
                     @Override
                     public void run() throws Exception {
@@ -130,7 +99,7 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
     @Override
     public synchronized void undoBlock(final BlockUtxoDiff blockUtxoDiff, final Map<TransactionOutputIdentifier, UnspentTransactionOutput> destroyedUtxos) throws Exception {
         for (final TransactionOutputIdentifier transactionOutputIdentifier : blockUtxoDiff.unspentTransactionOutputIdentifiers) {
-            _utxoDb.delete(transactionOutputIdentifier);
+            _utxoDb.remove(transactionOutputIdentifier);
             // Logger.debug("Deleting: " + transactionOutputIdentifier);
         }
         for (final TransactionOutputIdentifier transactionOutputIdentifier : blockUtxoDiff.spentTransactionOutputIdentifiers) {
@@ -243,7 +212,7 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
     @Override
     public void clearCommittedUtxoSet() throws DatabaseException {
         try {
-            _utxoDb.destroy();
+            _utxoDb.delete();
         }
         catch (final Exception exception) {
             throw new DatabaseException(exception);

@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node;
 
+import com.google.leveldb.LevelDb;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
@@ -15,13 +16,11 @@ import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
-import com.softwareverde.btreedb.BucketDb;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.filedb.WorkerManager;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 
@@ -33,10 +32,10 @@ public class TransactionIndexer implements AutoCloseable {
 
     protected final Blockchain _blockchain;
     protected final KeyValueStore _keyValueStore;
-    protected final BucketDb<Sha256Hash, Long> _transactionIdDb;
-    protected final BucketDb<Long, IndexedTransaction> _transactionDb;
-    protected final BucketDb<Sha256Hash, IndexedAddress> _addressDb;
-    protected final BucketDb<ShortTransactionOutputIdentifier, Long> _spentOutputsDb;
+    protected final LevelDb<Sha256Hash, Long> _transactionIdDb;
+    protected final LevelDb<Long, IndexedTransaction> _transactionDb;
+    protected final LevelDb<Sha256Hash, IndexedAddress> _addressDb;
+    protected final LevelDb<ShortTransactionOutputIdentifier, Long> _spentOutputsDb;
     protected final AtomicLong _lastTransactionId = new AtomicLong(0L);
 
     public TransactionIndexer(final File dataDirectory, final Blockchain blockchain, final KeyValueStore keyValueStore) throws Exception {
@@ -69,20 +68,16 @@ public class TransactionIndexer implements AutoCloseable {
         final int pageSize = 16384;
         final long bucketMemorySize = 0L; // Unstable: ByteUtil.Unit.Binary.GIBIBYTES / 4L;
 
-        _transactionIdDb = new BucketDb<>(transactionIdDbDirectory, new TransactionIdEntryInflater(), 20, 1024 * 1024, 8, bucketMemorySize, 0L, 64);
-        _transactionIdDb.setBucketFilePageSize(pageSize);
+        _transactionIdDb = new LevelDb<>(transactionIdDbDirectory, new TransactionIdEntryInflater());
         _transactionIdDb.open();
 
-        _transactionDb = new BucketDb<>(transactionDbDirectory, new IndexedTransactionEntryInflater(), 20, 1024 * 1024, 8, bucketMemorySize, 0L, 64);
-        _transactionDb.setBucketFilePageSize(pageSize);
+        _transactionDb = new LevelDb<>(transactionDbDirectory, new IndexedTransactionEntryInflater());
         _transactionDb.open();
 
-        _addressDb = new BucketDb<>(addressDbDirectory, new IndexedAddressEntryInflater(), 20, 16 * 1024 * 1024, 16, bucketMemorySize, 0L, 64);
-        _addressDb.setBucketFilePageSize(pageSize);
+        _addressDb = new LevelDb<>(addressDbDirectory, new IndexedAddressEntryInflater());
         _addressDb.open();
 
-        _spentOutputsDb = new BucketDb<>(spendOutputsDbDirectory, new IndexedSpentOutputsInflater(), 20, 1024 * 12, 16, bucketMemorySize, 0L, 64);
-        _spentOutputsDb.setBucketFilePageSize(pageSize);
+        _spentOutputsDb = new LevelDb<>(spendOutputsDbDirectory, new IndexedSpentOutputsInflater());
         _spentOutputsDb.open();
 
         _commitWorker = new WorkerManager(4, 4);

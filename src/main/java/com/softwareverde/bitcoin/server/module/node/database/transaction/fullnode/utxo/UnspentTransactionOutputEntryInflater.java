@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo;
 
+import com.google.leveldb.LevelDb;
 import com.softwareverde.bitcoin.transaction.output.MutableUnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputInflater;
@@ -9,7 +10,6 @@ import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.token.CashToken;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
-import com.softwareverde.btreedb.BucketDb;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -17,7 +17,7 @@ import com.softwareverde.util.Tuple;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 
-public class UnspentTransactionOutputEntryInflater implements BucketDb.BucketEntryInflater<TransactionOutputIdentifier, UnspentTransactionOutput> {
+public class UnspentTransactionOutputEntryInflater implements LevelDb.EntryInflater<TransactionOutputIdentifier, UnspentTransactionOutput> {
     protected final TransactionOutputInflater _transactionOutputInflater = new TransactionOutputInflater();
     protected final TransactionOutputDeflater _transactionOutputDeflater = new TransactionOutputDeflater();
 
@@ -34,11 +34,6 @@ public class UnspentTransactionOutputEntryInflater implements BucketDb.BucketEnt
         byteArrayBuilder.appendBytes(transactionOutputIdentifier.getTransactionHash());
         byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(transactionOutputIdentifier.getOutputIndex()));
         return byteArrayBuilder;
-    }
-
-    @Override
-    public int getKeyByteCount() {
-        return Sha256Hash.BYTE_COUNT + 4;
     }
 
     @Override
@@ -98,35 +93,5 @@ public class UnspentTransactionOutputEntryInflater implements BucketDb.BucketEnt
         );
 
         return byteArrayBuilder;
-    }
-
-    @Override
-    public int getValueByteCount(final UnspentTransactionOutput unspentTransactionOutput) {
-        if (unspentTransactionOutput == null) { return 0; } // Support null values.
-
-        int byteCount = 0;
-
-        byteCount += CompactVariableLengthInteger.variableLengthIntegerToBytes(
-            unspentTransactionOutput.getIndex()
-        ).getByteCount();
-
-        byteCount += CompactVariableLengthInteger.variableLengthIntegerToBytes(
-            unspentTransactionOutput.getBlockHeight()
-        ).getByteCount();
-
-        byteCount += 1;
-
-        byteCount += CompactVariableLengthInteger.variableLengthIntegerToBytes(
-            unspentTransactionOutput.getAmount()
-        ).getByteCount();
-
-        byteCount += _transactionOutputDeflater.getLegacyScriptByteCount(unspentTransactionOutput);
-
-        return byteCount;
-    }
-
-    @Override
-    public Sha256Hash getHash(final TransactionOutputIdentifier transactionOutputIdentifier) {
-        return transactionOutputIdentifier.getTransactionHash();
     }
 }
