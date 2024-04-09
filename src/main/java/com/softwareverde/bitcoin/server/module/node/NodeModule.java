@@ -91,6 +91,8 @@ import com.softwareverde.util.timer.NanoTimer;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.io.File;
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryUsage;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -899,48 +901,40 @@ public class NodeModule {
 
                 if (! isSynced.run()) { return; }
 
-                try (final WorkerManager workerManager = new WorkerManager(2, 2)) {
-                    workerManager.setName("Indexer BlockLoader");
-                    workerManager.start();
+                long lastIndexedBlockHeight = Util.parseLong(_keyValueStore.getString(KeyValues.INDEXED_BLOCK_HEIGHT), 0L);
+                long blockHeight = lastIndexedBlockHeight + 1L;
 
-                    long lastIndexedBlockHeight = Util.parseLong(_keyValueStore.getString(KeyValues.INDEXED_BLOCK_HEIGHT), 0L);
-                    long blockHeight = lastIndexedBlockHeight + 1L;
+                while (true) {
+                    if (_isShuttingDown.get()) { return; }
 
-                    while (true) {
-                        if (_isShuttingDown.get()) { return; }
+                    // Only index when syncing is complete.
+                    if (! isSynced.run()) { return; }
 
-                        // Only index when syncing is complete.
-                        if (! isSynced.run()) { return; }
+                    final BlockHeader blockHeader = _blockchain.getBlockHeader(blockHeight);
+                    if (blockHeader == null) { return; }
+                    final Sha256Hash blockHash = blockHeader.getHash();
 
-                        final BlockHeader blockHeader = _blockchain.getBlockHeader(blockHeight);
-                        if (blockHeader == null) { return; }
-                        final Sha256Hash blockHash = blockHeader.getHash();
+                    final Block block = _blockStore.getBlock(blockHash, blockHeight);
+                    if (block == null) { return; }
 
-                        final Block block = _blockStore.getBlock(blockHash, blockHeight);
-                        if (block == null) { return; }
-
-                        final NanoTimer indexTimer = new NanoTimer();
-                        indexTimer.start();
-                        try {
-                            _transactionIndexer.indexTransactions(block, blockHeight);
-                            _keyValueStore.putString(KeyValues.INDEXED_BLOCK_HEIGHT, "" + blockHeight);
-                            _indexedBlockHeightContainer.value = blockHeight;
-                        }
-                        catch (final Exception exception) {
-                            Logger.debug(exception);
-                        }
-                        indexTimer.stop();
-                        Logger.debug("Indexed " + blockHash + " in " + indexTimer.getMillisecondsElapsed() + "ms.");
-
-                        synchronized (_indexProcessMs) {
-                            _indexProcessMs.push(indexTimer.getMillisecondsElapsed());
-                        }
-
-                        blockHeight += 1L;
+                    final NanoTimer indexTimer = new NanoTimer();
+                    indexTimer.start();
+                    try {
+                        _transactionIndexer.indexTransactions(block, blockHeight);
+                        _keyValueStore.putString(KeyValues.INDEXED_BLOCK_HEIGHT, "" + blockHeight);
+                        _indexedBlockHeightContainer.value = blockHeight;
                     }
-                }
-                catch (final Exception exception) {
-                    Logger.debug(exception);
+                    catch (final Exception exception) {
+                        Logger.debug(exception);
+                    }
+                    indexTimer.stop();
+                    Logger.debug("Indexed " + blockHash + " in " + indexTimer.getMillisecondsElapsed() + "ms.");
+
+                    synchronized (_indexProcessMs) {
+                        _indexProcessMs.push(indexTimer.getMillisecondsElapsed());
+                    }
+
+                    blockHeight += 1L;
                 }
             }
         };
@@ -1377,7 +1371,12 @@ public class NodeModule {
             try {
                 Thread.sleep(10000L);
                 if (count % 3 == 0) {
-                    // System.gc();
+                    System.gc();
+
+                    final MemoryUsage heapMemoryUsage = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
+                    final MemoryUsage otherMemoryUsage = ManagementFactory.getMemoryMXBean().getNonHeapMemoryUsage();
+                    Logger.debug("HeapMemory: " + (heapMemoryUsage.getUsed() / ByteUtil.Unit.Binary.GIBIBYTES) + "gb");
+                    Logger.debug("OtherMemory: " + (otherMemoryUsage.getUsed() / ByteUtil.Unit.Binary.GIBIBYTES) + "gb");
                 }
                 count += 1L;
                 if (count < 0L) { count = 0L; }

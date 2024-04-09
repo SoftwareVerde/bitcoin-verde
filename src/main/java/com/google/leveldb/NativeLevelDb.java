@@ -13,9 +13,9 @@ public class NativeLevelDb {
 //  public final static native void leveldb_options_set_paranoid_checks(long jarg1, short jarg2);
 //  public final static native void leveldb_options_set_env(long jarg1, long jarg2);
 //  public final static native void leveldb_options_set_info_log(long jarg1, long jarg2);
-//  public final static native void leveldb_options_set_write_buffer_size(long jarg1, long jarg2);
+public final static native void leveldb_options_set_write_buffer_size(long optionsPointer, long byteCount);
 //  public final static native void leveldb_options_set_max_open_files(long jarg1, int jarg2);
-//  public final static native void leveldb_options_set_cache(long jarg1, long jarg2);
+public final static native void leveldb_options_set_cache(long optionsPointer, long cachePointer);
 //  public final static native void leveldb_options_set_block_size(long jarg1, long jarg2);
 //  public final static native void leveldb_options_set_block_restart_interval(long jarg1, int jarg2);
 //  public final static native void leveldb_options_set_max_file_size(long jarg1, long jarg2);
@@ -41,6 +41,9 @@ public class NativeLevelDb {
 
   public final static native byte[] leveldb_get(long dbPointer, long readOptionsPointer, ByteBuffer key, long keyByteCount);
   public final static native void leveldb_delete(long dbPointer, long writeOptionsPointer, ByteBuffer key, long keyByteCount);
+
+public final static native long leveldb_cache_create_lru(long byteCount);
+public final static native void leveldb_cache_destroy(long cachePointer);
 
 //  public final static native void leveldb_write(long jarg1, long jarg2, long jarg3, long jarg4);
 //  public final static native long leveldb_create_iterator(long jarg1, long jarg2);
@@ -74,8 +77,6 @@ public class NativeLevelDb {
 //  public final static native void leveldb_filterpolicy_destroy(long jarg1);
 //  public final static native long leveldb_filterpolicy_create_bloom(int jarg1);
 
-//  public final static native long leveldb_cache_create_lru(long jarg1);
-//  public final static native void leveldb_cache_destroy(long jarg1);
 //  public final static native long leveldb_create_default_env();
 //  public final static native void leveldb_env_destroy(long jarg1);
 //  public final static native String leveldb_env_get_test_directory(long jarg1);

@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node;
+package com.softwareverde.bitcoin.server.module.node.indexing;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
@@ -10,12 +10,11 @@ import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 
-public class IndexedAddress {
-    public static IndexedAddress fromBytes(final ByteArray byteArray) {
+public class IndexedAddressCore implements IndexedAddress {
+    public static IndexedAddressCore fromBytes(final ByteArray byteArray) {
         final AddressInflater addressInflater = new AddressInflater();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(byteArray);
 
@@ -37,7 +36,7 @@ public class IndexedAddress {
             }
         }
 
-        return new IndexedAddress(address, receivedOutputs);
+        return new IndexedAddressCore(address, receivedOutputs);
     }
 
     protected final Address _address;
@@ -69,17 +68,22 @@ public class IndexedAddress {
             }
         }
 
-        _cachedBytes = byteArrayBuilder;
+        _cachedBytes = MutableByteArray.wrap(byteArrayBuilder.build());
     }
 
-    public IndexedAddress(final Address address) {
+    public IndexedAddressCore(final Address address) {
         _address = address;
         _receivedOutputs = new MutableArrayList<>();
     }
 
-    public IndexedAddress(final Address address, final MutableList<ShortTransactionOutputIdentifier> receivedOutputs) {
+    public IndexedAddressCore(final Address address, final MutableList<ShortTransactionOutputIdentifier> receivedOutputs) {
         _address = address;
         _receivedOutputs = receivedOutputs;
+    }
+
+    @Override
+    public void cacheBytes() {
+        _cacheBytes();
     }
 
     public Address getAddress() {
@@ -97,7 +101,9 @@ public class IndexedAddress {
 
     public void add(final IndexedAddress indexedAddress) {
         _cachedBytes = null;
-        _receivedOutputs.addAll(indexedAddress._receivedOutputs);
+
+        final List<ShortTransactionOutputIdentifier> receivedOutputs = indexedAddress.getTransactionOutputs();
+        _receivedOutputs.addAll(receivedOutputs);
     }
 
     public ByteArray getBytes() {

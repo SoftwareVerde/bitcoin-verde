@@ -38,6 +38,7 @@ public class UnspentTransactionOutputEntryInflater implements LevelDb.EntryInfla
 
     @Override
     public UnspentTransactionOutput valueFromBytes(final ByteArray byteArray) {
+        if (byteArray == null) { return null; }
         if (byteArray.isEmpty()) { return null; } // Support null values.
 
         final ByteArrayReader byteArrayReader = new ByteArrayReader(byteArray);

@@ -4,6 +4,8 @@ import com.google.leveldb.LevelDb;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
+import com.softwareverde.bitcoin.server.module.node.indexing.DeflatedIndexedAddress;
+import com.softwareverde.bitcoin.server.module.node.indexing.IndexedAddress;
 import com.softwareverde.bitcoin.server.module.node.store.KeyValueStore;
 import com.softwareverde.bitcoin.server.module.node.utxo.IndexedAddressEntryInflater;
 import com.softwareverde.bitcoin.server.module.node.utxo.IndexedSpentOutputsInflater;
@@ -21,6 +23,7 @@ import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.filedb.WorkerManager;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 
@@ -65,20 +68,20 @@ public class TransactionIndexer implements AutoCloseable {
             spendOutputsDbDirectory.mkdirs();
         }
 
-        final int pageSize = 16384;
-        final long bucketMemorySize = 0L; // Unstable: ByteUtil.Unit.Binary.GIBIBYTES / 4L;
+        final long cacheByteCount = ByteUtil.Unit.Binary.GIBIBYTES / 4L;
+        final long writeBufferByteCount = ByteUtil.Unit.Binary.GIBIBYTES / 2L / 4L;
 
         _transactionIdDb = new LevelDb<>(transactionIdDbDirectory, new TransactionIdEntryInflater());
-        _transactionIdDb.open();
+        _transactionIdDb.open(); // (cacheByteCount, writeBufferByteCount);
 
         _transactionDb = new LevelDb<>(transactionDbDirectory, new IndexedTransactionEntryInflater());
-        _transactionDb.open();
+        _transactionDb.open(); // (cacheByteCount, writeBufferByteCount);
 
         _addressDb = new LevelDb<>(addressDbDirectory, new IndexedAddressEntryInflater());
-        _addressDb.open();
+        _addressDb.open(); // cacheByteCount, writeBufferByteCount);
 
         _spentOutputsDb = new LevelDb<>(spendOutputsDbDirectory, new IndexedSpentOutputsInflater());
-        _spentOutputsDb.open();
+        _spentOutputsDb.open(); // cacheByteCount, writeBufferByteCount);
 
         _commitWorker = new WorkerManager(4, 4);
         _commitWorker.setName("Commit Worker");
@@ -89,10 +92,29 @@ public class TransactionIndexer implements AutoCloseable {
     protected boolean _requiresCommit = false;
     protected int _indexesSinceCommit = 0;
 
+    static class AccumulatingTimer extends NanoTimer {
+        protected double _totalTimeMs = 0D;
+
+        @Override
+        public void stop() {
+            super.stop();
+            _totalTimeMs += this.getMillisecondsElapsed();
+        }
+
+        public double getTotalMillisecondsElapsed() {
+            return _totalTimeMs;
+        }
+    }
+
     public synchronized void indexTransactions(final Block block, final Long blockHeight) throws Exception {
-        final NanoTimer indexTimer = new NanoTimer();
-        final NanoTimer databaseTimer = new NanoTimer();
-        double txIdDbTime = 0D;
+        final AccumulatingTimer transactionIdTimer = new AccumulatingTimer();
+        final AccumulatingTimer indexTimer = new AccumulatingTimer();
+        final AccumulatingTimer databaseTimer = new AccumulatingTimer();
+        final AccumulatingTimer transactionDbTimer = new AccumulatingTimer();
+        final AccumulatingTimer outputsTimer = new AccumulatingTimer();
+        final AccumulatingTimer inputsTimer = new AccumulatingTimer();
+        final AccumulatingTimer addressTimer = new AccumulatingTimer();
+        final AccumulatingTimer addressDatabaseTimer = new AccumulatingTimer();
 
         indexTimer.start();
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
@@ -107,22 +129,23 @@ public class TransactionIndexer implements AutoCloseable {
 
         boolean isCoinbase = true;
         for (final Transaction transaction : transactions) {
-            final NanoTimer nanoTimer = new NanoTimer();
-            nanoTimer.start();
+            transactionIdTimer.start();
             final Sha256Hash transactionHash = transaction.getHash();
             Long transactionId = _transactionIdDb.get(transactionHash);
             if (transactionId == null) {
                 transactionId = _lastTransactionId.incrementAndGet();
                 _transactionIdDb.put(transactionHash, transactionId);
             }
-            nanoTimer.stop();
-            txIdDbTime += nanoTimer.getMillisecondsElapsed();
+            transactionIdTimer.stop();
 
+            transactionDbTimer.start();
             final int transactionByteCount = transaction.getByteCount();
             final IndexedTransaction indexedTransaction = new IndexedTransaction(transactionHash, blockHeight, diskOffset, transactionByteCount);
             _transactionDb.put(transactionId, indexedTransaction);
             diskOffset += transactionByteCount;
+            transactionDbTimer.stop();
 
+            outputsTimer.start();
             for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
                 final Integer outputIndex = transactionOutput.getIndex();
                 final LockingScript lockingScript = transactionOutput.getLockingScript();
@@ -131,7 +154,7 @@ public class TransactionIndexer implements AutoCloseable {
                 IndexedAddress indexedAddress = stagedScriptHashes.get(scriptHash);
                 if (indexedAddress == null) {
                     final Address address = scriptPatternMatcher.extractAddress(lockingScript);
-                    indexedAddress = new IndexedAddress(address);
+                    indexedAddress = new DeflatedIndexedAddress(address);
                     stagedScriptHashes.put(scriptHash, indexedAddress);
                 }
 
@@ -139,10 +162,11 @@ public class TransactionIndexer implements AutoCloseable {
                 final ShortTransactionOutputIdentifier transactionOutputIdentifier = new ShortTransactionOutputIdentifier(transactionId, outputIndex);
                 indexedAddress.addTransactionOutput(transactionOutputIdentifier);
             }
+            outputsTimer.stop();
 
+            inputsTimer.start();
             if (! isCoinbase) {
                 for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-                    nanoTimer.start();
                     // Index which Transaction the prevout was spent by.
                     final Sha256Hash prevoutTransactionHash = transactionInput.getPreviousOutputTransactionHash();
                     Long prevoutTransactionId = _transactionIdDb.get(prevoutTransactionHash);
@@ -153,26 +177,33 @@ public class TransactionIndexer implements AutoCloseable {
                     final Integer prevoutIndex = transactionInput.getPreviousOutputIndex();
                     final ShortTransactionOutputIdentifier previousOutputIdentifier = new ShortTransactionOutputIdentifier(prevoutTransactionId, prevoutIndex);
                     _spentOutputsDb.put(previousOutputIdentifier, transactionId);
-                    nanoTimer.stop();
-                    txIdDbTime += nanoTimer.getMillisecondsElapsed();
                 }
             }
+            inputsTimer.stop();
 
             isCoinbase = false;
         }
 
+        addressTimer.start();
         for (final Sha256Hash scriptHash : stagedScriptHashes.getKeys()) {
             final IndexedAddress stagedIndexedAddress = stagedScriptHashes.get(scriptHash);
 
+            addressDatabaseTimer.start();
             IndexedAddress indexedAddress = _addressDb.get(scriptHash);
+            addressDatabaseTimer.stop();
             if (indexedAddress == null) {
                 indexedAddress = stagedIndexedAddress;
             }
             else {
                 indexedAddress.add(stagedIndexedAddress);
             }
+            indexedAddress.cacheBytes();
+
+            addressDatabaseTimer.start();
             _addressDb.put(scriptHash, indexedAddress);
+            addressDatabaseTimer.stop();
         }
+        addressTimer.stop();
 
         indexTimer.stop();
 
@@ -217,7 +248,16 @@ public class TransactionIndexer implements AutoCloseable {
         }
         databaseTimer.stop();
 
-        Logger.debug(blockHeight + ": " + transactionCount + " Tx; Indexing: " + indexTimer.getMillisecondsElapsed() + "ms, Database: " + databaseTimer.getMillisecondsElapsed() + "ms; txIdDbTime=" + txIdDbTime);
+        Logger.debug(blockHeight + " (" + transactionCount + " transactions): " +
+            "transactionIdTimer=" + transactionIdTimer.getTotalMillisecondsElapsed() + "ms, " +
+            "indexTimer=" + indexTimer.getTotalMillisecondsElapsed() + "ms, " +
+            "databaseTimer=" + databaseTimer.getTotalMillisecondsElapsed() + "ms, " +
+            "transactionDbTimer=" + transactionDbTimer.getTotalMillisecondsElapsed() + "ms, " +
+            "outputsTimer=" + outputsTimer.getTotalMillisecondsElapsed() + "ms, " +
+            "inputsTimer=" + inputsTimer.getTotalMillisecondsElapsed() + "ms, " +
+            "addressTimer=" + addressTimer.getTotalMillisecondsElapsed() + "ms, " +
+            "addressDatabaseTimer=" + addressDatabaseTimer.getTotalMillisecondsElapsed() + "ms"
+        );
     }
 
     public ShortTransactionOutputIdentifier getShortTransactionOutputIdentifier(final TransactionOutputIdentifier transactionOutputIdentifier) throws Exception {

@@ -27,6 +27,7 @@ public class TransactionIdEntryInflater implements LevelDb.EntryInflater<Sha256H
     @Override
     public ByteArray valueToBytes(final Long value) {
         if (value == null) { return null; }
+        if (value == 0L) { return null; }
         return MutableByteArray.wrap(ByteUtil.integerToBytes(value)); // NOTE: Only stored via 4 bytes.
     }
 

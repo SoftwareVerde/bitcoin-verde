@@ -27,11 +27,15 @@ public class IndexedSpentOutputsInflater implements LevelDb.EntryInflater<ShortT
 
     @Override
     public Long valueFromBytes(final ByteArray byteArray) {
+        if (byteArray == null) { return null; }
+        if (byteArray.isEmpty()) { return null; }
         return ByteUtil.bytesToLong(byteArray.getBytes());
     }
 
     @Override
     public ByteArray valueToBytes(final Long value) {
+        if (value == null) { return null; }
+        if (value == 0L) { return null; }
         return MutableByteArray.wrap(ByteUtil.integerToBytes(value)); // NOTE: Only stored via 4 bytes.
     }
 

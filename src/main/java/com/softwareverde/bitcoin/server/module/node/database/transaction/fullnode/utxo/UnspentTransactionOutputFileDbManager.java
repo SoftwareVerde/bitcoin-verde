@@ -17,6 +17,7 @@ import com.softwareverde.constable.map.Map;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.filedb.WorkerManager;
+import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.Util;
 
 import java.io.File;
@@ -36,22 +37,14 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
         }
         _dataDirectory = dataDirectory;
 
-        // Performance Tuning:
-        // validation=false, blockHeight~=395k, indexing=false, debug=true
-        //     4 workers, true, false: 2.1 b/s
-        //     8 workers, true, false: 2.3 b/s
-        //     8 workers, true, true:  2.4 b/s
-        //    16 workers, true, false: 1.7-2.2 b/s
-        //    64 workers, true, false: 1.3 b/s
-        // validation=false, blockHeight~=396k, indexing=false, debug=false
-        //     8 workers, true, false: 2.3 b/s
-        // _utxoDb = new BucketDb<>(_dataDirectory, new UnspentTransactionOutputEntryInflater(), 22, 1024 * 1024, 8, 0L, 0L);
         _utxoDb = UnspentTransactionOutputFileDbManager.createBucketDb(dataDirectory);
         _commitWorker = new WorkerManager(1, 1);
     }
 
     public void open() throws Exception {
-        _utxoDb.open();
+        final long cacheByteCount = ByteUtil.Unit.Binary.GIBIBYTES;
+        final long writeBufferByteCount = ByteUtil.Unit.Binary.GIBIBYTES;
+        _utxoDb.open(); // (cacheByteCount, writeBufferByteCount);
         _commitWorker.start();
     }
 

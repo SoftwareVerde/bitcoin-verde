@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node;
 
 import com.softwareverde.bitcoin.address.TypedAddress;
+import com.softwareverde.bitcoin.server.module.node.indexing.IndexedAddress;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionWithFee;
