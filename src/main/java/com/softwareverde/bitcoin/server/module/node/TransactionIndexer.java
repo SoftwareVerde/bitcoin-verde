@@ -82,19 +82,19 @@ public class TransactionIndexer implements AutoCloseable {
         final long writeBufferByteCount = ByteUtil.Unit.Binary.GIBIBYTES / 4L; //  / 2L / 5L;
 
         _transactionIdDb = new LevelDb<>(transactionIdDbDirectory, new TransactionIdEntryInflater());
-        _transactionIdDb.open(null, writeBufferByteCount); // (cacheByteCount, writeBufferByteCount);
+        _transactionIdDb.open(); // (cacheByteCount, writeBufferByteCount);
 
         _transactionDb = new LevelDb<>(transactionDbDirectory, new IndexedTransactionEntryInflater());
-        _transactionDb.open(null, writeBufferByteCount); // (cacheByteCount, writeBufferByteCount);
+        _transactionDb.open(); // (cacheByteCount, writeBufferByteCount);
 
         _addressDb = new LevelDb<>(addressDbDirectory, new IndexedAddressEntryInflater());
-        _addressDb.open(null, writeBufferByteCount); // cacheByteCount, writeBufferByteCount);
+        _addressDb.open(); // cacheByteCount, writeBufferByteCount);
 
         _metaAddressDb = new LevelDb<>(metaAddressDbDirectory, new MetaAddressEntryInflater());
-        _metaAddressDb.open(null, writeBufferByteCount); // cacheByteCount, writeBufferByteCount);
+        _metaAddressDb.open(); // cacheByteCount, writeBufferByteCount);
 
         _spentOutputsDb = new LevelDb<>(spendOutputsDbDirectory, new IndexedSpentOutputsInflater());
-        _spentOutputsDb.open(null, writeBufferByteCount); // cacheByteCount, writeBufferByteCount);
+        _spentOutputsDb.open(); // cacheByteCount, writeBufferByteCount);
 
         _commitWorker = new WorkerManager(4, 4);
         _commitWorker.setName("Commit Worker");
