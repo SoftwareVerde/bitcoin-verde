@@ -3,6 +3,7 @@ package com.google.leveldb;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.BitcoinSystemUtil;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.jni.NativeUtil;
 
@@ -31,8 +32,24 @@ public class LevelDb<Key, Value> implements AutoCloseable {
 
         boolean isEnabled = true;
         try {
-            NativeUtil.loadLibraryFromJar("/lib/libleveldb.1.23.0.dylib");
-            NativeUtil.loadLibraryFromJar("/lib/leveldb-jni.dylib");
+            if (BitcoinSystemUtil.isMacOperatingSystem()) {
+                if (BitcoinSystemUtil.isAppleSiliconArchitecture()) {
+                    NativeUtil.loadLibraryFromJar("/lib/libleveldb.1.23.0.dylib");
+                    NativeUtil.loadLibraryFromJar("/lib/leveldb-jni.dylib");
+                }
+                else {
+                    NativeUtil.loadLibraryFromJar("/lib/libleveldbx86.1.23.0.dylib");
+                    NativeUtil.loadLibraryFromJar("/lib/leveldbx86-jni.dylib");
+                }
+            }
+            else if (BitcoinSystemUtil.isWindowsOperatingSystem()) {
+                NativeUtil.loadLibraryFromJar("/lib/libleveldb.1.23.0.dll");
+                NativeUtil.loadLibraryFromJar("/lib/leveldb-jni.dll");
+            }
+            else {
+                NativeUtil.loadLibraryFromJar("/lib/libleveldb.so.1.23.0");
+                NativeUtil.loadLibraryFromJar("/lib/leveldb-jni.so");
+            }
         }
         catch (final Throwable exception) {
             Logger.debug("NOTICE: leveldb failed to load.", exception);
