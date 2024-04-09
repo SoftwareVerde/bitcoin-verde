@@ -12,6 +12,8 @@ public interface IndexedAddress {
 
     List<ShortTransactionOutputIdentifier> getTransactionOutputs();
 
+    int getTransactionOutputsCount();
+
     void addTransactionOutput(ShortTransactionOutputIdentifier transactionOutputIdentifier);
 
     void add(IndexedAddress indexedAddress);

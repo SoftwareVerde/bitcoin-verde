@@ -94,6 +94,11 @@ public class IndexedAddressCore implements IndexedAddress {
         return _receivedOutputs;
     }
 
+    @Override
+    public int getTransactionOutputsCount() {
+        return _receivedOutputs.getCount();
+    }
+
     public void addTransactionOutput(final ShortTransactionOutputIdentifier transactionOutputIdentifier) {
         _cachedBytes = null;
         _receivedOutputs.add(transactionOutputIdentifier);

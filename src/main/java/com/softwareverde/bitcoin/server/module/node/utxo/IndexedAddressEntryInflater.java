@@ -6,15 +6,15 @@ import com.softwareverde.bitcoin.server.module.node.indexing.IndexedAddress;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
-public class IndexedAddressEntryInflater implements LevelDb.EntryInflater<Sha256Hash, IndexedAddress> {
+public class IndexedAddressEntryInflater implements LevelDb.EntryInflater<ByteArray, IndexedAddress> {
     @Override
-    public Sha256Hash keyFromBytes(final ByteArray byteArray) {
-        return Sha256Hash.wrap(byteArray.getBytes());
+    public ByteArray keyFromBytes(final ByteArray byteArray) {
+        return byteArray;
     }
 
     @Override
-    public ByteArray keyToBytes(final Sha256Hash sha256Hash) {
-        return sha256Hash;
+    public ByteArray keyToBytes(final ByteArray byteArray) {
+        return byteArray;
     }
 
     @Override

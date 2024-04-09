@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.server.module.node.indexing.IndexedAddress;
 import com.softwareverde.bitcoin.server.module.node.store.KeyValueStore;
 import com.softwareverde.bitcoin.server.module.node.utxo.IndexedAddressEntryInflater;
 import com.softwareverde.bitcoin.server.module.node.utxo.IndexedSpentOutputsInflater;
+import com.softwareverde.bitcoin.server.module.node.utxo.MetaAddressEntryInflater;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
@@ -18,6 +19,8 @@ import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -31,13 +34,15 @@ import java.io.File;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class TransactionIndexer implements AutoCloseable {
+    public static final Integer MAX_OUTPUTS_PER_BUCKET = 800;
     public static final String LAST_TRANSACTION_ID_KEY = "lastTransactionId";
 
     protected final Blockchain _blockchain;
     protected final KeyValueStore _keyValueStore;
     protected final LevelDb<Sha256Hash, Long> _transactionIdDb;
     protected final LevelDb<Long, IndexedTransaction> _transactionDb;
-    protected final LevelDb<Sha256Hash, IndexedAddress> _addressDb;
+    protected final LevelDb<Sha256Hash, Integer> _metaAddressDb;
+    protected final LevelDb<ByteArray, IndexedAddress> _addressDb;
     protected final LevelDb<ShortTransactionOutputIdentifier, Long> _spentOutputsDb;
     protected final AtomicLong _lastTransactionId = new AtomicLong(0L);
 
@@ -63,25 +68,33 @@ public class TransactionIndexer implements AutoCloseable {
             addressDbDirectory.mkdirs();
         }
 
+        final File metaAddressDbDirectory = new File(dataDirectory, "address-meta");
+        if (! metaAddressDbDirectory.exists()) {
+            metaAddressDbDirectory.mkdirs();
+        }
+
         final File spendOutputsDbDirectory = new File(dataDirectory, "outputs");
         if (! spendOutputsDbDirectory.exists()) {
             spendOutputsDbDirectory.mkdirs();
         }
 
-        final long cacheByteCount = ByteUtil.Unit.Binary.GIBIBYTES / 4L;
-        final long writeBufferByteCount = ByteUtil.Unit.Binary.GIBIBYTES / 2L / 4L;
+        final long cacheByteCount = ByteUtil.Unit.Binary.GIBIBYTES / 5L;
+        final long writeBufferByteCount = ByteUtil.Unit.Binary.GIBIBYTES / 4L; //  / 2L / 5L;
 
         _transactionIdDb = new LevelDb<>(transactionIdDbDirectory, new TransactionIdEntryInflater());
-        _transactionIdDb.open(); // (cacheByteCount, writeBufferByteCount);
+        _transactionIdDb.open(null, writeBufferByteCount); // (cacheByteCount, writeBufferByteCount);
 
         _transactionDb = new LevelDb<>(transactionDbDirectory, new IndexedTransactionEntryInflater());
-        _transactionDb.open(); // (cacheByteCount, writeBufferByteCount);
+        _transactionDb.open(null, writeBufferByteCount); // (cacheByteCount, writeBufferByteCount);
 
         _addressDb = new LevelDb<>(addressDbDirectory, new IndexedAddressEntryInflater());
-        _addressDb.open(); // cacheByteCount, writeBufferByteCount);
+        _addressDb.open(null, writeBufferByteCount); // cacheByteCount, writeBufferByteCount);
+
+        _metaAddressDb = new LevelDb<>(metaAddressDbDirectory, new MetaAddressEntryInflater());
+        _metaAddressDb.open(null, writeBufferByteCount); // cacheByteCount, writeBufferByteCount);
 
         _spentOutputsDb = new LevelDb<>(spendOutputsDbDirectory, new IndexedSpentOutputsInflater());
-        _spentOutputsDb.open(); // cacheByteCount, writeBufferByteCount);
+        _spentOutputsDb.open(null, writeBufferByteCount); // cacheByteCount, writeBufferByteCount);
 
         _commitWorker = new WorkerManager(4, 4);
         _commitWorker.setName("Commit Worker");
@@ -186,10 +199,16 @@ public class TransactionIndexer implements AutoCloseable {
 
         addressTimer.start();
         for (final Sha256Hash scriptHash : stagedScriptHashes.getKeys()) {
+            final MutableByteArray bucketedScriptHash = new MutableByteArray(Sha256Hash.BYTE_COUNT + 1);
+            bucketedScriptHash.setBytes(0, scriptHash);
+
+            final Integer bucketIndex = Util.coalesce(_metaAddressDb.get(scriptHash));
+            bucketedScriptHash.setByte(Sha256Hash.BYTE_COUNT, bucketIndex.byteValue());
+
             final IndexedAddress stagedIndexedAddress = stagedScriptHashes.get(scriptHash);
 
             addressDatabaseTimer.start();
-            IndexedAddress indexedAddress = _addressDb.get(scriptHash);
+            IndexedAddress indexedAddress = _addressDb.get(bucketedScriptHash);
             addressDatabaseTimer.stop();
             if (indexedAddress == null) {
                 indexedAddress = stagedIndexedAddress;
@@ -200,8 +219,12 @@ public class TransactionIndexer implements AutoCloseable {
             indexedAddress.cacheBytes();
 
             addressDatabaseTimer.start();
-            _addressDb.put(scriptHash, indexedAddress);
+            _addressDb.put(bucketedScriptHash, indexedAddress);
             addressDatabaseTimer.stop();
+
+            if (indexedAddress.getTransactionOutputsCount() >= MAX_OUTPUTS_PER_BUCKET) { // Not an exact limit.
+                _metaAddressDb.put(scriptHash, bucketIndex + 1);
+            }
         }
         addressTimer.stop();
 
@@ -326,7 +349,26 @@ public class TransactionIndexer implements AutoCloseable {
     }
 
     public IndexedAddress getIndexedAddress(final Sha256Hash scriptHash) throws Exception {
-        return _addressDb.get(scriptHash);
+        final MutableByteArray bucketedScriptHash = new MutableByteArray(Sha256Hash.BYTE_COUNT + 1);
+        bucketedScriptHash.setBytes(0, scriptHash);
+
+        final Integer bucketIndex = Util.coalesce(_metaAddressDb.get(scriptHash));
+
+        IndexedAddress mergedIndexedAddress = null;
+        for (int i = 0; i <= bucketIndex; ++i) {
+            bucketedScriptHash.setByte(Sha256Hash.BYTE_COUNT, (byte) i);
+
+            final IndexedAddress indexedAddressBucket = _addressDb.get(bucketedScriptHash);
+            if (indexedAddressBucket == null) { continue; }
+
+            if (mergedIndexedAddress == null){
+                mergedIndexedAddress = indexedAddressBucket;
+            }
+            else {
+                mergedIndexedAddress.add(indexedAddressBucket);
+            }
+        }
+        return mergedIndexedAddress;
     }
 
     @Override

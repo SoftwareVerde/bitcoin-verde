@@ -63,6 +63,11 @@ public class DeflatedIndexedAddress implements IndexedAddress {
         return _parseOutputsData();
     }
 
+    @Override
+    public int getTransactionOutputsCount() {
+        return _outputsCount;
+    }
+
     public void addTransactionOutput(final ShortTransactionOutputIdentifier transactionOutputIdentifier) {
         _outputsCount += 1;
 
@@ -92,11 +97,16 @@ public class DeflatedIndexedAddress implements IndexedAddress {
             byteArrayBuilder.appendBytes(_address);
         }
 
+        final ByteArray outputCountBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(_outputsCount);
+        byteArrayBuilder.appendBytes(outputCountBytes);
+
         byteArrayBuilder.appendBytes(_receivedOutputsData.build());
         return MutableByteArray.wrap(byteArrayBuilder.build());
     }
 
     public Integer getByteCount() {
-        return 1 + _address.getByteCount() + _receivedOutputsData.getByteCount();
+        final int addressByteCountSize = 1;
+        final ByteArray outputCountBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(_outputsCount);
+        return addressByteCountSize + _address.getByteCount() + outputCountBytes.getByteCount() + _receivedOutputsData.getByteCount();
     }
 }
