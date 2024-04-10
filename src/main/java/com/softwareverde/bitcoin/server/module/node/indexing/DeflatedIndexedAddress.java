@@ -28,12 +28,14 @@ public class DeflatedIndexedAddress implements IndexedAddress {
         final int remainingByteCount = byteArrayReader.remainingByteCount();
         deflatedIndexedAddress._receivedOutputsData.appendBytes(byteArrayReader.readBytes(remainingByteCount));
 
+        deflatedIndexedAddress._cachedBytes = byteArray;
         return deflatedIndexedAddress;
     }
 
     protected final Address _address;
     protected int _outputsCount = 0;
     protected ByteArrayBuilder _receivedOutputsData = new ByteArrayBuilder();
+    protected ByteArray _cachedBytes;
 
     protected List<ShortTransactionOutputIdentifier> _parseOutputsData() {
         final ByteArrayReader byteArrayReader = new ByteArrayReader(_receivedOutputsData.build());
@@ -53,7 +55,9 @@ public class DeflatedIndexedAddress implements IndexedAddress {
         _address = address;
     }
 
-    public void cacheBytes() { }
+    public void cacheBytes() {
+        this.getBytes();
+    }
 
     public Address getAddress() {
         return _address;
@@ -69,6 +73,7 @@ public class DeflatedIndexedAddress implements IndexedAddress {
     }
 
     public void addTransactionOutput(final ShortTransactionOutputIdentifier transactionOutputIdentifier) {
+        _cachedBytes = null;
         _outputsCount += 1;
 
         final Long outputTransactionId = transactionOutputIdentifier.getTransactionId();
@@ -82,13 +87,26 @@ public class DeflatedIndexedAddress implements IndexedAddress {
     }
 
     public void add(final IndexedAddress indexedAddress) {
-        final List<ShortTransactionOutputIdentifier> receivedOutputs = indexedAddress.getTransactionOutputs();
-        for (final ShortTransactionOutputIdentifier transactionOutputIdentifier : receivedOutputs) {
-            this.addTransactionOutput(transactionOutputIdentifier);
+        _cachedBytes = null;
+
+        if (indexedAddress instanceof DeflatedIndexedAddress) {
+            final DeflatedIndexedAddress deflatedIndexedAddress = (DeflatedIndexedAddress) indexedAddress;
+            _outputsCount += deflatedIndexedAddress.getTransactionOutputsCount();
+            _receivedOutputsData.appendBytes(deflatedIndexedAddress._receivedOutputsData);
+        }
+        else {
+            final List<ShortTransactionOutputIdentifier> receivedOutputs = indexedAddress.getTransactionOutputs();
+            for (final ShortTransactionOutputIdentifier transactionOutputIdentifier : receivedOutputs) {
+                this.addTransactionOutput(transactionOutputIdentifier);
+            }
         }
     }
 
     public ByteArray getBytes() {
+        if (_cachedBytes != null) {
+            return _cachedBytes;
+        }
+
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
 
         final int addressByteCount = (_address != null ? _address.getByteCount() : 0);
@@ -101,10 +119,15 @@ public class DeflatedIndexedAddress implements IndexedAddress {
         byteArrayBuilder.appendBytes(outputCountBytes);
 
         byteArrayBuilder.appendBytes(_receivedOutputsData.build());
-        return MutableByteArray.wrap(byteArrayBuilder.build());
+        _cachedBytes = MutableByteArray.wrap(byteArrayBuilder.build());
+        return _cachedBytes;
     }
 
     public Integer getByteCount() {
+        if (_cachedBytes != null) {
+            return _cachedBytes.getByteCount();
+        }
+
         final int addressByteCountSize = 1;
         final ByteArray outputCountBytes = CompactVariableLengthInteger.variableLengthIntegerToBytes(_outputsCount);
         return addressByteCountSize + _address.getByteCount() + outputCountBytes.getByteCount() + _receivedOutputsData.getByteCount();

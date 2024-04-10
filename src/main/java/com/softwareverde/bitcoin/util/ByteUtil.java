@@ -24,6 +24,13 @@ public class ByteUtil extends com.softwareverde.util.ByteUtil {
         return Integer.compare(aByteCount, bByteCount);
     }
 
+    public static byte[] shortToBytes(final int value) {
+        return new byte[] {
+            (byte) (value >>> 8),
+            (byte) (value)
+        };
+    }
+
     public static BigInteger bytesToBigInteger(final ByteArray byteArray) {
         return ByteUtil.bytesToBigInteger(byteArray.getBytes());
     }
