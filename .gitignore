@@ -4,6 +4,7 @@
 /build
 /release
 /libs
+*.o
 bin
 out
 keys

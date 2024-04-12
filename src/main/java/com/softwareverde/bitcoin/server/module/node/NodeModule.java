@@ -1366,17 +1366,12 @@ public class NodeModule {
     }
 
     public void loop() {
+        long count = 0L;
         while (! _isShuttingDown.get()) {
-            long count = 0L;
             try {
                 Thread.sleep(10000L);
                 if (count % 3 == 0) {
                     System.gc();
-
-                    final MemoryUsage heapMemoryUsage = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-                    final MemoryUsage otherMemoryUsage = ManagementFactory.getMemoryMXBean().getNonHeapMemoryUsage();
-                    Logger.debug("HeapMemory: " + (heapMemoryUsage.getUsed() / ByteUtil.Unit.Binary.GIBIBYTES) + "gb");
-                    Logger.debug("OtherMemory: " + (otherMemoryUsage.getUsed() / ByteUtil.Unit.Binary.GIBIBYTES) + "gb");
                 }
                 count += 1L;
                 if (count < 0L) { count = 0L; }

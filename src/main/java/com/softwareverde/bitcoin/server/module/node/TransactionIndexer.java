@@ -23,6 +23,7 @@ import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.map.mutable.ConcurrentMutableHashMap;
 import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.filedb.WorkerManager;
@@ -31,11 +32,29 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 
 import java.io.File;
+import java.util.Comparator;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class TransactionIndexer implements AutoCloseable {
     public static final Integer MAX_OUTPUTS_PER_BUCKET = 800;
     public static final String LAST_TRANSACTION_ID_KEY = "lastTransactionId";
+
+    protected static final Comparator<ByteArray> SCRIPT_HASH_BUCKET_COMPARATOR = new Comparator<>() {
+        @Override
+        public int compare(final ByteArray hash0, final ByteArray hash1) {
+            final int byteCount0 = hash0.getByteCount();
+            final int byteCount1 = hash1.getByteCount();
+            final int byteCount = Math.min(byteCount0, byteCount1);
+            for (int i = 0; i < byteCount; ++i) {
+                final int b0 = ByteUtil.byteToInteger(hash0.getByte(i));
+                final int b1 = ByteUtil.byteToInteger(hash1.getByte(i));
+
+                if (b0 < b1) { return -1; }
+                if (b0 > b1) { return 1; }
+            }
+            return Integer.compare(byteCount0, byteCount1);
+        }
+    };
 
     protected final Blockchain _blockchain;
     protected final KeyValueStore _keyValueStore;
@@ -45,6 +64,8 @@ public class TransactionIndexer implements AutoCloseable {
     protected final LevelDb<ByteArray, IndexedAddress> _addressDb;
     protected final LevelDb<ShortTransactionOutputIdentifier, Long> _spentOutputsDb;
     protected final AtomicLong _lastTransactionId = new AtomicLong(0L);
+
+    protected final WorkerManager _workerManager;
 
     public TransactionIndexer(final File dataDirectory, final Blockchain blockchain, final KeyValueStore keyValueStore) throws Exception {
         _blockchain = blockchain;
@@ -96,12 +117,11 @@ public class TransactionIndexer implements AutoCloseable {
         _spentOutputsDb = new LevelDb<>(spendOutputsDbDirectory, new IndexedSpentOutputsInflater());
         _spentOutputsDb.open(cacheByteCount, writeBufferByteCount); // cacheByteCount, writeBufferByteCount);
 
-        _commitWorker = new WorkerManager(4, 4);
-        _commitWorker.setName("Commit Worker");
-        _commitWorker.start();
+        _workerManager = new WorkerManager(4, 8);
+        _workerManager.setName("TransactionIndexerWorker");
+        _workerManager.start();
     }
 
-    protected final WorkerManager _commitWorker;
     protected boolean _requiresCommit = false;
     protected int _indexesSinceCommit = 0;
 
@@ -116,6 +136,10 @@ public class TransactionIndexer implements AutoCloseable {
 
         public double getTotalMillisecondsElapsed() {
             return _totalTimeMs;
+        }
+
+        public synchronized void addTime(final double timeMs) {
+            _totalTimeMs += timeMs;
         }
     }
 
@@ -140,14 +164,31 @@ public class TransactionIndexer implements AutoCloseable {
 
         final MutableHashMap<Sha256Hash, IndexedAddress> stagedScriptHashes = new MutableHashMap<>();
 
-        boolean isCoinbase = true;
+        transactionIdTimer.start();
+        final ConcurrentMutableHashMap<Sha256Hash, Long> existingTransactionIds = new ConcurrentMutableHashMap<>(transactionCount);
+        for (final Transaction transaction : transactions) {
+            _workerManager.submitTask(new WorkerManager.Task() {
+                @Override
+                public void run() {
+                    final Sha256Hash transactionHash = transaction.getHash();
+                    final Long transactionId = _transactionIdDb.get(transactionHash);
+                    if (transactionId != null) {
+                        existingTransactionIds.put(transactionHash, transactionId);
+                    }
+                }
+            });
+        }
+        _workerManager.waitForCompletion();
+        transactionIdTimer.stop();
+
         for (final Transaction transaction : transactions) {
             transactionIdTimer.start();
             final Sha256Hash transactionHash = transaction.getHash();
-            Long transactionId = _transactionIdDb.get(transactionHash);
+            Long transactionId = existingTransactionIds.get(transactionHash);
             if (transactionId == null) {
                 transactionId = _lastTransactionId.incrementAndGet();
                 _transactionIdDb.put(transactionHash, transactionId);
+                existingTransactionIds.put(transactionHash, transactionId);
             }
             transactionIdTimer.stop();
 
@@ -176,93 +217,104 @@ public class TransactionIndexer implements AutoCloseable {
                 indexedAddress.addTransactionOutput(transactionOutputIdentifier);
             }
             outputsTimer.stop();
+        }
 
-            inputsTimer.start();
-            if (! isCoinbase) {
+        inputsTimer.start();
+        { // Index which Transaction the prevout was spent by.
+            boolean isCoinbase = true;
+            for (final Transaction transaction : transactions) {
+                if (isCoinbase) {
+                    isCoinbase = false;
+                    continue;
+                }
+
                 for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-                    // Index which Transaction the prevout was spent by.
                     final Sha256Hash prevoutTransactionHash = transactionInput.getPreviousOutputTransactionHash();
-                    Long prevoutTransactionId = _transactionIdDb.get(prevoutTransactionHash);
-                    if (prevoutTransactionId == null) {
-                        prevoutTransactionId = _lastTransactionId.incrementAndGet();
-                        _transactionIdDb.put(prevoutTransactionHash, prevoutTransactionId);
-                    }
-                    final Integer prevoutIndex = transactionInput.getPreviousOutputIndex();
-                    final ShortTransactionOutputIdentifier previousOutputIdentifier = new ShortTransactionOutputIdentifier(prevoutTransactionId, prevoutIndex);
-                    _spentOutputsDb.put(previousOutputIdentifier, transactionId);
+                    if (existingTransactionIds.containsKey(prevoutTransactionHash)) { continue; }
+
+                    _workerManager.submitTask(new WorkerManager.Task() {
+                        @Override
+                        public void run() {
+                            Long prevoutTransactionId = _transactionIdDb.get(prevoutTransactionHash);
+                            if (prevoutTransactionId != null) {
+                                existingTransactionIds.put(prevoutTransactionHash, prevoutTransactionId);
+                            }
+                        }
+                    });
                 }
             }
-            inputsTimer.stop();
-
-            isCoinbase = false;
         }
+        _workerManager.waitForCompletion();
+        boolean isCoinbase = true;
+        for (final Transaction transaction : transactions) {
+            if (isCoinbase) {
+                isCoinbase = false;
+                continue;
+            }
+
+            for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+                final Sha256Hash prevoutTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+                Long prevoutTransactionId = existingTransactionIds.get(prevoutTransactionHash);
+                if (prevoutTransactionId == null) {
+                    prevoutTransactionId = _lastTransactionId.incrementAndGet();
+                    _transactionIdDb.put(prevoutTransactionHash, prevoutTransactionId);
+                    existingTransactionIds.put(prevoutTransactionHash, prevoutTransactionId);
+                }
+
+                final Sha256Hash transactionHash = transaction.getHash();
+                final Long transactionId = existingTransactionIds.get(transactionHash);
+                final Integer prevoutIndex = transactionInput.getPreviousOutputIndex();
+                final ShortTransactionOutputIdentifier previousOutputIdentifier = new ShortTransactionOutputIdentifier(prevoutTransactionId, prevoutIndex);
+                _spentOutputsDb.put(previousOutputIdentifier, transactionId);
+            }
+        }
+        inputsTimer.stop();
 
         addressTimer.start();
+        final int scriptHashCount = stagedScriptHashes.getCount();
+        final ConcurrentMutableHashMap<ByteArray, IndexedAddress> entries = new ConcurrentMutableHashMap<>(scriptHashCount);
         for (final Sha256Hash scriptHash : stagedScriptHashes.getKeys()) {
-            final MutableByteArray bucketedScriptHash = new MutableByteArray(Sha256Hash.BYTE_COUNT + 2);
-            bucketedScriptHash.setBytes(0, scriptHash);
+            _workerManager.submitTask(new WorkerManager.Task() {
+                @Override
+                public void run() {
+                    final MutableByteArray bucketedScriptHash = new MutableByteArray(Sha256Hash.BYTE_COUNT + 2);
+                    bucketedScriptHash.setBytes(0, scriptHash);
 
-            final Integer bucketIndex = Util.coalesce(_metaAddressDb.get(scriptHash));
-            final byte[] bucketIndexBytes = ByteUtil.shortToBytes(bucketIndex);
-            bucketedScriptHash.setBytes(Sha256Hash.BYTE_COUNT, bucketIndexBytes);
+                    final Integer bucketIndex = Util.coalesce(_metaAddressDb.get(scriptHash));
+                    final byte[] bucketIndexBytes = ByteUtil.shortToBytes(bucketIndex);
+                    bucketedScriptHash.setBytes(Sha256Hash.BYTE_COUNT, bucketIndexBytes);
 
-            final IndexedAddress stagedIndexedAddress = stagedScriptHashes.get(scriptHash);
+                    final IndexedAddress stagedIndexedAddress = stagedScriptHashes.get(scriptHash);
 
-            addressDatabaseTimer.start();
-            IndexedAddress indexedAddress = _addressDb.get(bucketedScriptHash);
-            addressDatabaseTimer.stop();
-            if (indexedAddress == null) {
-                indexedAddress = stagedIndexedAddress;
-            }
-            else {
-                indexedAddress.add(stagedIndexedAddress);
-            }
-            indexedAddress.cacheBytes();
+                    IndexedAddress indexedAddress = _addressDb.get(bucketedScriptHash);
+                    if (indexedAddress == null) {
+                        indexedAddress = stagedIndexedAddress;
+                    }
+                    else {
+                        indexedAddress.add(stagedIndexedAddress);
+                    }
+                    indexedAddress.cacheBytes();
 
-            addressDatabaseTimer.start();
-            _addressDb.put(bucketedScriptHash, indexedAddress);
-            addressDatabaseTimer.stop();
+                    entries.put(bucketedScriptHash, indexedAddress);
 
-            if (indexedAddress.getTransactionOutputsCount() >= MAX_OUTPUTS_PER_BUCKET) { // Not an exact limit.
-                _metaAddressDb.put(scriptHash, bucketIndex + 1);
-                // Logger.debug(scriptHash + ": " + (ParsedAddress.toBase58CheckEncoded(indexedAddress.getAddress())) + " " + (bucketIndex + 1) + " (" + indexedAddress.getByteCount() + " bytes)");
-            }
+                    if (indexedAddress.getTransactionOutputsCount() >= MAX_OUTPUTS_PER_BUCKET) { // Not an exact limit.
+                        _metaAddressDb.put(scriptHash, bucketIndex + 1);
+                    }
+                }
+            });
         }
+        _workerManager.waitForCompletion();
+
+        addressDatabaseTimer.start();
+        _addressDb.put(entries);
+        addressDatabaseTimer.stop();
         addressTimer.stop();
 
         indexTimer.stop();
 
         databaseTimer.start();
         if (_indexesSinceCommit > 8) {
-            _commitWorker.submitTask(new WorkerManager.UnsafeTask() {
-                @Override
-                public void run() throws Exception {
-                    _addressDb.commit();
-                }
-            });
-
-            _commitWorker.submitTask(new WorkerManager.UnsafeTask() {
-                @Override
-                public void run() throws Exception {
-                    _spentOutputsDb.commit();
-                }
-            });
-
-            _commitWorker.submitTask(new WorkerManager.UnsafeTask() {
-                @Override
-                public void run() throws Exception {
-                    _transactionIdDb.commit();
-                }
-            });
-
-            _commitWorker.submitTask(new WorkerManager.UnsafeTask() {
-                @Override
-                public void run() throws Exception {
-                    _transactionDb.commit();
-                }
-            });
-
-            _commitWorker.waitForCompletion();
+            // TODO: Old commit code was here.
 
             _requiresCommit = false;
             _indexesSinceCommit = 0;
@@ -386,7 +438,8 @@ public class TransactionIndexer implements AutoCloseable {
             _indexesSinceCommit = 0;
         }
 
-        _commitWorker.close();
+        _workerManager.shutdown();
+        _workerManager.close();
 
         Logger.debug("Closing AddressDb.");
         _addressDb.close();

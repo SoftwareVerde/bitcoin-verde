@@ -2,14 +2,19 @@ package com.google.leveldb;
 
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
+import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.Map;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.BitcoinSystemUtil;
 import com.softwareverde.util.ByteUtil;
+import com.softwareverde.util.Tuple;
 import com.softwareverde.util.jni.NativeUtil;
 
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Comparator;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class LevelDb<Key, Value> implements AutoCloseable {
@@ -115,30 +120,6 @@ public class LevelDb<Key, Value> implements AutoCloseable {
         return buffer;
     }
 
-//    protected static final ThreadLocal<ByteBuffer> _nativeKeyBuffer = new ThreadLocal<>();
-//    protected static final ThreadLocal<ByteBuffer> _nativeValueBuffer = new ThreadLocal<>();
-//    protected static ByteBuffer getByteBuffer(final ByteArray data, final ThreadLocal<ByteBuffer> threadLocal) {
-//        final int dataByteCount = (data != null ? data.getByteCount() : 0);
-//        ByteBuffer byteBuffer = threadLocal.get();
-//        if ((byteBuffer == null) || (byteBuffer.capacity() < dataByteCount)) {
-//            final long baseBufferSize = 16L * ByteUtil.Unit.Binary.KIBIBYTES;
-//            final long newByteBufferKb = (dataByteCount + (baseBufferSize - 1L)) / baseBufferSize;
-//            final int newBufferByteCount = (int) (baseBufferSize * newByteBufferKb);
-//
-//            byteBuffer = ByteBuffer.allocateDirect(newBufferByteCount);
-//            byteBuffer.order(ByteOrder.nativeOrder());
-//            threadLocal.set(byteBuffer);
-//            System.out.println("Allocated: " + dataByteCount + " (" + newBufferByteCount + ")");
-//        }
-//
-//        byteBuffer.rewind();
-//        for (int i = 0; i < dataByteCount; ++i) {
-//            byteBuffer.put(i, data.getByte(i));
-//        }
-//
-//        return byteBuffer;
-//    }
-
     protected final EntryInflater<Key, Value> _entryInflater;
 
     protected final File _directory;
@@ -147,6 +128,23 @@ public class LevelDb<Key, Value> implements AutoCloseable {
     protected long _writeOptionsPointer = 0L;
     protected long _readOptionsPointer = 0L;
     protected long _cacheReadOptionsPointer = 0L;
+
+    protected void _putBatch(final long batchPointer, final Key key, final Value value) {
+        final ByteArray keyBytes = _entryInflater.keyToBytes(key);
+        final ByteArray valueBytes = _entryInflater.valueToBytes(value);
+        final long keyByteCount = keyBytes.getByteCount();
+        final long valueByteCount = (valueBytes != null ? valueBytes.getByteCount() : 0);
+
+        try (
+            final Buffer keyBuffer = _getBuffer(keyBytes);
+            final Buffer valueBuffer = _getBuffer(valueBytes)
+        ) {
+            final ByteBuffer keyByteBuffer = keyBuffer.getByteBuffer();
+            final ByteBuffer valueByteBuffer = valueBuffer.getByteBuffer();
+
+            com.google.leveldb.NativeLevelDb.leveldb_writebatch_put(batchPointer, keyByteBuffer, keyByteCount, valueByteBuffer, valueByteCount);
+        }
+    }
 
     public LevelDb(final File directory, final EntryInflater<Key, Value> entryInflater) {
         _directory = directory;
@@ -238,6 +236,39 @@ public class LevelDb<Key, Value> implements AutoCloseable {
             final ByteBuffer keyByteBuffer = keyBuffer.getByteBuffer();
 
             com.google.leveldb.NativeLevelDb.leveldb_delete(_dbPointer, _writeOptionsPointer, keyByteBuffer, keyByteCount);
+        }
+    }
+
+    public void put(final Map<Key, Value> entryMap) {
+        this.put(entryMap, null);
+    }
+
+    public void put(final Map<Key, Value> entryMap, final Comparator<Key> keyComparator) {
+        final long batchPointer = com.google.leveldb.NativeLevelDb.leveldb_writebatch_create();
+        try {
+            if (keyComparator != null) {
+                final int keyCount = entryMap.getCount();
+                final MutableList<Key> keys = new MutableArrayList<>(keyCount);
+                for (final Key key : entryMap.getKeys()) {
+                    keys.add(key);
+                }
+                keys.sort(keyComparator);
+
+                for (final Key key : keys) {
+                    final Value value = entryMap.get(key);
+                    _putBatch(batchPointer, key, value);
+                }
+            }
+            else {
+                for (final Tuple<Key, Value> entry : entryMap) {
+                    _putBatch(batchPointer, entry.first, entry.second);
+                }
+            }
+
+            com.google.leveldb.NativeLevelDb.leveldb_write(_dbPointer, _writeOptionsPointer, batchPointer);
+        }
+        finally {
+            com.google.leveldb.NativeLevelDb.leveldb_writebatch_destroy(batchPointer);
         }
     }
 

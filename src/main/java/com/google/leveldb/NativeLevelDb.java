@@ -45,7 +45,15 @@ public final static native void leveldb_options_set_cache(long optionsPointer, l
 public final static native long leveldb_cache_create_lru(long byteCount);
 public final static native void leveldb_cache_destroy(long cachePointer);
 
-//  public final static native void leveldb_write(long jarg1, long jarg2, long jarg3, long jarg4);
+public final static native long leveldb_writebatch_create();
+public final static native void leveldb_writebatch_destroy(long batchPointer);
+public final static native void leveldb_writebatch_clear(long batchPointer);
+public final static native void leveldb_writebatch_put(long batchPointer, ByteBuffer key, long keyByteCount, ByteBuffer value, long valueByteCount);
+public final static native void leveldb_writebatch_delete(long batchPointer, ByteBuffer key, long keyByteCount);
+public final static native void leveldb_write(long dbPointer, long writeOptionsPointer, long batchPointer);
+
+//  public final static native void leveldb_writebatch_iterate(long jarg1, long jarg2, long jarg3, long jarg4);
+//  public final static native void leveldb_writebatch_append(long jarg1, long jarg2);
 //  public final static native long leveldb_create_iterator(long jarg1, long jarg2);
 //  public final static native String leveldb_property_value(long jarg1, String jarg2);
 //  public final static native void leveldb_approximate_sizes(long jarg1, int jarg2, long jarg3, long jarg4, long jarg5, long jarg6, long jarg7);
@@ -62,13 +70,6 @@ public final static native void leveldb_cache_destroy(long cachePointer);
 //  public final static native String leveldb_iter_key(long jarg1, long jarg2);
 //  public final static native String leveldb_iter_value(long jarg1, long jarg2);
 //  public final static native void leveldb_iter_get_error(long jarg1, long jarg2);
-//  public final static native long leveldb_writebatch_create();
-//  public final static native void leveldb_writebatch_destroy(long jarg1);
-//  public final static native void leveldb_writebatch_clear(long jarg1);
-//  public final static native void leveldb_writebatch_put(long jarg1, String jarg2, long jarg3, String jarg4, long jarg5);
-//  public final static native void leveldb_writebatch_delete(long jarg1, String jarg2, long jarg3);
-//  public final static native void leveldb_writebatch_iterate(long jarg1, long jarg2, long jarg3, long jarg4);
-//  public final static native void leveldb_writebatch_append(long jarg1, long jarg2);
 //  public final static native int leveldb_no_compression_get();
 //  public final static native int leveldb_snappy_compression_get();
 //  public final static native long leveldb_comparator_create(long jarg1, long jarg2, long jarg3, long jarg4);

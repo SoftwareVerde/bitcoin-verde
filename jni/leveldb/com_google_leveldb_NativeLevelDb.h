@@ -183,6 +183,54 @@ JNIEXPORT jlong JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1cache_1cr
 JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1cache_1destroy
   (JNIEnv *, jclass, jlong);
 
+/*
+ * Class:     com_google_leveldb_NativeLevelDb
+ * Method:    leveldb_writebatch_create
+ * Signature: ()J
+ */
+JNIEXPORT jlong JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1writebatch_1create
+  (JNIEnv *, jclass);
+
+/*
+ * Class:     com_google_leveldb_NativeLevelDb
+ * Method:    leveldb_writebatch_destroy
+ * Signature: (J)V
+ */
+JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1writebatch_1destroy
+  (JNIEnv *, jclass, jlong);
+
+/*
+ * Class:     com_google_leveldb_NativeLevelDb
+ * Method:    leveldb_writebatch_clear
+ * Signature: (J)V
+ */
+JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1writebatch_1clear
+  (JNIEnv *, jclass, jlong);
+
+/*
+ * Class:     com_google_leveldb_NativeLevelDb
+ * Method:    leveldb_writebatch_put
+ * Signature: (JLjava/nio/ByteBuffer;JLjava/nio/ByteBuffer;J)V
+ */
+JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1writebatch_1put
+  (JNIEnv *, jclass, jlong, jobject, jlong, jobject, jlong);
+
+/*
+ * Class:     com_google_leveldb_NativeLevelDb
+ * Method:    leveldb_writebatch_delete
+ * Signature: (JLjava/nio/ByteBuffer;J)V
+ */
+JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1writebatch_1delete
+  (JNIEnv *, jclass, jlong, jobject, jlong);
+
+/*
+ * Class:     com_google_leveldb_NativeLevelDb
+ * Method:    leveldb_write
+ * Signature: (JJJ)V
+ */
+JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1write
+  (JNIEnv *, jclass, jlong, jlong, jlong);
+
 #ifdef __cplusplus
 }
 #endif

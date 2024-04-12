@@ -182,3 +182,55 @@ JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1options_1s
         (leveldb_cache_t*)(uintptr_t)dbCachePtr
     );
 }
+
+JNIEXPORT jlong JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1writebatch_1create
+  (JNIEnv* env, jclass object) {
+    return (uintptr_t)leveldb_writebatch_create();
+}
+
+JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1writebatch_1destroy
+  (JNIEnv* env, jclass object, jlong batchPtr) {
+    leveldb_writebatch_destroy(
+        (leveldb_writebatch_t*)(uintptr_t)batchPtr
+    );
+}
+
+JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1writebatch_1clear
+  (JNIEnv* env, jclass object, jlong batchPtr) {
+    leveldb_writebatch_clear(
+        (leveldb_writebatch_t*)(uintptr_t)batchPtr
+    );
+}
+
+JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1writebatch_1put
+  (JNIEnv* env, jclass object, jlong batchPtr, jobject keyBuf, jlong keyByteCount, jobject valueBuf, jlong valueByteCount) {
+    const char* keyData = (const char*) (*env)->GetDirectBufferAddress(env, keyBuf);
+    const char* valueData = (const char*) (*env)->GetDirectBufferAddress(env, valueBuf);
+
+    leveldb_writebatch_put(
+        (leveldb_writebatch_t*)(uintptr_t)batchPtr,
+        keyData, (size_t)keyByteCount,
+        valueData, (size_t)valueByteCount
+    );
+}
+
+JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1writebatch_1delete
+  (JNIEnv* env, jclass object, jlong batchPtr, jobject keyBuf, jlong keyByteCount) {
+    const char* keyData = (const char*) (*env)->GetDirectBufferAddress(env, keyBuf);
+
+    leveldb_writebatch_delete(
+        (leveldb_writebatch_t*)(uintptr_t)batchPtr,
+        keyData, (size_t)keyByteCount
+    );
+}
+
+JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1write
+  (JNIEnv* env, jclass object, jlong levelDbPtr, jlong writeOptionsPtr, jlong batchPtr) {
+
+    leveldb_write(
+        (leveldb_t*)(uintptr_t)levelDbPtr,
+        (leveldb_writeoptions_t*)(uintptr_t)writeOptionsPtr,
+        (leveldb_writebatch_t*)(uintptr_t)batchPtr,
+        0
+    );
+}
