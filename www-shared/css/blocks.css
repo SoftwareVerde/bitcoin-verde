@@ -350,7 +350,7 @@
     content: '\A(bytes)';
     color: rgba(0, 0, 0, 0.4);
     font-style: italic;
-    font-size: 25%;
+    font-size: 0.66em;
     display: block;
 }
 
@@ -454,30 +454,36 @@
     vertical-align: top;
     z-index: 1;
     background: none;
+    display: flex;
+    flex-direction: row;
+    width: 25%;
+}
+@media only screen and (max-width: 960px) {
+    .transaction .floating-properties-container {
+        width: auto;
+    }
 }
 .transaction.collapsed .floating-properties-container {
     display: none;
 }
 
 .transaction .floating-property {
-    width: 90px;
-    height: 90px;
-    border-radius: 5em;
     padding: 0.5em;
-    border: solid 1px #F0F0F0;
     text-align: center;
-    margin-left: 10px;
-    float: right;
-    background-color: #FAFAFA;
+    margin-left: 5px;
+    background-color: #f1f1f1;
     position: relative;
     box-sizing: border-box;
+    display: inline-block;
+    vertical-align: top;
+    flex: 1;
 }
 .transaction .floating-property label {
     font-weight: normal;
 }
 .transaction .floating-property .value {
     display: block;
-    font-size: 150%;
+    font-size: 12pt;
 }
 .transaction .slp.floating-property .value {
     position: absolute;
@@ -746,6 +752,16 @@
     display: block;
 }
 
+.address-metadata .address-balance::after,
+.transaction .amount:after {
+    content: "BCH";
+    margin-left: 3pt;
+    font-weight: normal;
+    color: #909090;
+    vertical-align: super;
+    font-size: 7pt;
+}
+
 .address-metadata .address-balance {
     margin-top: 0.5em;
     display: block;
@@ -757,14 +773,6 @@
     margin-right: 0.5em;
     display: inline-block;
     font-weight: bold;
-}
-
-.address-metadata .address-balance::after {
-    content: '(satoshis)';
-    font-size: 0.75em;
-    color: #BBBBBB;
-    margin-left: 0.5em;
-    font-style: italic;
 }
 
 .address-metadata .qr-code {

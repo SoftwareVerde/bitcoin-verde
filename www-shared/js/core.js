@@ -177,6 +177,10 @@ class KeyCodes {
 }
 
 class Ui {
+    static formatSatoshis(amount) {
+        return ((amount || 0) / Constants.SATOSHIS_PER_BITCOIN).toLocaleString(undefined, {minimumFractionDigits: 8});
+    }
+
     static makeHashCopyable(element) {
         const copyButton = $("<span class=\"copy\"></span>");
         copyButton.on("click", function() {
@@ -228,7 +232,7 @@ class Ui {
         if (transactionInput.address) {
             Ui.makeHashCopyable($(".address", transactionInputUi));
         }
-        $(".amount", transactionInputUi).text((transactionInput.previousTransactionAmount || 0).toLocaleString());
+        $(".amount", transactionInputUi).text(Ui.formatSatoshis(transactionInput.previousTransactionAmount));
 
         const transactionLink = $(".transaction-hash .value", transactionInputUi);
         transactionLink.text(transactionInput.previousOutputTransactionHash);
@@ -318,7 +322,7 @@ class Ui {
         if (transactionOutput.address) {
             Ui.makeHashCopyable($(".address", transactionOutputUi));
         }
-        $(".amount", transactionOutputUi).text((transactionOutput.amount || 0).toLocaleString());
+        $(".amount", transactionOutputUi).text(Ui.formatSatoshis(transactionOutput.amount));
 
         if (transactionOutput.spentByTransaction) {
             const transactionLink = $(".spent-by .value", transactionOutputUi);
@@ -808,7 +812,7 @@ class Ui {
         const qrCodeElement = window.ninja.qrCode.createCanvas(addressString, 4);
 
         $(".address", addressUi).text(addressString);
-        $(".address-balance", addressUi).text(addressBalance.toLocaleString());
+        $(".address-balance", addressUi).text(Ui.formatSatoshis(addressBalance));
         $(".qr-code", addressUi).append(qrCodeElement);
 
         const addressTransactionsContainer = $(".address-transactions", addressUi);
