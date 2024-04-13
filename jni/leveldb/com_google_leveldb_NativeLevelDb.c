@@ -45,8 +45,8 @@ JNIEXPORT jlong JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1open
 }
 
 JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1close
-  (JNIEnv* env, jclass object, jlong levelDbPtr) {
-  leveldb_close((leveldb_t*)(uintptr_t)levelDbPtr);
+  (JNIEnv* env, jclass object, jlong leveldbPtr) {
+  leveldb_close((leveldb_t*)(uintptr_t)leveldbPtr);
 }
 
 JNIEXPORT jlong JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1writeoptions_1create
@@ -65,12 +65,12 @@ JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1writeoptio
 }
 
 JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1put
-  (JNIEnv* env, jclass object, jlong levelDbPtr, jlong writeOptionsPtr, jobject keyBuf, jlong keyByteCount, jobject valueBuf, jlong valueByteCount) {
+  (JNIEnv* env, jclass object, jlong leveldbPtr, jlong writeOptionsPtr, jobject keyBuf, jlong keyByteCount, jobject valueBuf, jlong valueByteCount) {
     const char* keyData = (const char*) (*env)->GetDirectBufferAddress(env, keyBuf);
     const char* valueData = (const char*) (*env)->GetDirectBufferAddress(env, valueBuf);
 
     leveldb_put(
-        (leveldb_t*)(uintptr_t)levelDbPtr,
+        (leveldb_t*)(uintptr_t)leveldbPtr,
         (leveldb_writeoptions_t*)(uintptr_t)writeOptionsPtr,
         keyData, (size_t)keyByteCount,
         valueData, (size_t)valueByteCount,
@@ -105,16 +105,16 @@ JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1readoption
 }
 
 JNIEXPORT jlong JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1create_1snapshot
-  (JNIEnv* env, jclass object, jlong levelDbPtr) {
+  (JNIEnv* env, jclass object, jlong leveldbPtr) {
     return (uintptr_t)leveldb_create_snapshot(
-        (leveldb_t*)(uintptr_t)levelDbPtr
+        (leveldb_t*)(uintptr_t)leveldbPtr
     );
 }
 
 JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1release_1snapshot
-  (JNIEnv* env, jclass object, jlong levelDbPtr, jlong snapshotPtr) {
+  (JNIEnv* env, jclass object, jlong leveldbPtr, jlong snapshotPtr) {
     leveldb_release_snapshot(
-        (leveldb_t*)(uintptr_t)levelDbPtr,
+        (leveldb_t*)(uintptr_t)leveldbPtr,
         (leveldb_snapshot_t*)(uintptr_t)snapshotPtr
     );
 }
@@ -128,13 +128,13 @@ JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1readoption
 }
 
 JNIEXPORT jbyteArray JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1get
-  (JNIEnv* env, jclass object, jlong levelDbPtr, jlong readOptionsPtr, jobject keyBuf, jlong keyByteCount) {
+  (JNIEnv* env, jclass object, jlong leveldbPtr, jlong readOptionsPtr, jobject keyBuf, jlong keyByteCount) {
     const char* keyData = (const char*) (*env)->GetDirectBufferAddress(env, keyBuf);
 
     size_t valueByteCount = 0;
 
     char* value = leveldb_get(
-        (leveldb_t*)(uintptr_t)levelDbPtr,
+        (leveldb_t*)(uintptr_t)leveldbPtr,
         (leveldb_readoptions_t*)readOptionsPtr,
         keyData, (size_t)keyByteCount,
         &valueByteCount,
@@ -150,11 +150,11 @@ JNIEXPORT jbyteArray JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1get
 }
 
 JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1delete
-  (JNIEnv* env, jclass object, jlong levelDbPtr, jlong writeOptionsPtr, jobject keyBuf, jlong keyByteCount) {
+  (JNIEnv* env, jclass object, jlong leveldbPtr, jlong writeOptionsPtr, jobject keyBuf, jlong keyByteCount) {
     const char* keyData = (const char*) (*env)->GetDirectBufferAddress(env, keyBuf);
 
     leveldb_delete(
-        (leveldb_t*)(uintptr_t)levelDbPtr,
+        (leveldb_t*)(uintptr_t)leveldbPtr,
         (leveldb_writeoptions_t*)(uintptr_t)writeOptionsPtr,
         keyData, (size_t)keyByteCount,
         0
@@ -225,12 +225,32 @@ JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1writebatch
 }
 
 JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1write
-  (JNIEnv* env, jclass object, jlong levelDbPtr, jlong writeOptionsPtr, jlong batchPtr) {
+  (JNIEnv* env, jclass object, jlong leveldbPtr, jlong writeOptionsPtr, jlong batchPtr) {
 
     leveldb_write(
-        (leveldb_t*)(uintptr_t)levelDbPtr,
+        (leveldb_t*)(uintptr_t)leveldbPtr,
         (leveldb_writeoptions_t*)(uintptr_t)writeOptionsPtr,
         (leveldb_writebatch_t*)(uintptr_t)batchPtr,
         0
+    );
+}
+
+JNIEXPORT jlong JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1filterpolicy_1create_1bloom
+  (JNIEnv* env, jclass object, jint bitsPerKey) {
+    return (uintptr_t)leveldb_filterpolicy_create_bloom(bitsPerKey);
+}
+
+JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1filterpolicy_1destroy
+  (JNIEnv* env, jclass object, jlong filterPtr) {
+    leveldb_filterpolicy_destroy(
+        (leveldb_filterpolicy_t*)(uintptr_t)filterPtr
+    );
+}
+
+JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1options_1set_1filter_1policy
+  (JNIEnv* env, jclass object, jlong optionsPtr, jlong filterPtr) {
+    leveldb_options_set_filter_policy(
+        (leveldb_options_t*)(uintptr_t)optionsPtr,
+        (leveldb_filterpolicy_t*)(uintptr_t)filterPtr
     );
 }

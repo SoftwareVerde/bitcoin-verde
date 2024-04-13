@@ -26,6 +26,9 @@ public class LevelDb<Key, Value> implements AutoCloseable {
         ByteArray valueToBytes(Value value);
     }
 
+    // See: https://github.com/google/leveldb/blob/main/doc/index.md#filters
+    public static final int BLOOM_FILTER_BITS_PER_KEY = 10; // The recommended (but not default) value of LevelDb::open(bloomFilterBitsPerKey...)
+
     private static boolean _libraryLoadedCorrectly = false;
 
     public static boolean isEnabled() {
@@ -126,6 +129,7 @@ public class LevelDb<Key, Value> implements AutoCloseable {
     protected long _dbPointer = 0L;
     protected long _dbCachePointer = 0L;
     protected long _writeOptionsPointer = 0L;
+    protected long _bloomFilterPointer = 0L;
     protected long _readOptionsPointer = 0L;
     protected long _cacheReadOptionsPointer = 0L;
 
@@ -152,26 +156,32 @@ public class LevelDb<Key, Value> implements AutoCloseable {
     }
 
     public void open() {
-        this.open(null, null);
+        this.open(null, null, null);
     }
-    public void open(final Long cacheByteCount, final Long writeBufferByteCount) {
+
+    public void open(final Integer bloomFilterBitsPerKey, final Long cacheByteCount, final Long writeBufferByteCount) {
         LevelDb.loadLibrary();
 
-        final long options = com.google.leveldb.NativeLevelDb.leveldb_options_create();
-        com.google.leveldb.NativeLevelDb.leveldb_options_set_create_if_missing(options, true);
+        final long optionsPointer = com.google.leveldb.NativeLevelDb.leveldb_options_create();
+        com.google.leveldb.NativeLevelDb.leveldb_options_set_create_if_missing(optionsPointer, true);
+
+        if (bloomFilterBitsPerKey != null) {
+            _bloomFilterPointer = com.google.leveldb.NativeLevelDb.leveldb_filterpolicy_create_bloom(bloomFilterBitsPerKey);
+            com.google.leveldb.NativeLevelDb.leveldb_options_set_filter_policy(optionsPointer, _bloomFilterPointer);
+        }
 
         if (cacheByteCount != null) {
             _dbCachePointer = com.google.leveldb.NativeLevelDb.leveldb_cache_create_lru(cacheByteCount);
-            com.google.leveldb.NativeLevelDb.leveldb_options_set_cache(options, _dbCachePointer);
+            com.google.leveldb.NativeLevelDb.leveldb_options_set_cache(optionsPointer, _dbCachePointer);
         }
 
         if (writeBufferByteCount != null) {
-            com.google.leveldb.NativeLevelDb.leveldb_options_set_write_buffer_size(options, writeBufferByteCount);
+            com.google.leveldb.NativeLevelDb.leveldb_options_set_write_buffer_size(optionsPointer, writeBufferByteCount);
         }
 
         final String absolutePath = _directory.getAbsolutePath();
-        _dbPointer = com.google.leveldb.NativeLevelDb.leveldb_open(options, absolutePath);
-        com.google.leveldb.NativeLevelDb.leveldb_options_destroy(options);
+        _dbPointer = com.google.leveldb.NativeLevelDb.leveldb_open(optionsPointer, absolutePath);
+        com.google.leveldb.NativeLevelDb.leveldb_options_destroy(optionsPointer);
 
         _writeOptionsPointer = com.google.leveldb.NativeLevelDb.leveldb_writeoptions_create();
         com.google.leveldb.NativeLevelDb.leveldb_writeoptions_set_sync(_writeOptionsPointer, false);
@@ -292,6 +302,11 @@ public class LevelDb<Key, Value> implements AutoCloseable {
         if (_dbPointer != 0L) {
             com.google.leveldb.NativeLevelDb.leveldb_close(_dbPointer);
             _dbPointer = 0L;
+        }
+
+        if (_bloomFilterPointer != 0L) {
+            com.google.leveldb.NativeLevelDb.leveldb_filterpolicy_destroy(_bloomFilterPointer);
+            _bloomFilterPointer = 0L;
         }
 
         if (_dbCachePointer != 0L) {

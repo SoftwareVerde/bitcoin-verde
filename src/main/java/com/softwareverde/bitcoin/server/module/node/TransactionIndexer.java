@@ -100,22 +100,23 @@ public class TransactionIndexer implements AutoCloseable {
         }
 
         final long cacheByteCount = ByteUtil.Unit.Binary.MEBIBYTES * 32L;
-        final long writeBufferByteCount = ByteUtil.Unit.Binary.GIBIBYTES / 2L; //  / 2L / 5L;
+        final long writeBufferByteCount = ByteUtil.Unit.Binary.MEBIBYTES * 128L;
+        final int bitsPerKey = LevelDb.BLOOM_FILTER_BITS_PER_KEY;
 
         _transactionIdDb = new LevelDb<>(transactionIdDbDirectory, new TransactionIdEntryInflater());
-        _transactionIdDb.open(cacheByteCount, writeBufferByteCount); // (cacheByteCount, writeBufferByteCount);
+        _transactionIdDb.open(bitsPerKey, cacheByteCount, writeBufferByteCount);
 
         _transactionDb = new LevelDb<>(transactionDbDirectory, new IndexedTransactionEntryInflater());
-        _transactionDb.open(cacheByteCount, writeBufferByteCount); // (cacheByteCount, writeBufferByteCount);
+        _transactionDb.open(bitsPerKey, cacheByteCount, writeBufferByteCount);
 
         _addressDb = new LevelDb<>(addressDbDirectory, new IndexedAddressEntryInflater());
-        _addressDb.open(cacheByteCount, writeBufferByteCount); // cacheByteCount, writeBufferByteCount);
+        _addressDb.open(bitsPerKey, cacheByteCount, writeBufferByteCount);
 
         _metaAddressDb = new LevelDb<>(metaAddressDbDirectory, new MetaAddressEntryInflater());
-        _metaAddressDb.open(cacheByteCount, writeBufferByteCount); // cacheByteCount, writeBufferByteCount);
+        _metaAddressDb.open(bitsPerKey, cacheByteCount, writeBufferByteCount);
 
         _spentOutputsDb = new LevelDb<>(spendOutputsDbDirectory, new IndexedSpentOutputsInflater());
-        _spentOutputsDb.open(cacheByteCount, writeBufferByteCount); // cacheByteCount, writeBufferByteCount);
+        _spentOutputsDb.open(bitsPerKey, cacheByteCount, writeBufferByteCount);
 
         _workerManager = new WorkerManager(4, 8);
         _workerManager.setName("TransactionIndexerWorker");

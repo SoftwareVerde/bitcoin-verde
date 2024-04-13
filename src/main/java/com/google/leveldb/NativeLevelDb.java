@@ -8,7 +8,6 @@ public class NativeLevelDb {
   public final static native void leveldb_options_destroy(long optionsPointer);
   public final static native void leveldb_options_set_create_if_missing(long optionsPointer, boolean value);
 //  public final static native void leveldb_options_set_comparator(long optionsPointer, long jarg2);
-//  public final static native void leveldb_options_set_filter_policy(long jarg1, long jarg2);
 //  public final static native void leveldb_options_set_error_if_exists(long jarg1, short jarg2);
 //  public final static native void leveldb_options_set_paranoid_checks(long jarg1, short jarg2);
 //  public final static native void leveldb_options_set_env(long jarg1, long jarg2);
@@ -52,6 +51,10 @@ public final static native void leveldb_writebatch_put(long batchPointer, ByteBu
 public final static native void leveldb_writebatch_delete(long batchPointer, ByteBuffer key, long keyByteCount);
 public final static native void leveldb_write(long dbPointer, long writeOptionsPointer, long batchPointer);
 
+public final static native long leveldb_filterpolicy_create_bloom(int bitsPerKey);
+public final static native void leveldb_filterpolicy_destroy(long filterPtr);
+public final static native void leveldb_options_set_filter_policy(long optionsPointer, long filterPtr);
+
 //  public final static native void leveldb_writebatch_iterate(long jarg1, long jarg2, long jarg3, long jarg4);
 //  public final static native void leveldb_writebatch_append(long jarg1, long jarg2);
 //  public final static native long leveldb_create_iterator(long jarg1, long jarg2);
@@ -75,8 +78,6 @@ public final static native void leveldb_write(long dbPointer, long writeOptionsP
 //  public final static native long leveldb_comparator_create(long jarg1, long jarg2, long jarg3, long jarg4);
 //  public final static native void leveldb_comparator_destroy(long jarg1);
 //  public final static native long leveldb_filterpolicy_create(long jarg1, long jarg2, long jarg3, long jarg4, long jarg5);
-//  public final static native void leveldb_filterpolicy_destroy(long jarg1);
-//  public final static native long leveldb_filterpolicy_create_bloom(int jarg1);
 
 //  public final static native long leveldb_create_default_env();
 //  public final static native void leveldb_env_destroy(long jarg1);

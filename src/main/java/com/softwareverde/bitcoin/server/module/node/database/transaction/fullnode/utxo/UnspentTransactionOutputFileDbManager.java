@@ -42,9 +42,9 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
     }
 
     public void open() throws Exception {
-        final long cacheByteCount = ByteUtil.Unit.Binary.GIBIBYTES;
-        final long writeBufferByteCount = ByteUtil.Unit.Binary.GIBIBYTES / 4L;
-        _utxoDb.open(null, writeBufferByteCount); // cacheByteCount, writeBufferByteCount);
+        final long cacheByteCount = ByteUtil.Unit.Binary.MEBIBYTES * 64L;
+        final long writeBufferByteCount = ByteUtil.Unit.Binary.MEBIBYTES * 64L;
+        _utxoDb.open(LevelDb.BLOOM_FILTER_BITS_PER_KEY, cacheByteCount, writeBufferByteCount);
         _commitWorker.start();
     }
 

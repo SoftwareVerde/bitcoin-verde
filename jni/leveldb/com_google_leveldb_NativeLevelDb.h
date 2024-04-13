@@ -231,6 +231,30 @@ JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1writebatch
 JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1write
   (JNIEnv *, jclass, jlong, jlong, jlong);
 
+/*
+ * Class:     com_google_leveldb_NativeLevelDb
+ * Method:    leveldb_filterpolicy_create_bloom
+ * Signature: (I)J
+ */
+JNIEXPORT jlong JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1filterpolicy_1create_1bloom
+  (JNIEnv *, jclass, jint);
+
+/*
+ * Class:     com_google_leveldb_NativeLevelDb
+ * Method:    leveldb_filterpolicy_destroy
+ * Signature: (J)V
+ */
+JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1filterpolicy_1destroy
+  (JNIEnv *, jclass, jlong);
+
+/*
+ * Class:     com_google_leveldb_NativeLevelDb
+ * Method:    leveldb_options_set_filter_policy
+ * Signature: (JJ)V
+ */
+JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1options_1set_1filter_1policy
+  (JNIEnv *, jclass, jlong, jlong);
+
 #ifdef __cplusplus
 }
 #endif
