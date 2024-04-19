@@ -592,11 +592,11 @@ public class NodeModule {
                     }
                 }
 
-                if (Math.abs(blockHeight - headBlockHeight) > 20) {
-                    Logger.debug("Received unsolicited, irrelevant Block: " + blockHash + " from " + bitcoinNode.toString() + "; disconnecting.");
-                    bitcoinNode.disconnect();
-                    return;
-                }
+//                if (Math.abs(blockHeight - headBlockHeight) > 20) {
+//                    Logger.debug("Received unsolicited, irrelevant Block: " + blockHash + " from " + bitcoinNode.toString() + "; disconnecting.");
+//                    bitcoinNode.disconnect();
+//                    return;
+//                }
 
                 Logger.debug("Received unsolicited Block: " + blockHash + " from " + bitcoinNode.toString());
                 _blockDownloader.addBlock(blockHeight, new TimedPromise<>(block));
