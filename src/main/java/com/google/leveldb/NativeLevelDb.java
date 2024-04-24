@@ -39,6 +39,7 @@ public final static native void leveldb_options_set_cache(long optionsPointer, l
   public final static native void leveldb_release_snapshot(long dbPointer, long snapshotPointer);
 
   public final static native byte[] leveldb_get(long dbPointer, long readOptionsPointer, ByteBuffer key, long keyByteCount);
+  public final static native boolean leveldb_exists(long dbPointer, long readOptionsPointer, ByteBuffer key, long keyByteCount);
   public final static native void leveldb_delete(long dbPointer, long writeOptionsPointer, ByteBuffer key, long keyByteCount);
 
 public final static native long leveldb_cache_create_lru(long byteCount);

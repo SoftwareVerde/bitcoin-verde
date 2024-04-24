@@ -161,6 +161,14 @@ JNIEXPORT jbyteArray JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1get
 
 /*
  * Class:     com_google_leveldb_NativeLevelDb
+ * Method:    leveldb_exists
+ * Signature: (JJLjava/nio/ByteBuffer;J)Z
+ */
+JNIEXPORT jboolean JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1exists
+  (JNIEnv *, jclass, jlong, jlong, jobject, jlong);
+
+/*
+ * Class:     com_google_leveldb_NativeLevelDb
  * Method:    leveldb_delete
  * Signature: (JJLjava/nio/ByteBuffer;J)V
  */

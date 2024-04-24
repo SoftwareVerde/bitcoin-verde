@@ -1,6 +1,5 @@
 package com.softwareverde.network.socket;
 
-import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;

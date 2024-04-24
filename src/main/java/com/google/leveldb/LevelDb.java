@@ -232,9 +232,7 @@ public class LevelDb<Key, Value> implements AutoCloseable {
         try (final Buffer keyBuffer = _getBuffer(keyBytes)) {
             final ByteBuffer keyByteBuffer = keyBuffer.getByteBuffer();
 
-            final ByteArray value = MutableByteArray.wrap(com.google.leveldb.NativeLevelDb.leveldb_get(_dbPointer, _readOptionsPointer, keyByteBuffer, keyByteCount));
-
-            return (! value.isEmpty());
+            return com.google.leveldb.NativeLevelDb.leveldb_exists(_dbPointer, _readOptionsPointer, keyByteBuffer, keyByteCount);
         }
     }
 

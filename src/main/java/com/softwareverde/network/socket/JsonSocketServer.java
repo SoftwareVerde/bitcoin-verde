@@ -1,7 +1,5 @@
 package com.softwareverde.network.socket;
 
-import com.softwareverde.concurrent.threadpool.ThreadPool;
-
 import java.net.Socket;
 
 public class JsonSocketServer extends SocketServer<JsonSocket> {

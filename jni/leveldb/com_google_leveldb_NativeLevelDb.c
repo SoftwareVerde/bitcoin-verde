@@ -1,5 +1,17 @@
 #include "com_google_leveldb_NativeLevelDb.h"
 #include "include/leveldb/c.h"
+#include "include/leveldb/db.h"
+#include "leveldb/status.h"
+
+struct leveldb_t {
+  leveldb::DB* rep;
+};
+
+struct leveldb_readoptions_t {
+  leveldb::ReadOptions rep;
+};
+
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -34,13 +46,13 @@ JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1options_1s
 
 JNIEXPORT jlong JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1open
   (JNIEnv* env, jclass object, jlong optionsPtr, jstring dbName) {
-    const char *nativeDbName = (*env)->GetStringUTFChars(env, dbName, 0);
+    const char *nativeDbName = env->GetStringUTFChars(dbName, 0);
     const leveldb_t* leveldbPtr = leveldb_open(
         (leveldb_options_t*)(uintptr_t)optionsPtr,
         nativeDbName,
         0
     );
-    (*env)->ReleaseStringUTFChars(env, dbName, nativeDbName);
+    env->ReleaseStringUTFChars(dbName, nativeDbName);
     return (uintptr_t)leveldbPtr;
 }
 
@@ -66,8 +78,8 @@ JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1writeoptio
 
 JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1put
   (JNIEnv* env, jclass object, jlong leveldbPtr, jlong writeOptionsPtr, jobject keyBuf, jlong keyByteCount, jobject valueBuf, jlong valueByteCount) {
-    const char* keyData = (const char*) (*env)->GetDirectBufferAddress(env, keyBuf);
-    const char* valueData = (const char*) (*env)->GetDirectBufferAddress(env, valueBuf);
+    const char* keyData = (const char*) env->GetDirectBufferAddress(keyBuf);
+    const char* valueData = (const char*) env->GetDirectBufferAddress(valueBuf);
 
     leveldb_put(
         (leveldb_t*)(uintptr_t)leveldbPtr,
@@ -129,29 +141,36 @@ JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1readoption
 
 JNIEXPORT jbyteArray JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1get
   (JNIEnv* env, jclass object, jlong leveldbPtr, jlong readOptionsPtr, jobject keyBuf, jlong keyByteCount) {
-    const char* keyData = (const char*) (*env)->GetDirectBufferAddress(env, keyBuf);
+    const char* keyData = (const char*) env->GetDirectBufferAddress(keyBuf);
 
     size_t valueByteCount = 0;
 
-    char* value = leveldb_get(
-        (leveldb_t*)(uintptr_t)leveldbPtr,
-        (leveldb_readoptions_t*)readOptionsPtr,
-        keyData, (size_t)keyByteCount,
-        &valueByteCount,
-        0
-    );
+    leveldb_t* db = (leveldb_t*)leveldbPtr;
+    leveldb_readoptions_t* options = (leveldb_readoptions_t*)readOptionsPtr;
 
-    jbyteArray valueByteArray = (*env)->NewByteArray(env, valueByteCount);
-    (*env)->SetByteArrayRegion(env, valueByteArray, 0, valueByteCount, (jbyte*)value);
+    std::string tmp;
+    leveldb::Status s = db->rep->Get(options->rep, leveldb::Slice(keyData, keyByteCount), &tmp);
+    if (s.ok()) {
+        valueByteCount = tmp.size();
+    }
+    else {
+        valueByteCount = 0;
+        if (! s.IsNotFound()) {
+            // error
+        }
+    }
 
-    free(value);
+    jbyteArray valueByteArray = env->NewByteArray(valueByteCount);
+    if (valueByteCount > 0) {
+        env->SetByteArrayRegion(valueByteArray, 0, valueByteCount, (jbyte*)tmp.c_str());
+    }
 
     return valueByteArray;
 }
 
 JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1delete
   (JNIEnv* env, jclass object, jlong leveldbPtr, jlong writeOptionsPtr, jobject keyBuf, jlong keyByteCount) {
-    const char* keyData = (const char*) (*env)->GetDirectBufferAddress(env, keyBuf);
+    const char* keyData = (const char*) env->GetDirectBufferAddress(keyBuf);
 
     leveldb_delete(
         (leveldb_t*)(uintptr_t)leveldbPtr,
@@ -204,8 +223,8 @@ JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1writebatch
 
 JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1writebatch_1put
   (JNIEnv* env, jclass object, jlong batchPtr, jobject keyBuf, jlong keyByteCount, jobject valueBuf, jlong valueByteCount) {
-    const char* keyData = (const char*) (*env)->GetDirectBufferAddress(env, keyBuf);
-    const char* valueData = (const char*) (*env)->GetDirectBufferAddress(env, valueBuf);
+    const char* keyData = (const char*) env->GetDirectBufferAddress(keyBuf);
+    const char* valueData = (const char*) env->GetDirectBufferAddress(valueBuf);
 
     leveldb_writebatch_put(
         (leveldb_writebatch_t*)(uintptr_t)batchPtr,
@@ -216,7 +235,7 @@ JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1writebatch
 
 JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1writebatch_1delete
   (JNIEnv* env, jclass object, jlong batchPtr, jobject keyBuf, jlong keyByteCount) {
-    const char* keyData = (const char*) (*env)->GetDirectBufferAddress(env, keyBuf);
+    const char* keyData = (const char*) env->GetDirectBufferAddress(keyBuf);
 
     leveldb_writebatch_delete(
         (leveldb_writebatch_t*)(uintptr_t)batchPtr,
@@ -253,4 +272,23 @@ JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1options_1s
         (leveldb_options_t*)(uintptr_t)optionsPtr,
         (leveldb_filterpolicy_t*)(uintptr_t)filterPtr
     );
+}
+
+JNIEXPORT jboolean JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1exists
+  (JNIEnv* env, jclass object, jlong leveldbPtr, jlong readOptionsPtr, jobject keyBuf, jlong keyByteCount) {
+    const char* keyData = (const char*) env->GetDirectBufferAddress(keyBuf);
+
+    size_t valueByteCount = 0;
+
+    char* value = leveldb_get(
+        (leveldb_t*)(uintptr_t)leveldbPtr,
+        (leveldb_readoptions_t*)readOptionsPtr,
+        keyData, (size_t)keyByteCount,
+        &valueByteCount,
+        0
+    );
+
+    free(value);
+
+    return valueByteCount > 0;
 }
