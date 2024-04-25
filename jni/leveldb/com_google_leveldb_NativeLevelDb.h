@@ -49,6 +49,22 @@ JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1options_1s
 
 /*
  * Class:     com_google_leveldb_NativeLevelDb
+ * Method:    leveldb_options_set_block_size
+ * Signature: (JJ)V
+ */
+JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1options_1set_1block_1size
+  (JNIEnv *, jclass, jlong, jlong);
+
+/*
+ * Class:     com_google_leveldb_NativeLevelDb
+ * Method:    leveldb_options_set_max_file_size
+ * Signature: (JJ)V
+ */
+JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1options_1set_1max_1file_1size
+  (JNIEnv *, jclass, jlong, jlong);
+
+/*
+ * Class:     com_google_leveldb_NativeLevelDb
  * Method:    leveldb_writeoptions_create
  * Signature: ()J
  */

@@ -44,7 +44,10 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
     public void open() throws Exception {
         final long cacheByteCount = ByteUtil.Unit.Binary.MEBIBYTES * 64L;
         final long writeBufferByteCount = ByteUtil.Unit.Binary.MEBIBYTES * 64L;
-        _utxoDb.open(LevelDb.BLOOM_FILTER_BITS_PER_KEY, cacheByteCount, writeBufferByteCount);
+        final long maxFileByteCount = com.softwareverde.bitcoin.util.ByteUtil.Unit.Binary.MEBIBYTES * 128L;
+        final long blockByteCount = com.softwareverde.bitcoin.util.ByteUtil.Unit.Binary.KIBIBYTES * 2L; // 4kb is the default
+
+        _utxoDb.open(LevelDb.BLOOM_FILTER_BITS_PER_KEY, cacheByteCount, writeBufferByteCount, maxFileByteCount, blockByteCount);
         _commitWorker.start();
     }
 

@@ -101,22 +101,24 @@ public class TransactionIndexer implements AutoCloseable {
 
         final long cacheByteCount = ByteUtil.Unit.Binary.MEBIBYTES * 32L;
         final long writeBufferByteCount = ByteUtil.Unit.Binary.MEBIBYTES * 128L;
-        final int bitsPerKey = LevelDb.BLOOM_FILTER_BITS_PER_KEY;
+        final Integer bitsPerKey = null; // disable key bloom filter due to excessive memory usage
+        final long maxFileByteCount = ByteUtil.Unit.Binary.MEBIBYTES * 128L;
+        final long blockByteCount = ByteUtil.Unit.Binary.KIBIBYTES * 2L; // 4kb is the default
 
         _transactionIdDb = new LevelDb<>(transactionIdDbDirectory, new TransactionIdEntryInflater());
-        _transactionIdDb.open(bitsPerKey, cacheByteCount, writeBufferByteCount);
+        _transactionIdDb.open(bitsPerKey, cacheByteCount, writeBufferByteCount, maxFileByteCount, blockByteCount);
 
         _transactionDb = new LevelDb<>(transactionDbDirectory, new IndexedTransactionEntryInflater());
-        _transactionDb.open(bitsPerKey, cacheByteCount, writeBufferByteCount);
+        _transactionDb.open(bitsPerKey, cacheByteCount, writeBufferByteCount, maxFileByteCount, blockByteCount);
 
         _addressDb = new LevelDb<>(addressDbDirectory, new IndexedAddressEntryInflater());
-        _addressDb.open(bitsPerKey, cacheByteCount, writeBufferByteCount);
+        _addressDb.open(bitsPerKey, cacheByteCount, writeBufferByteCount, maxFileByteCount, blockByteCount);
 
         _metaAddressDb = new LevelDb<>(metaAddressDbDirectory, new MetaAddressEntryInflater());
-        _metaAddressDb.open(bitsPerKey, cacheByteCount, writeBufferByteCount);
+        _metaAddressDb.open(bitsPerKey, cacheByteCount, writeBufferByteCount, maxFileByteCount, blockByteCount);
 
         _spentOutputsDb = new LevelDb<>(spendOutputsDbDirectory, new IndexedSpentOutputsInflater());
-        _spentOutputsDb.open(bitsPerKey, cacheByteCount, writeBufferByteCount);
+        _spentOutputsDb.open(bitsPerKey, cacheByteCount, writeBufferByteCount, maxFileByteCount, blockByteCount);
 
         _workerManager = new WorkerManager(4, 8);
         _workerManager.setName("TransactionIndexerWorker");

@@ -292,3 +292,19 @@ JNIEXPORT jboolean JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1exists
 
     return valueByteCount > 0;
 }
+
+JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1options_1set_1max_1file_1size
+  (JNIEnv* env, jclass object, jlong optionsPtr, jlong byteCount) {
+    leveldb_options_set_max_file_size(
+        (leveldb_options_t*)(uintptr_t)optionsPtr,
+        (size_t)byteCount
+    );
+}
+
+JNIEXPORT void JNICALL Java_com_google_leveldb_NativeLevelDb_leveldb_1options_1set_1block_1size
+  (JNIEnv* env, jclass object, jlong optionsPtr, jlong byteCount) {
+    leveldb_options_set_block_size(
+        (leveldb_options_t*)(uintptr_t)optionsPtr,
+        (size_t)byteCount
+    );
+}

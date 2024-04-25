@@ -15,9 +15,9 @@ public class NativeLevelDb {
 public final static native void leveldb_options_set_write_buffer_size(long optionsPointer, long byteCount);
 //  public final static native void leveldb_options_set_max_open_files(long jarg1, int jarg2);
 public final static native void leveldb_options_set_cache(long optionsPointer, long cachePointer);
-//  public final static native void leveldb_options_set_block_size(long jarg1, long jarg2);
+public final static native void leveldb_options_set_block_size(long optionsPointer, long byteCount);
 //  public final static native void leveldb_options_set_block_restart_interval(long jarg1, int jarg2);
-//  public final static native void leveldb_options_set_max_file_size(long jarg1, long jarg2);
+ public final static native void leveldb_options_set_max_file_size(long optionsPointer, long byteCount);
 //  public final static native void leveldb_options_set_compression(long jarg1, int jarg2);
 
   public final static native long leveldb_writeoptions_create();

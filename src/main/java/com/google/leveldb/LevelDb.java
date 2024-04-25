@@ -156,10 +156,10 @@ public class LevelDb<Key, Value> implements AutoCloseable {
     }
 
     public void open() {
-        this.open(null, null, null);
+        this.open(null, null, null, null, null);
     }
 
-    public void open(final Integer bloomFilterBitsPerKey, final Long cacheByteCount, final Long writeBufferByteCount) {
+    public void open(final Integer bloomFilterBitsPerKey, final Long cacheByteCount, final Long writeBufferByteCount, final Long maxFileByteCount, final Long blockByteCount) {
         LevelDb.loadLibrary();
 
         final long optionsPointer = com.google.leveldb.NativeLevelDb.leveldb_options_create();
@@ -177,6 +177,14 @@ public class LevelDb<Key, Value> implements AutoCloseable {
 
         if (writeBufferByteCount != null) {
             com.google.leveldb.NativeLevelDb.leveldb_options_set_write_buffer_size(optionsPointer, writeBufferByteCount);
+        }
+
+        if (maxFileByteCount != null) {
+            com.google.leveldb.NativeLevelDb.leveldb_options_set_max_file_size(optionsPointer, maxFileByteCount);
+        }
+
+        if (blockByteCount != null) {
+            com.google.leveldb.NativeLevelDb.leveldb_options_set_block_size(optionsPointer, blockByteCount);
         }
 
         final String absolutePath = _directory.getAbsolutePath();
