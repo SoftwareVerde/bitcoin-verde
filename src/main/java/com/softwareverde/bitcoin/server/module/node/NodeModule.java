@@ -139,7 +139,7 @@ public class NodeModule {
     protected final MutableHashSet<Ip> _previouslyConnectedIps = new MutableHashSet<>();
     protected final PendingBlockQueue _blockDownloader;
 
-    protected final java.util.Set<Sha256Hash> _recentlyAnnouncedTransactions;
+    protected final java.util.LinkedHashMap<Sha256Hash, Integer> _recentlyAnnouncedTransactions;
 
     protected final Pin _shutdownPin = new Pin();
     protected final AtomicBoolean _isShuttingDown = new AtomicBoolean(false);
@@ -614,13 +614,17 @@ public class NodeModule {
                 if (! isSynced) { return; }
 
                 final MutableList<Sha256Hash> unseenTransactions = new MutableArrayList<>();
-                for (final Sha256Hash transactionHash : transactionHashes) {
-                    if (! _recentlyAnnouncedTransactions.add(transactionHash)) {
-                        continue;
-                    }
+                synchronized (_recentlyAnnouncedTransactions) {
+                    for (final Sha256Hash transactionHash : transactionHashes) {
+                        final int attemptCount = _recentlyAnnouncedTransactions.getOrDefault(transactionHash, 0);
+                        if (attemptCount > 3) {
+                            continue;
+                        }
 
-                    if (! _transactionMempool.contains(transactionHash)) {
-                        unseenTransactions.add(transactionHash);
+                        _recentlyAnnouncedTransactions.put(transactionHash, attemptCount + 1);
+                        if (! _transactionMempool.contains(transactionHash)) {
+                            unseenTransactions.add(transactionHash);
+                        }
                     }
                 }
                 if (unseenTransactions.isEmpty()) { return; }
@@ -806,12 +810,12 @@ public class NodeModule {
             }
         });
 
-        _recentlyAnnouncedTransactions = Collections.newSetFromMap(new LinkedHashMap<>() {
+        _recentlyAnnouncedTransactions = new LinkedHashMap<>() {
             @Override
-            protected boolean removeEldestEntry(java.util.Map.Entry<Sha256Hash, Boolean> eldest) {
+            protected boolean removeEldestEntry(java.util.Map.Entry<Sha256Hash, Integer> eldest) {
                 return this.size() > (32 * 1024);
             }
-        });
+        };
 
         final File dataDirectory = new File(bitcoinProperties.getDataDirectory());
         _blockchainFile = new File(dataDirectory, "block-headers.dat");
