@@ -91,8 +91,8 @@ import com.softwareverde.util.timer.NanoTimer;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.io.File;
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryUsage;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -138,6 +138,8 @@ public class NodeModule {
     protected int _attemptsWithEmptyIps = 0;
     protected final MutableHashSet<Ip> _previouslyConnectedIps = new MutableHashSet<>();
     protected final PendingBlockQueue _blockDownloader;
+
+    protected final java.util.Set<Sha256Hash> _recentlyAnnouncedTransactions;
 
     protected final Pin _shutdownPin = new Pin();
     protected final AtomicBoolean _isShuttingDown = new AtomicBoolean(false);
@@ -613,6 +615,10 @@ public class NodeModule {
 
                 final MutableList<Sha256Hash> unseenTransactions = new MutableArrayList<>();
                 for (final Sha256Hash transactionHash : transactionHashes) {
+                    if (! _recentlyAnnouncedTransactions.add(transactionHash)) {
+                        continue;
+                    }
+
                     if (! _transactionMempool.contains(transactionHash)) {
                         unseenTransactions.add(transactionHash);
                     }
@@ -797,6 +803,13 @@ public class NodeModule {
                     Logger.error(throwable);
                 }
                 catch (final Throwable ignored) { }
+            }
+        });
+
+        _recentlyAnnouncedTransactions = Collections.newSetFromMap(new LinkedHashMap<>() {
+            @Override
+            protected boolean removeEldestEntry(java.util.Map.Entry<Sha256Hash, Boolean> eldest) {
+                return this.size() > (32 * 1024);
             }
         });
 
