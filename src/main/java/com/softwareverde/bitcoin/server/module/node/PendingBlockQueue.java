@@ -161,6 +161,7 @@ public class PendingBlockQueue {
                         _headRequestedBlockHeight = Math.max(_headRequestedBlockHeight, blockHeight);
                     }
                     else {
+                        Logger.debug("_createPromise: " + _headRequestedBlockHeight + " " + _headBlockHeight);
                         _createPromise(blockHeight, blockHash);
                         _headRequestedBlockHeight = Math.max(_headRequestedBlockHeight, blockHeight);
                     }
@@ -296,6 +297,7 @@ public class PendingBlockQueue {
                 return _createExistingBlockPromise(blockHeight, blockHash);
             }
             else {
+                Logger.debug("_createPromise");
                 return _createPromise(blockHeight, blockHash);
             }
         }
