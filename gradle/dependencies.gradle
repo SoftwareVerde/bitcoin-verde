@@ -4,7 +4,7 @@ repositories {
 }
 
 dependencies {
-    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    // implementation fileTree(dir: 'libs', include: ['*.jar'])
 
     // SPV Library
     api             group: 'com.github.softwareverde',  name: 'java-util',              version: 'v2.9.2'
