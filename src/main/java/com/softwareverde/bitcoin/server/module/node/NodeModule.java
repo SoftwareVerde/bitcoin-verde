@@ -33,7 +33,7 @@ import com.softwareverde.bitcoin.server.message.type.query.header.RequestBlockHe
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemType;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputEntryInflater;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputFileDbManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputLevelDbManager;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.handler.MetadataHandler;
 import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
@@ -91,7 +91,6 @@ import com.softwareverde.util.timer.NanoTimer;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.io.File;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -116,7 +115,7 @@ public class NodeModule {
     protected final File _blockchainFile;
     protected final Blockchain _blockchain;
     protected final DiskKeyValueStore _keyValueStore;
-    protected final UnspentTransactionOutputFileDbManager _unspentTransactionOutputDatabaseManager;
+    protected final UnspentTransactionOutputLevelDbManager _unspentTransactionOutputDatabaseManager;
     protected final TransactionIndexer _transactionIndexer;
     protected final PendingBlockStoreCore _blockStore;
     protected final UpgradeSchedule _upgradeSchedule;
@@ -839,7 +838,7 @@ public class NodeModule {
         }
 
         final File utxoDbDirectory = new File(dataDirectory, "utxo");
-        _unspentTransactionOutputDatabaseManager = new UnspentTransactionOutputFileDbManager(utxoDbDirectory);
+        _unspentTransactionOutputDatabaseManager = new UnspentTransactionOutputLevelDbManager(utxoDbDirectory);
         try {
             Logger.info("Loading FileDB");
             _unspentTransactionOutputDatabaseManager.open();

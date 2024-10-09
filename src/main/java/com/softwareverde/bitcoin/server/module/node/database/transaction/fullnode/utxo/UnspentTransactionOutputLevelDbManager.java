@@ -22,7 +22,7 @@ import com.softwareverde.util.Util;
 
 import java.io.File;
 
-public class UnspentTransactionOutputFileDbManager implements UnspentTransactionOutputDatabaseManager, AutoCloseable {
+public class UnspentTransactionOutputLevelDbManager implements UnspentTransactionOutputDatabaseManager, AutoCloseable {
     protected final File _dataDirectory;
     protected final LevelDb<TransactionOutputIdentifier, UnspentTransactionOutput> _utxoDb;
     protected final WorkerManager _commitWorker;
@@ -31,13 +31,13 @@ public class UnspentTransactionOutputFileDbManager implements UnspentTransaction
         return new LevelDb<>(dataDirectory, new UnspentTransactionOutputEntryInflater());
     }
 
-    public UnspentTransactionOutputFileDbManager(final File dataDirectory) {
+    public UnspentTransactionOutputLevelDbManager(final File dataDirectory) {
         if (! dataDirectory.exists()) {
             dataDirectory.mkdirs();
         }
         _dataDirectory = dataDirectory;
 
-        _utxoDb = UnspentTransactionOutputFileDbManager.createBucketDb(dataDirectory);
+        _utxoDb = UnspentTransactionOutputLevelDbManager.createBucketDb(dataDirectory);
         _commitWorker = new WorkerManager(1, 1);
     }
 

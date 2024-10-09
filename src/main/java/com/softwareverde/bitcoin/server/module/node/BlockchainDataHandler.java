@@ -7,7 +7,7 @@ import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
 import com.softwareverde.bitcoin.block.validator.ValidationResult;
 import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputFileDbManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputLevelDbManager;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
@@ -34,13 +34,13 @@ public class BlockchainDataHandler implements NodeRpcHandler.DataHandler {
     protected final UpgradeSchedule _upgradeSchedule;
     protected final TransactionIndexer _transactionIndexer;
     protected final TransactionMempool _mempool;
-    protected final UnspentTransactionOutputFileDbManager _utxoManager;
+    protected final UnspentTransactionOutputLevelDbManager _utxoManager;
 
     protected Container<Long> _headBlockHeightContainer;
     protected Container<Long> _headBlockHeaderHeightContainer;
     protected Container<Long> _indexedBlockHeightContainer;
 
-    public BlockchainDataHandler(final Blockchain blockchain, final BlockStore blockStore, final UpgradeSchedule upgradeSchedule, final TransactionIndexer transactionIndexer, final TransactionMempool transactionMempool, final UnspentTransactionOutputFileDbManager utxoManager) {
+    public BlockchainDataHandler(final Blockchain blockchain, final BlockStore blockStore, final UpgradeSchedule upgradeSchedule, final TransactionIndexer transactionIndexer, final TransactionMempool transactionMempool, final UnspentTransactionOutputLevelDbManager utxoManager) {
         _blockchain = blockchain;
         _blockStore = blockStore;
         _upgradeSchedule = upgradeSchedule;

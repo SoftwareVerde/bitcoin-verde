@@ -5,7 +5,7 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputFileDbManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputLevelDbManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionWithFee;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -26,13 +26,12 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.Tuple;
-import com.softwareverde.util.Util;
 
 public class TransactionMempool {
     protected final UpgradeSchedule _upgradeSchedule;
     protected final Blockchain _blockchain;
     protected final NetworkTime _networkTime;
-    protected final UnspentTransactionOutputFileDbManager _utxoManager;
+    protected final UnspentTransactionOutputLevelDbManager _utxoManager;
     protected final MutableMap<Sha256Hash, TransactionWithFee> _transactionHashes = new MutableHashMap<>();
     protected final MutableList<Transaction> _transactions = new MutableArrayList<>();
     protected final MutableMap<Sha256Hash, MutableHashSet<Sha256Hash>> _invalidTransactionDependencies = new MutableHashMap<>();
@@ -168,7 +167,7 @@ public class TransactionMempool {
         _blockHeight = (_blockchain.getHeadBlockHeaderHeight() + 1L);
     }
 
-    public TransactionMempool(final Blockchain blockchain, final UpgradeSchedule upgradeSchedule, final NetworkTime networkTime, final UnspentTransactionOutputFileDbManager utxoManager) {
+    public TransactionMempool(final Blockchain blockchain, final UpgradeSchedule upgradeSchedule, final NetworkTime networkTime, final UnspentTransactionOutputLevelDbManager utxoManager) {
         _upgradeSchedule = upgradeSchedule;
         _networkTime = networkTime;
         _blockchain = blockchain;
