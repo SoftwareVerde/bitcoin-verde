@@ -9,10 +9,14 @@ import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
+import com.softwareverde.bitcoin.server.module.node.Blockchain;
+import com.softwareverde.bitcoin.test.MockBlockStore;
 import com.softwareverde.bitcoin.test.UnitTest;
+import com.softwareverde.bitcoin.test.fake.FakeBlockStore;
 import com.softwareverde.bitcoin.test.fake.FakeMedianBlockTimeContext;
 import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.test.fake.FakeUpgradeSchedule;
+import com.softwareverde.bitcoin.test.fake.MockBlockchain;
 import com.softwareverde.bitcoin.test.fake.VolatileNetworkTimeWrapper;
 import com.softwareverde.bitcoin.test.util.TransactionTestUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -1116,12 +1120,12 @@ public class HistoricTransactionsTests extends UnitTest {
             unspentTransactionOutputContext.addTransaction(spentTransaction, spentTransactionBlockHash, spentTransactionBlockHeight, false);
         }
 
-        final FakeMedianBlockTimeContext medianBlockTimeContext = new FakeMedianBlockTimeContext();
-        medianBlockTimeContext.setMedianBlockTime(563367L, ImmutableMedianBlockTime.fromSeconds(1546313962L));
-        medianBlockTimeContext.setMedianBlockTime(563377L, ImmutableMedianBlockTime.fromSeconds(1546320518L));
-
         final UpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
-        final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(upgradeSchedule, null, networkTime, null);
+        final MockBlockchain blockchain = new MockBlockchain(new MockBlockStore());
+        blockchain.setMedianBlockTime(563367L, ImmutableMedianBlockTime.fromSeconds(1546313962L));
+        blockchain.setMedianBlockTime(563377L, ImmutableMedianBlockTime.fromSeconds(1546320518L));
+
+        final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(upgradeSchedule, blockchain, networkTime, unspentTransactionOutputContext);
 
         // Action
         final TransactionValidationResult transactionValidationResult = transactionValidator.validateTransaction(563378L, transaction);

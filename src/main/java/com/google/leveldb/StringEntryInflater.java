@@ -24,8 +24,7 @@ public class StringEntryInflater implements LevelDb.EntryInflater<String, String
 
     @Override
     public ByteArray valueToBytes(final String string) {
-        if (string == null) { return null; }
-        if (string.isEmpty()) { return null; }
+        if (string == null) { return new MutableByteArray(0); } // Support null values.
         return MutableByteArray.wrap(StringUtil.stringToBytes(string));
     }
 }
