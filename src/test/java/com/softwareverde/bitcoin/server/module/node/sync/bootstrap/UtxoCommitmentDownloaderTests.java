@@ -142,14 +142,12 @@ public class UtxoCommitmentDownloaderTests extends UnitTest {
         };
 
         final UtxoCommitmentDownloader utxoCommitmentDownloader = new UtxoCommitmentDownloader(
-            null,
             new BlockchainBuilderTests.FakeBitcoinNodeManager() {
                 @Override
                 public List<BitcoinNode> getNodes(final NodeFilter nodeFilter) {
                     return new ImmutableList<>(bitcoinNode);
                 }
             },
-            null,
             null,
             null
         );

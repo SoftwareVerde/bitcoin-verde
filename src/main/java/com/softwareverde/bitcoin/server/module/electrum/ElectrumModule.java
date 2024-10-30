@@ -20,7 +20,6 @@ import com.softwareverde.bitcoin.server.main.NetworkType;
 import com.softwareverde.bitcoin.server.message.type.query.header.RequestBlockHeadersMessage;
 import com.softwareverde.bitcoin.server.module.electrum.json.ElectrumJson;
 import com.softwareverde.bitcoin.server.module.electrum.json.ElectrumJsonProtocolMessage;
-import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.HeadersBootstrapper;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProof;
@@ -412,27 +411,6 @@ public class ElectrumModule {
         }
     }
 
-    protected Long _loadBootstrappedHeaders() {
-        final NetworkType networkType = _electrumProperties.getNetworkType();
-        if (networkType != NetworkType.MAIN_NET) {
-            return -1L;
-        }
-
-        try (final InputStream inputStream = HeadersBootstrapper.class.getResourceAsStream("/bootstrap/headers.dat")) {
-            if (inputStream == null) {
-                Logger.warn("Unable to open headers bootstrap file.");
-                return -1L;
-            }
-
-            return (_readHeadersFromStream(inputStream) - 1L);
-        }
-        catch (final Exception exception) {
-            Logger.warn(exception);
-        }
-
-        return -1L;
-    }
-
     protected void _cacheBlockHeaders() {
         final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
         final File dataDirectory = _electrumProperties.getDataDirectory();
@@ -465,7 +443,7 @@ public class ElectrumModule {
             _cachedBlockHeaders.clear();
 
             final long maxBlockHeight = Math.max(0L, _chainHeight - RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT);
-            long blockHeight = (_loadBootstrappedHeaders() + 1L);
+            long blockHeight = 0L;
             try (final FileInputStream inputStream = new FileInputStream(headersCacheFile)) {
                 blockHeight += _readHeadersFromStream(inputStream);
             }

@@ -2,27 +2,16 @@ package com.softwareverde.bitcoin.context.core;
 
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.server.module.node.Blockchain;
-import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
-import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UndoLogDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.ImmutableUnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-import com.softwareverde.bitcoin.transaction.validator.UtxoUndoLog;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -39,137 +28,6 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
     protected final MutableHashMap<TransactionOutputIdentifier, UnspentTransactionOutput> _transactionOutputs = new MutableHashMap<>();
     protected final MutableHashMap<Sha256Hash, Long> _transactionBlockHeights = new MutableHashMap<>();
     protected final MutableHashSet<TransactionOutputIdentifier> _preActivationTokenForgeries = new MutableHashSet<>();
-
-//    protected void _populateUnknownTransactionBlockHeights(final MutableHashSet<Sha256Hash> unknownTransactionBlockHeightsSet, final Blockchain blockchain) throws DatabaseException {
-//        final MutableList<Sha256Hash> transactionsWithUnknownBlockHeight = new MutableArrayList<>();
-//        for (final Sha256Hash transactionHash : unknownTransactionBlockHeightsSet) {
-//            if (! _transactionBlockHeights.containsKey(transactionHash)) {
-//                transactionsWithUnknownBlockHeight.add(transactionHash);
-//            }
-//        }
-//
-//        final Map<Sha256Hash, BlockId> transactionBlockIds = transactionDatabaseManager.getBlockIds(blockchainSegmentId, transactionsWithUnknownBlockHeight);
-//        final MutableHashSet<BlockId> uniqueBlockIds = new MutableHashSet<>(transactionBlockIds.getValues());
-//        final Map<BlockId, Long> blockHeights = blockHeaderDatabaseManager.getBlockHeights(uniqueBlockIds);
-//        for (final Sha256Hash transactionHash : transactionBlockIds.getKeys()) {
-//            final BlockId transactionBlockId = transactionBlockIds.get(transactionHash);
-//            final Long transactionBlockHeight = blockHeights.get(transactionBlockId);
-//            _transactionBlockHeights.put(transactionHash, transactionBlockHeight);
-//        }
-//    }
-
-    /**
-     * Populates _transactionBlockHeights and _transactionOutputs for a block on the provided blockchainSegmentId...
-     */
-    protected Boolean _loadOutputsForAlternateBlock(final FullNodeDatabaseManager databaseManager, final BlockId blockIdToProcess, final Iterable<TransactionOutputIdentifier> requiredTransactionOutputs, final UpgradeSchedule upgradeSchedule) throws DatabaseException {
-        final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-        final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-        final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-
-        final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockIdToProcess);
-        final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-
-        final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockIdToProcess);
-        Logger.debug("Loading Outputs for Alternate Block: " + blockHash);
-
-        final UtxoUndoLog utxoUndoLog = new UtxoUndoLog(databaseManager);
-
-        final int maxDepth = UndoLogDatabaseManager.MAX_REORG_DEPTH;
-        int undoDepth = 0;
-        BlockId blockId = headBlockId;
-        while (undoDepth < maxDepth) {
-            final Block block = blockDatabaseManager.getBlock(blockId);
-            utxoUndoLog.undoBlock(block);
-
-            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
-            final List<Transaction> blockTransactions = block.getTransactions();
-            for (final Transaction transaction : blockTransactions) {
-                final Sha256Hash transactionHash = transaction.getHash();
-                _transactionBlockHeights.put(transactionHash, blockHeight);
-            }
-
-            blockId = blockHeaderDatabaseManager.getAncestorBlockId(blockId, 1);
-            final BlockchainSegmentId blockBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
-            final Boolean isConnectedBlock = blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, blockBlockchainSegmentId, BlockRelationship.ANY);
-            if (isConnectedBlock) {
-                break;
-            }
-
-            undoDepth += 1;
-        }
-
-        int redoDepth = 0;
-        while (redoDepth < maxDepth) {
-            blockId = blockHeaderDatabaseManager.getChildBlockId(blockchainSegmentId, blockId);
-            if ( (blockId == null) || Util.areEqual(blockId, blockIdToProcess) ) {
-                break;
-            }
-
-            final Boolean isBlockLoaded = blockDatabaseManager.hasTransactions(blockId);
-            if (! isBlockLoaded) { break; }
-
-            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
-            final Block block = blockDatabaseManager.getBlock(blockId);
-            utxoUndoLog.applyBlock(block, blockHeight);
-
-            final List<Transaction> blockTransactions = block.getTransactions();
-            for (final Transaction transaction : blockTransactions) {
-                final Sha256Hash transactionHash = transaction.getHash();
-                _transactionBlockHeights.put(transactionHash, blockHeight);
-            }
-
-            redoDepth += 1;
-        }
-
-        final MutableHashSet<Sha256Hash> unknownTransactionBlockHeightsSet = new MutableHashSet<>();
-        boolean allOutputsWereFound = true;
-        for (final TransactionOutputIdentifier transactionOutputIdentifier : requiredTransactionOutputs) {
-            final UnspentTransactionOutput transactionOutput = utxoUndoLog.getUnspentTransactionOutput(transactionOutputIdentifier);
-            if (transactionOutput == null) {
-                _missingOutputIdentifiers.add(transactionOutputIdentifier);
-                if (allOutputsWereFound) {
-                    Logger.debug("Missing UTXO: " + transactionOutputIdentifier);
-                }
-                allOutputsWereFound = false;
-                continue;
-            }
-            _transactionOutputs.put(transactionOutputIdentifier, transactionOutput);
-
-            final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
-            final Long transactionOutputBlockHeight = transactionOutput.getBlockHeight();
-            if ( (transactionOutputBlockHeight == null) || Util.areEqual(transactionOutputBlockHeight, UnspentTransactionOutput.UNKNOWN_BLOCK_HEIGHT) ) {
-                unknownTransactionBlockHeightsSet.add(transactionHash);
-
-                // Check PATFO status...
-                if (transactionOutput.hasCashToken()) {
-                    final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
-                    final BlockId transactionOutputBlockId = transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId);
-                    final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.getMedianTimePast(transactionOutputBlockId);
-                    if (!upgradeSchedule.areCashTokensEnabled(medianBlockTime)) {
-                        _preActivationTokenForgeries.add(transactionOutputIdentifier);
-                    }
-                }
-            }
-            else {
-                _transactionBlockHeights.put(transactionHash, transactionOutputBlockHeight);
-
-                // Check PATFO status...
-                if (transactionOutput.hasCashToken()) {
-                    final BlockId transactionOutputBlockId = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, transactionOutputBlockHeight);
-                    final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.getMedianTimePast(transactionOutputBlockId);
-                    if (! upgradeSchedule.areCashTokensEnabled(medianBlockTime)) {
-                        _preActivationTokenForgeries.add(transactionOutputIdentifier);
-                    }
-                }
-            }
-        }
-
-        // Load the BlockHeights for the unknown Transactions (the previous Transactions being spent by (and outside of) this block)...
-        // _populateUnknownTransactionBlockHeights(blockchainSegmentId, unknownTransactionBlockHeightsSet, databaseManager); // TODO ?
-
-        return allOutputsWereFound;
-    }
 
     public MutableUnspentTransactionOutputSet() { }
 

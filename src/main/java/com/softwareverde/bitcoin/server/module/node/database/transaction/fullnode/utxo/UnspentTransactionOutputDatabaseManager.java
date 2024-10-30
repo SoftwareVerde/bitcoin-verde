@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin.server.module.node.database.transaction.fullno
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockUtxoDiff;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.list.List;
@@ -45,7 +44,7 @@ public interface UnspentTransactionOutputDatabaseManager {
      * Flushes all queued UTXO set changes to disk.  The UTXO set is locked during commit duration.
      *  Returns true if the UTXO set was committed or false if it was not (i.e. if CommitAsyncMode.SKIP_IF_BUSY was provided).
      */
-    Boolean commitUnspentTransactionOutputs(DatabaseManagerFactory databaseManagerFactory, CommitAsyncMode commitAsyncMode) throws DatabaseException;
+    Boolean commitUnspentTransactionOutputs(CommitAsyncMode commitAsyncMode) throws DatabaseException;
 
     Long getUncommittedUnspentTransactionOutputCount() throws DatabaseException;
     Long getUncommittedUnspentTransactionOutputCount(Boolean noLock) throws DatabaseException;

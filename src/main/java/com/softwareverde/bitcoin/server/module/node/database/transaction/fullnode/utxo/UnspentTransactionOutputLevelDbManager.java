@@ -4,7 +4,6 @@ import com.google.leveldb.LevelDb;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockUtxoDiff;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.transaction.output.MutableUnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
@@ -165,7 +164,7 @@ public class UnspentTransactionOutputLevelDbManager implements UnspentTransactio
     }
 
     @Override
-    public Boolean commitUnspentTransactionOutputs(final DatabaseManagerFactory databaseManagerFactory, final CommitAsyncMode commitAsyncMode) throws DatabaseException {
+    public Boolean commitUnspentTransactionOutputs(final CommitAsyncMode commitAsyncMode) throws DatabaseException {
         return true;
     }
 
