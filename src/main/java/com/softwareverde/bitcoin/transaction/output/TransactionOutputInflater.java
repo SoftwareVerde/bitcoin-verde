@@ -18,6 +18,10 @@ public class TransactionOutputInflater {
     protected static final Integer MAX_COMMITMENT_LENGTH = 65535; // The max commitment length that can be parsed (not necessarily what is valid). https://github.com/bitjson/cashtokens#token-prefix-validation
 
     protected Tuple<LockingScript, CashToken> _fromLegacyScriptBytes(final Integer scriptByteCount, final ByteArrayReader byteArrayReader) {
+        if (scriptByteCount == 0) {
+            return new Tuple<>(new ImmutableLockingScript(new MutableByteArray(0)), null);
+        }
+
         final CashToken cashToken;
         final ByteArray lockingScriptBytes;
         final byte prefixByte = byteArrayReader.peakByte();

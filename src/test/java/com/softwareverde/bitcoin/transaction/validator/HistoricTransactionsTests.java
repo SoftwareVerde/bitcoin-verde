@@ -240,7 +240,8 @@ public class HistoricTransactionsTests extends UnitTest {
 
         final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
 
-        return scriptRunner.runScript(lockingScript, unlockingScript, transactionContext).isValid;
+        final ScriptRunner.ScriptRunnerResult result = scriptRunner.runScript(lockingScript, unlockingScript, transactionContext);
+        return result.isValid;
     }
 
     @After

@@ -2,33 +2,30 @@ package com.softwareverde.bitcoin.util;
 
 public class MathUtil {
     public static Long add(final long left, final long right) {
-        if (right > 0L) {
-            if (left > (Long.MAX_VALUE - right)) { return null; }
+        try {
+            return Math.addExact(left, right);
         }
-        else if (left < (Long.MIN_VALUE - right)) { return null; }
-
-        return (left + right);
+        catch (final Exception exception) {
+            return null;
+        }
     }
 
     public static Long subtract(final long left, final long right) {
-        if (right > 0L) {
-            if (left < (Long.MIN_VALUE + right)) { return null; }
+        try {
+            return Math.subtractExact(left, right);
         }
-        else if (left > (Long.MAX_VALUE + right)) { return null; }
-
-        return (left - right);
+        catch (final Exception exception) {
+            return null;
+        }
     }
 
     public static Long multiply(final long left, final long right) {
-        if (right > 0L) {
-            if ( (left > (Long.MAX_VALUE / right)) || (left < (Long.MIN_VALUE / right)) ) { return null; }
+        try {
+            return Math.multiplyExact(left, right);
         }
-        else if (right < -1L) {
-            if ( (left > (Long.MIN_VALUE / right)) || (left < (Long.MAX_VALUE / right)) ) { return null; }
+        catch (final Exception exception) {
+            return null;
         }
-        else if ( (right == -1L) && (left == Long.MIN_VALUE) ) { return null; }
-
-        return (left * right);
     }
 
     public static Long divide(final long left, final long right) {

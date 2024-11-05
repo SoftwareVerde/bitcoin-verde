@@ -72,6 +72,7 @@ public class ArithmeticOperation extends SubTypedOperation {
                 if (newIntValue == null) { return false; }
 
                 final Value newValue = Value.fromInteger(newIntValue);
+                if (! newValue.isWithinLongIntegerRange()) { return false; }
                 stack.push(newValue);
 
                 return (! stack.didOverflow());
@@ -93,6 +94,8 @@ public class ArithmeticOperation extends SubTypedOperation {
                 if (newIntValue == null) { return false; }
 
                 final Value newValue = Value.fromInteger(newIntValue);
+                if (! newValue.isWithinLongIntegerRange()) { return false; }
+
                 stack.push(newValue);
 
                 return (! stack.didOverflow());
@@ -114,6 +117,7 @@ public class ArithmeticOperation extends SubTypedOperation {
                 if (newIntValue == null) { return false; }
 
                 final Value newValue = Value.fromInteger(newIntValue);
+                if (! newValue.isWithinLongIntegerRange()) { return false; }
                 stack.push(newValue);
 
                 return (! stack.didOverflow());
@@ -135,6 +139,7 @@ public class ArithmeticOperation extends SubTypedOperation {
                 if (newIntValue == null) { return false; }
 
                 final Value newValue = Value.fromInteger(newIntValue);
+                if (! newValue.isWithinLongIntegerRange()) { return false; }
                 stack.push(newValue);
 
                 return (! stack.didOverflow());
@@ -156,6 +161,7 @@ public class ArithmeticOperation extends SubTypedOperation {
                 if (newIntValue == null) { return false; }
 
                 final Value newValue = Value.fromInteger(newIntValue);
+                if (! newValue.isWithinLongIntegerRange()) { return false; }
                 stack.push(newValue);
 
                 return (! stack.didOverflow());
@@ -177,6 +183,7 @@ public class ArithmeticOperation extends SubTypedOperation {
                 if (newIntValue == null) { return false; }
 
                 final Value newValue = Value.fromInteger(newIntValue);
+                if (! newValue.isWithinLongIntegerRange()) { return false; }
                 stack.push(newValue);
 
                 return (! stack.didOverflow());
@@ -197,6 +204,7 @@ public class ArithmeticOperation extends SubTypedOperation {
                 final Long newLongValue = (longValue == 0L ? 1L : 0L);
 
                 final Value newValue = Value.fromInteger(newLongValue);
+                if (! newValue.isWithinLongIntegerRange()) { return false; }
                 stack.push(newValue);
 
                 return (! stack.didOverflow());
@@ -228,6 +236,7 @@ public class ArithmeticOperation extends SubTypedOperation {
                 if (newIntValue == null) { return false; }
 
                 final Value newValue = Value.fromInteger(newIntValue);
+                if (! newValue.isWithinLongIntegerRange()) { return false; }
                 stack.push(newValue);
 
                 return (! stack.didOverflow());
@@ -259,6 +268,7 @@ public class ArithmeticOperation extends SubTypedOperation {
                 if (newIntValue == null) { return false; }
 
                 final Value newValue = Value.fromInteger(newIntValue);
+                if (! newValue.isWithinLongIntegerRange()) { return false; }
                 stack.push(newValue);
 
                 return (! stack.didOverflow());
@@ -292,6 +302,7 @@ public class ArithmeticOperation extends SubTypedOperation {
                 if (value == null) { return false; }
 
                 final Value newValue = Value.fromInteger(value);
+                if (! newValue.isWithinLongIntegerRange()) { return false; }
                 stack.push(newValue);
 
                 return (! stack.didOverflow());
@@ -328,6 +339,7 @@ public class ArithmeticOperation extends SubTypedOperation {
                 if (newIntValue == null) { return false; }
 
                 final Value newValue = Value.fromInteger(newIntValue);
+                if (! newValue.isWithinLongIntegerRange()) { return false; }
                 stack.push(newValue);
 
                 return (! stack.didOverflow());
@@ -395,6 +407,7 @@ public class ArithmeticOperation extends SubTypedOperation {
                 final Long newIntValue = Math.min(longValue1, longValue0);
 
                 final Value newValue = Value.fromInteger(newIntValue);
+                if (! newValue.isWithinLongIntegerRange()) { return false; }
                 stack.push(newValue);
 
                 return (! stack.didOverflow());
@@ -425,6 +438,7 @@ public class ArithmeticOperation extends SubTypedOperation {
                 final Long newIntValue = Math.max(longValue1, longValue0);
 
                 final Value newValue = Value.fromInteger(newIntValue);
+                if (! newValue.isWithinLongIntegerRange()) { return false; }
                 stack.push(newValue);
 
                 return (! stack.didOverflow());
