@@ -10,6 +10,8 @@ import com.softwareverde.bitcoin.util.MathUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 
+import java.math.BigInteger;
+
 public class ArithmeticOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_ARITHMETIC;
 
@@ -211,33 +213,47 @@ public class ArithmeticOperation extends SubTypedOperation {
             }
 
             case ADD: {
-                final Value value1 = stack.pop();
-                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
-                    if (! value1.isMinimallyEncoded()) { return false; }
-                }
-                if (! value1.isWithinLongIntegerRange()) { return false; }
-                if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
-                    if (! value1.isWithinIntegerRange()) { return false; }
-                }
+                if (upgradeSchedule.areBigScriptIntegersEnabled(medianBlockTime)) {
+                    final Value value1 = stack.pop();
+                    final Value value0 = stack.pop();
 
-                final Value value0 = stack.pop();
-                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
-                    if (! value0.isMinimallyEncoded()) { return false; }
+                    final BigInteger bigIntValue0 = value0.asBigInteger();
+                    final BigInteger bigIntValue1 = value1.asBigInteger();
+                    final BigInteger newIntValue = bigIntValue0.add(bigIntValue1);
+                    final Value newValue = Value.fromBigInt(newIntValue);
+
+                    if (newValue == null) { return false; }
+                    stack.push(newValue);
                 }
-                if (! value0.isWithinLongIntegerRange()) { return false; }
-                if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
-                    if (! value0.isWithinIntegerRange()) { return false; }
+                else {
+                    final Value value1 = stack.pop();
+                    if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                        if (! value1.isMinimallyEncoded()) { return false; }
+                    }
+                    if (! value1.isWithinLongIntegerRange()) { return false; }
+                    if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+                        if (! value1.isWithinIntegerRange()) { return false; }
+                    }
+
+                    final Value value0 = stack.pop();
+                    if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                        if (! value0.isMinimallyEncoded()) { return false; }
+                    }
+                    if (! value0.isWithinLongIntegerRange()) { return false; }
+                    if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+                        if (! value0.isWithinIntegerRange()) { return false; }
+                    }
+
+                    final Long longValue0 = value0.asLong();
+                    final Long longValue1 = value1.asLong();
+
+                    final Long newIntValue = MathUtil.add(longValue0, longValue1);
+                    if (newIntValue == null) { return false; }
+
+                    final Value newValue = Value.fromInteger(newIntValue);
+                    if (! newValue.isWithinLongIntegerRange()) { return false; }
+                    stack.push(newValue);
                 }
-
-                final Long longValue0 = value0.asLong();
-                final Long longValue1 = value1.asLong();
-
-                final Long newIntValue = MathUtil.add(longValue0, longValue1);
-                if (newIntValue == null) { return false; }
-
-                final Value newValue = Value.fromInteger(newIntValue);
-                if (! newValue.isWithinLongIntegerRange()) { return false; }
-                stack.push(newValue);
 
                 return (! stack.didOverflow());
             }

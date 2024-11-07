@@ -642,7 +642,7 @@ public class AbcScriptRunnerTests extends UnitTest {
                 upgradeSchedule.setUnusedValuesAfterSegwitScriptExecutionAllowed(false);
             }
             if (testVector.flagsString.contains("64_BIT_INTEGERS")) {
-                upgradeSchedule.setAre64BitScriptIntegersEnabled(true);
+                upgradeSchedule.set64BitScriptIntegersEnabled(true);
                 upgradeSchedule.setMultiplyOperationEnabled(true);
             }
 

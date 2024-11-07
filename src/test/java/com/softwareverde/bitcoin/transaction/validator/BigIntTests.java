@@ -17,15 +17,12 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.json.Json;
-import com.softwareverde.logging.Logger;
 import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-
-import java.util.HashSet;
 
 public class BigIntTests extends UnitTest {
     @Override @Before
@@ -87,6 +84,8 @@ public class BigIntTests extends UnitTest {
             if (SKIPPED_TESTS.contains(identifier)) {
                 continue;
             }
+
+            // if (! identifier.equals("fcadka")) { continue; } // TODO
 
             final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString(transactionToTestHex));
             if (transaction == null) {
@@ -157,19 +156,19 @@ public class BigIntTests extends UnitTest {
         final Json testNamesJson = manifest.get("tests");
         for (int i = 0; i < testNamesJson.length(); ++i) {
             final String resourcePath = "/vmb_tests" + testNamesJson.getString(i);
+            // final String resourcePath = "/vmb_tests/bch_2025_nonstandard/core.bigint.add.vmb_tests.json";
 
-            final Boolean isPreActivation = (! resourcePath.contains("bch_2025_"));
-            final Boolean isValid = ((! resourcePath.contains("_invalid/")) && isPreActivation);
-
-            if (! isPreActivation) { continue; } // TODO
+            final boolean isPreActivation = (! resourcePath.contains("bch_2025_"));
+            final boolean isValid = (! resourcePath.contains("_invalid/"));
 
             final FakeUpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
-            upgradeSchedule.setAreIntrospectionOperationsEnabled(true);
-            upgradeSchedule.setAre64BitScriptIntegersEnabled(true);
+            upgradeSchedule.setIntrospectionOperationsEnabled(true);
+            upgradeSchedule.set64BitScriptIntegersEnabled(true);
             upgradeSchedule.setMultiplyOperationEnabled(true);
             upgradeSchedule.setSha256PayToScriptHashEnabled(true);
             upgradeSchedule.setLegacyPayToScriptHashEnabled(true);
             upgradeSchedule.setCashTokensEnabled(true);
+            upgradeSchedule.setBigScriptIntegersEnabled(! isPreActivation);
 
             final Json testVectorsJson = Json.parse(IoUtil.getResource(resourcePath));
 

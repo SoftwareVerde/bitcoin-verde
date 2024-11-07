@@ -47,8 +47,8 @@ public class NativeIntrospectionBchnTests extends UnitTest {
         final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
 
         final FakeUpgradeSchedule fakeUpgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
-        fakeUpgradeSchedule.setAreIntrospectionOperationsEnabled(true);
-        fakeUpgradeSchedule.setAre64BitScriptIntegersEnabled(true);
+        fakeUpgradeSchedule.setIntrospectionOperationsEnabled(true);
+        fakeUpgradeSchedule.set64BitScriptIntegersEnabled(true);
         fakeUpgradeSchedule.setMultiplyOperationEnabled(true);
 
         final Json testVectorsJson = Json.parse(IoUtil.getResource("/bchn_introspection_vectors.json"));
@@ -124,8 +124,8 @@ public class NativeIntrospectionBchnTests extends UnitTest {
         final TransactionInputDeflater transactionInputDeflater = new TransactionInputDeflater();
 
         final FakeUpgradeSchedule fakeUpgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
-        fakeUpgradeSchedule.setAreIntrospectionOperationsEnabled(true);
-        fakeUpgradeSchedule.setAre64BitScriptIntegersEnabled(true);
+        fakeUpgradeSchedule.setIntrospectionOperationsEnabled(true);
+        fakeUpgradeSchedule.set64BitScriptIntegersEnabled(true);
         fakeUpgradeSchedule.setMultiplyOperationEnabled(true);
         fakeUpgradeSchedule.setSha256PayToScriptHashEnabled(true);
         fakeUpgradeSchedule.setLegacyPayToScriptHashEnabled(true);
@@ -195,8 +195,8 @@ public class NativeIntrospectionBchnTests extends UnitTest {
         final TransactionInputDeflater transactionInputDeflater = new TransactionInputDeflater();
 
         final FakeUpgradeSchedule fakeUpgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
-        fakeUpgradeSchedule.setAreIntrospectionOperationsEnabled(true);
-        fakeUpgradeSchedule.setAre64BitScriptIntegersEnabled(true);
+        fakeUpgradeSchedule.setIntrospectionOperationsEnabled(true);
+        fakeUpgradeSchedule.set64BitScriptIntegersEnabled(true);
         fakeUpgradeSchedule.setMultiplyOperationEnabled(true);
         fakeUpgradeSchedule.setSha256PayToScriptHashEnabled(true);
         fakeUpgradeSchedule.setLegacyPayToScriptHashEnabled(true);
@@ -301,8 +301,8 @@ public class NativeIntrospectionBchnTests extends UnitTest {
         final TransactionInputDeflater transactionInputDeflater = new TransactionInputDeflater();
 
         final FakeUpgradeSchedule fakeUpgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
-        fakeUpgradeSchedule.setAreIntrospectionOperationsEnabled(true);
-        fakeUpgradeSchedule.setAre64BitScriptIntegersEnabled(true);
+        fakeUpgradeSchedule.setIntrospectionOperationsEnabled(true);
+        fakeUpgradeSchedule.set64BitScriptIntegersEnabled(true);
         fakeUpgradeSchedule.setMultiplyOperationEnabled(true);
         fakeUpgradeSchedule.setSha256PayToScriptHashEnabled(false);
         fakeUpgradeSchedule.setLegacyPayToScriptHashEnabled(true);

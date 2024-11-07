@@ -14,9 +14,14 @@ import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.StringUtil;
+import com.softwareverde.util.Util;
+
+import java.math.BigInteger;
 
 public class Value extends ImmutableByteArray implements Const {
-    public static final Integer MAX_BYTE_COUNT = 520; // https://en.bitcoin.it/wiki/Script#Arithmetic
+    public static final Integer LEGACY_MAX_BYTE_COUNT = 520; // https://en.bitcoin.it/wiki/Script#Arithmetic
+    public static final Integer MAX_BYTE_COUNT = 10000;
+
     public static final Value ZERO = Value.fromInteger(0L);
     public static final Value EMPTY = Value.fromBytes(new ImmutableByteArray());
     public static final Integer MAX_INTEGER_BYTE_COUNT = 4;
@@ -27,7 +32,7 @@ public class Value extends ImmutableByteArray implements Const {
      *  This function should be identical to Value::_longToBytes for byteArrays of 4 bytes or less...
      */
     public static Value minimallyEncodeBytes(final ByteArray littleEndianBytes) {
-        if (littleEndianBytes.getByteCount() > MAX_BYTE_COUNT) { return null; }
+        if (littleEndianBytes.getByteCount() > LEGACY_MAX_BYTE_COUNT) { return null; }
         if (littleEndianBytes.isEmpty()) { return ZERO; }
 
         final ByteArray bytes = MutableByteArray.wrap(ByteUtil.reverseEndian(littleEndianBytes.getBytes()));
@@ -94,8 +99,28 @@ public class Value extends ImmutableByteArray implements Const {
         final boolean isNegative = (value < 0L);
 
         final long absValue = Math.abs(value);
-        final int unsignedByteCount = (int) ( (BitcoinUtil.log2(absValue) / 8) + 1 );
+        final int unsignedByteCount = (BitcoinUtil.log2(absValue) / 8) + 1;
         final byte[] absValueBytes = ByteUtil.longToBytes(absValue);
+
+        final boolean requiresSignPadding = ((absValueBytes[absValueBytes.length - unsignedByteCount] & 0x80) == 0x80);
+
+        final byte[] bytes = new byte[(requiresSignPadding ? unsignedByteCount + 1 : unsignedByteCount)];
+        ByteUtil.setBytes(bytes, ByteUtil.reverseEndian(absValueBytes));
+        if (isNegative) {
+            bytes[bytes.length - 1] |= (byte) 0x80;
+        }
+
+        return bytes;
+    }
+
+    protected static byte[] _bigIntegerToBytes(final BigInteger value) {
+        if (Util.areEqual(value, BigInteger.ZERO)) { return new byte[0]; }
+
+        final boolean isNegative = (value.compareTo(BigInteger.ZERO) < 0);
+
+        final BigInteger absValue = value.abs();
+        final int unsignedByteCount = (absValue.bitLength() / 8) + 1;
+        final byte[] absValueBytes = absValue.toByteArray();
 
         final boolean requiresSignPadding = ((absValueBytes[absValueBytes.length - unsignedByteCount] & 0x80) == 0x80);
 
@@ -110,6 +135,12 @@ public class Value extends ImmutableByteArray implements Const {
 
     public static Value fromInteger(final Long longValue) {
         final byte[] bytes = _longToBytes(longValue);
+        return new Value(bytes);
+    }
+
+    public static Value fromBigInt(final BigInteger bigInteger) {
+        final byte[] bytes = _bigIntegerToBytes(bigInteger);
+        if (bytes.length > MAX_BYTE_COUNT) { return null; }
         return new Value(bytes);
     }
 
@@ -184,17 +215,33 @@ public class Value extends ImmutableByteArray implements Const {
         return _asLong();
     }
 
+    public BigInteger asBigInteger() {
+        if (_bytes.length == 0) { return BigInteger.ZERO; }
+
+        final byte[] bigEndianBytes = ByteUtil.reverseEndian(_bytes);
+
+        final boolean isNegative = _isNegativeNumber(bigEndianBytes);
+
+        { // Remove the sign bit... (only matters when _bytes.length is less than the byteCount of a long)
+            bigEndianBytes[0] &= (byte) 0x7F;
+        }
+
+        return new BigInteger((isNegative ? -1 : 1), bigEndianBytes);
+    }
+
     public Boolean asBoolean() {
         return _asBoolean();
     }
 
     public Boolean isMinimallyEncodedInteger() {
+        if (_bytes.length > 4) { return false; }
         final Integer asInteger = _asInteger();
         final byte[] minimallyEncodedBytes = _longToBytes(asInteger.longValue());
         return ByteUtil.areEqual(minimallyEncodedBytes, _bytes);
     }
 
     public Boolean isMinimallyEncodedLong() {
+        if (_bytes.length > 8) { return false; }
         final Long asLong = _asLong();
         final byte[] minimallyEncodedBytes = _longToBytes(asLong);
         return ByteUtil.areEqual(minimallyEncodedBytes, _bytes);
