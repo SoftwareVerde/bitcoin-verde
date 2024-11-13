@@ -23,7 +23,7 @@ public class Value extends ImmutableByteArray implements Const {
     public static final Integer MAX_BYTE_COUNT = 10000;
 
     public static final Value ZERO = Value.fromInteger(0L);
-    public static final Value EMPTY = Value.fromBytes(new ImmutableByteArray());
+
     public static final Integer MAX_INTEGER_BYTE_COUNT = 4;
     public static final Integer MAX_LONG_BYTE_COUNT = 8;
 
@@ -32,7 +32,7 @@ public class Value extends ImmutableByteArray implements Const {
      *  This function should be identical to Value::_longToBytes for byteArrays of 4 bytes or less...
      */
     public static Value minimallyEncodeBytes(final ByteArray littleEndianBytes) {
-        if (littleEndianBytes.getByteCount() > LEGACY_MAX_BYTE_COUNT) { return null; }
+        if (littleEndianBytes.getByteCount() > MAX_BYTE_COUNT) { return null; }
         if (littleEndianBytes.isEmpty()) { return ZERO; }
 
         final ByteArray bytes = MutableByteArray.wrap(ByteUtil.reverseEndian(littleEndianBytes.getBytes()));
@@ -234,14 +234,14 @@ public class Value extends ImmutableByteArray implements Const {
     }
 
     public Boolean isMinimallyEncodedInteger() {
-        if (_bytes.length > 4) { return false; }
+        // if (_bytes.length > 4) { return false; }
         final Integer asInteger = _asInteger();
         final byte[] minimallyEncodedBytes = _longToBytes(asInteger.longValue());
         return ByteUtil.areEqual(minimallyEncodedBytes, _bytes);
     }
 
     public Boolean isMinimallyEncodedLong() {
-        if (_bytes.length > 8) { return false; }
+        // if (_bytes.length > 8) { return false; }
         final Long asLong = _asLong();
         final byte[] minimallyEncodedBytes = _longToBytes(asLong);
         return ByteUtil.areEqual(minimallyEncodedBytes, _bytes);
@@ -285,7 +285,7 @@ public class Value extends ImmutableByteArray implements Const {
     public Boolean isMinimallyEncoded() {
         final int byteCount = _bytes.length;
         if (byteCount == 0) { return true; } // The only valid encoding of zero is an empty array.
-        if (byteCount > MAX_LONG_BYTE_COUNT) { return false; } // Numeric values are not allowed to be larger than 4 bytes.
+        // if (byteCount > MAX_LONG_BYTE_COUNT) { return false; } // Numeric values are not allowed to be larger than 4 bytes.
 
         final byte leadingByte = _bytes[byteCount - 1];
         final boolean valueBitsAreSet = ((leadingByte & 0x7F) != 0);

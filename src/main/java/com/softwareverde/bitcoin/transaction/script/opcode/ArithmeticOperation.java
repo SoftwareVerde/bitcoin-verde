@@ -59,47 +59,69 @@ public class ArithmeticOperation extends SubTypedOperation {
 
         switch (_opcode) {
             case ADD_ONE: {
-                final Value value = stack.pop();
-                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
-                    if (! value.isMinimallyEncoded()) { return false; }
+                if (upgradeSchedule.areBigScriptIntegersEnabled(medianBlockTime)) {
+                    final Value value0 = stack.pop();
+
+                    final BigInteger bigIntValue0 = value0.asBigInteger();
+                    final BigInteger newIntValue = bigIntValue0.add(BigInteger.ONE);
+                    final Value newValue = Value.fromBigInt(newIntValue);
+
+                    if (newValue == null) { return false; }
+                    stack.push(newValue);
                 }
-                if (! value.isWithinLongIntegerRange()) { return false; }
-                if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
-                    if (! value.isWithinIntegerRange()) { return false; }
+                else {
+                    final Value value = stack.pop();
+                    if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                        if (! value.isMinimallyEncoded()) { return false; }
+                    }
+                    if (! value.isWithinLongIntegerRange()) { return false; }
+                    if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+                        if (! value.isWithinIntegerRange()) { return false; }
+                    }
+
+                    final Long longValue = value.asLong();
+
+                    final Long newIntValue = MathUtil.add(longValue, 1L);
+                    if (newIntValue == null) { return false; }
+
+                    final Value newValue = Value.fromInteger(newIntValue);
+                    if (! newValue.isWithinLongIntegerRange()) { return false; }
+                    stack.push(newValue);
                 }
-
-                final Long longValue = value.asLong();
-
-                final Long newIntValue = MathUtil.add(longValue, 1L);
-                if (newIntValue == null) { return false; }
-
-                final Value newValue = Value.fromInteger(newIntValue);
-                if (! newValue.isWithinLongIntegerRange()) { return false; }
-                stack.push(newValue);
-
                 return (! stack.didOverflow());
             }
 
             case SUBTRACT_ONE: {
-                final Value value = stack.pop();
-                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
-                    if (! value.isMinimallyEncoded()) { return false; }
+                if (upgradeSchedule.areBigScriptIntegersEnabled(medianBlockTime)) {
+                    final Value value = stack.pop();
+
+                    final BigInteger bigIntValue0 = value.asBigInteger();
+                    final BigInteger newIntValue = bigIntValue0.subtract(BigInteger.ONE);
+                    final Value newValue = Value.fromBigInt(newIntValue);
+
+                    if (newValue == null) { return false; }
+                    stack.push(newValue);
                 }
-                if (! value.isWithinLongIntegerRange()) { return false; }
-                if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
-                    if (! value.isWithinIntegerRange()) { return false; }
+                else {
+                    final Value value = stack.pop();
+                    if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                        if (! value.isMinimallyEncoded()) { return false; }
+                    }
+                    if (! value.isWithinLongIntegerRange()) { return false; }
+                    if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+                        if (! value.isWithinIntegerRange()) { return false; }
+                    }
+
+                    final Long longValue = value.asLong();
+
+                    final Long newIntValue = MathUtil.subtract(longValue, 1L);
+                    if (newIntValue == null) { return false; }
+
+                    final Value newValue = Value.fromInteger(newIntValue);
+                    if (! newValue.isWithinLongIntegerRange()) { return false; }
+
+                    stack.push(newValue);
                 }
-
-                final Long longValue = value.asLong();
-
-                final Long newIntValue = MathUtil.subtract(longValue, 1L);
-                if (newIntValue == null) { return false; }
-
-                final Value newValue = Value.fromInteger(newIntValue);
-                if (! newValue.isWithinLongIntegerRange()) { return false; }
-
-                stack.push(newValue);
-
                 return (! stack.didOverflow());
             }
 
@@ -259,33 +281,48 @@ public class ArithmeticOperation extends SubTypedOperation {
             }
 
             case SUBTRACT: {
-                final Value value1 = stack.pop();
-                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
-                    if (! value1.isMinimallyEncoded()) { return false; }
-                }
-                if (! value1.isWithinLongIntegerRange()) { return false; }
-                if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
-                    if (! value1.isWithinIntegerRange()) { return false; }
-                }
+                if (upgradeSchedule.areBigScriptIntegersEnabled(medianBlockTime)) {
+                    final Value value1 = stack.pop();
+                    final Value value0 = stack.pop();
 
-                final Value value0 = stack.pop();
-                if (! value0.isWithinLongIntegerRange()) { return false; }
-                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
-                    if (! value0.isMinimallyEncoded()) { return false; }
+                    final BigInteger bigIntegerValue0 = value0.asBigInteger();
+                    final BigInteger bigIntegerValue1 = value1.asBigInteger();
+
+                    final BigInteger newBigIntegerValue = bigIntegerValue0.subtract(bigIntegerValue1);
+                    final Value newValue = Value.fromBigInt(newBigIntegerValue);
+
+                    if (newValue == null) { return false; }
+                    stack.push(newValue);
                 }
-                if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
-                    if (! value0.isWithinIntegerRange()) { return false; }
+                else {
+                    final Value value1 = stack.pop();
+                    if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                        if (! value1.isMinimallyEncoded()) { return false; }
+                    }
+                    if (! value1.isWithinLongIntegerRange()) { return false; }
+                    if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+                        if (! value1.isWithinIntegerRange()) { return false; }
+                    }
+
+                    final Value value0 = stack.pop();
+                    if (! value0.isWithinLongIntegerRange()) { return false; }
+                    if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                        if (! value0.isMinimallyEncoded()) { return false; }
+                    }
+                    if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+                        if (! value0.isWithinIntegerRange()) { return false; }
+                    }
+
+                    final Long longValue0 = value0.asLong();
+                    final Long longValue1 = value1.asLong();
+
+                    final Long newIntValue = MathUtil.subtract(longValue0, longValue1);
+                    if (newIntValue == null) { return false; }
+
+                    final Value newValue = Value.fromInteger(newIntValue);
+                    if (! newValue.isWithinLongIntegerRange()) { return false; }
+                    stack.push(newValue);
                 }
-
-                final Long longValue0 = value0.asLong();
-                final Long longValue1 = value1.asLong();
-
-                final Long newIntValue = MathUtil.subtract(longValue0, longValue1);
-                if (newIntValue == null) { return false; }
-
-                final Value newValue = Value.fromInteger(newIntValue);
-                if (! newValue.isWithinLongIntegerRange()) { return false; }
-                stack.push(newValue);
 
                 return (! stack.didOverflow());
             }

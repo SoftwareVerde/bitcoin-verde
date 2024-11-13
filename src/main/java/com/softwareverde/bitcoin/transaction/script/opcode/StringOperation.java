@@ -124,7 +124,11 @@ public class StringOperation extends SubTypedOperation {
                 // { 0x80, 0x00, 0x05 } ENCODE_NUMBER -> { 0x80, 0x00, 0x05 }
 
                 final Value value = stack.pop();
-                if (! value.isMinimallyEncodedLong()) { return false; }
+                {
+                    // if (! value.isMinimallyEncodedLong()) { return false; }
+                    final Value minimallyEncodedValue = Value.minimallyEncodeBytes(value);
+                    if (minimallyEncodedValue == null || minimallyEncodedValue.getByteCount() > 8) { return false; }
+                }
 
                 final Long valueInteger = value.asLong();
 

@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.transaction.validator;
 
 import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.test.fake.FakeUpgradeSchedule;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -117,6 +118,7 @@ public class BigIntTests extends UnitTest {
                 testConfig.transactionInputIndex = transactionInputIndex;
                 testConfig.lockingScriptBytes = transactionOutputToSpend.getLockingScript().toString();
                 testConfig.unlockingScriptBytes = transactionInput.getUnlockingScript().toString();
+                // testConfig.medianBlockTime = MedianBlockTime.fromSeconds();
 
                 final Boolean isUnlocked = HistoricTransactionsTests.runScripts(testConfig, outputsToSpend, upgradeSchedule);
                 if (! isUnlocked) {
@@ -139,6 +141,7 @@ public class BigIntTests extends UnitTest {
             System.out.println("Failed " + failedVectorCount + " of " + vectorCount + " vectors.");
             for (final String failedTestIdentifier : failedTestIdentifiers) {
                 System.out.println("Failed: " + failedTestIdentifier);
+                break;
             }
         }
 
@@ -156,10 +159,14 @@ public class BigIntTests extends UnitTest {
         final Json testNamesJson = manifest.get("tests");
         for (int i = 0; i < testNamesJson.length(); ++i) {
             final String resourcePath = "/vmb_tests" + testNamesJson.getString(i);
-            // final String resourcePath = "/vmb_tests/bch_2025_nonstandard/core.bigint.add.vmb_tests.json";
+            // "/vmb_tests/bch_2025_nonstandard/core.benchmarks.stack.vmb_tests.json" "/vmb_tests/bch_2025_nonstandard/core.bigint.add.vmb_tests.json";
+            // final String resourcePath = "/vmb_tests/bch_2025_nonstandard/core.bigint.sub.vmb_tests.json";
+            // final String resourcePath = "/vmb_tests/bch_2025_nonstandard/core.benchmarks.stack.vmb_tests.json";
 
             final boolean isPreActivation = (! resourcePath.contains("bch_2025_"));
             final boolean isValid = (! resourcePath.contains("_invalid/"));
+
+            if (isPreActivation) { continue; }
 
             final FakeUpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
             upgradeSchedule.setIntrospectionOperationsEnabled(true);
@@ -183,11 +190,12 @@ public class BigIntTests extends UnitTest {
             if (! didPass) {
                 failCount += 1;
                 System.out.println(resourcePath + ": FAIL");
+                break;
             }
         }
 
         final int vectorCount = testNamesJson.length();
-        System.out.println("Failed: " + failCount + " of " + vectorCount + ".");
+        System.out.println("Failed: " + failCount + " of " + vectorCount + " suites.");
         Assert.assertEquals(0, failCount);
     }
 }
