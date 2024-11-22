@@ -328,37 +328,54 @@ public class ArithmeticOperation extends SubTypedOperation {
             }
 
             case MULTIPLY: {
-                if (! upgradeSchedule.isMultiplyOperationEnabled(medianBlockTime)) { return false; }
+                if (upgradeSchedule.areBigScriptIntegersEnabled(medianBlockTime)) {
+                    final Value value1 = stack.pop();
+                    final Value value0 = stack.pop();
 
-                final Value value1 = stack.pop();
-                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
-                    if (! value1.isMinimallyEncoded()) { return false; }
+                    final BigInteger bigIntegerValue0 = value0.asBigInteger();
+                    final BigInteger bigIntegerValue1 = value1.asBigInteger();
+
+                    final BigInteger newBigIntegerValue = bigIntegerValue0.multiply(bigIntegerValue1);
+                    final Value newValue = Value.fromBigInt(newBigIntegerValue);
+
+                    if (newValue == null) { return false; }
+                    stack.push(newValue);
+
+                    return (! stack.didOverflow());
                 }
-                if (! value1.isWithinLongIntegerRange()) { return false; }
-                if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
-                    if (! value1.isWithinIntegerRange()) { return false; }
+                else {
+                    if (! upgradeSchedule.isMultiplyOperationEnabled(medianBlockTime)) { return false; }
+
+                    final Value value1 = stack.pop();
+                    if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                        if (! value1.isMinimallyEncoded()) { return false; }
+                    }
+                    if (! value1.isWithinLongIntegerRange()) { return false; }
+                    if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+                        if (! value1.isWithinIntegerRange()) { return false; }
+                    }
+
+                    final Value value0 = stack.pop();
+                    if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                        if (! value0.isMinimallyEncoded()) { return false; }
+                    }
+                    if (! value0.isWithinLongIntegerRange()) { return false; }
+                    if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+                        if (! value0.isWithinIntegerRange()) { return false; }
+                    }
+
+                    final Long longValue0 = value0.asLong();
+                    final Long longValue1 = value1.asLong();
+
+                    final Long value = MathUtil.multiply(longValue1, longValue0);
+                    if (value == null) { return false; }
+
+                    final Value newValue = Value.fromInteger(value);
+                    if (! newValue.isWithinLongIntegerRange()) { return false; }
+                    stack.push(newValue);
+
+                    return (! stack.didOverflow());
                 }
-
-                final Value value0 = stack.pop();
-                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
-                    if (! value0.isMinimallyEncoded()) { return false; }
-                }
-                if (! value0.isWithinLongIntegerRange()) { return false; }
-                if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
-                    if (! value0.isWithinIntegerRange()) { return false; }
-                }
-
-                final Long longValue0 = value0.asLong();
-                final Long longValue1 = value1.asLong();
-
-                final Long value = MathUtil.multiply(longValue1, longValue0);
-                if (value == null) { return false; }
-
-                final Value newValue = Value.fromInteger(value);
-                if (! newValue.isWithinLongIntegerRange()) { return false; }
-                stack.push(newValue);
-
-                return (! stack.didOverflow());
             }
 
             case DIVIDE: {
@@ -402,37 +419,54 @@ public class ArithmeticOperation extends SubTypedOperation {
                 // value0 value1 MODULUS -> { value0 % value1 }
                 // { 0x0A } { 0x02 } MODULUS -> { 0x00 }
 
-                final Value value1 = stack.pop();
-                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
-                    if (! value1.isMinimallyEncoded()) { return false; }
+                if (upgradeSchedule.areBigScriptIntegersEnabled(medianBlockTime)) {
+                    final Value value1 = stack.pop();
+                    final Value value0 = stack.pop();
+
+                    final BigInteger bigIntegerValue0 = value0.asBigInteger();
+                    final BigInteger bigIntegerValue1 = value1.asBigInteger();
+
+                    final BigInteger newBigIntegerValue = bigIntegerValue0.remainder(bigIntegerValue1);
+                    final Value newValue = Value.fromBigInt(newBigIntegerValue);
+
+                    if (newValue == null) { return false; }
+                    stack.push(newValue);
+
+                    return (! stack.didOverflow());
                 }
-                if (! value1.isWithinLongIntegerRange()) { return false; }
-                if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
-                    if (! value1.isWithinIntegerRange()) { return false; }
+                else {
+                    final Value value1 = stack.pop();
+                    if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                        if (! value1.isMinimallyEncoded()) { return false; }
+                    }
+                    if (! value1.isWithinLongIntegerRange()) { return false; }
+                    if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+                        if (! value1.isWithinIntegerRange()) { return false; }
+                    }
+
+                    final Value value0 = stack.pop();
+                    if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                        if (! value0.isMinimallyEncoded()) { return false; }
+                    }
+                    if (! value0.isWithinLongIntegerRange()) { return false; }
+                    if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+                        if (! value0.isWithinIntegerRange()) { return false; }
+                    }
+
+                    final Long longValue0 = value0.asLong();
+                    final Long longValue1 = value1.asLong();
+
+                    if (longValue1 == 0) { return false; }
+
+                    final Long newIntValue = (longValue0 % longValue1);
+
+                    final Value newValue = Value.fromInteger(newIntValue);
+                    if (! newValue.isWithinLongIntegerRange()) { return false; }
+
+                    stack.push(newValue);
+
+                    return (! stack.didOverflow());
                 }
-
-                final Value value0 = stack.pop();
-                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
-                    if (! value0.isMinimallyEncoded()) { return false; }
-                }
-                if (! value0.isWithinLongIntegerRange()) { return false; }
-                if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
-                    if (! value0.isWithinIntegerRange()) { return false; }
-                }
-
-                final Long longValue0 = value0.asLong();
-                final Long longValue1 = value1.asLong();
-
-                if (longValue1 == 0) { return false; }
-
-                final Long newIntValue = (longValue0 % longValue1);
-
-                final Value newValue = Value.fromInteger(newIntValue);
-                if (! newValue.isWithinLongIntegerRange()) { return false; }
-
-                stack.push(newValue);
-
-                return (! stack.didOverflow());
             }
 
             case MIN: {

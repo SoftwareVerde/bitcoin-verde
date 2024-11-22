@@ -162,6 +162,8 @@ public class BigIntTests extends UnitTest {
             // "/vmb_tests/bch_2025_nonstandard/core.benchmarks.stack.vmb_tests.json" "/vmb_tests/bch_2025_nonstandard/core.bigint.add.vmb_tests.json";
             // final String resourcePath = "/vmb_tests/bch_2025_nonstandard/core.bigint.sub.vmb_tests.json";
             // final String resourcePath = "/vmb_tests/bch_2025_nonstandard/core.benchmarks.stack.vmb_tests.json";
+            // final String resourcePath = "/vmb_tests/bch_2025_nonstandard/core.benchmarks.arithmetic.mul.vmb_tests.json";
+            // final String resourcePath = "/vmb_tests/bch_2025_nonstandard/core.bigint.mod.vmb_tests.json";
 
             final boolean isPreActivation = (! resourcePath.contains("bch_2025_"));
             final boolean isValid = (! resourcePath.contains("_invalid/"));
