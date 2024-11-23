@@ -9,7 +9,10 @@ import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayReader;
+
+import java.math.BigInteger;
 
 public class StringOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_STRING;
@@ -123,25 +126,40 @@ public class StringOperation extends SubTypedOperation {
                 // { 0x00, 0x00, 0x00, 0x02 } ENCODE_NUMBER -> { 0x02 }
                 // { 0x80, 0x00, 0x05 } ENCODE_NUMBER -> { 0x80, 0x00, 0x05 }
 
-                final Value value = stack.pop();
-                {
-                    // if (! value.isMinimallyEncodedLong()) { return false; }
-                    final Value minimallyEncodedValue = Value.minimallyEncodeBytes(value);
-                    if (minimallyEncodedValue == null || minimallyEncodedValue.getByteCount() > 8) { return false; }
+                if (upgradeSchedule.areBigScriptIntegersEnabled(medianBlockTime)) {
+                    final Value value = stack.pop();
+                    {
+                        final Value minimallyEncodedValue = Value.minimallyEncodeBytes(value);
+                        if (minimallyEncodedValue == null) { return false; }
+                    }
+
+                    final BigInteger bigIntValue = value.asBigInteger();
+                    final Value newValue = Value.fromBigInt(bigIntValue);
+                    stack.push(newValue);
+
+                    return (! stack.didOverflow());
                 }
+                else {
+                    final Value value = stack.pop();
+                    {
+                        // if (! value.isMinimallyEncodedLong()) { return false; }
+                        final Value minimallyEncodedValue = Value.minimallyEncodeBytes(value);
+                        if (minimallyEncodedValue == null || minimallyEncodedValue.getByteCount() > 8) { return false; }
+                    }
 
-                final Long valueInteger = value.asLong();
+                    final Long valueInteger = value.asLong();
 
-                final Value newValue = Value.fromInteger(valueInteger);
+                    final Value newValue = Value.fromInteger(valueInteger);
 
-                if (! newValue.isWithinLongIntegerRange()) { return false; }
-                if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
-                    if (! newValue.isWithinIntegerRange()) { return false; }
+                    if (! newValue.isWithinLongIntegerRange()) { return false; }
+                    if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+                        if (! newValue.isWithinIntegerRange()) { return false; }
+                    }
+
+                    stack.push(newValue);
+
+                    return (! stack.didOverflow());
                 }
-
-                stack.push(newValue);
-
-                return (! stack.didOverflow());
             }
 
             // Decodes an MPI-encoded number into a signed byte array of specific size.
@@ -163,7 +181,12 @@ public class StringOperation extends SubTypedOperation {
                 if (byteCountValue.getByteCount() > 4) { return false; }
 
                 final int byteCount = byteCountValue.asInteger();
-                if (byteCount > StringOperation.MAX_BYTE_COUNT) { return false; }
+                if (upgradeSchedule.areBigScriptIntegersEnabled(medianBlockTime)) {
+                    if (byteCount > Value.MAX_BYTE_COUNT) { return false; }
+                }
+                else {
+                    if (byteCount > StringOperation.MAX_BYTE_COUNT) { return false; }
+                }
 
                 final MutableByteArray minimallyEncodedByteArray;
                 {

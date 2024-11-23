@@ -159,11 +159,7 @@ public class BigIntTests extends UnitTest {
         final Json testNamesJson = manifest.get("tests");
         for (int i = 0; i < testNamesJson.length(); ++i) {
             final String resourcePath = "/vmb_tests" + testNamesJson.getString(i);
-            // "/vmb_tests/bch_2025_nonstandard/core.benchmarks.stack.vmb_tests.json" "/vmb_tests/bch_2025_nonstandard/core.bigint.add.vmb_tests.json";
-            // final String resourcePath = "/vmb_tests/bch_2025_nonstandard/core.bigint.sub.vmb_tests.json";
-            // final String resourcePath = "/vmb_tests/bch_2025_nonstandard/core.benchmarks.stack.vmb_tests.json";
-            // final String resourcePath = "/vmb_tests/bch_2025_nonstandard/core.benchmarks.arithmetic.mul.vmb_tests.json";
-            // final String resourcePath = "/vmb_tests/bch_2025_nonstandard/core.bigint.mod.vmb_tests.json";
+            // final String resourcePath = "/vmb_tests/bch_2025_nonstandard/core.bigint.div.vmb_tests.json";
 
             final boolean isPreActivation = (! resourcePath.contains("bch_2025_"));
             final boolean isValid = (! resourcePath.contains("_invalid/"));
