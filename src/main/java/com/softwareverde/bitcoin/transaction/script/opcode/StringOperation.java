@@ -62,7 +62,8 @@ public class StringOperation extends SubTypedOperation {
                 // NOTE: The concept of a MAX_BYTE_COUNT is to prevent memory exhaustion attacks, which can happen by repeating
                 //  multiple COPY_1ST STRING_CONCATENATE commands multiple times.  For instance, every 10 repetitions,
                 //  the memory usage increases 1024 times.
-                if (totalByteCount > MAX_BYTE_COUNT) {
+                final int maxByteCount = (upgradeSchedule.areBigScriptIntegersEnabled(medianBlockTime) ? Value.MAX_BYTE_COUNT : MAX_BYTE_COUNT);
+                if (totalByteCount > maxByteCount) {
                     Logger.debug("Max byte-count exceeded for Opcode: " + _opcode);
                     return false;
                 }

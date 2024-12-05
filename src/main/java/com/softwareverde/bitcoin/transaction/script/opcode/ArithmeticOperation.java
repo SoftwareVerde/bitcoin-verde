@@ -68,6 +68,7 @@ public class ArithmeticOperation extends SubTypedOperation {
 
                     if (newValue == null) { return false; }
                     stack.push(newValue);
+                    return (! stack.didOverflow());
                 }
                 else {
                     final Value value = stack.pop();
@@ -87,8 +88,8 @@ public class ArithmeticOperation extends SubTypedOperation {
                     final Value newValue = Value.fromInteger(newIntValue);
                     if (! newValue.isWithinLongIntegerRange()) { return false; }
                     stack.push(newValue);
+                    return (! stack.didOverflow());
                 }
-                return (! stack.didOverflow());
             }
 
             case SUBTRACT_ONE: {
@@ -101,6 +102,7 @@ public class ArithmeticOperation extends SubTypedOperation {
 
                     if (newValue == null) { return false; }
                     stack.push(newValue);
+                    return (! stack.didOverflow());
                 }
                 else {
                     final Value value = stack.pop();
@@ -121,117 +123,172 @@ public class ArithmeticOperation extends SubTypedOperation {
                     if (! newValue.isWithinLongIntegerRange()) { return false; }
 
                     stack.push(newValue);
+                    return (! stack.didOverflow());
                 }
-                return (! stack.didOverflow());
             }
 
             case MULTIPLY_BY_TWO: {
-                final Value value = stack.pop();
-                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
-                    if (! value.isMinimallyEncoded()) { return false; }
+                if (upgradeSchedule.areBigScriptIntegersEnabled(medianBlockTime)) {
+                    final Value value = stack.pop();
+                    final BigInteger bigInteger = value.asBigInteger();
+                    final BigInteger newValueInt = bigInteger.multiply(BigInteger.TWO);
+                    final Value newValue = Value.fromBigInt(newValueInt);
+                    stack.push(newValue);
+                    return (! stack.didOverflow());
                 }
-                if (! value.isWithinLongIntegerRange()) { return false; }
-                if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
-                    if (! value.isWithinIntegerRange()) { return false; }
+                else {
+                    final Value value = stack.pop();
+                    if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                        if (! value.isMinimallyEncoded()) { return false; }
+                    }
+                    if (! value.isWithinLongIntegerRange()) { return false; }
+                    if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+                        if (! value.isWithinIntegerRange()) { return false; }
+                    }
+
+                    final Long longValue = value.asLong();
+
+                    final Long newIntValue = MathUtil.multiply(longValue, 2L);
+                    if (newIntValue == null) { return false; }
+
+                    final Value newValue = Value.fromInteger(newIntValue);
+                    if (! newValue.isWithinLongIntegerRange()) { return false; }
+                    stack.push(newValue);
+
+                    return (! stack.didOverflow());
                 }
-
-                final Long longValue = value.asLong();
-
-                final Long newIntValue = MathUtil.multiply(longValue, 2L);
-                if (newIntValue == null) { return false; }
-
-                final Value newValue = Value.fromInteger(newIntValue);
-                if (! newValue.isWithinLongIntegerRange()) { return false; }
-                stack.push(newValue);
-
-                return (! stack.didOverflow());
             }
 
             case DIVIDE_BY_TWO: {
-                final Value value = stack.pop();
-                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
-                    if (! value.isMinimallyEncoded()) { return false; }
+                if (upgradeSchedule.areBigScriptIntegersEnabled(medianBlockTime)) {
+                    final Value value = stack.pop();
+                    final BigInteger bigInteger = value.asBigInteger();
+                    final BigInteger newValueInt = bigInteger.divide(BigInteger.TWO);
+                    final Value newValue = Value.fromBigInt(newValueInt);
+                    stack.push(newValue);
+                    return (! stack.didOverflow());
                 }
-                if (! value.isWithinLongIntegerRange()) { return false; }
-                if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
-                    if (! value.isWithinIntegerRange()) { return false; }
+                else {
+                    final Value value = stack.pop();
+                    if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                        if (!value.isMinimallyEncoded()) { return false; }
+                    }
+                    if (!value.isWithinLongIntegerRange()) { return false; }
+                    if (!upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+                        if (!value.isWithinIntegerRange()) { return false; }
+                    }
+
+                    final Long longValue = value.asLong();
+
+                    final Long newIntValue = MathUtil.divide(longValue, 2L);
+                    if (newIntValue == null) { return false; }
+
+                    final Value newValue = Value.fromInteger(newIntValue);
+                    if (!newValue.isWithinLongIntegerRange()) { return false; }
+                    stack.push(newValue);
+
+                    return (! stack.didOverflow());
                 }
-
-                final Long longValue = value.asLong();
-
-                final Long newIntValue = MathUtil.divide(longValue, 2L);
-                if (newIntValue == null) { return false; }
-
-                final Value newValue = Value.fromInteger(newIntValue);
-                if (! newValue.isWithinLongIntegerRange()) { return false; }
-                stack.push(newValue);
-
-                return (! stack.didOverflow());
             }
 
             case NEGATE: {
-                final Value value = stack.pop();
-                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
-                    if (! value.isMinimallyEncoded()) { return false; }
+                if (upgradeSchedule.areBigScriptIntegersEnabled(medianBlockTime)) {
+                    final Value value = stack.pop();
+
+                    if (stack.didOverflow()) { return false; }
+
+                    final BigInteger bigInt = value.asBigInteger();
+
+                    final BigInteger resultInt = bigInt.negate();
+                    stack.push(Value.fromBigInt(resultInt));
+                    return true;
                 }
-                if (! value.isWithinLongIntegerRange()) { return false; }
-                if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
-                    if (! value.isWithinIntegerRange()) { return false; }
+                else {
+                    final Value value = stack.pop();
+                    if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                        if (! value.isMinimallyEncoded()) { return false; }
+                    }
+                    if (! value.isWithinLongIntegerRange()) { return false; }
+                    if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+                        if (! value.isWithinIntegerRange()) { return false; }
+                    }
+
+                    final Long longValue = value.asLong();
+
+                    final Long newIntValue = MathUtil.negate(longValue);
+                    if (newIntValue == null) { return false; }
+
+                    final Value newValue = Value.fromInteger(newIntValue);
+                    if (! newValue.isWithinLongIntegerRange()) { return false; }
+                    stack.push(newValue);
+
+                    return (! stack.didOverflow());
                 }
-
-                final Long longValue = value.asLong();
-
-                final Long newIntValue = MathUtil.negate(longValue);
-                if (newIntValue == null) { return false; }
-
-                final Value newValue = Value.fromInteger(newIntValue);
-                if (! newValue.isWithinLongIntegerRange()) { return false; }
-                stack.push(newValue);
-
-                return (! stack.didOverflow());
             }
 
             case ABSOLUTE_VALUE: {
-                final Value value = stack.pop();
-                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
-                    if (! value.isMinimallyEncoded()) { return false; }
+                if (upgradeSchedule.areBigScriptIntegersEnabled(medianBlockTime)) {
+                    final Value value = stack.pop();
+
+                    if (stack.didOverflow()) { return false; }
+
+                    final BigInteger bigInt = value.asBigInteger();
+
+                    final BigInteger resultInt = bigInt.abs();
+                    stack.push(Value.fromBigInt(resultInt));
+                    return true;
                 }
-                if (! value.isWithinLongIntegerRange()) { return false; }
-                if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
-                    if (! value.isWithinIntegerRange()) { return false; }
+                else {
+                    final Value value = stack.pop();
+                    if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                        if (! value.isMinimallyEncoded()) { return false; }
+                    }
+                    if (! value.isWithinLongIntegerRange()) { return false; }
+                    if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+                        if (! value.isWithinIntegerRange()) { return false; }
+                    }
+
+                    final Long longValue = value.asLong();
+
+                    final Long newIntValue = MathUtil.absoluteValue(longValue);
+                    if (newIntValue == null) { return false; }
+
+                    final Value newValue = Value.fromInteger(newIntValue);
+                    if (! newValue.isWithinLongIntegerRange()) { return false; }
+                    stack.push(newValue);
+
+                    return (! stack.didOverflow());
                 }
-
-                final Long longValue = value.asLong();
-
-                final Long newIntValue = MathUtil.absoluteValue(longValue);
-                if (newIntValue == null) { return false; }
-
-                final Value newValue = Value.fromInteger(newIntValue);
-                if (! newValue.isWithinLongIntegerRange()) { return false; }
-                stack.push(newValue);
-
-                return (! stack.didOverflow());
             }
 
             case NOT: {
-                final Value value = stack.pop();
-                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
-                    if (! value.isMinimallyEncoded()) { return false; }
+                if (upgradeSchedule.areBigScriptIntegersEnabled(medianBlockTime)) {
+                    final Value value = stack.pop();
+                    final BigInteger bigInt = value.asBigInteger();
+                    final Long result = (bigInt.compareTo(BigInteger.ZERO) == 0) ? 1L : 0L;
+                    stack.push(Value.fromInteger(result));
+                    return (! stack.didOverflow());
                 }
-                if (! value.isWithinLongIntegerRange()) { return false; }
-                if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
-                    if (! value.isWithinIntegerRange()) { return false; }
+                else {
+                    final Value value = stack.pop();
+                    if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                        if (! value.isMinimallyEncoded()) { return false; }
+                    }
+                    if (! value.isWithinLongIntegerRange()) { return false; }
+                    if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+                        if (! value.isWithinIntegerRange()) { return false; }
+                    }
+
+                    final Long longValue = value.asLong();
+
+                    final Long newLongValue = (longValue == 0L ? 1L : 0L);
+
+                    final Value newValue = Value.fromInteger(newLongValue);
+                    if (! newValue.isWithinLongIntegerRange()) { return false; }
+                    stack.push(newValue);
+
+                    return (! stack.didOverflow());
                 }
-
-                final Long longValue = value.asLong();
-
-                final Long newLongValue = (longValue == 0L ? 1L : 0L);
-
-                final Value newValue = Value.fromInteger(newLongValue);
-                if (! newValue.isWithinLongIntegerRange()) { return false; }
-                stack.push(newValue);
-
-                return (! stack.didOverflow());
             }
 
             case ADD: {
@@ -246,6 +303,7 @@ public class ArithmeticOperation extends SubTypedOperation {
 
                     if (newValue == null) { return false; }
                     stack.push(newValue);
+                    return (! stack.didOverflow());
                 }
                 else {
                     final Value value1 = stack.pop();
@@ -275,9 +333,8 @@ public class ArithmeticOperation extends SubTypedOperation {
                     final Value newValue = Value.fromInteger(newIntValue);
                     if (! newValue.isWithinLongIntegerRange()) { return false; }
                     stack.push(newValue);
+                    return (! stack.didOverflow());
                 }
-
-                return (! stack.didOverflow());
             }
 
             case SUBTRACT: {
@@ -293,6 +350,7 @@ public class ArithmeticOperation extends SubTypedOperation {
 
                     if (newValue == null) { return false; }
                     stack.push(newValue);
+                    return (! stack.didOverflow());
                 }
                 else {
                     final Value value1 = stack.pop();
@@ -322,9 +380,8 @@ public class ArithmeticOperation extends SubTypedOperation {
                     final Value newValue = Value.fromInteger(newIntValue);
                     if (! newValue.isWithinLongIntegerRange()) { return false; }
                     stack.push(newValue);
+                    return (! stack.didOverflow());
                 }
-
-                return (! stack.didOverflow());
             }
 
             case MULTIPLY: {
@@ -388,6 +445,10 @@ public class ArithmeticOperation extends SubTypedOperation {
                     final BigInteger bigIntegerValue0 = value0.asBigInteger();
                     final BigInteger bigIntegerValue1 = value1.asBigInteger();
 
+                    if (bigIntegerValue1.compareTo(BigInteger.ZERO) == 0) {
+                        return false; // divide by zero
+                    }
+
                     final BigInteger newBigIntegerValue = bigIntegerValue0.divide(bigIntegerValue1);
                     final Value newValue = Value.fromBigInt(newBigIntegerValue);
 
@@ -441,6 +502,10 @@ public class ArithmeticOperation extends SubTypedOperation {
 
                     final BigInteger bigIntegerValue0 = value0.asBigInteger();
                     final BigInteger bigIntegerValue1 = value1.asBigInteger();
+
+                    if (bigIntegerValue1.compareTo(BigInteger.ZERO) == 0) {
+                        return false; // divide by zero
+                    }
 
                     final BigInteger newBigIntegerValue = bigIntegerValue0.remainder(bigIntegerValue1);
                     final Value newValue = Value.fromBigInt(newBigIntegerValue);
@@ -533,34 +598,49 @@ public class ArithmeticOperation extends SubTypedOperation {
             }
 
             case MAX: {
-                final Value value1 = stack.pop();
-                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
-                    if (! value1.isMinimallyEncoded()) { return false; }
+                if (upgradeSchedule.areBigScriptIntegersEnabled(medianBlockTime)) {
+                    final Value value0 = stack.pop();
+                    final Value value1 = stack.pop();
+
+                    if (stack.didOverflow()) { return false; }
+
+                    final BigInteger bigInt0 = value0.asBigInteger();
+                    final BigInteger bigInt1 = value1.asBigInteger();
+
+                    final BigInteger resultInt = bigInt1.max(bigInt0);
+                    stack.push(Value.fromBigInt(resultInt));
+                    return true;
                 }
-                if (! value1.isWithinLongIntegerRange()) { return false; }
-                if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
-                    if (! value1.isWithinIntegerRange()) { return false; }
+                else {
+                    final Value value1 = stack.pop();
+                    if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                        if (! value1.isMinimallyEncoded()) { return false; }
+                    }
+                    if (! value1.isWithinLongIntegerRange()) { return false; }
+                    if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+                        if (! value1.isWithinIntegerRange()) { return false; }
+                    }
+
+                    final Value value0 = stack.pop();
+                    if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                        if (! value0.isMinimallyEncoded()) { return false; }
+                    }
+                    if (! value0.isWithinLongIntegerRange()) { return false; }
+                    if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+                        if (! value0.isWithinIntegerRange()) { return false; }
+                    }
+
+                    final Long longValue0 = value0.asLong();
+                    final Long longValue1 = value1.asLong();
+
+                    final Long newIntValue = Math.max(longValue1, longValue0);
+
+                    final Value newValue = Value.fromInteger(newIntValue);
+                    if (! newValue.isWithinLongIntegerRange()) { return false; }
+                    stack.push(newValue);
+
+                    return (! stack.didOverflow());
                 }
-
-                final Value value0 = stack.pop();
-                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
-                    if (! value0.isMinimallyEncoded()) { return false; }
-                }
-                if (! value0.isWithinLongIntegerRange()) { return false; }
-                if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
-                    if (! value0.isWithinIntegerRange()) { return false; }
-                }
-
-                final Long longValue0 = value0.asLong();
-                final Long longValue1 = value1.asLong();
-
-                final Long newIntValue = Math.max(longValue1, longValue0);
-
-                final Value newValue = Value.fromInteger(newIntValue);
-                if (! newValue.isWithinLongIntegerRange()) { return false; }
-                stack.push(newValue);
-
-                return (! stack.didOverflow());
             }
 
             default: { return false; }

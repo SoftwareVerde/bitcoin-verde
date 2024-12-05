@@ -2,7 +2,6 @@ package com.softwareverde.bitcoin.transaction.validator;
 
 import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
-import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.test.fake.FakeUpgradeSchedule;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -15,15 +14,22 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputInflater;
 import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableArrayList;
+import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.IoUtil;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+
+import java.util.ArrayList;
+import java.util.Arrays;
 
 public class BigIntTests extends UnitTest {
     @Override @Before
@@ -155,11 +161,23 @@ public class BigIntTests extends UnitTest {
 
         // Logger.setLogLevel("com.softwareverde.bitcoin.transaction.script.runner", LogLevel.OFF); // TODO
 
+        final MutableList<String> postponedTests = new MutableArrayList<>(0);
+        postponedTests.add("/vmb_tests/bch_2025_invalid/core.benchmarks.stack.vmb_tests.json");
+
         final Json manifest = Json.parse(IoUtil.getResource("/vmb_tests/manifest.json"));
         final Json testNamesJson = manifest.get("tests");
         for (int i = 0; i < testNamesJson.length(); ++i) {
             final String resourcePath = "/vmb_tests" + testNamesJson.getString(i);
-            // final String resourcePath = "/vmb_tests/bch_2025_nonstandard/core.bigint.div.vmb_tests.json";
+            // final String resourcePath = "/vmb_tests/bch_2025_invalid/core.bigint.mul.vmb_tests.json";
+
+            boolean isSkipped = false;
+            for (final String postponedTest : postponedTests) {
+                if (Util.areEqual(postponedTest, resourcePath)) {
+                    isSkipped = true;
+                    break;
+                }
+            }
+            if (isSkipped) { continue; }
 
             final boolean isPreActivation = (! resourcePath.contains("bch_2025_"));
             final boolean isValid = (! resourcePath.contains("_invalid/"));
@@ -188,12 +206,14 @@ public class BigIntTests extends UnitTest {
             if (! didPass) {
                 failCount += 1;
                 System.out.println(resourcePath + ": FAIL");
-                break;
+                // break;
             }
         }
 
         final int vectorCount = testNamesJson.length();
         System.out.println("Failed: " + failCount + " of " + vectorCount + " suites.");
         Assert.assertEquals(0, failCount);
+
+        Assert.assertEquals(0, postponedTests.getCount()); // Must re-enabled postponed tests before pass.
     }
 }
