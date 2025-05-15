@@ -1,6 +1,10 @@
-# Bitcoin Verde v2.4.0
+# Bitcoin Verde v3.0.0
 
 ## Patch Notes
+
+**v3.0.0**
+- Replaced MariaDB with LevelDB
+- May 2025 Upgrade Support
 
 **v2.4.0**
 - May 2023 Support
