@@ -128,10 +128,10 @@
 .statistics {
     margin-left: 5%;
     margin-right: 5%;
-    box-shadow: 5px 5px 5px #CCCCCC;
+    /* box-shadow: 5px 5px 5px #CCCCCC; */
     margin-bottom: 2em;
-    border-top: solid 1px #F0F0F0;
-    border-left: solid 1px #F0F0F0;
+    /* border-top: solid 1px #F0F0F0; */
+    /* border-left: solid 1px #F0F0F0; */
     text-align: center;
     padding-bottom: 1em;
 }
@@ -147,6 +147,7 @@
     box-sizing: border-box;
     min-width: 250px;
     vertical-align: top;
+    min-height: 85px;
 }
 
 .statistics .server-memory .server-memory-bar,
@@ -248,18 +249,27 @@
 }
 
 .block-headers-per-second::before {
-    content: 'Headers Per Second:';
-    margin-right: 1em;
+    content: 'Syncing Headers Per Second';
+    display: block;
+    margin-bottom: 0.75em;
+}
+
+.blocks-indexed-per-second::before {
+    content: 'Indexing Blocks Per Second';
+    display: block;
+    margin-bottom: 0.75em;
 }
 
 .blocks-per-second::before {
-    content: 'Blocks Per Second:';
-    margin-right: 1em;
+    content: 'Syncing Blocks Per Second';
+    display: block;
+    margin-bottom: 0.75em;
 }
 
 .transactions-per-second::before {
-    content: 'Transactions Per Second:';
-    margin-right: 1em;
+    content: 'Transactions Per Second';
+    display: block;
+    margin-bottom: 0.75em;
 }
 
 .nodes {

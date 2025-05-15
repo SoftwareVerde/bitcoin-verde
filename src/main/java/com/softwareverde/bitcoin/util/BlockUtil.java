@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutput
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
@@ -16,7 +17,7 @@ public class BlockUtil {
     protected BlockUtil() { }
 
     public static MutableList<TransactionOutputIdentifier> getRequiredPreviousOutputIdentifiers(final Block block) {
-        final MutableList<TransactionOutputIdentifier> transactionOutputIdentifiers = new MutableList<>();
+        final MutableList<TransactionOutputIdentifier> transactionOutputIdentifiers = new MutableArrayList<>();
 
         boolean isCoinbase = true;
         for (final Transaction transaction : block.getTransactions()) {

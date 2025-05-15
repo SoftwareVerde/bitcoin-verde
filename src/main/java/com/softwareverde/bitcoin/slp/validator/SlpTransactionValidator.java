@@ -16,13 +16,13 @@ import com.softwareverde.bitcoin.transaction.script.slp.send.SlpSendScript;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.Map;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
 import java.math.BigInteger;
-import java.util.HashMap;
-import java.util.Map;
 
 public class SlpTransactionValidator {
     protected final Integer _maxRecursionDepth = 1024;
@@ -53,7 +53,7 @@ public class SlpTransactionValidator {
         if (recursionDepth >= _maxRecursionDepth) {
             if (Logger.isDebugEnabled()) {
                 Logger.debug("Max SLP validation recursion depth reached. (" + recursionDepth + ")");
-                for (final SlpScriptType slpScriptType : recursiveTransactionsToValidate.keySet()) {
+                for (final SlpScriptType slpScriptType : recursiveTransactionsToValidate.getKeys()) {
                     for (final Transaction transaction : recursiveTransactionsToValidate.get(slpScriptType)) {
                         Logger.debug(slpScriptType + " " + transaction.getHash() + " assumed valid.");
                     }
@@ -62,7 +62,7 @@ public class SlpTransactionValidator {
             return true;
         }
 
-        for (final SlpScriptType slpScriptType : recursiveTransactionsToValidate.keySet()) {
+        for (final SlpScriptType slpScriptType : recursiveTransactionsToValidate.getKeys()) {
             final List<Transaction> transactions = recursiveTransactionsToValidate.get(slpScriptType);
 
             switch (slpScriptType) {
@@ -164,7 +164,7 @@ public class SlpTransactionValidator {
         final Map<Sha256Hash, Transaction> previousTransactions = _getTransactions(transactionInputs, _allowUnconfirmedTransactions);
         if (previousTransactions == null) { return false; }
 
-        final HashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new HashMap<>();
+        final MutableHashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new MutableHashMap<>();
 
         boolean hasBaton = false;
 
@@ -255,7 +255,7 @@ public class SlpTransactionValidator {
 
                     final Boolean isValid;
                     {
-                        final HashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new HashMap<>();
+                        final MutableHashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new MutableHashMap<>();
                         ConstUtil.addToListMap(SlpScriptType.GENESIS, previousTransaction, recursiveTransactionsToValidate);
                         isValid = _validateRecursiveTransactions(recursiveTransactionsToValidate, (recursionDepth + 1));
                         recursiveTransactionsToValidate.clear();
@@ -273,7 +273,7 @@ public class SlpTransactionValidator {
                 if (Util.areEqual(previousTransactionOutputIndex, SlpMintScript.RECEIVER_TRANSACTION_OUTPUT_INDEX)) {
                     final Boolean isValid;
                     {
-                        final HashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new HashMap<>();
+                        final MutableHashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new MutableHashMap<>();
                         ConstUtil.addToListMap(SlpScriptType.MINT, previousTransaction, recursiveTransactionsToValidate);
                         isValid = _validateRecursiveTransactions(recursiveTransactionsToValidate, (recursionDepth + 1));
                         recursiveTransactionsToValidate.clear();
@@ -290,7 +290,7 @@ public class SlpTransactionValidator {
 
                 final Boolean isValid;
                 {
-                    final HashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new HashMap<>();
+                    final MutableHashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new MutableHashMap<>();
                     ConstUtil.addToListMap(SlpScriptType.SEND, previousTransaction, recursiveTransactionsToValidate);
                     isValid = _validateRecursiveTransactions(recursiveTransactionsToValidate, (recursionDepth + 1));
                     recursiveTransactionsToValidate.clear();

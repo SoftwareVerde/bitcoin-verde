@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.Util;
@@ -27,7 +28,7 @@ public class AsertDifficultyTests extends UnitTest {
     }
 
     public static List<TestVector> inflateTests(final String testsString) {
-        final MutableList<TestVector> tests = new MutableList<>();
+        final MutableList<TestVector> tests = new MutableArrayList<>();
         final String[] testVectors = testsString.split("\n");
         for (final String vector : testVectors) {
             if (vector.startsWith("#")) { continue; }

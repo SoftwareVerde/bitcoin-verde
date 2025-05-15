@@ -28,6 +28,7 @@ import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
@@ -130,7 +131,7 @@ public class StratumModuleTests extends UnitTest {
             coinbaseTransaction = transactionInflater.fromBytes(byteArrayBuilder.build());
         }
 
-        final MutableList<Sha256Hash> merkleBranches = new MutableList<>();
+        final MutableList<Sha256Hash> merkleBranches = new MutableArrayList<>();
         {
             for (int i = 0; i < merkleBranchesJson.length(); ++i) {
                 merkleBranches.add(Sha256Hash.fromHexString(merkleBranchesJson.getString(i)));
@@ -153,7 +154,7 @@ public class StratumModuleTests extends UnitTest {
 class FakeStratumServerSocket extends StratumServerSocket {
 
     public FakeStratumServerSocket() {
-        super(null, null);
+        super(null);
     }
 
     @Override
@@ -164,7 +165,7 @@ class FakeStratumServerSocket extends StratumServerSocket {
 
 class BitcoinVerdeStratumServerPartialMock extends BitcoinCoreStratumServer {
     static class BitcoinVerdeRpcConnectorFactory implements BitcoinMiningRpcConnectorFactory {
-        protected final MutableList<Json> _fakeJsonResponses = new MutableList<>();
+        protected final MutableList<Json> _fakeJsonResponses = new MutableArrayList<>();
 
         public MutableList<Json> getFakeJsonResponses() {
             return _fakeJsonResponses;
@@ -209,12 +210,10 @@ class BitcoinVerdeStratumServerPartialMock extends BitcoinCoreStratumServer {
         super(
             new BitcoinVerdeRpcConnectorFactory(),
             CONFIGURATION.getStratumProperties().getPort(),
-            new CachedThreadPool(1, 1L),
             new CoreInflater()
         );
 
         _fakeJsonResponses = ((BitcoinVerdeRpcConnectorFactory) _rpcConnectionFactory).getFakeJsonResponses();
-        ((CachedThreadPool) _threadPool).start();
 
         ReflectionUtil.setValue(this, "_stratumServerSocket", new FakeStratumServerSocket());
     }

@@ -105,6 +105,20 @@ public interface Transaction extends Hashable, Constable<ConstTransaction>, Json
 
     Integer getByteCount();
 
+    default TransactionInput getTransactionInput(final Integer outputIndex) {
+        final List<TransactionInput> transactionInputs = this.getTransactionInputs();
+        final int transactionInputCount = transactionInputs.getCount();
+        if (outputIndex >= transactionInputCount) { return null; }
+        return transactionInputs.get(outputIndex);
+    }
+
+    default TransactionOutput getTransactionOutput(final Integer outputIndex) {
+        final List<TransactionOutput> transactionOutputs = this.getTransactionOutputs();
+        final int transactionOutputCount = transactionOutputs.getCount();
+        if (outputIndex >= transactionOutputCount) { return null; }
+        return transactionOutputs.get(outputIndex);
+    }
+
     @Override
     ConstTransaction asConst();
 }

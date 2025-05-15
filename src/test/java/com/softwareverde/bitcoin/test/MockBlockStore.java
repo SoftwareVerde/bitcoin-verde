@@ -8,15 +8,17 @@ import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
-import java.util.HashMap;
+import java.io.File;
 
 public class MockBlockStore implements PendingBlockStore {
     protected final BlockInflaters _blockInflaters = new CoreInflater();
 
-    protected final HashMap<Sha256Hash, Block> _pendingBlocks = new HashMap<>();
-    protected final HashMap<Sha256Hash, Block> _blocks = new HashMap<>();
+    protected final MutableMap<Sha256Hash, Block> _pendingBlocks = new MutableHashMap<>();
+    protected final MutableMap<Sha256Hash, Block> _blocks = new MutableHashMap<>();
 
     public MockBlockStore() { }
 
@@ -88,12 +90,20 @@ public class MockBlockStore implements PendingBlockStore {
     }
 
     @Override
-    public String getDataDirectory() {
+    public Long getBlockByteCount(final Sha256Hash blockHash, final Long blockHeight) {
+        final Block block = _blocks.get(blockHash);
+        if (block == null) { return null; }
+
+        return Long.valueOf(block.getByteCount());
+    }
+
+    @Override
+    public File getDataDirectory() {
         return null;
     }
 
     @Override
-    public String getBlockDataDirectory() {
+    public File getBlockDataDirectory() {
         return null;
     }
 

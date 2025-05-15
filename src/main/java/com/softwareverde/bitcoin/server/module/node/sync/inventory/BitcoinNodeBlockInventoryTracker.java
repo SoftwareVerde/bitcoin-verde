@@ -2,17 +2,18 @@ package com.softwareverde.bitcoin.server.module.node.sync.inventory;
 
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.mutable.MutableWeakHashMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.CircleBuffer;
+import com.softwareverde.util.Tuple;
 
-import java.util.Map;
-import java.util.WeakHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class BitcoinNodeBlockInventoryTracker {
     protected final Integer _bufferItemCountPerNode = 2048;
-    protected final WeakHashMap<BitcoinNode, CircleBuffer<Sha256Hash>> _blockInventory = new WeakHashMap<>();
+    protected final MutableWeakHashMap<BitcoinNode, CircleBuffer<Sha256Hash>> _blockInventory = new MutableWeakHashMap<>();
 
     protected final ReentrantReadWriteLock.ReadLock _inventoryReadLock;
     protected final ReentrantReadWriteLock.WriteLock _inventoryWriteLock;
@@ -48,12 +49,12 @@ public class BitcoinNodeBlockInventoryTracker {
     public List<BitcoinNode> getNodesWithInventory(final Sha256Hash blockHash) {
         _inventoryReadLock.lock();
         try {
-            final MutableList<BitcoinNode> bitcoinNodes = new MutableList<>();
+            final MutableList<BitcoinNode> bitcoinNodes = new MutableArrayList<>();
             synchronized (_blockInventory) {
-                for (final Map.Entry<BitcoinNode, CircleBuffer<Sha256Hash>> entry : _blockInventory.entrySet()) {
-                    final CircleBuffer<Sha256Hash> availableBlockHashes = entry.getValue();
+                for (final Tuple<BitcoinNode, CircleBuffer<Sha256Hash>> entry : _blockInventory) {
+                    final CircleBuffer<Sha256Hash> availableBlockHashes = entry.second;
                     if (availableBlockHashes.contains(blockHash)) {
-                        final BitcoinNode bitcoinNode = entry.getKey();
+                        final BitcoinNode bitcoinNode = entry.first;
                         bitcoinNodes.add(bitcoinNode);
                     }
                 }

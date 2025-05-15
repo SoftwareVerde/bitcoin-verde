@@ -1,7 +1,5 @@
 package com.softwareverde.network.p2p.node;
 
-import com.softwareverde.concurrent.threadpool.ThreadPool;
-import com.softwareverde.concurrent.threadpool.ThreadPoolThrottle;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
@@ -26,7 +24,10 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public abstract class Node {
     public interface NodeAddressesReceivedCallback { void onNewNodeAddresses(List<NodeIpAddress> nodeIpAddress); }
-    public interface NodeConnectedCallback { void onNodeConnected();}
+    public interface NodeConnectedCallback {
+        void onNodeConnected();
+        default void onFailure() { }
+    }
     public interface HandshakeCompleteCallback { void onHandshakeComplete(); }
     public interface DisconnectedCallback { void onNodeDisconnected(); }
     public interface PingCallback { void onResult(Long latency); }
@@ -74,8 +75,6 @@ public abstract class Node {
     protected DisconnectedCallback _nodeDisconnectedCallback = null;
 
     protected final ConcurrentLinkedQueue<Runnable> _postConnectQueue = new ConcurrentLinkedQueue<>();
-
-    protected final ThreadPool _threadPool;
 
     /**
      * Latencies in milliseconds...
@@ -185,29 +184,27 @@ public abstract class Node {
 
         _pingRequests.clear();
 
-        if (_threadPool instanceof ThreadPoolThrottle) {
-            ((ThreadPoolThrottle) _threadPool).stop();
-        }
-
         _connection.setOnDisconnectCallback(null); // Prevent any disconnect callbacks from repeating...
         _connection.cancelConnecting();
         _connection.disconnect();
 
         if (nodeDisconnectedCallback != null) {
-            // Intentionally not using the thread pool since it has been shutdown...
-            final Thread thread = new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    nodeDisconnectedCallback.onNodeDisconnected();
-                }
-            });
-            thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
-                @Override
-                public void uncaughtException(final Thread thread, final Throwable exception) {
-                    Logger.error("Uncaught exception in Thread.", exception);
-                }
-            });
-            thread.start();
+            nodeDisconnectedCallback.onNodeDisconnected();
+
+//            // Intentionally not using the thread pool since it has been shutdown...
+//            final Thread thread = new Thread(new Runnable() {
+//                @Override
+//                public void run() {
+//                    nodeDisconnectedCallback.onNodeDisconnected();
+//                }
+//            });
+//            thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+//                @Override
+//                public void uncaughtException(final Thread thread, final Throwable exception) {
+//                    Logger.error("Uncaught exception in Thread.", exception);
+//                }
+//            });
+//            thread.start();
         }
     }
 
@@ -249,18 +246,13 @@ public abstract class Node {
     }
 
     protected void _onHandshakeComplete() {
-        _threadPool.execute(new Runnable() {
-            @Override
-            public void run() {
-                final HandshakeCompleteCallback callback = _handshakeCompleteCallback;
-                if (callback != null) {
-                    callback.onHandshakeComplete();
-                }
-            }
-        });
-
         _writeQueuedPostHandshakeMessages();
         _handshakeIsComplete = true;
+
+        final HandshakeCompleteCallback callback = _handshakeCompleteCallback;
+        if (callback != null) {
+            callback.onHandshakeComplete();
+        }
     }
 
     protected void _onConnect() {
@@ -273,16 +265,9 @@ public abstract class Node {
             }
         }
 
-        if (_nodeConnectedCallback != null) {
-            _threadPool.execute(new Runnable() {
-                @Override
-                public void run() {
-                    final NodeConnectedCallback callback = _nodeConnectedCallback;
-                    if (callback != null) {
-                        callback.onNodeConnected();
-                    }
-                }
-            });
+        final NodeConnectedCallback callback = _nodeConnectedCallback;
+        if (callback != null) {
+            callback.onNodeConnected();
         }
     }
 
@@ -313,12 +298,7 @@ public abstract class Node {
         _latenciesMs.push(msElapsed);
 
         if (pingCallback != null) {
-            _threadPool.execute(new Runnable() {
-                @Override
-                public void run() {
-                    pingCallback.onResult(msElapsed);
-                }
-            });
+            pingCallback.onResult(msElapsed);
         }
 
         return msElapsed;
@@ -390,12 +370,7 @@ public abstract class Node {
         if (nodeIpAddresses.isEmpty()) { return; }
 
         if (nodeAddressesReceivedCallback != null) {
-            _threadPool.execute(new Runnable() {
-                @Override
-                public void run() {
-                    nodeAddressesReceivedCallback.onNewNodeAddresses(nodeIpAddresses);
-                }
-            });
+            nodeAddressesReceivedCallback.onNewNodeAddresses(nodeIpAddresses);
         }
     }
 
@@ -431,20 +406,19 @@ public abstract class Node {
         return (sum / count);
     }
 
-    public Node(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat, final ThreadPool threadPool) {
-        this(host, port, binaryPacketFormat, new SystemTime(), threadPool);
+    public Node(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat) {
+        this(host, port, binaryPacketFormat, new SystemTime());
     }
 
-    public Node(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat, final SystemTime systemTime, final ThreadPool threadPool) {
+    public Node(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat, final SystemTime systemTime) {
         synchronized (NODE_ID_MUTEX) {
             _id = NodeId.wrap(_nextId);
             _nextId += 1;
         }
 
         _systemTime = systemTime;
-        _connection = new NodeConnection(host, port, binaryPacketFormat, threadPool);
+        _connection = new NodeConnection(host, port, binaryPacketFormat);
         _initializationTime = _systemTime.getCurrentTimeInMilliSeconds();
-        _threadPool = threadPool;
         _isOutboundConnection = true;
 
         final ReentrantReadWriteLock queueMessageLock = new ReentrantReadWriteLock();
@@ -454,20 +428,19 @@ public abstract class Node {
         _initConnection();
     }
 
-    public Node(final BinarySocket binarySocket, final ThreadPool threadPool) {
-        this(binarySocket, threadPool, false);
+    public Node(final BinarySocket binarySocket) {
+        this(binarySocket, false);
     }
 
-    public Node(final BinarySocket binarySocket, final ThreadPool threadPool, final Boolean isOutboundConnection) {
+    public Node(final BinarySocket binarySocket, final Boolean isOutboundConnection) {
         synchronized (NODE_ID_MUTEX) {
             _id = NodeId.wrap(_nextId);
             _nextId += 1;
         }
 
         _systemTime = new SystemTime();
-        _connection = new NodeConnection(binarySocket, threadPool);
+        _connection = new NodeConnection(binarySocket);
         _initializationTime = _systemTime.getCurrentTimeInMilliSeconds();
-        _threadPool = threadPool;
         _isOutboundConnection = isOutboundConnection;
 
         final ReentrantReadWriteLock queueMessageLock = new ReentrantReadWriteLock();
@@ -487,7 +460,7 @@ public abstract class Node {
         _handshake();
     }
 
-    public Boolean handshakeIsComplete() {
+    public Boolean isHandshakeComplete() {
         return _handshakeIsComplete;
     }
 

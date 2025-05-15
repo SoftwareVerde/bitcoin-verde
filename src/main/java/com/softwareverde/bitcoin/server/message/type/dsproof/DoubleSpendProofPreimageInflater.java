@@ -39,7 +39,7 @@ public class DoubleSpendProofPreimageInflater {
 
         final CompactVariableLengthInteger pushDataCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
         if (! pushDataCount.isCanonical()) { return null; }
-        if (pushDataCount.value > Script.MAX_OPERATION_COUNT) { return null; }
+        // if (pushDataCount.value > Script.MAX_OPERATION_COUNT) { return null; } // Disabled in 20250515
         for (int i = 0; i < pushDataCount.value; ++i) {
             final CompactVariableLengthInteger pushDataByteCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
             if (! pushDataByteCount.isCanonical()) { return null; }
@@ -68,7 +68,7 @@ public class DoubleSpendProofPreimageInflater {
 
         final CompactVariableLengthInteger extraDigestCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
         if (! extraDigestCount.isCanonical()) { return; }
-        if (extraDigestCount.value > Script.MAX_OPERATION_COUNT) { return; }
+        // if (extraDigestCount.value > Script.MAX_OPERATION_COUNT) { return; } // Disabled in 20250515
 
         for (int i = 0; i < extraDigestCount.value; ++i) {
             final byte hashTypeByte = byteArrayReader.readByte();

@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.chain.utxo;
 
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.util.Util;
@@ -26,7 +27,7 @@ public class UtxoCommitmentBucket extends MultisetBucket {
     }
 
     public List<UtxoCommitmentSubBucket> getSubBuckets() {
-        return (_subBuckets != null ? _subBuckets : new MutableList<>(0));
+        return (_subBuckets != null ? _subBuckets : new MutableArrayList<>(0));
     }
 
     /**

@@ -3,6 +3,7 @@ package com.softwareverde.bloomfilter;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.ImmutableByteArray;
+import com.softwareverde.logging.Logger;
 
 public class ImmutableBloomFilter implements BloomFilter, Const {
     protected final ByteArray _bytes;
@@ -54,6 +55,16 @@ public class ImmutableBloomFilter implements BloomFilter, Const {
     @Override
     public Boolean containsItem(final ByteArray item) {
         return BloomFilterCore.containsItem(_bytes, _hashFunctionCount, _nonce, item);
+    }
+
+    @Override
+    public Boolean containsItem(final BloomFilterItem item) {
+        if (item.getNonce() != _nonce) {
+            Logger.debug("Item nonce does not match BloomFilter nonce.");
+            return BloomFilterCore.containsItem(_bytes, _hashFunctionCount, _nonce, item.getBytes());
+        }
+
+        return BloomFilterCore.containsItem(_bytes, _hashFunctionCount, item);
     }
 
     @Override

@@ -13,6 +13,7 @@ import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
@@ -24,8 +25,8 @@ public class ExtraThinBlockMessage extends BitcoinProtocolMessage {
     protected final TransactionInflaters _transactionInflaters;
 
     protected BlockHeader _blockHeader;
-    protected List<ByteArray> _transactionShortHashes = new MutableList<>(0);
-    protected List<Transaction> _missingTransactions = new MutableList<>(0);
+    protected List<ByteArray> _transactionShortHashes = new MutableArrayList<>(0);
+    protected List<Transaction> _missingTransactions = new MutableArrayList<>(0);
 
     public ExtraThinBlockMessage(final BlockHeaderInflaters blockHeaderInflaters, final TransactionInflaters transactionInflaters) {
         super(MessageType.EXTRA_THIN_BLOCK);

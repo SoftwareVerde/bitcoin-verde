@@ -295,9 +295,12 @@ public class ScriptRunner {
     private Boolean _incrementAndCheckOperationCount(final Operation operation, final MutableTransactionContext mutableContext) {
         if (ByteUtil.byteToInteger(operation.getOpcodeByte()) > Opcode.PUSH_VALUE.getMaxValue()) {
             mutableContext.incrementOperationCount(1);
-            if (mutableContext.getOperationCount() > Script.MAX_OPERATION_COUNT) {
-                Logger.debug("Maximum number of operations exceeded.");
-                return false;
+
+            if (! _upgradeSchedule.areBigScriptIntegersEnabled(mutableContext.getMedianBlockTime())) {
+                if (mutableContext.getOperationCount() > Script.MAX_OPERATION_COUNT) {
+                    Logger.debug("Maximum number of operations exceeded.");
+                    return false;
+                }
             }
         }
         return true;

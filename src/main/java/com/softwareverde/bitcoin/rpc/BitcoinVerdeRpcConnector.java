@@ -70,7 +70,6 @@ public class BitcoinVerdeRpcConnector implements BitcoinMiningRpcConnector {
     }
 
     protected final SystemTime _systemTime;
-    protected final CachedThreadPool _threadPool;
     protected final BitcoinNodeRpcAddress _bitcoinNodeRpcAddress;
     protected final RpcCredentials _rpcCredentials;
 
@@ -83,16 +82,13 @@ public class BitcoinVerdeRpcConnector implements BitcoinMiningRpcConnector {
     protected NodeJsonRpcConnection _getRpcConnection() {
         final String host = _bitcoinNodeRpcAddress.getHost();
         final Integer port = _bitcoinNodeRpcAddress.getPort();
-        return new NodeJsonRpcConnection(host, port, _threadPool);
+        return new NodeJsonRpcConnection(host, port);
     }
 
     public BitcoinVerdeRpcConnector(final BitcoinNodeRpcAddress bitcoinNodeRpcAddress, final RpcCredentials rpcCredentials) {
         _systemTime = new SystemTime();
         _bitcoinNodeRpcAddress = bitcoinNodeRpcAddress;
         _rpcCredentials = rpcCredentials;
-
-        _threadPool = new CachedThreadPool(32, 5000L);
-        _threadPool.start();
     }
 
     @Override
@@ -273,7 +269,5 @@ public class BitcoinVerdeRpcConnector implements BitcoinMiningRpcConnector {
         if (_socketConnection != null) {
             _socketConnection.close();
         }
-
-        _threadPool.stop();
     }
 }

@@ -8,12 +8,15 @@ import com.softwareverde.bitcoin.bip.TestNetUpgradeSchedule;
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
+import com.softwareverde.bitcoin.server.module.node.Blockchain;
+import com.softwareverde.bitcoin.test.MockBlockStore;
 import com.softwareverde.bitcoin.test.UnitTest;
+import com.softwareverde.bitcoin.test.fake.FakeBlockStore;
 import com.softwareverde.bitcoin.test.fake.FakeMedianBlockTimeContext;
 import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.test.fake.FakeUpgradeSchedule;
+import com.softwareverde.bitcoin.test.fake.MockBlockchain;
 import com.softwareverde.bitcoin.test.fake.VolatileNetworkTimeWrapper;
 import com.softwareverde.bitcoin.test.util.TransactionTestUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -34,7 +37,9 @@ import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.Map;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
 import com.softwareverde.logging.Logger;
@@ -45,7 +50,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.util.Map;
+
 
 public class HistoricTransactionsTests extends UnitTest {
     public static class TestConfig {
@@ -235,7 +240,8 @@ public class HistoricTransactionsTests extends UnitTest {
 
         final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
 
-        return scriptRunner.runScript(lockingScript, unlockingScript, transactionContext).isValid;
+        final ScriptRunner.ScriptRunnerResult result = scriptRunner.runScript(lockingScript, unlockingScript, transactionContext);
+        return result.isValid;
     }
 
     @After
@@ -758,9 +764,7 @@ public class HistoricTransactionsTests extends UnitTest {
         final FakeMedianBlockTimeContext medianBlockTimeContext = new FakeMedianBlockTimeContext();
         medianBlockTimeContext.setMedianBlockTime(testConfig.blockHeight, medianBlockTime);
 
-        final MasterInflater masterInflater = new CoreInflater();
-        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(masterInflater, networkTime, medianBlockTimeContext, null, upgradeSchedule);
-        final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
+        final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(upgradeSchedule, null, networkTime, null);
 
         // Action
         final Boolean shouldValidateLockTime = transactionValidator._shouldValidateLockTime(transactionContext.getTransaction());
@@ -1117,14 +1121,12 @@ public class HistoricTransactionsTests extends UnitTest {
             unspentTransactionOutputContext.addTransaction(spentTransaction, spentTransactionBlockHash, spentTransactionBlockHeight, false);
         }
 
-        final FakeMedianBlockTimeContext medianBlockTimeContext = new FakeMedianBlockTimeContext();
-        medianBlockTimeContext.setMedianBlockTime(563367L, ImmutableMedianBlockTime.fromSeconds(1546313962L));
-        medianBlockTimeContext.setMedianBlockTime(563377L, ImmutableMedianBlockTime.fromSeconds(1546320518L));
-
-        final MasterInflater masterInflater = new CoreInflater();
         final UpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
-        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(masterInflater, networkTime, medianBlockTimeContext, unspentTransactionOutputContext, upgradeSchedule);
-        final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
+        final MockBlockchain blockchain = new MockBlockchain(new MockBlockStore());
+        blockchain.setMedianBlockTime(563367L, ImmutableMedianBlockTime.fromSeconds(1546313962L));
+        blockchain.setMedianBlockTime(563377L, ImmutableMedianBlockTime.fromSeconds(1546320518L));
+
+        final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(upgradeSchedule, blockchain, networkTime, unspentTransactionOutputContext);
 
         // Action
         final TransactionValidationResult transactionValidationResult = transactionValidator.validateTransaction(563378L, transaction);
@@ -1282,7 +1284,7 @@ public class HistoricTransactionsTests extends UnitTest {
         testConfig.unlockingScriptBytes = "473044022005E476612E0BED4C43173F657B0ABF9EB00013C1D1A7CA5DE649648E97972BCA02203C4A89B52B2ED966EDA6B10B8D5E17A1A6CC956B79317C3761F0A98C0EB556176121022EEBF1895D911E62C184A47C775CE8FE11FB42E38FD9C8D5F055A60620A25738";
 
         final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
-        final MutableList<TransactionOutput> previousOutputs = new MutableList<>();
+        final MutableList<TransactionOutput> previousOutputs = new MutableArrayList<>();
         previousOutputs.add(transactionOutputInflater.fromBytes(1, ByteArray.fromHexString("A07CB32F000000001976A914FD68D2C87F0DC1799E51657D32EFB9AA367D161E88AC")));
         previousOutputs.add(transactionOutputInflater.fromBytes(0, ByteArray.fromHexString("401F0000000000004FEFBC54B7422A5DFE5188E4AC2D80661452C5BC59F7F0B8DBEA98C0BEEECB49F961720E48656C6C6F20776F726C64212021FE8ED73E0D76A9140A373CAF0AB3C2B46CD05625B8D545C295B93D7A88AC")));
 
@@ -1309,7 +1311,7 @@ public class HistoricTransactionsTests extends UnitTest {
         testConfig.unlockingScriptBytes = "1E5102E80351B2757C00A26900CD02A914C1A97E01877E88C0C67C9400CCA1";
 
         final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
-        final MutableList<TransactionOutput> previousOutputs = new MutableList<>();
+        final MutableList<TransactionOutput> previousOutputs = new MutableArrayList<>();
         previousOutputs.add(transactionOutputInflater.fromBytes(1, ByteArray.fromHexString("102700000000000017A9143D416D6B3B4F59826661D868BA4FD6F62FDE537787")));
 
         // Median Block Time:   1654902233

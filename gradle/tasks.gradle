@@ -1,58 +1,21 @@
-task makeFatJar(type: Jar) {
-    manifest {
-        attributes  'Implementation-Title': 'Bitcoin Server',
-                    'Implementation-Version': archiveVersion,
-                    'Main-Class': 'com.softwareverde.bitcoin.server.main.Main'
-    }
-
-    archiveBaseName = project.name + '-server-all'
-
-    from (configurations.serverCompileClasspath.collect { it.isDirectory() ? it : zipTree(it) }) {
-        exclude 'META-INF/MANIFEST.MF'
-        exclude 'META-INF/*.SF'
-        exclude 'META-INF/*.DSA'
-        exclude 'META-INF/*.RSA'
-    }
-
-    from sourceSets.main.output
-    from sourceSets.server.output
-
-    with jar
-}
-
-task makeLibJar(type: Jar) {
-    manifest {
-        attributes  'Implementation-Title': 'Bitcoin Verde Library',
-                    'Implementation-Version': archiveVersion
-    }
-
-    archiveBaseName = project.name + '-lib'
-
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-
-    with jar
-}
-
 task makeJar(type: Jar) {
     manifest {
-        attributes  'Implementation-Title': 'Bitcoin Server',
+        attributes  'Implementation-Title': 'Bitcoin Verde',
                     'Implementation-Version': archiveVersion,
                     'Main-Class': 'com.softwareverde.bitcoin.server.main.Main',
-                    'Class-Path': (project.configurations.serverCompileClasspath + project.configurations.serverRuntimeClasspath).collect { 'libs/' + it.getName() }.join(' ')
+                    'Class-Path': (project.configurations.compileClasspath + project.configurations.runtimeClasspath).collect { 'libs/' + it.getName() }.join(' ')
     }
 
-    archiveBaseName = project.name + '-server'
+    archiveBaseName = project.name
 
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
     from sourceSets.main.output
-    from sourceSets.server.output
-
     with jar
 }
 
 task copyDependencies(type: Copy) {
-    from (configurations.serverCompileClasspath + configurations.serverRuntimeClasspath)
+    from (configurations.compileClasspath + configurations.runtimeClasspath)
     into "$buildDir/libs/libs"
 
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
@@ -76,41 +39,23 @@ tasks.withType(Javadoc) {
     options.addStringOption('Xdoclint:none', '-quiet')
 }
 
-tasks.withType(Test) {
-    testLogging {
-        // set options for log level LIFECYCLE
-        events "passed", "skipped", "failed", "standardOut"
-        showExceptions true
-        exceptionFormat "full"
-        showCauses true
-        showStackTraces true
-        showStandardStreams false
+allprojects {
+    test {
+        minHeapSize = "1024m"
+        maxHeapSize = "11g"
 
-        // set options for log level DEBUG and INFO
-        debug {
-            events "started", "passed", "skipped", "failed", "standardOut", "standardError"
-            exceptionFormat "full"
-        }
-        info.events = debug.events
-        info.exceptionFormat = debug.exceptionFormat
-
-        afterSuite { desc, result ->
-            if (!desc.parent) { // will match the outermost suite
-                def output = "Results: ${result.resultType} (${result.testCount} tests, ${result.successfulTestCount} successes, ${result.failedTestCount} failures, ${result.skippedTestCount} skipped)"
-                def startItem = '|  ', endItem = '  |'
-                def repeatLength = startItem.length() + output.length() + endItem.length()
-                println('\n' + ('-' * repeatLength) + '\n' + startItem + output + endItem + '\n' + ('-' * repeatLength))
-            }
+        testLogging {
+            outputs.upToDateWhen { false }
+            showStandardStreams = true
         }
     }
-}
 
-allprojects {
     configurations {
         umljavadoc
     }
 
     dependencies {
+        testImplementation 'junit:junit:4.13.1'
         umljavadoc 'org.umlgraph:umlgraph:5.6.6'
     }
 
@@ -122,7 +67,7 @@ allprojects {
         doLast {
             def javaFilePath = file('src/main/java')
             if (javaFilePath.exists()) {
-                ant.javadoc(classpath: (configurations.serverCompileClasspath).asPath, sourcepath: file('src/main/java'), packagenames: '*', destdir: "${docsDir}/javadoc", private: 'true', docletpath: configurations.umljavadoc.asPath) {
+                ant.javadoc(classpath: (configurations.compileClasspath).asPath, sourcepath: file('src/main/java'), packagenames: '*', destdir: "${docsDir}/javadoc", private: 'true', docletpath: configurations.umljavadoc.asPath) {
                     doclet(name: 'org.umlgraph.doclet.UmlGraphDoc') {
                         param(name: '-inferrel')
                         param(name: '-inferdep')

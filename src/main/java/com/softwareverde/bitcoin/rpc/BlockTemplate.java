@@ -9,13 +9,13 @@ import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
 import com.softwareverde.json.Json;
 import com.softwareverde.json.Jsonable;
-
-import java.util.HashMap;
 
 public class BlockTemplate implements Jsonable {
     protected static final ByteArray DEFAULT_NONCE_RANGE = ByteArray.fromHexString("00000000FFFFFFFF");
@@ -26,9 +26,9 @@ public class BlockTemplate implements Jsonable {
     protected Difficulty _difficulty;
 
     // Transaction Data
-    protected final MutableList<Transaction> _transactions = new MutableList<>(0);
-    protected final HashMap<Sha256Hash, Long> _transactionFees = new HashMap<>(0);
-    protected final HashMap<Sha256Hash, Integer> _transactionSignatureOperationCounts = new HashMap<>(0);
+    protected final MutableList<Transaction> _transactions = new MutableArrayList<>(0);
+    protected final MutableHashMap<Sha256Hash, Long> _transactionFees = new MutableHashMap<>(0);
+    protected final MutableHashMap<Sha256Hash, Integer> _transactionSignatureOperationCounts = new MutableHashMap<>(0);
 
     protected Long _coinbaseAmount;
     protected ByteArray _nonceRange = DEFAULT_NONCE_RANGE;
@@ -41,8 +41,8 @@ public class BlockTemplate implements Jsonable {
     // Request Properties
     protected String _coinbaseAuxFlags;
     protected String _longPollId;
-    protected final MutableList<String> _capabilities = new MutableList<>(0);
-    protected final MutableList<String> _mutableFields = new MutableList<>(0);
+    protected final MutableList<String> _capabilities = new MutableArrayList<>(0);
+    protected final MutableList<String> _mutableFields = new MutableArrayList<>(0);
 
     public Long getBlockHeight() {
         return _blockHeight;

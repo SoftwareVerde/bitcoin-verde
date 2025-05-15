@@ -20,5 +20,6 @@ public class CoreUpgradeSchedule extends AbstractUpgradeSchedule {
         _activationBlockTimes[UpgradeTime.HF20201115_ACTIVATION_TIME.value] = 1605441600L; // Bitcoin Cash: 2020-11-15 Hard Fork:  https://gitlab.com/bitcoin-cash-node/bchn-sw/bitcoincash-upgrade-specifications/-/blob/master/spec/2020-11-15-upgrade.md
         _activationBlockTimes[UpgradeTime.HF20220515_ACTIVATION_TIME.value] = 1652616000L; // Bitcoin Cash: 2022-05-15 Hard Fork:  https://gitlab.com/bitcoin-cash-node/bchn-sw/bitcoincash-upgrade-specifications/-/blob/master/spec/2022-05-15-upgrade.md
         _activationBlockTimes[UpgradeTime.HF20230515_ACTIVATION_TIME.value] = 1684152000L; // Bitcoin Cash: 2023-05-15 Hard Fork: https://bitcoincashresearch.org/t/2021-bch-upgrade-items-brainstorm/130/29 // TODO: Update upgrade spec.
+        _activationBlockTimes[UpgradeTime.HF20250515_ACTIVATION_TIME.value] = 1747310400L; // Bitcoin Cash: 2025-05-15 Hard Fork: https://github.com/bitjson/bch-vm-limits#increased-stack-element-length-limit
     }
 }

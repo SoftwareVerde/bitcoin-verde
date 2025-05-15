@@ -17,6 +17,7 @@ public interface BloomFilter extends Constable<ImmutableBloomFilter> {
     ByteArray getBytes();
     Integer getByteCount();
     Boolean containsItem(ByteArray item);
+    Boolean containsItem(BloomFilterItem item);
     byte getUpdateMode();
 
     /**
@@ -38,10 +39,27 @@ public interface BloomFilter extends Constable<ImmutableBloomFilter> {
 class BloomFilterCore {
     public static Boolean containsItem(final ByteArray bytes, final Integer hashFunctionCount, final Long nonce, final ByteArray item) {
         final int byteCount = bytes.getByteCount();
-        final Long bitCount = (byteCount * 8L);
+        final long bitCount = (byteCount * 8L);
 
         for (int i = 0; i < hashFunctionCount; ++i) {
             final Long hash = HashUtil.murmurHash(nonce, i, item);
+            final long index = (hash % bitCount);
+            final boolean isSet = bytes.getBit(index);
+
+            if (! isSet) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public static Boolean containsItem(final ByteArray bytes, final Integer hashFunctionCount, final BloomFilterItem item) {
+        final int byteCount = bytes.getByteCount();
+        final long bitCount = (byteCount * 8L);
+
+        for (int i = 0; i < hashFunctionCount; ++i) {
+            final long hash = item.getHash(i);
             final long index = (hash % bitCount);
             final boolean isSet = bytes.getBit(index);
 

@@ -41,8 +41,8 @@ public class UtxoCommitmentMessage extends BitcoinProtocolMessage {
         final int byteCount = _utxoCommitmentBytes.getByteCount();
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-        byteArrayBuilder.appendBytes(_multisetPublicKey, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(ByteUtil.longToBytes(byteCount));
+        byteArrayBuilder.appendBytes(_multisetPublicKey);
+        byteArrayBuilder.appendBytes(CompactVariableLengthInteger.variableLengthIntegerToBytes(byteCount));
         byteArrayBuilder.appendBytes(_utxoCommitmentBytes);
 
         return byteArrayBuilder;
@@ -53,6 +53,6 @@ public class UtxoCommitmentMessage extends BitcoinProtocolMessage {
         final int byteCount = _utxoCommitmentBytes.getByteCount();
         final ByteArray byteCountByteCount = CompactVariableLengthInteger.variableLengthIntegerToBytes(byteCount);
 
-        return (Sha256Hash.BYTE_COUNT + byteCountByteCount.getByteCount() + _utxoCommitmentBytes.getByteCount());
+        return (PublicKey.COMPRESSED_BYTE_COUNT + byteCountByteCount.getByteCount() + byteCount);
     }
 }

@@ -30,7 +30,9 @@ public interface UpgradeSchedule {
         HF20200515_ACTIVATION_TIME(2),         // Bitcoin Cash: 2020-05-15 Hard Fork:  https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/2020-05-15-upgrade.md
         HF20201115_ACTIVATION_TIME(3),         // Bitcoin Cash: 2020-11-15 Hard Fork:  https://gitlab.com/bitcoin-cash-node/bchn-sw/bitcoincash-upgrade-specifications/-/blob/master/spec/2020-11-15-upgrade.md
         HF20220515_ACTIVATION_TIME(4),         // Bitcoin Cash: 2022-05-15 Hard Fork:  https://gitlab.com/bitcoin-cash-node/bchn-sw/bitcoincash-upgrade-specifications/-/blob/master/spec/2022-05-15-upgrade.md
-        HF20230515_ACTIVATION_TIME(5);         // Bitcoin Cash: 2023-05-15 Hard Fork: https://bitcoincashresearch.org/t/2021-bch-upgrade-items-brainstorm/130/29 // TODO: Update upgrade spec.
+        HF20230515_ACTIVATION_TIME(5),         // Bitcoin Cash: 2023-05-15 Hard Fork: https://bitcoincashresearch.org/t/2021-bch-upgrade-items-brainstorm/130/29 // TODO: Update upgrade spec.
+        HF20240515_ACTIVATION_TIME(6),
+        HF20250515_ACTIVATION_TIME(7);         // Bitcoin Cash: 2025-05-15 Hard Fork: https://github.com/bitjson/bch-bigint/blob/master/readme.md
 
         public final int value;
         UpgradeTime(final int value) {
@@ -211,4 +213,9 @@ public interface UpgradeSchedule {
      * Enabled in HF20230515.
      */
     Boolean areCashTokensEnabled(MedianBlockTime medianBlockTime);
+
+    /**
+     * Enabled in HF20250515
+     */
+    Boolean areBigScriptIntegersEnabled(MedianBlockTime medianBlockTime);
 }

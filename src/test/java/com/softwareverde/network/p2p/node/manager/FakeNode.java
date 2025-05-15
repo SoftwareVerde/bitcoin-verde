@@ -21,7 +21,7 @@ public class FakeNode extends BitcoinNode {
     protected final Long _lastMessageReceivedTimestamp = 0L;
 
     public FakeNode(final String host, final ThreadPool threadPool) {
-        super(host, 0, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, threadPool, new LocalNodeFeatures() {
+        super(host, 0, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, new LocalNodeFeatures() {
             @Override
             public NodeFeatures getNodeFeatures() {
                 return new NodeFeatures();
@@ -107,11 +107,6 @@ public class FakeNode extends BitcoinNode {
     @Override
     public Long getLastMessageReceivedTimestamp() {
         return _lastMessageReceivedTimestamp;
-    }
-
-    @Override
-    public Boolean handshakeIsComplete() {
-        return true;
     }
 
     @Override

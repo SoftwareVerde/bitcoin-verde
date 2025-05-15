@@ -2,6 +2,11 @@
 
 # Copy Config
 mkdir -p out/conf
+if [[ ! -d "out/conf" ]]; then
+    echo "Unable to create out directory."
+    exit 1
+fi
+
 copy_config=1
 if [ "$(ls -A out/conf)" ]; then
     echo -n "Overwrite existing configuration? [Y/n] "

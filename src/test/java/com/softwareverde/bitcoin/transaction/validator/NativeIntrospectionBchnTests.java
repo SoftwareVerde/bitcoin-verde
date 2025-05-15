@@ -14,7 +14,10 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutputInflater;
 import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.IoUtil;
@@ -24,8 +27,6 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-
-import java.util.HashMap;
 
 public class NativeIntrospectionBchnTests extends UnitTest {
     @Override @Before
@@ -46,12 +47,12 @@ public class NativeIntrospectionBchnTests extends UnitTest {
         final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
 
         final FakeUpgradeSchedule fakeUpgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
-        fakeUpgradeSchedule.setAreIntrospectionOperationsEnabled(true);
-        fakeUpgradeSchedule.setAre64BitScriptIntegersEnabled(true);
+        fakeUpgradeSchedule.setIntrospectionOperationsEnabled(true);
+        fakeUpgradeSchedule.set64BitScriptIntegersEnabled(true);
         fakeUpgradeSchedule.setMultiplyOperationEnabled(true);
 
         final Json testVectorsJson = Json.parse(IoUtil.getResource("/bchn_introspection_vectors.json"));
-        final HashMap<Sha256Hash, Transaction> transactionsToSpend = new HashMap<>();
+        final MutableMap<Sha256Hash, Transaction> transactionsToSpend = new MutableHashMap<>();
         {
             final Json transactionsToSpendJson = testVectorsJson.get("transactionsToSpend");
             for (int i = 0; i < transactionsToSpendJson.length(); ++i) {
@@ -123,8 +124,8 @@ public class NativeIntrospectionBchnTests extends UnitTest {
         final TransactionInputDeflater transactionInputDeflater = new TransactionInputDeflater();
 
         final FakeUpgradeSchedule fakeUpgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
-        fakeUpgradeSchedule.setAreIntrospectionOperationsEnabled(true);
-        fakeUpgradeSchedule.setAre64BitScriptIntegersEnabled(true);
+        fakeUpgradeSchedule.setIntrospectionOperationsEnabled(true);
+        fakeUpgradeSchedule.set64BitScriptIntegersEnabled(true);
         fakeUpgradeSchedule.setMultiplyOperationEnabled(true);
         fakeUpgradeSchedule.setSha256PayToScriptHashEnabled(true);
         fakeUpgradeSchedule.setLegacyPayToScriptHashEnabled(true);
@@ -133,7 +134,7 @@ public class NativeIntrospectionBchnTests extends UnitTest {
         final Json testVectorsJson = Json.parse(IoUtil.getResource("/cash-tokens/bch_vmb_tests_chip_cashtokens_standard.json"));
         Assert.assertTrue(testVectorsJson.length() > 0);
 
-        final MutableList<String> failedTestIdentifiers = new MutableList<>();
+        final MutableList<String> failedTestIdentifiers = new MutableArrayList<>();
         for (int i = 0; i < testVectorsJson.length(); ++i) {
             final Json testJson = testVectorsJson.get(i);
             final String identifier = testJson.getString(0);
@@ -145,7 +146,7 @@ public class NativeIntrospectionBchnTests extends UnitTest {
             // final Integer primaryInputIndex = testJson.getInteger(6);
 
             final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString(transactionToTestHex));
-            final MutableList<TransactionOutput> outputsToSpend = new MutableList<>();
+            final MutableList<TransactionOutput> outputsToSpend = new MutableArrayList<>();
             {
                 final ByteArrayReader utxoStream = new ByteArrayReader(ByteArray.fromHexString(utxosToSpendHex));
                 final int outputCount = CompactVariableLengthInteger.readVariableLengthInteger(utxoStream).intValue();
@@ -194,8 +195,8 @@ public class NativeIntrospectionBchnTests extends UnitTest {
         final TransactionInputDeflater transactionInputDeflater = new TransactionInputDeflater();
 
         final FakeUpgradeSchedule fakeUpgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
-        fakeUpgradeSchedule.setAreIntrospectionOperationsEnabled(true);
-        fakeUpgradeSchedule.setAre64BitScriptIntegersEnabled(true);
+        fakeUpgradeSchedule.setIntrospectionOperationsEnabled(true);
+        fakeUpgradeSchedule.set64BitScriptIntegersEnabled(true);
         fakeUpgradeSchedule.setMultiplyOperationEnabled(true);
         fakeUpgradeSchedule.setSha256PayToScriptHashEnabled(true);
         fakeUpgradeSchedule.setLegacyPayToScriptHashEnabled(true);
@@ -206,7 +207,7 @@ public class NativeIntrospectionBchnTests extends UnitTest {
 
         int transactionSizeSkipCount = 0;
         int patfoSkipCount = 0;
-        final MutableList<String> failedTestIdentifiers = new MutableList<>();
+        final MutableList<String> failedTestIdentifiers = new MutableArrayList<>();
         for (int i = 0; i < testVectorsJson.length(); ++i) {
             final Json testJson = testVectorsJson.get(i);
             final String identifier = testJson.getString(0);
@@ -221,7 +222,7 @@ public class NativeIntrospectionBchnTests extends UnitTest {
             if (transaction == null) { continue; } // Invalid Transaction (due to bad cashToken data) is considered a success...
 
             boolean previousOutputsHaveCashToken = false;
-            final MutableList<TransactionOutput> outputsToSpend = new MutableList<>();
+            final MutableList<TransactionOutput> outputsToSpend = new MutableArrayList<>();
             {
                 final ByteArrayReader utxoStream = new ByteArrayReader(ByteArray.fromHexString(utxosToSpendHex));
                 final int outputCount = CompactVariableLengthInteger.readVariableLengthInteger(utxoStream).intValue();
@@ -300,8 +301,8 @@ public class NativeIntrospectionBchnTests extends UnitTest {
         final TransactionInputDeflater transactionInputDeflater = new TransactionInputDeflater();
 
         final FakeUpgradeSchedule fakeUpgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
-        fakeUpgradeSchedule.setAreIntrospectionOperationsEnabled(true);
-        fakeUpgradeSchedule.setAre64BitScriptIntegersEnabled(true);
+        fakeUpgradeSchedule.setIntrospectionOperationsEnabled(true);
+        fakeUpgradeSchedule.set64BitScriptIntegersEnabled(true);
         fakeUpgradeSchedule.setMultiplyOperationEnabled(true);
         fakeUpgradeSchedule.setSha256PayToScriptHashEnabled(false);
         fakeUpgradeSchedule.setLegacyPayToScriptHashEnabled(true);
@@ -310,7 +311,7 @@ public class NativeIntrospectionBchnTests extends UnitTest {
         final Json testVectorsJson = Json.parse(IoUtil.getResource("/cash-tokens/bch_vmb_tests_before_chip_cashtokens_standard.json"));
         Assert.assertTrue(testVectorsJson.length() > 0);
 
-        final MutableList<String> failedTestIdentifiers = new MutableList<>();
+        final MutableList<String> failedTestIdentifiers = new MutableArrayList<>();
         for (int i = 0; i < testVectorsJson.length(); ++i) {
             final Json testJson = testVectorsJson.get(i);
             final String identifier = testJson.getString(0);
@@ -322,7 +323,7 @@ public class NativeIntrospectionBchnTests extends UnitTest {
             // final Integer primaryInputIndex = testJson.getInteger(6);
 
             final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString(transactionToTestHex));
-            final MutableList<TransactionOutput> outputsToSpend = new MutableList<>();
+            final MutableList<TransactionOutput> outputsToSpend = new MutableArrayList<>();
             {
                 final ByteArrayReader utxoStream = new ByteArrayReader(ByteArray.fromHexString(utxosToSpendHex));
                 final int outputCount = CompactVariableLengthInteger.readVariableLengthInteger(utxoStream).intValue();

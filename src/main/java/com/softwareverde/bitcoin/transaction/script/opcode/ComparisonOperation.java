@@ -12,6 +12,8 @@ import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 
+import java.math.BigInteger;
+
 public class ComparisonOperation extends SubTypedOperation {
     // NOTE: The order of the parameters is the top item being the modifier, and the the 2nd item being the base.
     //  For instance, pushing "2" then "1" on the stack results in [2, 1].
@@ -89,10 +91,24 @@ public class ComparisonOperation extends SubTypedOperation {
     }
 
     protected Boolean _opIsNumericallyEqual(final Stack stack, final TransactionContext transactionContext) {
-        final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, transactionContext);
-        if (numericTuple == null) { return null; }
+        final UpgradeSchedule upgradeSchedule = transactionContext.getUpgradeSchedule();
+        final MedianBlockTime medianBlockTime = transactionContext.getMedianBlockTime();
+        if (upgradeSchedule.areBigScriptIntegersEnabled(medianBlockTime)) {
+            final Value value0 = stack.pop();
+            final Value value1 = stack.pop();
+            if (stack.didOverflow()) { return null; }
 
-        return Util.areEqual(numericTuple.first, numericTuple.second);
+            final BigInteger bigIntValue0 = value0.asBigInteger();
+            final BigInteger bigIntValue1 = value1.asBigInteger();
+
+            return bigIntValue0.compareTo(bigIntValue1) == 0;
+        }
+        else {
+            final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, transactionContext);
+            if (numericTuple == null) { return null; }
+
+            return Util.areEqual(numericTuple.first, numericTuple.second);
+        }
     }
 
     @Override
@@ -152,100 +168,207 @@ public class ComparisonOperation extends SubTypedOperation {
             }
 
             case IS_LESS_THAN: {
-                final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, context);
-                if (numericTuple == null) { return false; }
+                if (upgradeSchedule.areBigScriptIntegersEnabled(medianBlockTime)) {
+                    final Value value0 = stack.pop();
+                    final Value value1 = stack.pop();
+                    if (stack.didOverflow()) { return false; }
 
-                final Boolean isLessThan = (numericTuple.second < numericTuple.first);
-                stack.push(Value.fromBoolean(isLessThan));
-                return true;
+                    final BigInteger bigInteger0 = value0.asBigInteger();
+                    final BigInteger bigInteger1 = value1.asBigInteger();
+
+                    final Boolean isLessThan = (bigInteger1.compareTo(bigInteger0) < 0);
+                    stack.push(Value.fromBoolean(isLessThan));
+                    return true;
+                }
+                else {
+                    final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, context);
+                    if (numericTuple == null) { return false; }
+
+                    final Boolean isLessThan = (numericTuple.second < numericTuple.first);
+                    stack.push(Value.fromBoolean(isLessThan));
+                    return true;
+                }
             }
 
             case IS_GREATER_THAN: {
-                final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, context);
-                if (numericTuple == null) { return false; }
+                if (upgradeSchedule.areBigScriptIntegersEnabled(medianBlockTime)) {
+                    final Value value0 = stack.pop();
+                    final Value value1 = stack.pop();
 
-                final Boolean isGreaterThan = (numericTuple.second > numericTuple.first);
-                stack.push(Value.fromBoolean(isGreaterThan));
-                return true;
+                    if (stack.didOverflow()) { return false; }
+
+                    final BigInteger bigInt0 = value0.asBigInteger();
+                    final BigInteger bigInt1 = value1.asBigInteger();
+
+                    final Boolean resultValue = (bigInt1.compareTo(bigInt0) > 0);
+                    stack.push(Value.fromBoolean(resultValue));
+                    return true;
+                }
+                else {
+                    final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, context);
+                    if (numericTuple == null) { return false; }
+
+                    final Boolean isGreaterThan = (numericTuple.second > numericTuple.first);
+                    stack.push(Value.fromBoolean(isGreaterThan));
+                    return true;
+                }
             }
 
             case IS_LESS_THAN_OR_EQUAL: {
-                final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, context);
-                if (numericTuple == null) { return false; }
+                if (upgradeSchedule.areBigScriptIntegersEnabled(medianBlockTime)) {
+                    final Value value0 = stack.pop();
+                    final Value value1 = stack.pop();
 
-                final Boolean isLessThan = (numericTuple.second < numericTuple.first);
-                final Boolean areEqual = Util.areEqual(numericTuple.second, numericTuple.first);
-                stack.push(Value.fromBoolean(isLessThan || areEqual));
-                return true;
+                    if (stack.didOverflow()) { return false; }
+
+                    final BigInteger bigInt0 = value0.asBigInteger();
+                    final BigInteger bigInt1 = value1.asBigInteger();
+
+                    final Boolean resultValue = (bigInt1.compareTo(bigInt0) <= 0);
+                    stack.push(Value.fromBoolean(resultValue));
+                    return true;
+                }
+                else {
+                    final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, context);
+                    if (numericTuple == null) { return false; }
+
+                    final Boolean isLessThan = (numericTuple.second < numericTuple.first);
+                    final Boolean areEqual = Util.areEqual(numericTuple.second, numericTuple.first);
+                    stack.push(Value.fromBoolean(isLessThan || areEqual));
+                    return true;
+                }
             }
 
             case IS_GREATER_THAN_OR_EQUAL: {
-                final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, context);
-                if (numericTuple == null) { return false; }
+                if (upgradeSchedule.areBigScriptIntegersEnabled(medianBlockTime)) {
+                    final Value value0 = stack.pop();
+                    final Value value1 = stack.pop();
 
-                final Boolean isGreaterThan = (numericTuple.second > numericTuple.first);
-                final Boolean areEqual = Util.areEqual(numericTuple.second, numericTuple.first);
-                stack.push (Value.fromBoolean(isGreaterThan || areEqual));
-                return true;
+                    if (stack.didOverflow()) { return false; }
+
+                    final BigInteger bigInt0 = value0.asBigInteger();
+                    final BigInteger bigInt1 = value1.asBigInteger();
+
+                    final Boolean resultValue = (bigInt1.compareTo(bigInt0) >= 0);
+                    stack.push(Value.fromBoolean(resultValue));
+                    return true;
+                }
+                else {
+                    final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, context);
+                    if (numericTuple == null) { return false; }
+
+                    final Boolean isGreaterThan = (numericTuple.second > numericTuple.first);
+                    final Boolean areEqual = Util.areEqual(numericTuple.second, numericTuple.first);
+                    stack.push(Value.fromBoolean(isGreaterThan || areEqual));
+                    return true;
+                }
             }
 
             case INTEGER_AND: {
-                final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, context);
-                if (numericTuple == null) { return false; }
+                if (upgradeSchedule.areBigScriptIntegersEnabled(medianBlockTime)) {
+                    final Value value0 = stack.pop();
+                    final Value value1 = stack.pop();
 
-                final Boolean value = ( (numericTuple.second != 0L) && (numericTuple.first != 0L) );
-                stack.push(Value.fromBoolean(value));
-                return true;
+                    if (stack.didOverflow()) { return false; }
+
+                    final BigInteger bigInt0 = value0.asBigInteger();
+                    final BigInteger bigInt1 = value1.asBigInteger();
+
+                    final Boolean resultValue = (bigInt1.compareTo(BigInteger.ZERO) != 0 && bigInt0.compareTo(BigInteger.ZERO) != 0);
+                    stack.push(Value.fromBoolean(resultValue));
+                    return true;
+                }
+                else {
+                    final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, context);
+                    if (numericTuple == null) { return false; }
+
+                    final Boolean value = ((numericTuple.second != 0L) && (numericTuple.first != 0L));
+                    stack.push(Value.fromBoolean(value));
+                    return true;
+                }
             }
 
             case INTEGER_OR: {
-                final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, context);
-                if (numericTuple == null) { return false; }
+                if (upgradeSchedule.areBigScriptIntegersEnabled(medianBlockTime)) {
+                    final Value value0 = stack.pop();
+                    final Value value1 = stack.pop();
 
-                final Boolean value = ( (numericTuple.second != 0L) || (numericTuple.first != 0L) );
-                stack.push(Value.fromBoolean(value));
-                return true;
+                    if (stack.didOverflow()) { return false; }
+
+                    final BigInteger bigInt0 = value0.asBigInteger();
+                    final BigInteger bigInt1 = value1.asBigInteger();
+
+                    final Boolean resultValue = ((bigInt0.compareTo(BigInteger.ZERO) != 0) && (bigInt1.compareTo(BigInteger.ZERO) != 0));
+                    stack.push(Value.fromBoolean(resultValue));
+                    return true;
+                }
+                else {
+                    final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, context);
+                    if (numericTuple == null) { return false; }
+
+                    final Boolean value = ((numericTuple.second != 0L) || (numericTuple.first != 0L));
+                    stack.push(Value.fromBoolean(value));
+                    return true;
+                }
             }
 
             case IS_WITHIN_RANGE: {
                 // NOTE: Pushes true on the stack if the value is greater than or equal to the min, and less than the max.
                 //  Assuming the oldest items on the stack are on the left, the parameters are defined on the stack as: [..., VALUE, MIN, MAX]
-                final Value valueMax = stack.pop();
-                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
-                    if (! valueMax.isMinimallyEncoded()) { return false; }
-                }
-                if (! valueMax.isWithinLongIntegerRange()) { return false; }
-                if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
-                    if (! valueMax.isWithinIntegerRange()) { return false; }
-                }
 
-                final Value valueMin = stack.pop();
-                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
-                    if (! valueMin.isMinimallyEncoded()) { return false; }
-                }
-                if (! valueMin.isWithinLongIntegerRange()) { return false; }
-                if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
-                    if (! valueMin.isWithinIntegerRange()) { return false; }
-                }
+                if (upgradeSchedule.areBigScriptIntegersEnabled(medianBlockTime)) {
+                    final Value valueMax = stack.pop();
+                    final Value valueMin = stack.pop();
+                    final Value value = stack.pop();
 
-                final Value value = stack.pop();
-                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
-                    if (! value.isMinimallyEncoded()) { return false; }
+                    if (stack.didOverflow()) { return false; }
+
+                    final BigInteger bigIntMax = valueMax.asBigInteger();
+                    final BigInteger bigIngMin = valueMin.asBigInteger();
+                    final BigInteger bigIntValue = value.asBigInteger();
+
+                    final Boolean resultValue = ((bigIntValue.compareTo(bigIngMin) >= 0) && (bigIntValue.compareTo(bigIntMax) < 0));
+                    stack.push(Value.fromBoolean(resultValue));
+                    return true;
                 }
-                if (! value.isWithinLongIntegerRange()) { return false; }
-                if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
-                    if (! value.isWithinIntegerRange()) { return false; }
+                else {
+                    final Value valueMax = stack.pop();
+                    if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                        if (! valueMax.isMinimallyEncoded()) { return false; }
+                    }
+                    if (! valueMax.isWithinLongIntegerRange()) { return false; }
+                    if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+                        if (! valueMax.isWithinIntegerRange()) { return false; }
+                    }
+
+                    final Value valueMin = stack.pop();
+                    if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                        if (! valueMin.isMinimallyEncoded()) { return false; }
+                    }
+                    if (! valueMin.isWithinLongIntegerRange()) { return false; }
+                    if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+                        if (! valueMin.isWithinIntegerRange()) { return false; }
+                    }
+
+                    final Value value = stack.pop();
+                    if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
+                        if (! value.isMinimallyEncoded()) { return false; }
+                    }
+                    if (! value.isWithinLongIntegerRange()) { return false; }
+                    if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+                        if (! value.isWithinIntegerRange()) { return false; }
+                    }
+
+                    if (stack.didOverflow()) { return false; }
+
+                    final Long longMax = valueMax.asLong();
+                    final Long longMin = valueMin.asLong();
+                    final Long longValue = value.asLong();
+
+                    final Boolean resultValue = ((longValue >= longMin) && (longValue < longMax));
+                    stack.push(Value.fromBoolean(resultValue));
+                    return true;
                 }
-
-                if (stack.didOverflow()) { return false; }
-
-                final Long longMax = valueMax.asLong();
-                final Long longMin = valueMin.asLong();
-                final Long longValue = value.asLong();
-
-                final Boolean resultValue = ((longValue >= longMin) && (longValue < longMax));
-                stack.push(Value.fromBoolean(resultValue));
-                return true;
             }
 
             default: { return false; }

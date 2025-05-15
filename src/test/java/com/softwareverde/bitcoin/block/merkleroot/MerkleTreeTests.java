@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.MutableSha256Hash;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -97,7 +98,7 @@ public class MerkleTreeTests {
 
         final List<Item> itemsWithReplacements;
         {
-            final MutableList<Item> mutableList = new MutableList<>(items);
+            final MutableList<Item> mutableList = new MutableArrayList<>(items);
             mutableList.set(nthItem, new Item(-1));
             itemsWithReplacements = mutableList;
         }

@@ -81,13 +81,20 @@ class Api {
         const apiParameters = $.extend({ }, defaultParameters, parameters);
 
         const query = apiParameters.query;
+        const pageNumber = apiParameters.pageNumber || null;
 
         const searchInput = $("#search");
         searchInput.val(query);
 
         const queryParams = new URLSearchParams(window.location.search);
-        if (queryParams.get("search") != query) {
-            window.history.pushState({ query: query}, query, "?search=" + window.encodeURIComponent(query));
+        let isNewHistory = queryParams.get("search") != query || (queryParams.get("search") == query && queryParams.get("pageNumber") != pageNumber);
+        if (isNewHistory) {
+            if (pageNumber) {
+                window.history.pushState({ query: query, pageNumber: pageNumber }, query, "?search=" + window.encodeURIComponent(query) + "&pageNumber=" + pageNumber);
+            }
+            else {
+                window.history.pushState({ query: query }, query, "?search=" + window.encodeURIComponent(query));
+            }
         }
 
         Http.get(Api.PREFIX + "search", apiParameters, callback);
@@ -170,6 +177,10 @@ class KeyCodes {
 }
 
 class Ui {
+    static formatSatoshis(amount) {
+        return ((amount || 0) / Constants.SATOSHIS_PER_BITCOIN).toLocaleString(undefined, {minimumFractionDigits: 8});
+    }
+
     static makeHashCopyable(element) {
         const copyButton = $("<span class=\"copy\"></span>");
         copyButton.on("click", function() {
@@ -221,7 +232,7 @@ class Ui {
         if (transactionInput.address) {
             Ui.makeHashCopyable($(".address", transactionInputUi));
         }
-        $(".amount", transactionInputUi).text((transactionInput.previousTransactionAmount || 0).toLocaleString());
+        $(".amount", transactionInputUi).text(Ui.formatSatoshis(transactionInput.previousTransactionAmount));
 
         const transactionLink = $(".transaction-hash .value", transactionInputUi);
         transactionLink.text(transactionInput.previousOutputTransactionHash);
@@ -311,7 +322,7 @@ class Ui {
         if (transactionOutput.address) {
             Ui.makeHashCopyable($(".address", transactionOutputUi));
         }
-        $(".amount", transactionOutputUi).text((transactionOutput.amount || 0).toLocaleString());
+        $(".amount", transactionOutputUi).text(Ui.formatSatoshis(transactionOutput.amount));
 
         if (transactionOutput.spentByTransaction) {
             const transactionLink = $(".spent-by .value", transactionOutputUi);
@@ -340,13 +351,14 @@ class Ui {
         return transactionOutputUi;
     }
 
-    static renderBlock(block) {
+    static renderBlock(block, pageNumber) {
         Ui.currentObject = block;
         Ui.currentObjectType = Constants.BLOCK;
+        Ui.currentPageNumber = pageNumber;
 
         const loadingImage = $("#search-loading-image");
 
-        const blockUi = Ui.inflateBlock(block);
+        const blockUi = Ui.inflateBlock(block, pageNumber);
 
         blockUi.hide();
         const main = $("#main");
@@ -365,9 +377,10 @@ class Ui {
         });
     }
 
-    static renderAddress(addressObject) {
+    static renderAddress(addressObject, pageNumber) {
         Ui.currentObject = addressObject;
         Ui.currentObjectType = Constants.ADDRESS;
+        Ui.currentPageNumber = pageNumber;
 
         const main = $("#main");
         main.empty();
@@ -439,9 +452,10 @@ class Ui {
         return $("#loading");
     }
 
-    static renderTransaction(transaction) {
+    static renderTransaction(transaction, pageNumber) {
         Ui.currentObject = transaction;
         Ui.currentObjectType = Constants.TRANSACTION;
+        Ui.currentPageNumber = pageNumber;
 
         const transactionUi = Ui.inflateTransaction(transaction);
         transactionUi.hide();
@@ -454,7 +468,8 @@ class Ui {
         });
     }
 
-    static inflateBlock(block) {
+    static inflateBlock(block, startingPageNumber) {
+        startingPageNumber = startingPageNumber || 0;
         const templates = $("#templates");
         const blockTemplate = $("> .block", templates);
         const blockUi = blockTemplate.clone();
@@ -492,6 +507,9 @@ class Ui {
             if ( (pageNumber < 0) || (pageNumber >= pageCount) ) {
                 return;
             }
+
+            window.history.pushState({ query: block.hash, pageNumber: pageNumber }, block.hash, "?search=" + window.encodeURIComponent(block.hash) + "&pageNumber=" + window.encodeURIComponent(pageNumber));
+            console.log(window.history);
 
             Api.getBlockTransactions(block.hash, { pageSize: pageSize, pageNumber: pageNumber }, function(data) {
                 const container = $(".transactions", blockUi);
@@ -558,7 +576,7 @@ class Ui {
 
             renderPagination.currentPageNumber = pageNumber;
         };
-        renderPagination.currentPageNumber = 0;
+        renderPagination.currentPageNumber = startingPageNumber;
 
         const pageCarets = $("> .previous, > .next", pageNavigation.parent());
         pageCarets.on("click", function() {
@@ -794,7 +812,7 @@ class Ui {
         const qrCodeElement = window.ninja.qrCode.createCanvas(addressString, 4);
 
         $(".address", addressUi).text(addressString);
-        $(".address-balance", addressUi).text(addressBalance.toLocaleString());
+        $(".address-balance", addressUi).text(Ui.formatSatoshis(addressBalance));
         $(".qr-code", addressUi).append(qrCodeElement);
 
         const addressTransactionsContainer = $(".address-transactions", addressUi);
@@ -841,6 +859,7 @@ class Ui {
 Ui.displayCashAddressFormat = true;
 Ui.currentObject = null;
 Ui.currentObjectType = null;
+Ui.pageNumber = null;
 Ui.appendTransactionTimeouts = [];
 
 class DateUtil {

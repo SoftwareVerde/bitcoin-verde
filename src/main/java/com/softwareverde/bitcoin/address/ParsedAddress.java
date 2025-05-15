@@ -10,11 +10,13 @@ import com.softwareverde.util.bytearray.ByteArrayBuilder;
 
 public class ParsedAddress implements TypedAddress {
     public static String toBase58CheckEncoded(final Address address) {
+        if (address == null) { return null; }
         final ParsedAddress parsedAddress = new ParsedAddress(AddressType.P2PKH, false, address);
         return parsedAddress.toBase58CheckEncoded();
     }
 
     public static String toBase32CheckEncoded(final Address address) {
+        if (address == null) { return null; }
         final ParsedAddress parsedAddress = new ParsedAddress(AddressType.P2PKH, false, address);
         return parsedAddress.toBase32CheckEncoded();
     }

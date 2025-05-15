@@ -13,7 +13,7 @@ public class BitcoinNodeIpAddress extends NodeIpAddress {
     public static final Integer BYTE_COUNT_WITHOUT_TIMESTAMP = 26;
     public static final Integer BYTE_COUNT_WITH_TIMESTAMP = 30;
 
-    private static class ByteData {
+    protected static class ByteData {
         public final byte[] timestamp = new byte[4];
         public final byte[] nodeFeatureFlags = new byte[8];
         public final byte[] ip = new byte[16];

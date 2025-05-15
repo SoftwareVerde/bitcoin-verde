@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.block;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
@@ -21,7 +22,7 @@ public class CanonicalMutableBlock extends MutableBlock {
 
     protected static List<Transaction> sortTransactions(final List<Transaction> transactions) {
         final int transactionCount = transactions.getCount();
-        final MutableList<Transaction> _transactions = new MutableList<>(transactionCount);
+        final MutableList<Transaction> _transactions = new MutableArrayList<>(transactionCount);
         if (transactions.isEmpty()) { return _transactions; }
 
         for (int i = 1; i < transactionCount; ++i) { // Excludes coinbase...
@@ -96,7 +97,7 @@ public class CanonicalMutableBlock extends MutableBlock {
     }
 
     public void setTransactions(final Transaction coinbaseTransaction, final List<Transaction> transactions) {
-        final MutableList<Transaction> sortedTransactions = new MutableList<>(transactions);
+        final MutableList<Transaction> sortedTransactions = new MutableArrayList<>(transactions);
         sortedTransactions.sort(LEXICAL_TRANSACTION_ORDERING);
 
         _transactions.clear();

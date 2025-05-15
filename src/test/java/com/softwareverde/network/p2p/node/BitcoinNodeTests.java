@@ -16,10 +16,10 @@ import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.concurrent.Pin;
 import com.softwareverde.concurrent.threadpool.CachedThreadPool;
-import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.EcMultiset;
@@ -51,12 +51,12 @@ public class BitcoinNodeTests extends UnitTest {
             super._disconnect();
         }
 
-        public ExposedBitcoinNode(final String host, final Integer port, final ThreadPool threadPool, final LocalNodeFeatures localNodeFeatures) {
-            super(host, port, threadPool, localNodeFeatures);
+        public ExposedBitcoinNode(final String host, final Integer port, final LocalNodeFeatures localNodeFeatures) {
+            super(host, port, localNodeFeatures);
         }
 
-        public ExposedBitcoinNode(final BinarySocket binarySocket, final ThreadPool threadPool, final LocalNodeFeatures localNodeFeatures) {
-            super(binarySocket, threadPool, localNodeFeatures);
+        public ExposedBitcoinNode(final BinarySocket binarySocket, final LocalNodeFeatures localNodeFeatures) {
+            super(binarySocket, localNodeFeatures);
         }
 
         public Boolean isMonitorThreadRunning() {
@@ -81,9 +81,6 @@ public class BitcoinNodeTests extends UnitTest {
     @Test
     public void should_timeout_request_after_no_response() throws Exception {
         // Setup
-        final CachedThreadPool mainThreadPool = new CachedThreadPool(32, 1000L);
-        mainThreadPool.start();
-
         final long REQUEST_TIMEOUT_MS = 3000L;
 
         final LocalNodeFeatures nodeFeatures = new LocalNodeFeatures() {
@@ -96,12 +93,12 @@ public class BitcoinNodeTests extends UnitTest {
             }
         };
 
-        final MutableList<ExposedBitcoinNode> receivedNodeConnections = new MutableList<>();
-        final BinarySocketServer socketServer = new BinarySocketServer(FAKE_PORT, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, mainThreadPool);
+        final MutableList<ExposedBitcoinNode> receivedNodeConnections = new MutableArrayList<>();
+        final BinarySocketServer socketServer = new BinarySocketServer(FAKE_PORT, BitcoinProtocolMessage.BINARY_PACKET_FORMAT);
         socketServer.setSocketConnectedCallback(new BinarySocketServer.SocketConnectedCallback() {
             @Override
             public void run(final BinarySocket binarySocket) {
-                final ExposedBitcoinNode bitcoinNode = new ExposedBitcoinNode(binarySocket, mainThreadPool, nodeFeatures) {
+                final ExposedBitcoinNode bitcoinNode = new ExposedBitcoinNode(binarySocket, nodeFeatures) {
                     @Override
                     protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
                         synchronized (LOCAL_SYNCHRONIZATION_NONCES) { // Disable self-connection detection....
@@ -128,7 +125,7 @@ public class BitcoinNodeTests extends UnitTest {
         final MilliTimer timeoutTimer = new MilliTimer();
         final Pin pin = new Pin();
 
-        final ExposedBitcoinNode bitcoinNode = new ExposedBitcoinNode("127.0.0.1", FAKE_PORT, mainThreadPool, nodeFeatures) {
+        final ExposedBitcoinNode bitcoinNode = new ExposedBitcoinNode("127.0.0.1", FAKE_PORT, nodeFeatures) {
             @Override
             protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
                 synchronized (BitcoinNode.LOCAL_SYNCHRONIZATION_NONCES) { // Disable self-connection detection....
@@ -194,16 +191,11 @@ public class BitcoinNodeTests extends UnitTest {
             Assert.assertFalse(receivedConnectionBitcoinNode.isMonitorThreadRunning());
             Assert.assertTrue(receivedConnectionBitcoinNode.wasDisconnectCalled());
         }
-
-        mainThreadPool.stop();
     }
 
     @Test
     public void should_close_monitor_thread_after_failed_connection() throws Exception {
         // Setup
-        final CachedThreadPool mainThreadPool = new CachedThreadPool(32, 1000L);
-        mainThreadPool.start();
-
         final long REQUEST_TIMEOUT_MS = 3000L;
 
         final LocalNodeFeatures nodeFeatures = new LocalNodeFeatures() {
@@ -220,7 +212,7 @@ public class BitcoinNodeTests extends UnitTest {
         final MilliTimer timeoutTimer = new MilliTimer();
         final Pin pin = new Pin();
 
-        final ExposedBitcoinNode bitcoinNode = new ExposedBitcoinNode("127.0.0.1", UNUSED_PORT, mainThreadPool, nodeFeatures) {
+        final ExposedBitcoinNode bitcoinNode = new ExposedBitcoinNode("127.0.0.1", UNUSED_PORT, nodeFeatures) {
             @Override
             protected Long _getMaximumTimeoutMs(final BitcoinNodeCallback callback) {
                 return REQUEST_TIMEOUT_MS;
@@ -246,15 +238,11 @@ public class BitcoinNodeTests extends UnitTest {
         Assert.assertFalse(bitcoinNode.isMonitorThreadRunning());
 
         bitcoinNode.disconnect(); // Not necessary, but used in case an actual connection occurred.
-        mainThreadPool.stop();
     }
 
     @Test
     public void should_not_timeout_after_successful_response() throws Exception {
         // Setup
-        final CachedThreadPool mainThreadPool = new CachedThreadPool(32, 1000L);
-        mainThreadPool.start();
-
         final long REQUEST_TIMEOUT_MS = 3000L;
 
         final LocalNodeFeatures nodeFeatures = new LocalNodeFeatures() {
@@ -267,11 +255,11 @@ public class BitcoinNodeTests extends UnitTest {
             }
         };
 
-        final BinarySocketServer socketServer = new BinarySocketServer(FAKE_PORT, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, mainThreadPool);
+        final BinarySocketServer socketServer = new BinarySocketServer(FAKE_PORT, BitcoinProtocolMessage.BINARY_PACKET_FORMAT);
         socketServer.setSocketConnectedCallback(new BinarySocketServer.SocketConnectedCallback() {
             @Override
             public void run(final BinarySocket binarySocket) {
-                final ExposedBitcoinNode bitcoinNode = new ExposedBitcoinNode(binarySocket, mainThreadPool, nodeFeatures) {
+                final ExposedBitcoinNode bitcoinNode = new ExposedBitcoinNode(binarySocket, nodeFeatures) {
                     @Override
                     protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
                         synchronized (LOCAL_SYNCHRONIZATION_NONCES) { // Disable self-connection detection....
@@ -305,7 +293,7 @@ public class BitcoinNodeTests extends UnitTest {
         final Container<Boolean> onFailureCalled = new Container<>(false);
 
         // Action
-        final BitcoinNode bitcoinNode = new BitcoinNode("127.0.0.1", FAKE_PORT, mainThreadPool, nodeFeatures) {
+        final BitcoinNode bitcoinNode = new BitcoinNode("127.0.0.1", FAKE_PORT, nodeFeatures) {
             @Override
             protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
                 synchronized (BitcoinNode.LOCAL_SYNCHRONIZATION_NONCES) { // Disable self-connection detection....
@@ -351,15 +339,11 @@ public class BitcoinNodeTests extends UnitTest {
 
         bitcoinNode.disconnect();
         socketServer.stop();
-        mainThreadPool.stop();
     }
 
     @Test
     public void should_fail_request_after_disconnect() throws Exception {
         // Setup
-        final CachedThreadPool mainThreadPool = new CachedThreadPool(32, 1000L);
-        mainThreadPool.start();
-
         final long REQUEST_TIMEOUT_MS = 3000L;
         final long DISCONNECT_AFTER_MS = 500L;
 
@@ -373,12 +357,12 @@ public class BitcoinNodeTests extends UnitTest {
             }
         };
 
-        final MutableList<ExposedBitcoinNode> receivedNodeConnections = new MutableList<>();
-        final BinarySocketServer socketServer = new BinarySocketServer(FAKE_PORT, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, mainThreadPool);
+        final MutableList<ExposedBitcoinNode> receivedNodeConnections = new MutableArrayList<>();
+        final BinarySocketServer socketServer = new BinarySocketServer(FAKE_PORT, BitcoinProtocolMessage.BINARY_PACKET_FORMAT);
         socketServer.setSocketConnectedCallback(new BinarySocketServer.SocketConnectedCallback() {
             @Override
             public void run(final BinarySocket binarySocket) {
-                final ExposedBitcoinNode bitcoinNode = new ExposedBitcoinNode(binarySocket, mainThreadPool, nodeFeatures) {
+                final ExposedBitcoinNode bitcoinNode = new ExposedBitcoinNode(binarySocket, nodeFeatures) {
                     @Override
                     protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
                         synchronized (LOCAL_SYNCHRONIZATION_NONCES) { // Disable self-connection detection....
@@ -408,7 +392,7 @@ public class BitcoinNodeTests extends UnitTest {
         final MilliTimer timeoutTimer = new MilliTimer();
         final Pin pin = new Pin();
 
-        final ExposedBitcoinNode bitcoinNode = new ExposedBitcoinNode("127.0.0.1", FAKE_PORT, mainThreadPool, nodeFeatures) {
+        final ExposedBitcoinNode bitcoinNode = new ExposedBitcoinNode("127.0.0.1", FAKE_PORT, nodeFeatures) {
             @Override
             protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
                 synchronized (BitcoinNode.LOCAL_SYNCHRONIZATION_NONCES) { // Disable self-connection detection....
@@ -475,16 +459,11 @@ public class BitcoinNodeTests extends UnitTest {
             Assert.assertFalse(receivedConnectionBitcoinNode.isMonitorThreadRunning());
             Assert.assertTrue(receivedConnectionBitcoinNode.wasDisconnectCalled());
         }
-
-        mainThreadPool.stop();
     }
 
     @Test
     public void should_download_utxo_commitment() throws Exception {
         // Setup
-        final CachedThreadPool mainThreadPool = new CachedThreadPool(32, 1000L);
-        mainThreadPool.start();
-
         final long REQUEST_TIMEOUT_MS = 3000L;
 
         final ByteArray byteArray = MutableByteArray.fromHexString("0123456789ABCDEFFEDCBA9876543210");
@@ -506,12 +485,12 @@ public class BitcoinNodeTests extends UnitTest {
             }
         };
 
-        final MutableList<ExposedBitcoinNode> receivedNodeConnections = new MutableList<>();
-        final BinarySocketServer socketServer = new BinarySocketServer(FAKE_PORT, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, mainThreadPool);
+        final MutableList<ExposedBitcoinNode> receivedNodeConnections = new MutableArrayList<>();
+        final BinarySocketServer socketServer = new BinarySocketServer(FAKE_PORT, BitcoinProtocolMessage.BINARY_PACKET_FORMAT);
         socketServer.setSocketConnectedCallback(new BinarySocketServer.SocketConnectedCallback() {
             @Override
             public void run(final BinarySocket binarySocket) {
-                final ExposedBitcoinNode bitcoinNode = new ExposedBitcoinNode(binarySocket, mainThreadPool, nodeFeatures) {
+                final ExposedBitcoinNode bitcoinNode = new ExposedBitcoinNode(binarySocket, nodeFeatures) {
                     @Override
                     protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
                         synchronized (LOCAL_SYNCHRONIZATION_NONCES) { // Disable self-connection detection....
@@ -556,7 +535,7 @@ public class BitcoinNodeTests extends UnitTest {
         final MilliTimer timeoutTimer = new MilliTimer();
         final Pin pin = new Pin();
 
-        final ExposedBitcoinNode bitcoinNode = new ExposedBitcoinNode("127.0.0.1", FAKE_PORT, mainThreadPool, nodeFeatures) {
+        final ExposedBitcoinNode bitcoinNode = new ExposedBitcoinNode("127.0.0.1", FAKE_PORT, nodeFeatures) {
             @Override
             protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
                 synchronized (BitcoinNode.LOCAL_SYNCHRONIZATION_NONCES) { // Disable self-connection detection....
@@ -622,7 +601,5 @@ public class BitcoinNodeTests extends UnitTest {
             Assert.assertFalse(receivedConnectionBitcoinNode.isMonitorThreadRunning());
             Assert.assertTrue(receivedConnectionBitcoinNode.wasDisconnectCalled());
         }
-
-        mainThreadPool.stop();
     }
 }

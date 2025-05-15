@@ -2,7 +2,10 @@ package com.softwareverde.bitcoin.chain.time;
 
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
+import com.softwareverde.bitcoin.server.module.node.Blockchain;
 import com.softwareverde.constable.Constable;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.Time;
@@ -26,19 +29,30 @@ public interface MedianBlockTime extends Time, Constable<ImmutableMedianBlockTim
 
     /**
      * Calculates the MedianBlockTime for the provided Block at blockHeight.
-     *  BlockStore must provide the BlockHeaders for the Block at blockHeight and its (MedianBlockTime.BLOCK_COUNT - 1) ancestors.
+     *  Blockchain must provide the BlockHeaders for the Block at blockHeight and its (MedianBlockTime.BLOCK_COUNT - 1) ancestors.
      */
-    static MedianBlockTime calculateMedianBlockTime(final Long blockHeight, final BlockStore blockStore) {
-        final MutableList<BlockHeader> blockHeadersInDescendingOrder = new MutableList<>(MedianBlockTime.BLOCK_COUNT);
+    static MedianBlockTime calculateMedianBlockTime(final Long blockHeight, final Blockchain blockchain) {
+        final MutableList<BlockHeader> blockHeadersInDescendingOrder = new MutableArrayList<>(MedianBlockTime.BLOCK_COUNT);
 
         // Load the blocks from the store in descending order, including the block at blockHeight...
         for (int i = 0; i < MedianBlockTime.BLOCK_COUNT; ++i) {
             final long blockIndex = (blockHeight - i);
             if (blockIndex < 0L) { break; }
 
-            final BlockHeader block = blockStore.getBlock(blockIndex);
+            final BlockHeader block = blockchain.getBlockHeader(blockIndex);
             blockHeadersInDescendingOrder.add(block);
         }
+
+        return MedianBlockTime.calculateMedianBlockTime(blockHeadersInDescendingOrder);
+    }
+
+    /**
+     * Calculates the MedianBlockTime for the provided Block at blockHeight.
+     *  The BlockHeader List have MedianBlockTime.BLOCK_COUNT items and must be in descending order.
+     *  The returned MedianBlockTime will be the MedianBlockTime for the first BlockHeader within the List.
+     */
+    static MedianBlockTime calculateMedianBlockTime(final List<BlockHeader> blockHeadersInDescendingOrder) {
+        if (blockHeadersInDescendingOrder.getCount() != 3) { return null; }
 
         final MutableMedianBlockTime medianBlockTime = new MutableMedianBlockTime();
         // Add the blocks to the MedianBlockTime in ascending order (lowest block-height is added first)...

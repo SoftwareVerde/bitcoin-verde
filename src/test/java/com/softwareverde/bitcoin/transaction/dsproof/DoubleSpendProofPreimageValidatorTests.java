@@ -20,6 +20,9 @@ import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.map.Map;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.HexUtil;
 import org.junit.After;
@@ -27,8 +30,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.HashMap;
-import java.util.Map;
 
 public class DoubleSpendProofPreimageValidatorTests extends UnitTest {
     @Override @Before
@@ -197,7 +198,7 @@ public class DoubleSpendProofPreimageValidatorTests extends UnitTest {
 
         final TransactionOutputIdentifier transactionOutputIdentifierBeingDoubleSpent;
         final TransactionOutput transactionOutputBeingDoubleSpent;
-        final HashMap<TransactionOutputIdentifier, TransactionOutput> previousTransactionOutputs = new HashMap<>();
+        final MutableMap<TransactionOutputIdentifier, TransactionOutput> previousTransactionOutputs = new MutableHashMap<>();
         {
             final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
             transactionOutput.setAmount(874129L);

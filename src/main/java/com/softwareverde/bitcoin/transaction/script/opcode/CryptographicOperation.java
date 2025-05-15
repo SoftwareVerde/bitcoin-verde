@@ -277,9 +277,12 @@ public class CryptographicOperation extends SubTypedOperation {
         }
 
         transactionContext.incrementOperationCount(publicKeyCount);
-        if (transactionContext.getOperationCount() > Script.MAX_OPERATION_COUNT) {
-            Logger.debug("Maximum number of operations exceeded.");
-            return false;
+
+        if (! upgradeSchedule.areBigScriptIntegersEnabled(medianBlockTime)) {
+            if (transactionContext.getOperationCount() > Script.MAX_OPERATION_COUNT) {
+                Logger.debug("Maximum number of operations exceeded.");
+                return false;
+            }
         }
 
         final List<PublicKey> publicKeys;

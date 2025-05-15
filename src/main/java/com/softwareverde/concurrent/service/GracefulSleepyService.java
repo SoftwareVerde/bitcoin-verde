@@ -4,6 +4,12 @@ public abstract class GracefulSleepyService extends SleepyService {
     private volatile Boolean _isShuttingDown = false;
 
     @Override
+    public synchronized void start() {
+        _isShuttingDown = false;
+        super.start();
+    }
+
+    @Override
     protected Boolean _shouldAbort() {
         return (super._shouldAbort() || _isShuttingDown);
     }
@@ -28,9 +34,6 @@ public abstract class GracefulSleepyService extends SleepyService {
         }
         catch (final Exception exception) {
             super.stop();
-        }
-        finally {
-            _isShuttingDown = false;
         }
     }
 }

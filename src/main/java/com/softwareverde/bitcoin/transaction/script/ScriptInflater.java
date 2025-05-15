@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.transaction.script.opcode.OperationInflater;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.HexUtil;
@@ -13,7 +14,7 @@ import com.softwareverde.util.bytearray.ByteArrayReader;
 public class ScriptInflater {
     protected MutableList<Operation> _getOperationList(final ByteArray bytes) {
         final OperationInflater operationInflater = new OperationInflater();
-        final MutableList<Operation> mutableList = new MutableList<>();
+        final MutableList<Operation> mutableList = new MutableArrayList<>();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
         while (byteArrayReader.hasBytes()) {
             final int scriptPosition = byteArrayReader.getPosition();

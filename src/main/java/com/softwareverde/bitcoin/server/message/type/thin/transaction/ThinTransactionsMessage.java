@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
@@ -17,7 +18,7 @@ public class ThinTransactionsMessage extends BitcoinProtocolMessage {
     protected final TransactionInflaters _transactionInflaters;
 
     protected Sha256Hash _blockHash;
-    protected List<Transaction> _transactions = new MutableList<>(0);
+    protected List<Transaction> _transactions = new MutableArrayList<>(0);
 
     public ThinTransactionsMessage(final TransactionInflaters transactionInflaters) {
         super(MessageType.THIN_TRANSACTIONS);

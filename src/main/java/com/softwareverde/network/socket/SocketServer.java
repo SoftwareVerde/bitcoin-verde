@@ -1,6 +1,7 @@
 package com.softwareverde.network.socket;
 
 import com.softwareverde.concurrent.threadpool.ThreadPool;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 
 import java.io.IOException;
@@ -53,20 +54,18 @@ public class SocketServer<T extends Socket> {
     protected final SocketFactory<T> _socketFactory;
     protected java.net.ServerSocket _socket;
 
-    protected final MutableList<T> _connections = new MutableList<>();
+    protected final MutableList<T> _connections = new MutableArrayList<>();
 
     protected Long _nextConnectionId = 0L;
     protected volatile Boolean _shouldContinue = true;
     protected Thread _serverThread = null;
-
-    protected final ThreadPool _threadPool;
 
     protected SocketConnectedCallback<T> _socketConnectedCallback = null;
     protected SocketDisconnectedCallback<T> _socketDisconnectedCallback = null;
 
     protected void _purgeDisconnectedConnections() {
         final int socketCount = _connections.getCount();
-        final MutableList<T> disconnectedSockets = new MutableList<>(socketCount);
+        final MutableList<T> disconnectedSockets = new MutableArrayList<>(socketCount);
 
         synchronized (_connections) {
             int socketIndex = 0;
@@ -91,31 +90,20 @@ public class SocketServer<T extends Socket> {
     protected void _onConnect(final T socketConnection) {
         final SocketConnectedCallback<T> socketConnectedCallback = _socketConnectedCallback;
         if (socketConnectedCallback != null) {
-            _threadPool.execute(new Runnable() {
-                @Override
-                public void run() {
-                    socketConnectedCallback.run(socketConnection);
-                }
-            });
+            socketConnectedCallback.run(socketConnection);
         }
     }
 
     protected void _onDisconnect(final T socketConnection) {
         final SocketDisconnectedCallback<T> socketDisconnectedCallback = _socketDisconnectedCallback;
         if (socketDisconnectedCallback != null) {
-            _threadPool.execute(new Runnable() {
-                @Override
-                public void run() {
-                    socketDisconnectedCallback.run(socketConnection);
-                }
-            });
+            socketDisconnectedCallback.run(socketConnection);
         }
     }
 
-    public SocketServer(final Integer port, final SocketFactory<T> socketFactory, final ThreadPool threadPool) {
+    public SocketServer(final Integer port, final SocketFactory<T> socketFactory) {
         _port = port;
         _socketFactory = socketFactory;
-        _threadPool = threadPool;
     }
 
     public void setSocketConnectedCallback(final SocketConnectedCallback<T> socketConnectedCallback) {

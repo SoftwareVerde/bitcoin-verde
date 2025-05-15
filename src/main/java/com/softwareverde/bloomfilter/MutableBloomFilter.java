@@ -1,16 +1,24 @@
 package com.softwareverde.bloomfilter;
 
-import com.softwareverde.concurrent.lock.IndexLock;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.cryptography.util.HashUtil;
+import com.softwareverde.logging.Logger;
 
 public class MutableBloomFilter implements BloomFilter {
     protected static final Double LN_2 = Math.log(2);
     protected static final Double LN_2_SQUARED = (Math.pow(LN_2, 2));
-    protected static final Integer MAX_LOCK_SEGMENT_COUNT = 256;
 
-    protected static Integer _calculateByteCount(final Long maxItemCount, final Double falsePositiveRate) {
+    protected static double calculateR(final Double falsePositiveRate, final Integer hashFunctionCount) {
+        return -hashFunctionCount / Math.log(1D - Math.exp(Math.log(falsePositiveRate) / hashFunctionCount));
+    }
+
+    public static Integer calculateByteCount(final Long maxItemCount, final Double falsePositiveRate, final Integer hashFunctionCount) {
+        final double r = MutableBloomFilter.calculateR(falsePositiveRate, hashFunctionCount);
+        return (int) Math.ceil(r * maxItemCount / 8D);
+    }
+
+    public static Integer calculateByteCount(final Long maxItemCount, final Double falsePositiveRate) {
         final int byteCount = (int) ( (-1.0D / LN_2_SQUARED * maxItemCount * Math.log(falsePositiveRate)) / 8D );
         if (byteCount < 1) { return 1; }
 
@@ -43,6 +51,11 @@ public class MutableBloomFilter implements BloomFilter {
         return mutableBloomFilter;
     }
 
+    public static MutableBloomFilter newInstance(final Long maxItemCount, final Double falsePositiveRate, final Integer hashFunctionCount, final Long nonce) {
+        final Integer byteCount = MutableBloomFilter.calculateByteCount(maxItemCount, falsePositiveRate, hashFunctionCount);
+        return new MutableBloomFilter(new MutableByteArray(byteCount), hashFunctionCount, nonce);
+    }
+
     public static MutableBloomFilter copyOf(final BloomFilter bloomFilter) {
         final MutableBloomFilter mutableBloomFilter = new MutableBloomFilter(new MutableByteArray(bloomFilter.getBytes()), bloomFilter.getHashFunctionCount(), bloomFilter.getNonce());
         mutableBloomFilter.setUpdateMode(bloomFilter.getUpdateMode());
@@ -53,55 +66,31 @@ public class MutableBloomFilter implements BloomFilter {
         return new MutableBloomFilter(byteArray, hashFunctionCount, nonce);
     }
 
-    protected final IndexLock _indexLock;
-    protected final int _indexLockSegmentCount;
-
-    protected final MutableByteArray _bytes;
+    protected MutableByteArray _bytes;
     protected final Long _nonce;
     protected final Integer _hashFunctionCount;
     protected byte _updateMode = 0x00;
-
-    protected int _getByteIndex(final long bitIndex) {
-        final long byteIndex = (bitIndex >>> 3);
-        if (byteIndex >= _bytes.getByteCount()) { throw new IndexOutOfBoundsException(); }
-
-        return ((int) byteIndex);
-    }
-
-    protected Integer _calculateLockSegmentCount(final Integer byteCount) {
-        if (byteCount < MAX_LOCK_SEGMENT_COUNT) {
-            return byteCount;
-        }
-
-        return MAX_LOCK_SEGMENT_COUNT;
-    }
 
     /**
      * NOTICE: The provided byteArray is not copied and used directly as the member variable...
      */
     protected MutableBloomFilter(final MutableByteArray byteArray, final Integer hashFunctionCount, final Long nonce) {
         _bytes = byteArray;
-        _indexLockSegmentCount = _calculateLockSegmentCount(byteArray.getByteCount());
-        _indexLock = new IndexLock(_indexLockSegmentCount);
         _hashFunctionCount = hashFunctionCount;
         _nonce = _makeUnsignedInt(nonce);
     }
 
     protected MutableBloomFilter(final Long maxItemCount, final Double falsePositiveRate, final Long nonce) {
-        final Integer byteCount = _calculateByteCount(maxItemCount, falsePositiveRate);
+        final Integer byteCount = MutableBloomFilter.calculateByteCount(maxItemCount, falsePositiveRate);
         _bytes = new MutableByteArray(byteCount);
-        _indexLockSegmentCount = _calculateLockSegmentCount(byteCount);
-        _indexLock = new IndexLock(_indexLockSegmentCount);
-        _hashFunctionCount = calculateFunctionCount(byteCount, maxItemCount);
+        _hashFunctionCount = MutableBloomFilter.calculateFunctionCount(byteCount, maxItemCount);
         _nonce = _makeUnsignedInt(nonce);
     }
 
     protected MutableBloomFilter(final Long maxItemCount, final Double falsePositiveRate) {
-        final Integer byteCount = _calculateByteCount(maxItemCount, falsePositiveRate);
+        final Integer byteCount = MutableBloomFilter.calculateByteCount(maxItemCount, falsePositiveRate);
         _bytes = new MutableByteArray(byteCount);
-        _indexLockSegmentCount = _calculateLockSegmentCount(byteCount);
-        _indexLock = new IndexLock(_indexLockSegmentCount);
-        _hashFunctionCount = calculateFunctionCount(byteCount, maxItemCount);
+        _hashFunctionCount = MutableBloomFilter.calculateFunctionCount(byteCount, maxItemCount);
 
         // NOTE: Making large nonces may cause the murmurHash initialization vector to overflow in a way inconsistent with the other clients...
         //  It's unconfirmed (either way) for whether MurmurHash and Bitcoin's MurmurHash handle the overflow the same.
@@ -133,22 +122,23 @@ public class MutableBloomFilter implements BloomFilter {
         for (int i = 0; i < _hashFunctionCount; ++i) {
             final Long hash = HashUtil.murmurHash(_nonce, i, item);
             final long index = (hash % bitCount);
-
-            final int byteIndex = _getByteIndex(index);
-            final int lockIndex = (byteIndex % _indexLockSegmentCount);
-            try {
-                _indexLock.lock(lockIndex);
-                _bytes.setBit(index, true);
-            }
-            finally {
-                _indexLock.unlock(lockIndex);
-            }
+            _bytes.setBit(index, true);
         }
     }
 
     @Override
     public Boolean containsItem(final ByteArray item) {
         return BloomFilterCore.containsItem(_bytes, _hashFunctionCount, _nonce, item);
+    }
+
+    @Override
+    public Boolean containsItem(final BloomFilterItem item) {
+        if (item.getNonce() != _nonce) {
+            Logger.debug("Item nonce does not match BloomFilter nonce.");
+            return BloomFilterCore.containsItem(_bytes, _hashFunctionCount, _nonce, item.getBytes());
+        }
+
+        return BloomFilterCore.containsItem(_bytes, _hashFunctionCount, item);
     }
 
     @Override
@@ -163,15 +153,7 @@ public class MutableBloomFilter implements BloomFilter {
     public void clear() {
         final int byteCount = _bytes.getByteCount();
         for (int i = 0; i < byteCount; ++i) {
-            final int lockIndex = (i % _indexLockSegmentCount);
-
-            try {
-                _indexLock.lock(lockIndex);
-                _bytes.setByte(i, (byte) 0x00);
-            }
-            finally {
-                _indexLock.unlock(lockIndex);
-            }
+            _bytes.setByte(i, (byte) 0x00);
         }
     }
 

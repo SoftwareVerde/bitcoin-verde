@@ -33,32 +33,70 @@ class StatusUi {
             }
 
             if (wasSuccess) {
+                const blockDelta = (statistics.blockHeight - (StatusUi.previousBlockHeight || statistics.blockHeight));
+                StatusUi.previousBlockHeight = statistics.blockHeight;
+
                 $(".block-header-height-value").text(statistics.blockHeaderHeight);
                 $(".block-header-date-value").text(DateUtil.formatDateIso(statistics.blockHeaderTimestamp));
                 $(".block-height-value").text(statistics.blockHeight);
                 $(".block-date-value").text(DateUtil.formatDateIso(statistics.blockTimestamp));
 
+                if (blockDelta > 0) {
+                    var div = window.document.createElement("div");
+                    $(div).text("+" + blockDelta);
+                    $(div).css({
+                        "position": "absolute",
+                        "color": "#40FF40",
+                        "font-weight": "bold",
+                        "top": $(".block-height-value").offset().top + "px",
+                        "left": ($(".block-height-value").offset().left + 45) + "px"
+                    });
+                    $(div).animate({
+                        "top": ($(".block-height-value").offset().top - 100) + "px",
+                        "opacity": 0
+                    }, 1500, "swing", function() {
+                        window.document.body.removeChild(div);
+                    });
+                    window.document.body.appendChild(div);
+                }
+
+                $(".block-headers-per-second").toggle(false); // Deprecated
                 $(".block-headers-per-second").text(statistics.blockHeadersPerSecond);
+
+                $(".blocks-indexed-per-second").toggle(statistics.blocksIndexedPerSecond != null);
+                $(".blocks-indexed-per-second").text(statistics.blocksIndexedPerSecond);
+
+                $(".blocks-per-second").toggle(statistics.blocksPerSecond != null);
                 $(".blocks-per-second").text(statistics.blocksPerSecond);
+
+                $(".transactions-per-second").toggle(statistics.transactionsPerSecond != null);
                 $(".transactions-per-second").text(statistics.transactionsPerSecond);
 
-                if (statistics.indexingPercentComplete && statistics.slpIndexingPercentComplete) {
-                    $(".transaction-indexing-value").text((100.0 * statistics.indexingPercentComplete).toFixed(2) + "%");
-                    $(".slp-indexing-value").text((100.0 * statistics.slpIndexingPercentComplete).toFixed(2) + "%");
-
+                if (statistics.indexingPercentComplete) {
+                    // $(".transaction-indexing-value").text((100.0 * statistics.indexingPercentComplete).toFixed(2) + "%");
+                    $(".transaction-indexing-value").text(window.Math.ceil(window.parseInt(statistics.blockHeaderHeight) * window.parseFloat(statistics.indexingPercentComplete)));
+                    if (statistics.slpIndexingPercentComplete) {
+                        $(".slp-indexing-value").text((100.0 * statistics.slpIndexingPercentComplete).toFixed(2) + "%");
+                        $(".indexing-labels .slp-label").toggle(true);
+                    }
+                    else {
+                        $(".indexing-labels .slp-label").toggle(false);
+                    }
                     $(".indexing-progress-container").toggle(true);
                 }
                 else {
                     $(".indexing-progress-container").toggle(false);
                 }
 
-                { // Server Load
+                $(".server-load").toggle(false);
+                if (false) { // Server Load
                     const threadPoolActiveThreadCount = window.parseFloat(serverLoad.threadPoolActiveThreadCount);
                     const threadPoolMaxThreadCount = window.parseFloat(serverLoad.threadPoolMaxThreadCount);
                     const threadPoolQueueCount = window.parseFloat(serverLoad.threadPoolQueueCount);
                     const percentServerLoad = ((100.0 * threadPoolActiveThreadCount + threadPoolQueueCount) / threadPoolMaxThreadCount).toFixed(2);
                     $(".server-load-bar .server-load-fill").css("width", (percentServerLoad > 100 ? 100 : percentServerLoad) + "%");
                     $(".server-load-bar .server-load-text").text(percentServerLoad + "%");
+                    $(".server-load").toggle(true);
                 }
 
                 { // Server Memory
@@ -69,13 +107,15 @@ class StatusUi {
                     $(".server-memory-bar .server-memory-text").text(percentMemoryUsage + "%");
                 }
 
-                { // UTXO Cache
+                $(".utxo-cache").toggle(false);
+                if (false) { // UTXO Cache
                     // utxoCacheStatus.utxoCacheCount, utxoCacheStatus.maxUtxoCacheCount, utxoCacheStatus.uncommittedUtxoCount, utxoCacheStatus.committedUtxoBlockHeight
                     const utxoCacheCount = window.parseFloat(utxoCacheStatus.utxoCacheCount);
                     const maxUtxoCacheCount = window.parseFloat(utxoCacheStatus.maxUtxoCacheCount);
                     const percentCached = (100.0 * (utxoCacheCount / maxUtxoCacheCount)).toFixed(2);
                     $(".utxo-cache-bar .utxo-cache-fill").css("width", (percentCached > 100 ? 100 : percentCached) + "%");
                     $(".utxo-cache-bar .utxo-cache-text").text(percentCached + "%");
+                    $(".utxo-cache").toggle(true);
                 }
 
                 { // Sync Progress
@@ -95,7 +135,7 @@ class StatusUi {
                     $(".percent-done-text", container).text(percentComplete + "%");
                 }
 
-                { // Slp Indexing Progress
+                if (statistics.slpIndexingPercentComplete) { // Slp Indexing Progress
                     const container = $(".indexing-progress-container");
                     const slpIndexingPercentComplete = window.parseFloat(statistics.slpIndexingPercentComplete);
                     const percentComplete = (100.0 * slpIndexingPercentComplete).toFixed(2);
@@ -103,7 +143,8 @@ class StatusUi {
                     $(".percent-done-text", container).text(percentComplete + "%");
                 }
 
-                { // Service Statuses
+                $(".service-statuses").toggle(false);
+                if (false) { // Service Statuses
                     const serviceStatusContainer = $(".service-statuses");
                     serviceStatusContainer.empty();
                     let serviceNames = [];
@@ -119,6 +160,7 @@ class StatusUi {
                         element.toggleClass("service-active", (serviceStatus == "ACTIVE"));
                         serviceStatusContainer.append(element);
                     }
+                    serviceStatusContainer.toggle(true);
                 }
             }
             else {

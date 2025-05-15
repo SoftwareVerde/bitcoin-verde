@@ -8,17 +8,17 @@ import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.context.ContextException;
 import com.softwareverde.bitcoin.context.core.AsertReferenceBlockLoader;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
-import java.util.HashMap;
-
 public class FakeReferenceBlockLoaderContext implements AsertReferenceBlockLoader.ReferenceBlockLoaderContext {
-    protected final HashMap<BlockchainSegmentId, BlockId> _headBlockIds = new HashMap<>();
-    protected final HashMap<BlockId, MedianBlockTime> _medianBlockTimes = new HashMap<>();
-    protected final HashMap<BlockId, Long> _blockTimestamps = new HashMap<>();
-    protected final HashMap<BlockId, Long> _blockHeights = new HashMap<>();
-    protected final HashMap<BlockId, Difficulty> _difficulties = new HashMap<>();
+    protected final MutableMap<BlockchainSegmentId, BlockId> _headBlockIds = new MutableHashMap<>();
+    protected final MutableMap<BlockId, MedianBlockTime> _medianBlockTimes = new MutableHashMap<>();
+    protected final MutableMap<BlockId, Long> _blockTimestamps = new MutableHashMap<>();
+    protected final MutableMap<BlockId, Long> _blockHeights = new MutableHashMap<>();
+    protected final MutableMap<BlockId, Difficulty> _difficulties = new MutableHashMap<>();
     protected final UpgradeSchedule _upgradeSchedule;
 
     protected Integer _lookupCount = 0;
@@ -100,7 +100,7 @@ public class FakeReferenceBlockLoaderContext implements AsertReferenceBlockLoade
     public BlockId getBlockIdAtHeight(final BlockchainSegmentId blockchainSegmentId, final Long blockHeight) {
         _lookupCount += 1;
 
-        for (final BlockId blockId : _blockHeights.keySet()) {
+        for (final BlockId blockId : _blockHeights.getKeys()) {
             final Long blockIdBlockHeight = _blockHeights.get(blockId);
             if (Util.areEqual(blockHeight, blockIdBlockHeight)) {
                 return blockId;

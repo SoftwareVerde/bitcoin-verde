@@ -67,16 +67,15 @@ import com.softwareverde.bitcoin.server.message.type.version.acknowledge.Bitcoin
 import com.softwareverde.bitcoin.server.message.type.version.synchronize.BitcoinSynchronizeVersionMessage;
 import com.softwareverde.bitcoin.server.message.type.version.synchronize.BitcoinSynchronizeVersionMessageInflater;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.message.ProtocolMessageFactory;
 import com.softwareverde.util.HexUtil;
 
-import java.util.HashMap;
-import java.util.Map;
-
 public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory<BitcoinProtocolMessage> {
     protected final BitcoinProtocolMessageHeaderInflater _protocolMessageHeaderParser;
-    protected final Map<MessageType, BitcoinProtocolMessageInflater> _commandInflaterMap = new HashMap<>();
+    protected final MutableMap<MessageType, BitcoinProtocolMessageInflater> _commandInflaterMap = new MutableHashMap<>();
 
     protected final MasterInflater _masterInflater;
 

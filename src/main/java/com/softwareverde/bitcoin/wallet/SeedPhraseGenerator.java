@@ -4,6 +4,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.ListUtil;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
@@ -132,7 +133,7 @@ public class SeedPhraseGenerator {
      * @return
      */
     public List<String> validateSeedPhrase(final String expectedSeedPhrase) {
-        final MutableList<String> errors = new MutableList<>();
+        final MutableList<String> errors = new MutableArrayList<>();
 
         final String[] seedWords = expectedSeedPhrase.split(" ");
         for (final String word : seedWords) {

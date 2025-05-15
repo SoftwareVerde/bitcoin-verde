@@ -4,15 +4,15 @@ $(document).ready(function() {
     const searchInput = $("#search");
     const loadingImage = $("#search-loading-image");
 
-    const renderObject = function(object, objectType) {
+    const renderObject = function(object, objectType, pageNumber) {
         if ( (objectType == Constants.BLOCK) || (objectType == Constants.BLOCK_HEADER) ) {
-            Ui.renderBlock(object);
+            Ui.renderBlock(object, pageNumber);
         }
         else if (objectType == Constants.ADDRESS) {
-            Ui.renderAddress(object);
+            Ui.renderAddress(object, pageNumber);
         }
         else if (objectType == Constants.TRANSACTION) {
-            Ui.renderTransaction(object);
+            Ui.renderTransaction(object, pageNumber);
         }
         else {
             Console.log("Unknown ObjectType: " + objectType);
@@ -155,7 +155,7 @@ $(document).ready(function() {
         if ( (Ui.currentObject != null) && (Ui.currentObjectType != null) ) {
             const originalScrollOffset = window.scrollY;
 
-            renderObject(Ui.currentObject, Ui.currentObjectType);
+            renderObject(Ui.currentObject, Ui.currentObjectType, Ui.currentPageNumber);
 
             window.setTimeout(function() {
                 window.scrollTo({
@@ -164,4 +164,26 @@ $(document).ready(function() {
             }, 0);
         }
     });
+
+    window.onpopstate = function(event) {
+        const query = window.history.state && window.history.state.query;
+        if (query) {
+            let pageNumber = window.history.state.pageNumber;
+            Api.search({ query: query, pageNumber: pageNumber }, function(data) {
+                loadingImage.css("visibility", "hidden");
+
+                const wasSuccess = data.wasSuccess;
+                const errorMessage = data.errorMessage;
+                const objectType = data.objectType;
+                const object = data.object;
+
+                if (wasSuccess) {
+                    renderObject(object, objectType, pageNumber);
+                }
+                else {
+                   console.log(errorMessage);
+                }
+            });
+        }
+    };
 });

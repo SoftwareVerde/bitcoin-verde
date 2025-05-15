@@ -1,26 +1,28 @@
 package com.softwareverde.bitcoin.stratum;
 
-import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.json.Json;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.socket.JsonProtocolMessage;
 import com.softwareverde.network.socket.JsonSocket;
 
+import java.net.InetSocketAddress;
 import java.net.Socket;
 
 public class ProxyViaBtcMessageReceivedCallback implements Runnable {
-    protected final ThreadPool _threadPool;
     protected final JsonSocket _jsonSocket;
 
-    public ProxyViaBtcMessageReceivedCallback(final JsonSocket jsonSocket, final ThreadPool threadPool) {
-        _threadPool = threadPool;
+    public ProxyViaBtcMessageReceivedCallback(final JsonSocket jsonSocket) {
         _jsonSocket = jsonSocket;
     }
 
     @Override
     public void run() {
         try {
-            final JsonSocket viaBtcSocket = new JsonSocket(new Socket("bch.viabtc.com", 3333), _threadPool);
+            final Socket socket = new Socket();
+            socket.connect(new InetSocketAddress("bch.viabtc.com", 3333), 3000);
+            if (! socket.isConnected()) { throw new RuntimeException("Unable to connect."); }
+
+            final JsonSocket viaBtcSocket = new JsonSocket(socket);
 
             viaBtcSocket.setMessageReceivedCallback(new Runnable() {
                 @Override

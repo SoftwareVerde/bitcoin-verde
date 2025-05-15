@@ -1,12 +1,13 @@
 package com.softwareverde.bitcoin.test.util;
 
+import com.softwareverde.constable.map.Map;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.database.query.parameter.TypedParameter;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.ReflectionUtil;
 
-import java.util.HashMap;
-import java.util.Map;
 
 public class TestUtil {
     private static void _fail(final String message) {
@@ -58,7 +59,7 @@ public class TestUtil {
         int i = 0;
         for (final Row row : rows) {
             final Map<String, TypedParameter> values = ReflectionUtil.getValue(row, "_columnValues");
-            final HashMap<String, Object> debugValues = new HashMap<>();
+            final MutableMap<String, Object> debugValues = new MutableHashMap<>();
             for (final String columnName : row.getColumnNames()) {
                 final TypedParameter typedParameter = values.get(columnName);
                 if (typedParameter.value instanceof byte[]) {

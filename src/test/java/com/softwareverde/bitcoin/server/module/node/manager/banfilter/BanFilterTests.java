@@ -1,15 +1,13 @@
 package com.softwareverde.bitcoin.server.module.node.manager.banfilter;
 
-import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeStore;
+import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeStoreCore;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.test.fake.FakeBitcoinNode;
-import com.softwareverde.bitcoin.test.fake.database.FakeBitcoinNodeDatabaseManager;
-import com.softwareverde.bitcoin.test.fake.database.FakeDatabaseManager;
-import com.softwareverde.bitcoin.test.fake.database.FakeDatabaseManagerFactory;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Tuple;
+import com.softwareverde.util.Util;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -34,46 +32,33 @@ public class BanFilterTests extends UnitTest {
         final String userAgent = "/Bitcoin SV:1.0.3/";
         final Pattern pattern = Pattern.compile(".*Bitcoin SV.*");
 
-
         final Tuple<Ip, Boolean> wasBanned = new Tuple<>();
         final Container<Boolean> wasDisconnected = new Container<>(false);
 
-        final BanFilterCore banFilter = new BanFilterCore(new FakeDatabaseManagerFactory() {
+        final BitcoinNodeStore bitcoinNodeStore = new BitcoinNodeStoreCore(){
             @Override
-            public DatabaseManager newDatabaseManager() {
-                return new FakeDatabaseManager() {
-                    @Override
-                    public BitcoinNodeDatabaseManager getNodeDatabaseManager() {
-                        return new FakeBitcoinNodeDatabaseManager() {
-                            @Override
-                            public void setIsBanned(final Ip ip, final Boolean isBanned) {
-                                wasBanned.first = ip;
-                                wasBanned.second = isBanned;
-                            }
-                        };
-                    }
+            public void banIp(final Ip ip) {
+                super.banIp(ip);
 
-                    @Override
-                    public void startTransaction() {
-                        // Nothing.
-                    }
-
-                    @Override
-                    public void commitTransaction() {
-                        // Nothing.
-                    }
-
-                    @Override
-                    public void rollbackTransaction() {
-                        // Nothing.
-                    }
-                };
+                wasBanned.first = ip;
+                wasBanned.second = true;
             }
-        });
+
+            @Override
+            public void unbanIp(final Ip ip) {
+                super.unbanIp(ip);
+
+                if (Util.areEqual(wasBanned.first, ip)) {
+                    wasBanned.second = false;
+                }
+            }
+        };
+
+        final BanFilterCore banFilter = new BanFilterCore(bitcoinNodeStore);
 
         banFilter.addToUserAgentBlacklist(pattern);
 
-        final FakeBitcoinNode fakeBitcoinNode = new FakeBitcoinNode("1.2.3.4", 8333, null, null) {
+        final FakeBitcoinNode fakeBitcoinNode = new FakeBitcoinNode("1.2.3.4", 8333, null) {
             @Override
             public void disconnect() {
                 wasDisconnected.value = true;

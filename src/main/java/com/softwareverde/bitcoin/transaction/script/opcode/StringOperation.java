@@ -9,7 +9,10 @@ import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayReader;
+
+import java.math.BigInteger;
 
 public class StringOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_STRING;
@@ -59,7 +62,8 @@ public class StringOperation extends SubTypedOperation {
                 // NOTE: The concept of a MAX_BYTE_COUNT is to prevent memory exhaustion attacks, which can happen by repeating
                 //  multiple COPY_1ST STRING_CONCATENATE commands multiple times.  For instance, every 10 repetitions,
                 //  the memory usage increases 1024 times.
-                if (totalByteCount > MAX_BYTE_COUNT) {
+                final int maxByteCount = (upgradeSchedule.areBigScriptIntegersEnabled(medianBlockTime) ? Value.MAX_BYTE_COUNT : MAX_BYTE_COUNT);
+                if (totalByteCount > maxByteCount) {
                     Logger.debug("Max byte-count exceeded for Opcode: " + _opcode);
                     return false;
                 }
@@ -123,20 +127,40 @@ public class StringOperation extends SubTypedOperation {
                 // { 0x00, 0x00, 0x00, 0x02 } ENCODE_NUMBER -> { 0x02 }
                 // { 0x80, 0x00, 0x05 } ENCODE_NUMBER -> { 0x80, 0x00, 0x05 }
 
-                final Value value = stack.pop();
+                if (upgradeSchedule.areBigScriptIntegersEnabled(medianBlockTime)) {
+                    final Value value = stack.pop();
+                    {
+                        final Value minimallyEncodedValue = Value.minimallyEncodeBytes(value);
+                        if (minimallyEncodedValue == null) { return false; }
+                    }
 
-                final Long valueInteger = value.asLong();
+                    final BigInteger bigIntValue = value.asBigInteger();
+                    final Value newValue = Value.fromBigInt(bigIntValue);
+                    stack.push(newValue);
 
-                final Value newValue = Value.fromInteger(valueInteger);
-
-                if (! newValue.isWithinLongIntegerRange()) { return false; }
-                if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
-                    if (! newValue.isWithinIntegerRange()) { return false; }
+                    return (! stack.didOverflow());
                 }
+                else {
+                    final Value value = stack.pop();
+                    {
+                        // if (! value.isMinimallyEncodedLong()) { return false; }
+                        final Value minimallyEncodedValue = Value.minimallyEncodeBytes(value);
+                        if (minimallyEncodedValue == null || minimallyEncodedValue.getByteCount() > 8) { return false; }
+                    }
 
-                stack.push(newValue);
+                    final Long valueInteger = value.asLong();
 
-                return (! stack.didOverflow());
+                    final Value newValue = Value.fromInteger(valueInteger);
+
+                    if (! newValue.isWithinLongIntegerRange()) { return false; }
+                    if (! upgradeSchedule.are64BitScriptIntegersEnabled(medianBlockTime)) {
+                        if (! newValue.isWithinIntegerRange()) { return false; }
+                    }
+
+                    stack.push(newValue);
+
+                    return (! stack.didOverflow());
+                }
             }
 
             // Decodes an MPI-encoded number into a signed byte array of specific size.
@@ -158,7 +182,12 @@ public class StringOperation extends SubTypedOperation {
                 if (byteCountValue.getByteCount() > 4) { return false; }
 
                 final int byteCount = byteCountValue.asInteger();
-                if (byteCount > StringOperation.MAX_BYTE_COUNT) { return false; }
+                if (upgradeSchedule.areBigScriptIntegersEnabled(medianBlockTime)) {
+                    if (byteCount > Value.MAX_BYTE_COUNT) { return false; }
+                }
+                else {
+                    if (byteCount > StringOperation.MAX_BYTE_COUNT) { return false; }
+                }
 
                 final MutableByteArray minimallyEncodedByteArray;
                 {

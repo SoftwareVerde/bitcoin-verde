@@ -1,10 +1,10 @@
 package com.softwareverde.bitcoin.server.node;
 
 import com.softwareverde.bitcoin.server.message.type.MessageType;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
-
-import java.util.HashMap;
 
 public class MessageRouter {
     public interface MessageHandler {
@@ -15,7 +15,7 @@ public class MessageRouter {
         void run(MessageType messageType, ProtocolMessage message, BitcoinNode bitcoinNode);
     }
 
-    protected final HashMap<MessageType, MessageHandler> _routingTable = new HashMap<>();
+    protected final MutableMap<MessageType, MessageHandler> _routingTable = new MutableHashMap<>();
     protected UnknownRouteHandler _unknownRouteHandler;
 
     public void addRoute(final MessageType messageType, final MessageHandler messageHandler) {

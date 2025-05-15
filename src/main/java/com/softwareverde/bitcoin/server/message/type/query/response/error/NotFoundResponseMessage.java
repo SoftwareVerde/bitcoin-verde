@@ -7,13 +7,14 @@ import com.softwareverde.bitcoin.server.message.type.query.response.hash.Invento
 import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
 public class NotFoundResponseMessage extends BitcoinProtocolMessage {
 
-    private final MutableList<InventoryItem> _inventoryItems = new MutableList<>();
+    private final MutableList<InventoryItem> _inventoryItems = new MutableArrayList<>();
 
     public NotFoundResponseMessage() {
         super(MessageType.NOT_FOUND);

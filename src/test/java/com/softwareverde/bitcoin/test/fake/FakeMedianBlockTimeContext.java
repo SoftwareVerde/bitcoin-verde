@@ -2,11 +2,11 @@ package com.softwareverde.bitcoin.test.fake;
 
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
-
-import java.util.HashMap;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 
 public class FakeMedianBlockTimeContext implements MedianBlockTimeContext {
-    protected final HashMap<Long, MedianBlockTime> _medianBlockTimes = new HashMap<>();
+    protected final MutableMap<Long, MedianBlockTime> _medianBlockTimes = new MutableHashMap<>();
 
     @Override
     public MedianBlockTime getMedianBlockTime(final Long blockHeight) {

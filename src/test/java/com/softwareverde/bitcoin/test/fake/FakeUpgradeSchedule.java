@@ -19,6 +19,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     protected Boolean _areOnlyPushOperationsAllowedWithinUnlockingScript;
     protected Boolean _isPayToScriptHashEnabled;
     protected Boolean _areCashTokensEnabled;
+    protected Boolean _areBigScriptIntegersEnabled;
     protected Boolean _isSha256PayToScriptHashEnabled;
     protected Boolean _isAsertDifficultyAdjustmentAlgorithmEnabled;
     protected Boolean _isCw144DifficultyAdjustmentAlgorithmEnabled;
@@ -226,6 +227,11 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
         return _isOverriddenOrEnabled(_areCashTokensEnabled, _parentUpgradeSchedule.areCashTokensEnabled(Util.coalesce(medianBlockTime, MedianBlockTime.MAX_VALUE)));
     }
 
+    @Override
+    public Boolean areBigScriptIntegersEnabled(final MedianBlockTime medianBlockTime) {
+        return _isOverriddenOrEnabled(_areBigScriptIntegersEnabled, _parentUpgradeSchedule.areBigScriptIntegersEnabled(Util.coalesce(medianBlockTime, MedianBlockTime.MAX_VALUE)));
+    }
+
     public void setMinimalNumberEncodingRequired(final Boolean minimalNumberEncodingRequired) {
         _isMinimalNumberEncodingRequired = minimalNumberEncodingRequired;
     }
@@ -244,6 +250,10 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
 
     public void setCashTokensEnabled(final Boolean cashTokensEnabled) {
         _areCashTokensEnabled = cashTokensEnabled;
+    }
+
+    public void setBigScriptIntegersEnabled(final Boolean isEnabled) {
+        _areBigScriptIntegersEnabled = isEnabled;
     }
 
     public void setSha256PayToScriptHashEnabled(final Boolean sha256PayToScriptHashIsEnabled) {
@@ -338,11 +348,11 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
         _isReverseBytesOperationEnabled = reverseBytesOperationEnabled;
     }
 
-    public void setAreIntrospectionOperationsEnabled(final Boolean areIntrospectionOperationsEnabled) {
+    public void setIntrospectionOperationsEnabled(final Boolean areIntrospectionOperationsEnabled) {
         _areIntrospectionOperationsEnabled = areIntrospectionOperationsEnabled;
     }
 
-    public void setAre64BitScriptIntegersEnabled(final Boolean are64BitScriptIntegersEnabled) {
+    public void set64BitScriptIntegersEnabled(final Boolean are64BitScriptIntegersEnabled) {
         _are64BitScriptIntegersEnabled = are64BitScriptIntegersEnabled;
     }
 

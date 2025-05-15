@@ -4,11 +4,13 @@ import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
-import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
+import com.softwareverde.bitcoin.server.module.node.Blockchain;
+import com.softwareverde.bitcoin.test.MockBlockStore;
 import com.softwareverde.bitcoin.test.UnitTest;
-import com.softwareverde.bitcoin.test.fake.FakeStaticMedianBlockTimeContext;
 import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputContext;
+import com.softwareverde.bitcoin.test.fake.MockBlockchain;
 import com.softwareverde.bitcoin.test.util.TransactionTestUtil;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -42,11 +44,13 @@ public class TransactionValidatorTests extends UnitTest {
     @Test
     public void should_validate_valid_transaction() throws Exception {
         // Setup
-        final MasterInflater masterInflater = new CoreInflater();
         final FakeUnspentTransactionOutputContext unspentTransactionOutputContext = new FakeUnspentTransactionOutputContext();
         final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
-        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(masterInflater, new MutableNetworkTime(), FakeStaticMedianBlockTimeContext.MAX_MEDIAN_BLOCK_TIME, unspentTransactionOutputContext, upgradeSchedule);
-        final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
+        final MockBlockStore blockStore = new MockBlockStore();
+        final MockBlockchain blockchain = new MockBlockchain(blockStore);
+        final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(upgradeSchedule, blockchain, new MutableNetworkTime(), unspentTransactionOutputContext);
+
+        blockchain.setMedianBlockTime(99999L, MedianBlockTime.fromSeconds(1293622434L));
 
         final TransactionInflater transactionInflater = new TransactionInflater();
 
@@ -67,11 +71,13 @@ public class TransactionValidatorTests extends UnitTest {
     @Test
     public void should_create_signed_transaction_and_unlock_it() throws Exception {
         // Setup
-        final MasterInflater masterInflater = new CoreInflater();
         final FakeUnspentTransactionOutputContext unspentTransactionOutputContext = new FakeUnspentTransactionOutputContext();
         final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
-        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(masterInflater, new MutableNetworkTime(), FakeStaticMedianBlockTimeContext.MAX_MEDIAN_BLOCK_TIME, unspentTransactionOutputContext, upgradeSchedule);
-        final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
+        final MockBlockStore blockStore = new MockBlockStore();
+        final MockBlockchain blockchain = new MockBlockchain(blockStore);
+        final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(upgradeSchedule, blockchain, new MutableNetworkTime(), unspentTransactionOutputContext);
+
+        blockchain.setMedianBlockTime(0L, MedianBlockTime.fromSeconds(1231469665L));
 
         final AddressInflater addressInflater = new AddressInflater();
         final PrivateKey privateKey = PrivateKey.createNewKey();
@@ -113,8 +119,11 @@ public class TransactionValidatorTests extends UnitTest {
         final AddressInflater addressInflater = masterInflater.getAddressInflater();
         final FakeUnspentTransactionOutputContext unspentTransactionOutputContext = new FakeUnspentTransactionOutputContext();
         final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
-        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(masterInflater, new MutableNetworkTime(), FakeStaticMedianBlockTimeContext.MAX_MEDIAN_BLOCK_TIME, unspentTransactionOutputContext, upgradeSchedule);
-        final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
+        final MockBlockStore blockStore = new MockBlockStore();
+        final MockBlockchain blockchain = new MockBlockchain(blockStore);
+        final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(upgradeSchedule, blockchain, new MutableNetworkTime(), unspentTransactionOutputContext);
+
+        blockchain.setMedianBlockTime(0L, MedianBlockTime.fromSeconds(1231469665L));
 
         final PrivateKey privateKey = PrivateKey.createNewKey();
 
@@ -156,8 +165,11 @@ public class TransactionValidatorTests extends UnitTest {
         final AddressInflater addressInflater = masterInflater.getAddressInflater();
         final FakeUnspentTransactionOutputContext unspentTransactionOutputContext = new FakeUnspentTransactionOutputContext();
         final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
-        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(masterInflater, new MutableNetworkTime(), FakeStaticMedianBlockTimeContext.MAX_MEDIAN_BLOCK_TIME, unspentTransactionOutputContext, upgradeSchedule);
-        final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
+        final MockBlockStore blockStore = new MockBlockStore();
+        final MockBlockchain blockchain = new MockBlockchain(blockStore);
+        final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(upgradeSchedule, blockchain, new MutableNetworkTime(), unspentTransactionOutputContext);
+
+        blockchain.setMedianBlockTime(0L, MedianBlockTime.fromSeconds(1231469665L));
 
         final PrivateKey privateKey = PrivateKey.createNewKey();
 
@@ -201,8 +213,11 @@ public class TransactionValidatorTests extends UnitTest {
         final AddressInflater addressInflater = masterInflater.getAddressInflater();
         final FakeUnspentTransactionOutputContext unspentTransactionOutputContext = new FakeUnspentTransactionOutputContext();
         final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
-        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(masterInflater, new MutableNetworkTime(), FakeStaticMedianBlockTimeContext.MAX_MEDIAN_BLOCK_TIME, unspentTransactionOutputContext, upgradeSchedule);
-        final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
+        final MockBlockStore blockStore = new MockBlockStore();
+        final MockBlockchain blockchain = new MockBlockchain(blockStore);
+        final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(upgradeSchedule, blockchain, new MutableNetworkTime(), unspentTransactionOutputContext);
+
+        blockchain.setMedianBlockTime(0L, MedianBlockTime.fromSeconds(1231469665L));
 
         final PrivateKey privateKey = PrivateKey.createNewKey();
 
@@ -242,8 +257,8 @@ public class TransactionValidatorTests extends UnitTest {
         final AddressInflater addressInflater = masterInflater.getAddressInflater();
         final FakeUnspentTransactionOutputContext unspentTransactionOutputContext = new FakeUnspentTransactionOutputContext(false);
         final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
-        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(masterInflater, new MutableNetworkTime(), FakeStaticMedianBlockTimeContext.MAX_MEDIAN_BLOCK_TIME, unspentTransactionOutputContext, upgradeSchedule);
-        final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
+        final MockBlockStore blockStore = new MockBlockStore();
+        final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(upgradeSchedule, new Blockchain(blockStore), new MutableNetworkTime(), unspentTransactionOutputContext);
 
         final PrivateKey privateKey = PrivateKey.createNewKey();
 

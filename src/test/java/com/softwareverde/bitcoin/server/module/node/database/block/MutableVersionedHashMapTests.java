@@ -1,9 +1,9 @@
 package com.softwareverde.bitcoin.server.module.node.database.block;
 
 import com.softwareverde.bitcoin.test.UnitTest;
+import com.softwareverde.constable.Visitor;
 import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
-import com.softwareverde.util.map.Map;
 import com.softwareverde.util.map.MutableVersionedHashMap;
 import org.junit.After;
 import org.junit.Assert;
@@ -33,7 +33,7 @@ public class MutableVersionedHashMapTests extends UnitTest {
         }
 
         final AtomicInteger visitCount = new AtomicInteger(0);
-        map.visit(new Map.Visitor<>() {
+        map.visit(new Visitor<>() {
             @Override
             public boolean run(final Tuple<Integer, String> entry) {
                 Assert.assertEquals(entry.first, Util.parseInt(entry.second));
@@ -57,7 +57,7 @@ public class MutableVersionedHashMapTests extends UnitTest {
         map.applyVersion();
 
         final AtomicInteger visitCount = new AtomicInteger(0);
-        map.visit(new Map.Visitor<>() {
+        map.visit(new Visitor<>() {
             @Override
             public boolean run(final Tuple<Integer, String> entry) {
                 Assert.assertEquals(entry.first, Util.parseInt(entry.second));
@@ -87,7 +87,7 @@ public class MutableVersionedHashMapTests extends UnitTest {
         map.applyVersion();
 
         final AtomicInteger visitCount = new AtomicInteger(0);
-        map.visit(new Map.Visitor<>() {
+        map.visit(new Visitor<>() {
             @Override
             public boolean run(final Tuple<Integer, String> entry) {
                 Assert.assertEquals(entry.first, Util.parseInt(entry.second));

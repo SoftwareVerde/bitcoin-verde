@@ -4,14 +4,13 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.map.Map;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
-import java.util.Map;
-
 public class AssembleThinBlockResult {
-    private BlockHeader _blockHeader;
-    private List<Sha256Hash> _transactionHashes;
-    private Map<Sha256Hash, Transaction> _mappedTransactions;
+    protected BlockHeader _blockHeader;
+    protected List<Sha256Hash> _transactionHashes;
+    protected Map<Sha256Hash, Transaction> _mappedTransactions;
 
     protected AssembleThinBlockResult(final Block block, final List<Sha256Hash> missingTransactions) {
         this.block = block;

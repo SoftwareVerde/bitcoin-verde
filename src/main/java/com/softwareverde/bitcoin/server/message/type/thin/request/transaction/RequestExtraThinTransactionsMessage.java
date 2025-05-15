@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
@@ -12,7 +13,7 @@ import com.softwareverde.util.bytearray.Endian;
 
 public class RequestExtraThinTransactionsMessage extends BitcoinProtocolMessage {
     protected Sha256Hash _blockHash = Sha256Hash.EMPTY_HASH;
-    protected List<ByteArray> _transactionShortHashes = new MutableList<>(0);
+    protected List<ByteArray> _transactionShortHashes = new MutableArrayList<>(0);
 
     public RequestExtraThinTransactionsMessage() {
         super(MessageType.REQUEST_EXTRA_THIN_TRANSACTIONS);

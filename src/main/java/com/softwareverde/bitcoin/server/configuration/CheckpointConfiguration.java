@@ -1,12 +1,11 @@
 package com.softwareverde.bitcoin.server.configuration;
 
+import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 
-import java.util.HashMap;
-
 public class CheckpointConfiguration {
-    protected final HashMap<Long, Sha256Hash> _checkpoints = new HashMap<>();
+    protected final MutableHashMap<Long, Sha256Hash> _checkpoints = new MutableHashMap<>();
 
     public CheckpointConfiguration() {
         _checkpoints.put(11111L,  Sha256Hash.fromHexString("0000000069E244F73D78E8FD29BA2FD2ED618BD6FA2EE92559F542FDB26E7C1D"));
@@ -29,6 +28,7 @@ public class CheckpointConfiguration {
         _checkpoints.put(582680L, Sha256Hash.fromHexString("000000000000000001B4B8E36AEC7D4F9671A47872CB9A74DC16CA398C7DCC18"));
         _checkpoints.put(609136L, Sha256Hash.fromHexString("000000000000000000B48BB207FAAC5AC655C313E41AC909322EAA694F5BC5B1"));
         _checkpoints.put(635259L, Sha256Hash.fromHexString("00000000000000000033DFEF1FC2D6A5D5520B078C55193A9BF498C5B27530F7"));
+        _checkpoints.put(815700L, Sha256Hash.fromHexString("000000000000000001A69AAC76CF88499619E832AFECB61846473563130F8AC8"));
     }
 
     public Boolean violatesCheckpoint(final Long blockHeight, final Sha256Hash blockHash) {

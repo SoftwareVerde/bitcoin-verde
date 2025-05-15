@@ -1,6 +1,5 @@
 package com.softwareverde.network.socket;
 
-import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
@@ -78,8 +77,6 @@ public abstract class Socket implements AutoCloseable {
     protected final OutputStream _rawOutputStream;
     protected final InputStream _rawInputStream;
 
-    protected final ThreadPool _threadPool;
-
     protected String _getHost() {
         if (_cachedHost == null) {
             Logger.debug("Performing ip lookup for: " + _socket.getRemoteSocketAddress());
@@ -102,7 +99,7 @@ public abstract class Socket implements AutoCloseable {
     protected void _onMessageReceived(final ProtocolMessage message) {
         final Runnable messageReceivedCallback = _messageReceivedCallback;
         if (messageReceivedCallback != null) {
-            _threadPool.execute(messageReceivedCallback);
+            messageReceivedCallback.run();
         }
     }
 
@@ -152,11 +149,11 @@ public abstract class Socket implements AutoCloseable {
         final Runnable onCloseCallback = _socketClosedCallback;
         _socketClosedCallback = null;
 
-        if (onCloseCallback != null) {
-            _threadPool.execute(onCloseCallback);
-        }
-
         _onSocketClosed();
+
+        if (onCloseCallback != null) {
+            onCloseCallback.run();
+        }
     }
 
     protected void _startWriteThreadIfNotStarted() {
@@ -166,7 +163,7 @@ public abstract class Socket implements AutoCloseable {
         _writeThread.start();
     }
 
-    protected Socket(final java.net.Socket socket, final ReadThread readThread, final WriteThread writeThread, final ThreadPool threadPool) {
+    protected Socket(final java.net.Socket socket, final ReadThread readThread, final WriteThread writeThread) {
         _id = NEXT_SOCKET_ID.getAndIncrement();
         _socket = socket;
 
@@ -209,8 +206,6 @@ public abstract class Socket implements AutoCloseable {
             }
         });
         _writeThread.setSocketName(socketName);
-
-        _threadPool = threadPool;
     }
 
     public void enableTcpDelay(final Boolean enableTcpDelay) {

@@ -9,7 +9,11 @@ import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.Map;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Tuple;
@@ -19,8 +23,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class SlpTransactionValidatorTests extends UnitTest {
@@ -35,10 +37,10 @@ public class SlpTransactionValidatorTests extends UnitTest {
         super.after();
     }
 
-    protected static Tuple<BlockchainIndexer, SlpTransactionValidator> _createSlpValidationComponents(final HashMap<Sha256Hash, Transaction> transactions, MutableList<Sha256Hash> validHashes) throws InterruptedException {
+    protected static Tuple<BlockchainIndexer, SlpTransactionValidator> _createSlpValidationComponents(final Map<Sha256Hash, Transaction> transactions, MutableList<Sha256Hash> validHashes) throws InterruptedException {
         final FakeTransactionOutputIndexerContext transactionOutputIndexerContext = new FakeTransactionOutputIndexerContext();
         final FakeAtomicTransactionOutputIndexerContext atomicTransactionOutputIndexerContext = transactionOutputIndexerContext.getContext();
-        for (final Transaction transaction : transactions.values()) {
+        for (final Transaction transaction : transactions.getValues()) {
             atomicTransactionOutputIndexerContext.addTransaction(transaction);
         }
 
@@ -61,7 +63,7 @@ public class SlpTransactionValidatorTests extends UnitTest {
                 new TransactionAccumulator() {
                     @Override
                     public Map<Sha256Hash, Transaction> getTransactions(final List<Sha256Hash> transactionHashes, final Boolean allowUnconfirmedTransactions) {
-                        final HashMap<Sha256Hash, Transaction> returnedTransactions = new HashMap<>(transactionHashes.getCount());
+                        final MutableMap<Sha256Hash, Transaction> returnedTransactions = new MutableHashMap<>(transactionHashes.getCount());
                         for (final Sha256Hash transactionHash : transactionHashes) {
                             returnedTransactions.put(transactionHash, atomicTransactionOutputIndexerContext.getTransaction(transactionHash));
                         }
@@ -86,8 +88,8 @@ public class SlpTransactionValidatorTests extends UnitTest {
         return new Tuple<>(blockchainIndexer, slpTransactionValidator);
     }
 
-    protected static void _validateSlpTransactions(final SlpTransactionValidator slpTransactionValidator, final HashMap<Sha256Hash, Boolean> slpValidityMap, final HashMap<Sha256Hash, Transaction> transactions) {
-        for (final Sha256Hash transactionHash : slpValidityMap.keySet()) {
+    protected static void _validateSlpTransactions(final SlpTransactionValidator slpTransactionValidator, final Map<Sha256Hash, Boolean> slpValidityMap, final Map<Sha256Hash, Transaction> transactions) {
+        for (final Sha256Hash transactionHash : slpValidityMap.getKeys()) {
             final Transaction transaction = transactions.get(transactionHash);
 
             final Boolean isValid = slpTransactionValidator.validateTransaction(transaction);
@@ -105,7 +107,7 @@ public class SlpTransactionValidatorTests extends UnitTest {
         BitcoinVerdeTestToken.loadBitcoinVerdeTestTokens(atomicTransactionOutputIndexerContext);
         final BlockchainIndexer blockchainIndexer = new BlockchainIndexer(transactionOutputIndexerContext, 0);
 
-        final HashMap<Sha256Hash, Boolean> slpValidityMap = new HashMap<>();
+        final MutableMap<Sha256Hash, Boolean> slpValidityMap = new MutableHashMap<>();
         slpValidityMap.put(Sha256Hash.fromHexString("34DD2FE8F0C5BBA8FC4F280C3815C1E46C2F52404F00DA3067D7CE12962F2ED0"), true);
         slpValidityMap.put(Sha256Hash.fromHexString("97BB8FFE6DC71AC5B263F322056069CF398CDA2677E21951364F00D2D572E887"), true);
         slpValidityMap.put(Sha256Hash.fromHexString("16EA62D94AC142BAF93A6C44C5DC961883DC4D38B85F737ED5B7BB326707C647"), false); // Invalid format.
@@ -138,7 +140,7 @@ public class SlpTransactionValidatorTests extends UnitTest {
         final SlpTransactionValidator slpTransactionValidator = new SlpTransactionValidator(new TransactionAccumulator() {
             @Override
             public Map<Sha256Hash, Transaction> getTransactions(final List<Sha256Hash> transactionHashes, final Boolean allowUnconfirmedTransactions) {
-                final HashMap<Sha256Hash, Transaction> transactions = new HashMap<>(transactionHashes.getCount());
+                final MutableMap<Sha256Hash, Transaction> transactions = new MutableHashMap<>(transactionHashes.getCount());
                 for (final Sha256Hash transactionHash : transactionHashes) {
                     final Transaction transaction = atomicTransactionOutputIndexerContext.getTransaction(transactionHash);
                     transactions.put(transactionHash, transaction);
@@ -148,7 +150,7 @@ public class SlpTransactionValidatorTests extends UnitTest {
         });
 
         // Assert
-        for (final Sha256Hash transactionHash : slpValidityMap.keySet()) {
+        for (final Sha256Hash transactionHash : slpValidityMap.getKeys()) {
             final Transaction transaction = atomicTransactionOutputIndexerContext.getTransaction(transactionHash);
             final Boolean isValid = slpTransactionValidator.validateTransaction(transaction);
             Logger.info(transactionHash + " " + (isValid != null ? "SLP" : "   ") + " " + (Util.coalesce(isValid, true) ? "VALID" : "INVALID"));
@@ -161,13 +163,13 @@ public class SlpTransactionValidatorTests extends UnitTest {
     @Test
     public void should_validate_non_trivial_recursive_slp_transaction_depth() throws Exception {
         // Setup
-        final HashMap<Sha256Hash, Boolean> slpValidityMap = new HashMap<>();
+        final MutableMap<Sha256Hash, Boolean> slpValidityMap = new MutableHashMap<>();
         slpValidityMap.put(Sha256Hash.fromHexString("039FC4304C7F7324E98B6FFCFB7280BE963D7D8A18173494D5E7DE11CCA34D81"), true);
 
         final TransactionInflater transactionInflater = new TransactionInflater();
 
         // Contains all "ToriBonBon" SLP Txns from Block 00000000000000000013E713CF92C8554BB28D03514918888F97664BFA071D11...
-        final HashMap<Sha256Hash, Transaction> transactions = new HashMap<>();
+        final MutableMap<Sha256Hash, Transaction> transactions = new MutableHashMap<>();
         { // 039FC4304C7F7324E98B6FFCFB7280BE963D7D8A18173494D5E7DE11CCA34D81
             final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString("02000000032633CC8991977E070F5103A0AE829CE847CDD2EFDC5EC71F2BD8A36158DADD81020000006B483045022100D0B66E8A139F91E1E5C32F336E18A5CC99A10FE6805D520FEFFB387A80E64D4E02202AB542EFADA6E70923BDE611157A18F4FF74A7E4A7EEB5B621C2787F15DA11814121030E3259E023728F57251EAA5F258C6452BCB1AF3D89BB6E911857E74DF351E7BDFFFFFFFF2633CC8991977E070F5103A0AE829CE847CDD2EFDC5EC71F2BD8A36158DADD81010000006A47304402203E6AB8BC914EB9508E9345B3A34F04657B38844C887BCC2BD5E7CA6CFC3518AA022037EA8D25FBCA5B2BB611E625034C716DA4AB46AA617BD55D8D91E21A8971A1BA4121030E3259E023728F57251EAA5F258C6452BCB1AF3D89BB6E911857E74DF351E7BDFFFFFFFF2633CC8991977E070F5103A0AE829CE847CDD2EFDC5EC71F2BD8A36158DADD81030000006B483045022100B2F2AD45186BFA8D5AE179B9D3838A629B5BCA083D3299267F17EAF6FAD76FFE02203461F22027E70BD3FF167B6D732D9CD4495D4D1EBBF75808455C69D972AA41B14121039BB102119D47ACAADB4699C233CBFD60ECC9CDFD8F338ADCFD43323D5559651BFFFFFFFF040000000000000000406A04534C500001010453454E4420EEBFBB81CD65AE7B93A5FBB006707A97D36733ED24979D367E972B0636B34D1D08000000000000000A08000000000000000A22020000000000001976A9144D4280B2915943DAF34C8B11E03F6304E57EEC4988AC22020000000000001976A9144D4280B2915943DAF34C8B11E03F6304E57EEC4988AC9CC10700000000001976A9140FAC32A3EBDBD2FDA14FF4442E6B60BE35A5C39F88AC00000000"));
             transactions.put(transaction.getHash(), transaction);
@@ -288,7 +290,7 @@ public class SlpTransactionValidatorTests extends UnitTest {
             transactions.put(transaction.getHash(), transaction);
         }
 
-        final MutableList<Sha256Hash> validHashes = new MutableList<>();
+        final MutableList<Sha256Hash> validHashes = new MutableArrayList<>();
         validHashes.add(Sha256Hash.fromHexString("C6624805817DAD25542AB08733C42E0475479BDD80304F7C9C7B54EE827D53AF"));
         validHashes.add(Sha256Hash.fromHexString("0369941CD0BE504DEDCA7E23636FB8AA5C25911180796D5DEBD25A7DF416BA24"));
         validHashes.add(Sha256Hash.fromHexString("0DDF6BDC8981A7DA7F320A23F7194F43F785661463D6D375FC02B83382DAA046"));
@@ -306,13 +308,13 @@ public class SlpTransactionValidatorTests extends UnitTest {
     @Test
     public void should_identify_invalid_transaction_018ce136c906d7e76cc4593b6be0cbe0e70528b1d6201a476804abd9217389a3() throws InterruptedException {
         // Setup
-        final HashMap<Sha256Hash, Boolean> slpValidityMap = new HashMap<>();
+        final MutableMap<Sha256Hash, Boolean> slpValidityMap = new MutableHashMap<>();
         slpValidityMap.put(Sha256Hash.fromHexString("A6CEDB6460DC91F4FF06AB37E9E96F2D1864B7C5CA5B65C68C2E7C1B436E187C"), false);
         slpValidityMap.put(Sha256Hash.fromHexString("018ce136c906d7e76cc4593b6be0cbe0e70528b1d6201a476804abd9217389a3"), false);
 
         final TransactionInflater transactionInflater = new TransactionInflater();
 
-        final HashMap<Sha256Hash, Transaction> transactions = new HashMap<>();
+        final MutableMap<Sha256Hash, Transaction> transactions = new MutableHashMap<>();
         {
             final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString("02000000027A35A7EADE852F94D68DC0815827A1C971A635F8CCBB72EB52F9988C3DE9B279000000006B48304502210091B4E2CB30CBE96D955F5FDE7CE722F66AC22730E2D586CB326C514DFCFC47760220028C74FCA6294F596FF13366EE7612F4840115AD259BA41D6A7CEE93BFA2E570412102DEF1F3D893861F0F5CAEA83755CAC8577654A6026A893219CF83AF90D4475180FFFFFFFFE6915BE12F8C86D85CD52F517D10005597D2B59B976F4401D49067132A593FA3010000006A47304402204FD9DEFD7A54B641E0800E051883860C6E2646D8686D4501CC983D5EEBC714E602203EDE82528957B7799F4766B7988144345976D082B64743E5E4D2DD6215891A06412102DEF1F3D893861F0F5CAEA83755CAC8577654A6026A893219CF83AF90D4475180FFFFFFFF0B00000000000000007F6A04534C500001010453454E442044E3D05A07091091A63A4074287A784FCD96C26095682E05C22C4BD4E5BF8681080000000000000001080000000000000001080000000000000001080000000000000001080000000000000001080000000000000001080000000000000001080000000000000001088AC7230489E8000022020000000000001976A914DBCEA01BB3FF00B66618D85446B06A1B52E404AF88AC22020000000000001976A9142593D80732B8C66BD545EDE45D28B1F6807FB24488AC22020000000000001976A9145E2A5F7CE63220B6F7C4F2A75B8A12AFA25E451088AC22020000000000001976A91490B951F38AB4E8CF4391AD15E1B774CAA40A3EFC88AC22020000000000001976A914D175A428F19ED27659996C2F857541A3E42135F488AC22020000000000001976A914CBBD6C6053786F20A86E713D746DA63DD292ACFF88AC22020000000000001976A9149D6ECF506E9DA507D47A6942518F1D749616DE5E88AC22020000000000001976A914F88065D11D4D2122F66845ADD0415008EE084D5B88AC22020000000000001976A9146B5B4D5738FFF84AAB84BB4D60439698710C271788AC178F0200000000001976A9146B5B4D5738FFF84AAB84BB4D60439698710C271788AC00000000"));
             transactions.put(transaction.getHash(), transaction);
@@ -323,7 +325,7 @@ public class SlpTransactionValidatorTests extends UnitTest {
             transactions.put(transaction.getHash(), transaction);
         }
 
-        final MutableList<Sha256Hash> validHashes = new MutableList<>();
+        final MutableList<Sha256Hash> validHashes = new MutableArrayList<>();
 
 
         final Tuple<BlockchainIndexer, SlpTransactionValidator> slpValidationComponents = _createSlpValidationComponents(transactions, validHashes);
@@ -336,13 +338,13 @@ public class SlpTransactionValidatorTests extends UnitTest {
     @Test
     public void should_identify_unparseable_transaction_3c05eb256477f6c7e02e4b19476a6a2650f3a062ca873aeb940d2e7225016584() throws InterruptedException {
         // Setup
-        final HashMap<Sha256Hash, Boolean> slpValidityMap = new HashMap<>();
+        final MutableMap<Sha256Hash, Boolean> slpValidityMap = new MutableHashMap<>();
         slpValidityMap.put(Sha256Hash.fromHexString("5e38779ea1080caed266687a45a067f93b772465c80b1ebdf4effc8947c5150d"), true);
         slpValidityMap.put(Sha256Hash.fromHexString("3c05eb256477f6c7e02e4b19476a6a2650f3a062ca873aeb940d2e7225016584"), false);
 
         final TransactionInflater transactionInflater = new TransactionInflater();
 
-        final HashMap<Sha256Hash, Transaction> transactions = new HashMap<>();
+        final MutableMap<Sha256Hash, Transaction> transactions = new MutableHashMap<>();
         {
             final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString("0200000003422DB392DDFE0DFCFD963D44FAA05824428F68B5D176F86DC2E71B5A8C9A8612010000006B4830450221009A139D8D9DDA94DA4DBEB2C76CCBD4A619BACD21419B8D70394F7FA7D7B20DBA022053B70F2E2D4F52B20969CA1B6983385F8ECB3D0A3F905AA6079E2D93B04F63D24121029A6A64156C449AB8BEB6634082DD95109800A8AC38F3B226D9DC51B76B4DE9A8FFFFFFFF320B8DF732A4FEF14C8D72DA2CEDCDD0E66441AE1F497C1A6519B3B0AD985B24010000006A47304402206267A10F12FD7CA05EA855CC1CA9CE37D6AC2887AD2798277D85A5D08E637AE102200599B75BA14E8894E6C158705DED89A98A08EA3DB5F0365D77C2E24AF0271EF24121029A6A64156C449AB8BEB6634082DD95109800A8AC38F3B226D9DC51B76B4DE9A8FFFFFFFF54BDF4A8BAA67F838E2AD50A7BB275C09026C054E6BA337F9255A1DD79AEB244020000006B483045022100AD7C6E1F7872549C9F1B35FA85E055434DE23924EF6C9F1CC46CE330736D43E7022020B76A37883C7B893C5819C01EE774114C15456490A22648D4C2169F3CC287024121022BB599CCD4057338F2F8ECD4A8DAEB6A5B9EA178DE44A6A9568571B8C128F937FFFFFFFF040000000000000000406A04534C500001010453454E442034E8C86AD9382648EEA2FB3701F000D80D45B6F2768C2060FC2C7CC313E3673C08000000000000000108000000000000006322020000000000001976A914FA70457F736F2AD2511332638D1AD32F91A3B03788AC22020000000000001976A9142408E9B4C9D527531019F95CA158B25B59244EA888AC160C0000000000001976A9144E8680B782CCBB6752B0EE812CC8D65495DEB68188AC00000000"));
             transactions.put(transaction.getHash(), transaction);
@@ -352,7 +354,7 @@ public class SlpTransactionValidatorTests extends UnitTest {
             transactions.put(transaction.getHash(), transaction);
         }
 
-        final MutableList<Sha256Hash> validHashes = new MutableList<>();
+        final MutableList<Sha256Hash> validHashes = new MutableArrayList<>();
         validHashes.add(Sha256Hash.fromHexString("5e38779ea1080caed266687a45a067f93b772465c80b1ebdf4effc8947c5150d"));
 
         final Tuple<BlockchainIndexer, SlpTransactionValidator> slpValidationComponents = _createSlpValidationComponents(transactions, validHashes);
@@ -365,13 +367,13 @@ public class SlpTransactionValidatorTests extends UnitTest {
     @Test
     public void should_identify_valid_transaction_a7e0265fade7847e55594986d4a1523c3c222b109e280d8d44dcf2df4185404c() throws InterruptedException {
         // Setup
-        final HashMap<Sha256Hash, Boolean> slpValidityMap = new HashMap<>();
+        final MutableMap<Sha256Hash, Boolean> slpValidityMap = new MutableHashMap<>();
         slpValidityMap.put(Sha256Hash.fromHexString("9AABC72A41CE71293A3810B1D465A15C15D024EFA97B3E47F25E113D61A32F73"), true);
         slpValidityMap.put(Sha256Hash.fromHexString("a7e0265fade7847e55594986d4a1523c3c222b109e280d8d44dcf2df4185404c"), true);
 
         final TransactionInflater transactionInflater = new TransactionInflater();
 
-        final HashMap<Sha256Hash, Transaction> transactions = new HashMap<>();
+        final MutableMap<Sha256Hash, Transaction> transactions = new MutableHashMap<>();
         { // D340519A93F4E83876C5EDD29F30D30A5CC3DADC00ABE9BF2B9DCE77E6B6E12F
             final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString("0100000001C21DE6D67417E0910F17E447E546247EE62388506B46C3E9ECCFE650A0571AAC0300000064416D23C045B29580206622773B0680110FA38D673BC7355809C3AE409D387951F912D3E596CEA82A4E00923674B74474CB67A1A524FE787E4EEE29B82EAA7D604641210253A8BB158ED0859ABDA14D682FF6B4EE91746F8CF4F5EFE3405DF046E00DED49FEFFFFFF040000000000000000296A04534C500001010747454E455349530555682D4F684C004C004C000100010208FFFFFFFFFFFFFFFF22020000000000001976A9145808E9148F1FFE6B777BFF57013196D824E19F0388AC22020000000000001976A9145808E9148F1FFE6B777BFF57013196D824E19F0388ACC43B5403000000001976A914194347D2BB00D6EA9055CF3A7243C4BA7F98284788AC907A0900"));
             transactions.put(transaction.getHash(), transaction);
@@ -389,7 +391,7 @@ public class SlpTransactionValidatorTests extends UnitTest {
             transactions.put(transaction.getHash(), transaction);
         }
 
-        final MutableList<Sha256Hash> validHashes = new MutableList<>();
+        final MutableList<Sha256Hash> validHashes = new MutableArrayList<>();
 
         final Tuple<BlockchainIndexer, SlpTransactionValidator> slpValidationComponents = _createSlpValidationComponents(transactions, validHashes);
 
@@ -401,18 +403,18 @@ public class SlpTransactionValidatorTests extends UnitTest {
     @Test
     public void should_validate_large_genesis_transaction_ba91704e0c0a2a56cce95f89c39f53699075b35daa2d94758d07b4b298b4c852() throws InterruptedException {
         // Setup
-        final HashMap<Sha256Hash, Boolean> slpValidityMap = new HashMap<>();
+        final MutableMap<Sha256Hash, Boolean> slpValidityMap = new MutableHashMap<>();
         slpValidityMap.put(Sha256Hash.fromHexString("ba91704e0c0a2a56cce95f89c39f53699075b35daa2d94758d07b4b298b4c852"), true);
 
         final TransactionInflater transactionInflater = new TransactionInflater();
 
-        final HashMap<Sha256Hash, Transaction> transactions = new HashMap<>();
+        final MutableMap<Sha256Hash, Transaction> transactions = new MutableHashMap<>();
         { // ba91704e0c0a2a56cce95f89c39f53699075b35daa2d94758d07b4b298b4c852
             final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString("01000000021560763B8EE79392698CC747DB5432A16C49E471409524C5172A23D82A9EF8C2010000006A47304402205C494575D4EAC81AD94EADA74E44E3A8FFC8B7DF59602749C1E3C7481B0628F402204216A4D52BFFC4E7B15C30AE3DAAE971EACFABD2DEFB738018B25813A3E06A5841210257C282B2E7E49573E37DC62FED0759BB78BEE80A852CCE7B6BD77679A7C01378FEFFFFFF045CED2872E4AB5781BE1F609929503A87A880C68F0613AD833C1C6715861DEA000000006A473044022005064F6476AD876B447DF39F226B7F5BD05000E1227D18B34DFC0E243079F11E022047CC74B43B0FD2E35AC8CF01E42B65BE8EA2848CB7454EF0A2E416F2E6AE8F184121025BC9FAB941F48482A7D988AE22810DC664DEB32B8587ED4051E7CC0E7BF78AB8FEFFFFFF020000000000000000976A04534C500001010747454E45534953045445535404544553544C4D626974636F696E66696C65733A62383662346263626162376364373837623163383933636131303132353063386334363764626261346466323239623131383231386264386139653835613932208EACDC879A3C7C398BDE3A6381DE812115355694E6752A110217D7ED17A6B15C010901020800038D7EA4C6800122020000000000001976A91451359D7E536BF880211311A0823F50343CE64FFC88AC09600800"));
             transactions.put(transaction.getHash(), transaction);
         }
 
-        final MutableList<Sha256Hash> validHashes = new MutableList<>();
+        final MutableList<Sha256Hash> validHashes = new MutableArrayList<>();
 
         final Tuple<BlockchainIndexer, SlpTransactionValidator> slpValidationComponents = _createSlpValidationComponents(transactions, validHashes);
 
@@ -424,7 +426,7 @@ public class SlpTransactionValidatorTests extends UnitTest {
     @Test
     public void should_validate_mint_transaction_with_inconsequential_invalid_slp_inputs_21acf74af0577962be80f4ef7f13937f7319b0ce273a11950848f5c3f7d4c88c() throws InterruptedException {
         // Setup
-        final HashMap<Sha256Hash, Boolean> slpValidityMap = new HashMap<>();
+        final MutableMap<Sha256Hash, Boolean> slpValidityMap = new MutableHashMap<>();
         slpValidityMap.put(Sha256Hash.fromHexString("4458aa2b84cc336c3948642def94af473395ace3689bf70f6183c40f14842911"), true);
         slpValidityMap.put(Sha256Hash.fromHexString("09CB52AD4DC9402D1D8F9390C06ADBB885C51C17FDB32537283ED1729AE22509"), true);
         slpValidityMap.put(Sha256Hash.fromHexString("9bfcd57a466693e0d093c793e2bb63cd6759b0d5bd6ef7a2405700f5e938bed9"), false);
@@ -434,7 +436,7 @@ public class SlpTransactionValidatorTests extends UnitTest {
 
         final TransactionInflater transactionInflater = new TransactionInflater();
 
-        final HashMap<Sha256Hash, Transaction> transactions = new HashMap<>();
+        final MutableMap<Sha256Hash, Transaction> transactions = new MutableHashMap<>();
         { // 4458aa2b84cc336c3948642def94af473395ace3689bf70f6183c40f14842911
             final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString("01000000010542E2957EDD9053AAE3B91ACE980104BB54977A8CB9147189133B0CFB57F596000000006B483045022100B0BB4E836B8425BEAD684E1C59595C5F5DB4895D67BC6DB35E60AE916F2053CE02204E0F4085EAD86DB64E97FFCC8AD8623BF4CB9D8D3A513F6971A608C90A4DB73C412102E03A2D925CF5E79D567186E01F50AB1E081FB568837AC7610D89B885E6BC85E0FEFFFFFF0400000000000000002D6A04534C500001010747454E45534953034B494D076B696D2E636F6D4C004C00010001020800000000000F424022020000000000001976A914EECC1286FE5103D0E990127843FAED53E7060BE888AC22020000000000001976A914EECC1286FE5103D0E990127843FAED53E7060BE888AC627D1700000000001976A91482A697F4A4BD47378F743984C6B98170C186792288ACE1A20800"));
             transactions.put(transaction.getHash(), transaction);
@@ -460,7 +462,7 @@ public class SlpTransactionValidatorTests extends UnitTest {
             transactions.put(transaction.getHash(), transaction);
         }
 
-        final MutableList<Sha256Hash> validHashes = new MutableList<>();
+        final MutableList<Sha256Hash> validHashes = new MutableArrayList<>();
 
         final Tuple<BlockchainIndexer, SlpTransactionValidator> slpValidationComponents = _createSlpValidationComponents(transactions, validHashes);
 
@@ -472,18 +474,18 @@ public class SlpTransactionValidatorTests extends UnitTest {
     @Test
     public void should_validate_genesis_transaction_without_baton_output_8d5cf07d04bff1109661bba83534dae65dfb6a1bca4a578f5a2f8f187c25c948() throws InterruptedException {
         // Setup
-        final HashMap<Sha256Hash, Boolean> slpValidityMap = new HashMap<>();
+        final MutableMap<Sha256Hash, Boolean> slpValidityMap = new MutableHashMap<>();
         slpValidityMap.put(Sha256Hash.fromHexString("8d5cf07d04bff1109661bba83534dae65dfb6a1bca4a578f5a2f8f187c25c948"), true);
 
         final TransactionInflater transactionInflater = new TransactionInflater();
 
-        final HashMap<Sha256Hash, Transaction> transactions = new HashMap<>();
+        final MutableMap<Sha256Hash, Transaction> transactions = new MutableHashMap<>();
         { // 8d5cf07d04bff1109661bba83534dae65dfb6a1bca4a578f5a2f8f187c25c948
             final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString("0200000001C0FAA7FD41ADABB7A3B98B7996567636C3AAC26EF52D2FFE04D0E94273829C01000000006B483045022100F4E69A1E26CE50983E5A01F0ECA84902B64DB51A967FD446A9037AED42EC6B3B02203FAA61DA30E119A41EBDA6805D4A89115E2C80C00FECFC8ECD75B42D175BA0CA412102CF9DAA620038EFE262E8A2716869060604F5BBF7F2ADBCED21E397EC1FC52821FFFFFFFF020000000000000000356A04534C500001010747454E45534953096C6B61736A64666B6C096B6173646B6A66686A4C004C000108010308000000043CCDF60022020000000000001976A914EA1B9DFAFD2B00C2CB6EF0DC09AE83066D6FD6D288AC00000000"));
             transactions.put(transaction.getHash(), transaction);
         }
 
-        final MutableList<Sha256Hash> validHashes = new MutableList<>();
+        final MutableList<Sha256Hash> validHashes = new MutableArrayList<>();
 
         final Tuple<BlockchainIndexer, SlpTransactionValidator> slpValidationComponents = _createSlpValidationComponents(transactions, validHashes);
 

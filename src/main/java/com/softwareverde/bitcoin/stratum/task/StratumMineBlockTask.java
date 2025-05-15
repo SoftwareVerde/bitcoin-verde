@@ -15,6 +15,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.util.HashUtil;
@@ -175,7 +176,7 @@ public class StratumMineBlockTask {
         final List<Transaction> transactions;
         {
             final List<Transaction> prototypeBlockTransaction = _prototypeBlock.getTransactions();
-            final MutableList<Transaction> mutableList = new MutableList<>(prototypeBlockTransaction);
+            final MutableList<Transaction> mutableList = new MutableArrayList<>(prototypeBlockTransaction);
             mutableList.set(0, coinbaseTransaction);
             transactions = mutableList;
         }
@@ -189,7 +190,7 @@ public class StratumMineBlockTask {
         final List<Transaction> transactions;
         {
             final List<Transaction> prototypeBlockTransaction = _prototypeBlock.getTransactions();
-            final MutableList<Transaction> mutableList = new MutableList<>(prototypeBlockTransaction);
+            final MutableList<Transaction> mutableList = new MutableArrayList<>(prototypeBlockTransaction);
             mutableList.set(0, coinbaseTransaction);
             transactions = mutableList;
         }

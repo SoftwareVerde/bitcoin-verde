@@ -10,12 +10,13 @@ import com.softwareverde.bitcoin.server.message.type.query.header.RequestBlockHe
 import com.softwareverde.bitcoin.util.bytearray.CompactVariableLengthInteger;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 
 public class BlockHeadersMessage extends BitcoinProtocolMessage {
     protected final BlockHeaderInflaters _blockHeaderInflaters;
-    protected final MutableList<BlockHeader> _blockHeaders = new MutableList<>();
+    protected final MutableList<BlockHeader> _blockHeaders = new MutableArrayList<>();
 
     public BlockHeadersMessage(final BlockHeaderInflaters blockHeaderInflaters) {
         super(MessageType.BLOCK_HEADERS);

@@ -6,13 +6,16 @@ import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.constable.Visitor;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.Map;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
-import com.softwareverde.util.map.Map;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -234,8 +237,8 @@ public class BlockchainCacheCore implements BlockchainCache {
 
             { // Attempt to find a matching blockchainSegment parent... (any nestedSetLeft that is greater than the blockchainSegmentId's nestedSetLeft)
                 final Long maxNestedSetLeft = _blockchainSegmentNestedSetLeft.get(blockchainSegmentId);
-                final MutableList<BlockchainSegmentId> parentBlockchainSegmentIds = new MutableList<>();
-                _blockchainSegmentNestedSetLeft.visit(new Map.Visitor<BlockchainSegmentId, Long>() {
+                final MutableList<BlockchainSegmentId> parentBlockchainSegmentIds = new MutableArrayList<>();
+                _blockchainSegmentNestedSetLeft.visit(new Visitor<>() {
                     @Override
                     public boolean run(final Tuple<BlockchainSegmentId, Long> nestedSetLeft) {
                         if (nestedSetLeft.second <= maxNestedSetLeft) {
@@ -300,7 +303,7 @@ public class BlockchainCacheCore implements BlockchainCache {
         _readLock.lock();
         try {
             final Container<BlockchainSegmentId> container = new Container<>();
-            _blockchainSegmentParents.visit(new Map.Visitor<BlockchainSegmentId, BlockchainSegmentId>() {
+            _blockchainSegmentParents.visit(new Visitor<>() {
                 @Override
                 public boolean run(final Tuple<BlockchainSegmentId, BlockchainSegmentId> entry) {
                     if (entry.second == null) {
@@ -332,7 +335,7 @@ public class BlockchainCacheCore implements BlockchainCache {
     public List<BlockId> getChildBlockIds(final BlockId blockId) {
         _readLock.lock();
         try {
-            final MutableList<BlockId> blockIds = new MutableList<>();
+            final MutableList<BlockId> blockIds = new MutableArrayList<>();
             final Long blockHeight = _blockHeights.get(blockId);
             if (blockHeight == null) { return null; }
 
@@ -361,8 +364,8 @@ public class BlockchainCacheCore implements BlockchainCache {
     public List<BlockchainSegmentId> getChildSegmentIds(final BlockchainSegmentId parentBlockchainSegmentId) {
         _readLock.lock();
         try {
-            final MutableList<BlockchainSegmentId> blockchainSegmentIds = new MutableList<>();
-            _blockchainSegmentParents.visit(new Map.Visitor<BlockchainSegmentId, BlockchainSegmentId>() {
+            final MutableList<BlockchainSegmentId> blockchainSegmentIds = new MutableArrayList<>();
+            _blockchainSegmentParents.visit(new Visitor<>() {
                 @Override
                 public boolean run(final Tuple<BlockchainSegmentId, BlockchainSegmentId> entry) {
                     final BlockchainSegmentId blockchainSegmentId = entry.first;
@@ -412,10 +415,10 @@ public class BlockchainCacheCore implements BlockchainCache {
     }
 
     @Override
-    public java.util.Map<BlockchainSegmentId, Boolean> areBlockchainSegmentsConnected(final BlockchainSegmentId blockchainSegmentId0, final List<BlockchainSegmentId> blockchainSegmentIds, final BlockRelationship blockRelationship) {
+    public Map<BlockchainSegmentId, Boolean> areBlockchainSegmentsConnected(final BlockchainSegmentId blockchainSegmentId0, final List<BlockchainSegmentId> blockchainSegmentIds, final BlockRelationship blockRelationship) {
         _readLock.lock();
         try {
-            final java.util.Map<BlockchainSegmentId, Boolean> areConnected = new java.util.HashMap<>(blockchainSegmentIds.getCount());
+            final MutableHashMap<BlockchainSegmentId, Boolean> areConnected = new MutableHashMap<>(blockchainSegmentIds.getCount());
             if (blockchainSegmentId0 == null) { return areConnected; }
 
             final Long nestedSetLeft0 = _blockchainSegmentNestedSetLeft.get(blockchainSegmentId0);
@@ -524,8 +527,8 @@ public class BlockchainCacheCore implements BlockchainCache {
             nestedSet.first = _blockchainSegmentNestedSetLeft.get(blockchainSegmentId);
             nestedSet.second = _blockchainSegmentNestedSetRight.get(blockchainSegmentId);
 
-            final MutableList<BlockchainSegmentId> childrenLeaves = new MutableList<>();
-            _blockchainSegmentMaxBlockHeight.visit(new Map.Visitor<BlockchainSegmentId, Long>() {
+            final MutableList<BlockchainSegmentId> childrenLeaves = new MutableArrayList<>();
+            _blockchainSegmentMaxBlockHeight.visit(new Visitor<>() {
                 @Override
                 public boolean run(final Tuple<BlockchainSegmentId, Long> entry) {
                     final Tuple<Long, Long> nestedSet2 = new Tuple<>();
@@ -583,8 +586,8 @@ public class BlockchainCacheCore implements BlockchainCache {
     public List<BlockchainSegmentId> getLeafBlockchainSegmentIds() {
         _readLock.lock();
         try {
-            final MutableList<BlockchainSegmentId> childrenLeaves = new MutableList<>();
-            _blockchainSegmentMaxBlockHeight.visit(new Map.Visitor<BlockchainSegmentId, Long>() {
+            final MutableList<BlockchainSegmentId> childrenLeaves = new MutableArrayList<>();
+            _blockchainSegmentMaxBlockHeight.visit(new Visitor<>() {
                 @Override
                 public boolean run(final Tuple<BlockchainSegmentId, Long> entry) {
                     final Tuple<Long, Long> nestedSet2 = new Tuple<>();

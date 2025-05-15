@@ -8,16 +8,14 @@ public class BinarySocketServer extends SocketServer<BinarySocket> {
 
     protected static class BinarySocketFactory implements SocketFactory<BinarySocket> {
         protected final BinaryPacketFormat _binaryPacketFormat;
-        protected final ThreadPool _threadPool;
 
-        public BinarySocketFactory(final BinaryPacketFormat binaryPacketFormat, final ThreadPool threadPool) {
+        public BinarySocketFactory(final BinaryPacketFormat binaryPacketFormat) {
             _binaryPacketFormat = binaryPacketFormat;
-            _threadPool = threadPool;
         }
 
         @Override
         public BinarySocket newSocket(final Socket socket) {
-            return new BinarySocket(socket, _binaryPacketFormat, _threadPool);
+            return new BinarySocket(socket, _binaryPacketFormat);
         }
     }
 
@@ -33,8 +31,8 @@ public class BinarySocketServer extends SocketServer<BinarySocket> {
 
     protected final BinaryPacketFormat _binaryPacketFormat;
 
-    public BinarySocketServer(final Integer port, final BinaryPacketFormat binaryPacketFormat, final ThreadPool threadPool) {
-        super(port, new BinarySocketFactory(binaryPacketFormat, threadPool), threadPool);
+    public BinarySocketServer(final Integer port, final BinaryPacketFormat binaryPacketFormat) {
+        super(port, new BinarySocketFactory(binaryPacketFormat));
         _binaryPacketFormat = binaryPacketFormat;
     }
 }

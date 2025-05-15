@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.constable.util.ConstUtil;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -32,8 +33,8 @@ public class MutableTransaction implements Transaction {
     protected final AddressInflater _addressInflater;
 
     protected Long _version = Transaction.VERSION;
-    protected final MutableList<TransactionInput> _transactionInputs = new MutableList<>();
-    protected final MutableList<TransactionOutput> _transactionOutputs = new MutableList<>();
+    protected final MutableList<TransactionInput> _transactionInputs = new MutableArrayList<>();
+    protected final MutableList<TransactionOutput> _transactionOutputs = new MutableArrayList<>();
     protected LockTime _lockTime = new ImmutableLockTime();
 
     protected Integer _cachedByteCount = null;

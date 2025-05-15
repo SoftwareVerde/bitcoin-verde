@@ -28,6 +28,10 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
+import com.softwareverde.constable.set.mutable.MutableHashSet;
+import com.softwareverde.constable.set.mutable.MutableSet;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.util.HashUtil;
 import com.softwareverde.json.Json;
@@ -42,7 +46,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.HashMap;
 import java.util.HashSet;
 
 public class AbcScriptRunnerTests extends UnitTest {
@@ -108,11 +111,11 @@ public class AbcScriptRunnerTests extends UnitTest {
         }
     }
 
-    protected static final HashMap<Sha256Hash, String> DISABLED_TESTS;
-    protected static final HashSet<Sha256Hash> ENABLED_TESTS;
+    protected static final MutableMap<Sha256Hash, String> DISABLED_TESTS;
+    protected static final MutableSet<Sha256Hash> ENABLED_TESTS;
     static {
-        DISABLED_TESTS = new HashMap<>();
-        ENABLED_TESTS = new HashSet<>();
+        DISABLED_TESTS = new MutableHashMap<>();
+        ENABLED_TESTS = new MutableHashSet<>();
 
         final Json testVectorManifest = Json.parse(IoUtil.getResource("/abc_test_vector_manifest.json"));
 
@@ -183,7 +186,7 @@ public class AbcScriptRunnerTests extends UnitTest {
         final Json disabledTestVectors = new Json(false);
         final Json enabledTestVectors = new Json(true);
 
-        for (final Sha256Hash testVectorHash : DISABLED_TESTS.keySet()) {
+        for (final Sha256Hash testVectorHash : DISABLED_TESTS.getKeys()) {
             final String comments = DISABLED_TESTS.get(testVectorHash);
             disabledTestVectors.put(testVectorHash.toString(), comments);
         }
@@ -639,7 +642,7 @@ public class AbcScriptRunnerTests extends UnitTest {
                 upgradeSchedule.setUnusedValuesAfterSegwitScriptExecutionAllowed(false);
             }
             if (testVector.flagsString.contains("64_BIT_INTEGERS")) {
-                upgradeSchedule.setAre64BitScriptIntegersEnabled(true);
+                upgradeSchedule.set64BitScriptIntegersEnabled(true);
                 upgradeSchedule.setMultiplyOperationEnabled(true);
             }
 

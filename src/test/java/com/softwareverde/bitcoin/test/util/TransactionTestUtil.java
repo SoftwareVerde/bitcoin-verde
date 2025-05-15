@@ -23,13 +23,15 @@ import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
 import com.softwareverde.bitcoin.transaction.signer.TransactionOutputRepository;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.Map;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
 import com.softwareverde.util.Util;
 
-import java.util.HashMap;
-import java.util.Map;
 
 public class TransactionTestUtil {
     protected TransactionTestUtil() { }
@@ -67,7 +69,7 @@ public class TransactionTestUtil {
 
         int privateKeyIndex = 0;
 
-        final MutableList<TransactionOutput> transactionOutputsToSpend = new MutableList<>();
+        final MutableList<TransactionOutput> transactionOutputsToSpend = new MutableArrayList<>();
         for (final TransactionInput transactionInput : transactionInputs) {
             final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
             final TransactionOutput previousTransactionOutput = transactionOutputRepository.get(transactionOutputIdentifierBeingSpent);
@@ -157,7 +159,7 @@ public class TransactionTestUtil {
     }
 
     public static Map<TransactionOutputIdentifier, TransactionOutput> createPreviousTransactionOutputsMap(final List<TransactionInput> transactionInputs, final TransactionOutputIdentifier transactionOutputIdentifier, final TransactionOutput transactionOutput) {
-        final HashMap<TransactionOutputIdentifier, TransactionOutput> outputMap = new HashMap<>();
+        final MutableMap<TransactionOutputIdentifier, TransactionOutput> outputMap = new MutableHashMap<>();
         for (final TransactionInput transactionInput : transactionInputs) {
             final TransactionOutputIdentifier previousOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
             if (Util.areEqual(transactionOutputIdentifier, previousOutputIdentifier)) {
@@ -171,7 +173,7 @@ public class TransactionTestUtil {
     }
 
     public static MutableList<TransactionOutput> createPreviousTransactionOutputsList(final Integer transactionInputCount, final Integer outputIndex, final TransactionOutput transactionOutput) {
-        final MutableList<TransactionOutput> previousTransactionOutputsList = new MutableList<>(transactionInputCount);
+        final MutableList<TransactionOutput> previousTransactionOutputsList = new MutableArrayList<>(transactionInputCount);
         for (int i = 0; i < transactionInputCount; ++i) {
             previousTransactionOutputsList.add(i == outputIndex ? transactionOutput : null);
         }
@@ -180,7 +182,7 @@ public class TransactionTestUtil {
 
     public static MutableList<TransactionOutput> createPreviousTransactionOutputsList(final List<TransactionInput> transactionInputs, final Map<Sha256Hash, Transaction> transactionsToSpend) {
         final int transactionInputCount = transactionInputs.getCount();
-        final MutableList<TransactionOutput> previousTransactionOutputsList = new MutableList<>(transactionInputCount);
+        final MutableList<TransactionOutput> previousTransactionOutputsList = new MutableArrayList<>(transactionInputCount);
         for (int i = 0; i < transactionInputCount; ++i) {
             final TransactionInput transactionInput = transactionInputs.get(i);
             final Sha256Hash previousTransactionHash = transactionInput.getPreviousOutputTransactionHash();

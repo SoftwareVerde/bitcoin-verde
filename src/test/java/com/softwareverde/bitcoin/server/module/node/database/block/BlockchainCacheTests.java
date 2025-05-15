@@ -11,6 +11,7 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import org.junit.After;
 import org.junit.Assert;
@@ -42,7 +43,7 @@ public class BlockchainCacheTests extends UnitTest {
         blockchainCache.pushVersion();
         blockchainCache.addBlockchainSegment(blockchainSegmentId, null, 1L, 2L);
 
-        final MutableList<BlockId> blockIdsWithTransactions = new MutableList<>();
+        final MutableList<BlockId> blockIdsWithTransactions = new MutableArrayList<>();
 
         BlockId lastBlockId = null;
         BlockId lastBlockHeaderId = null;

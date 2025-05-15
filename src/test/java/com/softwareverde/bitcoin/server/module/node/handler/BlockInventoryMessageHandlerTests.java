@@ -4,18 +4,19 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.map.mutable.MutableHashMap;
+import com.softwareverde.constable.map.mutable.MutableMap;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.util.HashUtil;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.util.HashMap;
-
 public class BlockInventoryMessageHandlerTests extends UnitTest {
 
     public class FakeBlockIdStore implements BlockInventoryMessageHandlerUtil.BlockIdStore {
-        final HashMap<Sha256Hash, BlockId> _blockIds = new HashMap<>();
+        final MutableMap<Sha256Hash, BlockId> _blockIds = new MutableHashMap<>();
 
         @Override
         public BlockId getBlockId(final Sha256Hash blockHash) throws Exception {
@@ -32,7 +33,7 @@ public class BlockInventoryMessageHandlerTests extends UnitTest {
     }
 
     protected static List<Sha256Hash> generateBlockHashes(final Integer blockHashCount, final Long firstUnknownIndex, final FakeBlockIdStore blockIdStore) {
-        final MutableList<Sha256Hash> blockHashes = new MutableList<>(blockHashCount);
+        final MutableList<Sha256Hash> blockHashes = new MutableArrayList<>(blockHashCount);
         for (long i = 0L; i < blockHashCount; ++i) {
             final Sha256Hash blockHash = BlockInventoryMessageHandlerTests.generateBlockHash(i);
             final BlockId blockId = BlockId.wrap(i);

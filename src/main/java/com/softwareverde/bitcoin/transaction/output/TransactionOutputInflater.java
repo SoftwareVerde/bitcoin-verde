@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction.output;
 
+import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.token.CashToken;
@@ -17,6 +18,10 @@ public class TransactionOutputInflater {
     protected static final Integer MAX_COMMITMENT_LENGTH = 65535; // The max commitment length that can be parsed (not necessarily what is valid). https://github.com/bitjson/cashtokens#token-prefix-validation
 
     protected Tuple<LockingScript, CashToken> _fromLegacyScriptBytes(final Integer scriptByteCount, final ByteArrayReader byteArrayReader) {
+        if (scriptByteCount == 0) {
+            return new Tuple<>(new ImmutableLockingScript(new MutableByteArray(0)), null);
+        }
+
         final CashToken cashToken;
         final ByteArray lockingScriptBytes;
         final byte prefixByte = byteArrayReader.peakByte();
@@ -100,6 +105,7 @@ public class TransactionOutputInflater {
 
         final CompactVariableLengthInteger scriptByteCount = CompactVariableLengthInteger.readVariableLengthInteger(byteArrayReader);
         if (! scriptByteCount.isCanonical()) { return null; }
+        if ( (scriptByteCount.intValue() > Script.MAX_BYTE_COUNT) || (scriptByteCount.intValue() < 0)) { return null; }
 
         final Tuple<LockingScript, CashToken> scriptTuple = _fromLegacyScriptBytes(scriptByteCount.intValue(), byteArrayReader);
         if (scriptTuple == null) { return null; }

@@ -26,6 +26,7 @@ import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
@@ -63,7 +64,7 @@ public class TestBlockDataStratumMiner {
 
         final Transaction coinbaseTransaction = transactionInflater.createCoinbaseTransactionWithExtraNonce(blockHeight, coinbaseMessage, StratumMiner.totalExtraNonceByteCount, address, BlockHeader.calculateBlockReward(blockHeight));
 
-        final MutableList<Transaction> transactions = new MutableList<>();
+        final MutableList<Transaction> transactions = new MutableArrayList<>();
 
 //        {
 //            final PrivateKey prevoutPrivateKey = ???;
@@ -135,7 +136,6 @@ class StratumMiner {
     public static final Integer totalExtraNonceByteCount = (extraNonceByteCount + extraNonce2ByteCount);
 
     protected final StratumServerSocket _stratumServerSocket;
-    protected final CachedThreadPool _threadPool = new CachedThreadPool(256, 60000L);
 
     protected final ByteArray _extraNonce;
 
@@ -327,7 +327,7 @@ class StratumMiner {
         final Configuration configuration = new Configuration(TEMP_FILE);
         final StratumProperties stratumProperties = configuration.getStratumProperties();
 
-        _stratumServerSocket = new StratumServerSocket(stratumProperties.getPort(), _threadPool);
+        _stratumServerSocket = new StratumServerSocket(stratumProperties.getPort());
 
         _stratumServerSocket.setSocketEventCallback(new StratumServerSocket.SocketEventCallback() {
             @Override
@@ -379,7 +379,6 @@ class StratumMiner {
 
     public void loop() {
         _mainThread = Thread.currentThread();
-        _threadPool.start();
 
         _buildMiningTask();
 
@@ -392,6 +391,5 @@ class StratumMiner {
         }
 
         _stratumServerSocket.stop();
-        _threadPool.stop();
     }
 }

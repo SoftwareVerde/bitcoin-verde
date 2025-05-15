@@ -4,7 +4,9 @@ import com.softwareverde.concurrent.Pin;
 import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableArrayList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.set.Set;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
@@ -95,7 +97,7 @@ public class BatchRunner<T> {
         _threadPool = threadPool;
     }
 
-    public void run(final List<T> totalCollection, final Batch<T> batch) throws DatabaseException {
+    public void run(final Set<T> totalCollection, final Batch<T> batch) throws DatabaseException {
         final int totalItemCount = totalCollection.getCount();
 
         final int itemCountPerBatch;
@@ -109,6 +111,18 @@ public class BatchRunner<T> {
             batchCount = (int) Math.ceil(totalItemCount / (double) itemCountPerBatch);
         }
 
+        final List<T> batchFeed;
+        if (totalCollection instanceof List) {
+            batchFeed = (List<T>) totalCollection;
+        }
+        else {
+            final MutableList<T> list = new MutableArrayList<>(totalItemCount);
+            for (final T item : totalCollection) {
+                list.add(item);
+            }
+            batchFeed = list;
+        }
+
         final Runnable[] runnables = new Runnable[batchCount];
         final Container<Exception> exceptionContainer = new Container<>();
         for (int i = 0; i < batchCount; ++i) {
@@ -116,11 +130,11 @@ public class BatchRunner<T> {
             final Runnable runnable = new Runnable() {
                 @Override
                 public void run() {
-                    final MutableList<T> bathedItems = new MutableList<>(itemCountPerBatch);
+                    final MutableList<T> bathedItems = new MutableArrayList<>(itemCountPerBatch);
                     for (int j = 0; j < itemCountPerBatch; ++j) {
                         final int index = ((batchId * itemCountPerBatch) + j);
                         if (index >= totalItemCount) { break; }
-                        final T item = totalCollection.get(index);
+                        final T item = batchFeed.get(index);
                         bathedItems.add(item);
                     }
                     if (bathedItems.isEmpty()) { return; }
