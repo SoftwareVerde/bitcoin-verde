@@ -298,7 +298,7 @@ public class ComparisonOperation extends SubTypedOperation {
                     final BigInteger bigInt0 = value0.asBigInteger();
                     final BigInteger bigInt1 = value1.asBigInteger();
 
-                    final Boolean resultValue = ((bigInt0.compareTo(BigInteger.ZERO) != 0) && (bigInt1.compareTo(BigInteger.ZERO) != 0));
+                    final Boolean resultValue = ((bigInt1.compareTo(BigInteger.ZERO) != 0) || (bigInt0.compareTo(BigInteger.ZERO) != 0));
                     stack.push(Value.fromBoolean(resultValue));
                     return true;
                 }
