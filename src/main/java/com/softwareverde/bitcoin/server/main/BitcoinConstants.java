@@ -129,7 +129,7 @@ public class BitcoinConstants {
         final Long defaultBlockVersion = 0x04L;
         final Long defaultTransactionVersion = 0x02L;
         final Integer defaultProtocolVersion = 70015;
-        final String defaultUserAgent = "/Bitcoin Verde:2.3.0/";
+        final String defaultUserAgent = "/Bitcoin Verde:3.0.1/";
         final String coinbaseMessage = "/pool.bitcoinverde.org/VERDE/";
 
         // SELECT blocks.hash, blocks.block_height, utxo_commitments.public_key, SUM(utxo_commitment_files.byte_count) AS byte_count FROM blocks INNER JOIN utxo_commitments ON utxo_commitments.block_id = blocks.id INNER JOIN utxo_commitment_buckets ON utxo_commitment_buckets.utxo_commitment_id = utxo_commitments.id INNER JOIN utxo_commitment_files ON utxo_commitment_files.utxo_commitment_bucket_id = utxo_commitment_buckets.id GROUP BY utxo_commitments.id ORDER BY blocks.block_height ASC;

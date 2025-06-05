@@ -2,6 +2,9 @@
 
 ## Patch Notes
 
+**v3.0.1**
+- FIX: Post-Upgrade Opcode OR
+
 **v3.0.0**
 - Replaced MariaDB with LevelDB
 - May 2025 Upgrade Support
