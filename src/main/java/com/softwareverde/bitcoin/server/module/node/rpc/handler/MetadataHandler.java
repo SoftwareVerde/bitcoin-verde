@@ -216,6 +216,14 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
                 }
 
                 final Json transactionInputJson = transactionJson.get("inputs").get(transactionInputIndex);
+
+                if (true) { // remove operations from input
+                    if (transactionInputJson.hasKey("unlockingScript")) {
+                        final Json unlockingScriptJson = transactionInputJson.get("unlockingScript");
+                        unlockingScriptJson.put("operations", new Json(true));
+                    }
+                }
+
                 transactionInputJson.put("previousTransactionAmount", previousTransactionOutputAmount);
                 transactionInputJson.put("address", addressString);
                 transactionInputJson.put("cashAddress", cashAddressString);
@@ -274,7 +282,10 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
 
                     final Json transactionOutputJson = transactionJson.get("outputs").get(transactionOutputIndex);
                     if (true) { // remove operations from output
-                        transactionOutputJson.put("operations", new Json(true));
+                        if (transactionOutputJson.hasKey("lockingScript")) {
+                            final Json lockingScriptJson = transactionOutputJson.get("lockingScript");
+                            lockingScriptJson.put("operations", new Json(true));
+                        }
                     }
                     transactionOutputJson.put("address", addressString);
                     transactionOutputJson.put("cashAddress", cashAddressString);
