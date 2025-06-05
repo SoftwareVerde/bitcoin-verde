@@ -273,6 +273,9 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
                     final Sha256Hash spendingTransactionHash = _getSpendingTransactionHash(transactionHash, transactionOutputIndex);
 
                     final Json transactionOutputJson = transactionJson.get("outputs").get(transactionOutputIndex);
+                    if (true) { // remove operations from output
+                        transactionOutputJson.put("operations", new Json(true));
+                    }
                     transactionOutputJson.put("address", addressString);
                     transactionOutputJson.put("cashAddress", cashAddressString);
                     transactionOutputJson.put("scriptHash", scriptHash);
